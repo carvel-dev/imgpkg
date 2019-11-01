@@ -12,6 +12,7 @@ Features:
 - Allows to pull image and extract set of files
 - Allows to list pushed image tags
 - Uses Docker layer media type to work with existing registries
+- Uses deterministic file permissions and timestamps to make images reproducable (same digest if nothing changed)
 
 ## Development
 

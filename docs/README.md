@@ -62,3 +62,7 @@ By default imgpkg uses `~/.docker/config.json` to authenticate against registrie
 - `--registry-password` (or `$IMGPKG_PASSWORD`)
 - `--registry-token` (or `$IMGPKG_TOKEN`): used as an alternative to username/password combination
 - `--registry-anon` (or `$IMGPKG_ANON=truy`): used for anonymous access (commonly used for pulling)
+
+### Misc
+
+Currently imgpkg always produces a single layer images, hence it's not optimized to repush large sized directories that infrequently change.
