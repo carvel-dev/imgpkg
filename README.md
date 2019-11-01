@@ -6,6 +6,12 @@
 
 `imgpkg` (pronounced: `image package`) allows to store sets of files (e.g. application configuration) as images in Docker (OCI) registries. This may be a good alternative to storing files in other places as Docker registry already keeps your other images. Original primary use case for this CLI was to store application configuration (i.e. templates) as an image.
 
+```bash
+$ imgpkg push -i your-user/app1-config:0.1.1 -f config/
+$ imgpkg pull -i your-user/app1-config:0.1.1 -o /tmp/app1-config
+$ imgpkg tag ls -i your-user/app1-config
+```
+
 Features:
 
 - Allows to push image containing set of files
