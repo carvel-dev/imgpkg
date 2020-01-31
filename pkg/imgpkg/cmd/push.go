@@ -7,6 +7,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 type PushOptions struct {
@@ -64,7 +65,22 @@ func (o *PushOptions) Run() error {
 		return err
 	}
 
-	o.ui.BeginLinef("Pushed image '%s@%s'\n", uploadRef.Context(), digest)
+	imageURL := fmt.Sprintf("%s@%s", uploadRef.Context(), digest)
+
+	o.ui.BeginLinef("Pushed image '%s'\n", imageURL)
+
+	manifest := map[string]interface{}{
+		"apiVersion": "imgpkg.k14s.io/v1alpha1",
+		"kind":       "PushedImage",
+		"image":      imageURL,
+	}
+
+	manifestBs, err := yaml.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+
+	o.ui.PrintBlock(append([]byte("---\n"), manifestBs...))
 
 	return nil
 }
