@@ -11,12 +11,13 @@ import (
 )
 
 type TarImage struct {
-	files   []string
-	infoLog io.Writer
+	files        []string
+	excludePaths []string
+	infoLog      io.Writer
 }
 
-func NewTarImage(files []string, infoLog io.Writer) *TarImage {
-	return &TarImage{files, infoLog}
+func NewTarImage(files []string, excludePaths []string, infoLog io.Writer) *TarImage {
+	return &TarImage{files, excludePaths, infoLog}
 }
 
 func (i *TarImage) AsFileImage() (*FileImage, error) {
@@ -63,6 +64,9 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 					return err
 				}
 				if info.IsDir() {
+					if i.isExcluded(relPath) {
+						return filepath.SkipDir
+					}
 					return i.addDirToTar(relPath, info, tarWriter)
 				}
 				if (info.Mode() & os.ModeType) != 0 {
@@ -85,6 +89,10 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 }
 
 func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.Writer) error {
+	if i.isExcluded(relPath) {
+		panic("Unreachable") // directories excluded above
+	}
+
 	i.infoLog.Write([]byte(fmt.Sprintf("dir: %s\n", relPath)))
 
 	header := &tar.Header{
@@ -99,6 +107,10 @@ func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.
 }
 
 func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarWriter *tar.Writer) error {
+	if i.isExcluded(relPath) {
+		return nil
+	}
+
 	i.infoLog.Write([]byte(fmt.Sprintf("file: %s\n", relPath)))
 
 	file, err := os.Open(fullPath)
@@ -123,4 +135,13 @@ func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarW
 
 	_, err = io.Copy(tarWriter, file)
 	return err
+}
+
+func (i *TarImage) isExcluded(relPath string) bool {
+	for _, path := range i.excludePaths {
+		if path == relPath {
+			return true
+		}
+	}
+	return false
 }
