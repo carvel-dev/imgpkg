@@ -29,6 +29,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 		SilenceErrors:     true,
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		Version:           Version,
 	}
 
 	// TODO bash completion
