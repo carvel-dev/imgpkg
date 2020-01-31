@@ -11,11 +11,12 @@ import (
 )
 
 type TarImage struct {
-	files []string
+	files   []string
+	infoLog io.Writer
 }
 
-func NewTarImage(files []string) *TarImage {
-	return &TarImage{files}
+func NewTarImage(files []string, infoLog io.Writer) *TarImage {
+	return &TarImage{files, infoLog}
 }
 
 func (i *TarImage) AsFileImage() (*FileImage, error) {
@@ -84,6 +85,8 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 }
 
 func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.Writer) error {
+	i.infoLog.Write([]byte(fmt.Sprintf("dir: %s\n", relPath)))
+
 	header := &tar.Header{
 		Name:     relPath,
 		Size:     info.Size(),
@@ -96,6 +99,8 @@ func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.
 }
 
 func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarWriter *tar.Writer) error {
+	i.infoLog.Write([]byte(fmt.Sprintf("file: %s\n", relPath)))
+
 	file, err := os.Open(fullPath)
 	if err != nil {
 		return err

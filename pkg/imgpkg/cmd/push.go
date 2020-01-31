@@ -48,7 +48,7 @@ func (o *PushOptions) Run() error {
 
 	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 
-	img, err := ctlimg.NewTarImage(o.FileFlags.Files).AsFileImage()
+	img, err := ctlimg.NewTarImage(o.FileFlags.Files, InfoLog{o.ui}).AsFileImage()
 	if err != nil {
 		return err
 	}
