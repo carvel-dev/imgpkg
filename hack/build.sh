@@ -2,10 +2,14 @@
 
 set -e -x -u
 
+# makes builds reproducible
+export CGO_ENABLED=0
+repro_flags="-ldflags=-buildid= -trimpath"
+
 go fmt ./cmd/... ./pkg/... ./test/...
 
 # export GOOS=linux GOARCH=amd64
-go build -o imgpkg ./cmd/imgpkg/...
+go build $repro_flags -o imgpkg ./cmd/imgpkg/...
 ./imgpkg version
 
 echo "Success"
