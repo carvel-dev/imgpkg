@@ -2,7 +2,7 @@
 
 - Slack: [#k14s in Kubernetes slack](https://slack.kubernetes.io)
 - [Docs](docs/README.md) with example workflow and other details
-- Install: Grab prebuilt binaries from the [Releases page](https://github.com/k14s/imgpkg/releases)
+- Install: Grab prebuilt binaries from the [Releases page](https://github.com/k14s/imgpkg/releases) or [Homebrew k14s tap](https://github.com/k14s/homebrew-tap)
 
 `imgpkg` (pronounced: `image package`) allows to store sets of files (e.g. application configuration) as images in Docker (OCI) registries. This may be a good alternative to storing files in other places as Docker registry already keeps your other images. Original primary use case for this CLI was to store application configuration (i.e. templates) as an image.
 
