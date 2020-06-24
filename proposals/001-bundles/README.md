@@ -64,11 +64,10 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 **Summary:**
 Author distributes a "thin bundle" containing image references to their original official locations (i.e. no relocation).
 
-1. author [creates bundle](#scenario-create-bundle)
+1. author [creates bundle](#step-initialize-empty-bundle)
 2. author pushes bundle 
 3. consumer pulls bundle
 4. consumer installs bundle
-
 
 
 ## Use Case: Operator-managed Airgapped Thick-Relocation 
@@ -130,14 +129,35 @@ Component teams produce and internally publish bundles that are subsequently int
 3. Integration Team 
 
 
-# Scenarios
+# Steps
 
-## Scenario: Create Bundle
+## Step: Initialize Empty Bundle
 
 1. Create an empty bundle (i.e. directory structure and `bundle.yml`)
 
    ```console
-   $ imgpkg init --name my-app
+   $ imgpkg init --name my-app --path=config
+   ```
+   
+   which generates:
+   ```
+   my-app/
+     .imgpkg/metadata/
+       bundle.yml
+       images.yml
+     config/
+   ```
+   
+   where `bundle.yml` contains:
+   ```yaml
+    apiVersion: pkg.k14s.io/v1alpha1
+    kind: Bundle
+    metadata:
+      name: my-app
+    # ...
+    contents:
+      paths:
+      - config/**
    ```
 2. Copy K8s manifests in `./contents`
 3. Pluck image references from K8s manifests into a `ReferencedImages` file (i.e. `.imgpkg/metadata/images.yml`)
@@ -148,9 +168,9 @@ Component teams produce and internally publish bundles that are subsequently int
    ```
 
 
-## Scenario: Publish Bundle
+## Step: Publish Bundle
 
-## Scenario: Relocate
+## Step: Relocate
 
 `imgpkg move --from-= --to-=`
 

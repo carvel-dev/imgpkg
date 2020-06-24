@@ -5,10 +5,10 @@ kind: Bundle
 metadata:
   name: my-app
 authors:
-  - name: sarah
-    email: sarah@example.com
+- name: sarah
+  email: sarah@example.com
 websites:
-  - url: my-app.example.com
+- url: my-app.example.com
 contents:
   paths:
-    - contents/*/**
+  - contents/**
