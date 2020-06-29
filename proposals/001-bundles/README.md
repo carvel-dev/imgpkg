@@ -13,11 +13,34 @@ configuration referring to those images, and information describing the bundle.
 
 ```yaml
 some-bundle/
-  .imgpkg/metadata/ <-- .imgpkg is what makes this a bundle
+  .pkgx/metadata/ <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
     bundle.yml <-- describes bundle contents and misc info
     images.yml <-- list of referenced images in this bundle
   contents/ <-- directory containing configuration referencing images in images.yml; but could be anything
 ```
+
+## Bundle YAML
+
+```yaml
+apiVersion: pkgx.k14s.io/v1alpha1
+kind: Bundle
+metadata:
+  name: my-app
+authors:
+- name: blah
+  email: blah@blah.com
+websites:
+- url: blah.com
+contents:
+  paths:
+  - contents/*/** #! Paths under the containing directory
+```
+
+**Note:** Paths must be present within the arguments to the push command
+
+Any paths specified will be placed off of root in the image. For example,
+`contents/dir1` will have location `/dir1` within the bundle image, and location
+`<pull-output-arg>/dir1` after pulling the bundle.
 
 ## BundleLock
 
@@ -53,7 +76,7 @@ Note: pgkx will require all images to be in digest reference form
 
 ## pkg push ( Create a bundle )
 Flags:
-* `-f` - bundle directory to create bundle from
+* `-f` - bundle directory to create bundle from # Can be used multiple times
 * `-b, --bundle` - reference to push bundle to
 * `--lock-output` - location to write a BundleLock file to
 
