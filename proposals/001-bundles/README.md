@@ -4,10 +4,15 @@
 
 # Summary
 
-Support creating, relocating, and inspecting "bundles" — a set of images,
-configuration referring to those images, and information describing the bundle.
+Support creating, relocating, and inspecting "bundles". Bundle is an image in a registry. It includes:
 
-Key constraint: bundle always retains its digest when relocated.
+- bundle metadata (e.g. name, authors)
+- bundle contents which is a set of files (e.g. kubernetes manifests)
+- optionally, list of image references that are considered to be part of a bundle
+
+Key constraint: bundle image must always retain its digest when copied around.
+
+pkgx is a temporary name.
 
 ---
 # Resources
@@ -48,8 +53,8 @@ Any paths specified will be placed off of root in the image. For example,
 ## BundleLock
 
 ```yaml
+apiVersion: pkgx.k14s.io/v1alpha1
 kind: BundleLock
-apiVersion: v1alpha1
 spec:
   url: foo@sha256:<digest>
   tag: v1.0
@@ -58,8 +63,8 @@ spec:
 ## ImagesLock
 
 ```yaml
+apiVersion: pkgx.k14s.io/v1alpha1
 kind: ImagesLock
-apiVersion: v1alpha1
 spec:
   imageReferences:
   - name: my-app # we should think on a name for this key
@@ -141,7 +146,6 @@ Notes:
 * Source lock file may contain bundle or images lock contents
 * Source tar file may contain bundle image + referenced images or just referenced images
 * Check annotation on image and compare to flag type (--bundle, --image) if they don't match error
-
 
 ---
 # Potential Extensions
