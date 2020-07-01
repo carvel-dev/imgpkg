@@ -7,13 +7,16 @@
 Support creating, relocating, and inspecting "bundles" — a set of images,
 configuration referring to those images, and information describing the bundle.
 
+Key constraint: bundle always retains its digest when relocated.
+
+---
 # Resources
 
 ## Bundle Directory
 
 ```yaml
 some-bundle/
-  .pkgx/metadata/ <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
+  .pkgx/ <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
     bundle.yml <-- describes bundle contents and misc info
     images.yml <-- list of referenced images in this bundle
   contents/ <-- directory containing configuration referencing images in images.yml; but could be anything
@@ -72,9 +75,11 @@ spec:
 
 Note: pgkx will require all images to be in digest reference form
 
+---
 # Initial Commands
 
 ## pkg push ( Create a bundle )
+
 Flags:
 * `-f` - bundle directory to create bundle from # Can be used multiple times
 * `-b, --bundle` - reference to push bundle to
@@ -89,8 +94,30 @@ Notes:
 * Annotates image to denote it is a bundle
 
 ---
+## pkg pull ( Download and unpack the contents of a bundle to your local filesystem )
 
+Flags:
+* `-o` - location to unpack the bundle directory
+* `-b` - reference to the bundle to unpack
+* `--lock` - BundleLock with a reference to a bundle to unpack (Error is ImagesLock?)
+* `--image` - An image to unpack
+
+Examples:
+- `pkg pull -o /tmp -b foo:v123`
+- `pkg pull -o /tmp --lock bundle.lock.yml`
+- `pkg pull -o /tmp -b foo:v123@digest`
+- `pkg pull -o /tmp -b foo@digest`
+- `pkg pull -o /tmp --image foov123`
+
+Notes:
+* Will rewrite bundle's images.lock.yml if images are in same repo as bundle
+    * can be determined by a get to the repo with the digest
+    * potentially create a tag that denotes the bundle has been relocated,
+      meaning lock needs to be rewritten
+
+---
 ## pkg copy ( Copy bundles and images to various locations )
+
 Flags:
 * `--bundle` - the bundle reference we are copying (happens thickly, i.e. bundle image + all referenced images)
 * `--tar` - Tar file which contains assets to be copied to a registry
@@ -115,40 +142,16 @@ Notes:
 * Source tar file may contain bundle image + referenced images or just referenced images
 * Check annotation on image and compare to flag type (--bundle, --image) if they don't match error
 
----
-
-## pkg pull ( Download and unpack the contents of a bundle to your local filesystem )
-Flags:
-* `-o` - location to unpack the bundle directory
-* `-b` - reference to the bundle to unpack
-* `--lock` - BundleLock with a reference to a bundle to unpack (Error is ImagesLock?)
-* `--image` - An image to unpack
-
-Examples:
-- `pkg pull -o /tmp -b foo:v123`
-- `pkg pull -o /tmp --lock bundle.lock.yml`
-- `pkg pull -o /tmp -b foo:v123@digest`
-- `pkg pull -o /tmp -b foo@digest`
-- `pkg pull -o /tmp --image foov123`
-
-Notes:
-* Will rewrite bundle's images.lock.yml if images are in same repo as bundle
-    * can be determined by a get to the repo with the digest
-    * potentially create a tag that denotes the bundle has been relocated,
-      meaning lock needs to be rewritten
 
 ---
-
 # Potential Extensions
 
 ## pkg list ( list bundles in a repo or registry )
 
 ---
-
 ## pkg init ( initialize a directory with the bundle format)
 
 ---
-
 # Use Cases
 
 ## Use Case: No relocate bundle consumption
@@ -173,7 +176,6 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
   guarantee the tag is the correct bundle
 
 ---
-
 ## Use Case: Thickly Relocated Bundles
 
 ### Bundle creator:
@@ -185,7 +187,6 @@ Same as above
 3. `ytt -f contents | kbld -f- | kapp deploy -a some-bundle -f-`
 
 ---
-
 ## Use Case: Generic Relocation
 
 ### A Single Image
@@ -195,13 +196,3 @@ or
 
 ### Multiple Images
 1. `pkg copy --lock images.lock.yml --to-repo docker.io/klt --lock-output relocated-images.lock.yml`
-
-
-# Resources
-
-- https://www.pivotaltracker.com/story/show/173455762
-- Original gist: https://gist.github.com/cppforlife/6747a082de1d9d21db62878403a7ee5b
-- Workflow analysis: https://docs.google.com/document/d/1AO5TAVaHLkzsgl4ykJJx3iv4m0Vo5DRzrrU9JEOnRe0
-- Slack threads:
-  - https://vmware.slack.com/archives/C010XR15VHU/p1592869962149800?thread_ts=1592869956.149700&cid=C010XR15VHU
-  - https://vmware.slack.com/archives/C010XR15VHU/p1592936579203000?thread_ts=1592936526.202800&cid=C010XR15VHU
