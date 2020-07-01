@@ -20,11 +20,11 @@ pkgx is a temporary name.
 ## Bundle Directory
 
 ```yaml
-some-bundle/
+my-app/
   .pkgx/ <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
     bundle.yml <-- describes bundle contents and misc info
     images.yml <-- list of referenced images in this bundle
-  contents/ <-- directory containing configuration referencing images in images.yml; but could be anything
+  * <-- configuration files or directories referencing images in images.yml; but could be anything
 ```
 
 ## Bundle YAML
@@ -41,7 +41,7 @@ websites:
 - url: blah.com
 contents:
   paths:
-  - contents/*/** #! Paths under the containing directory
+  - **/* #! Paths under the containing directory
 ```
 
 **Note:** Paths must be present within the arguments to the push command
@@ -56,8 +56,9 @@ Any paths specified will be placed off of root in the image. For example,
 apiVersion: pkgx.k14s.io/v1alpha1
 kind: BundleLock
 spec:
-  url: foo@sha256:<digest>
-  tag: v1.0
+  image:
+    url: docker.io/my-app@sha256:<digest>
+    tag: v1.0
 ```
 
 ## ImagesLock
@@ -66,7 +67,7 @@ spec:
 apiVersion: pkgx.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
-  imageReferences:
+  images:
   - name: my-app # we should think on a name for this key
     tag: v1.0
     url: docker.io/my-app@sha256:<digest>
@@ -173,7 +174,7 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 
 ### Bundle consumer:
 1. `pkg pull -b docker.io/klt/some-bundle:1.0.0`
-2. `ytt -f contents | kbld -f- | kapp deploy -a some-bundle -f-`
+2. `ytt -f contents/ | kbld -f- | kapp deploy -a some-bundle -f-`
 
 **Notes:**
 * Producer could distribute a BundleLock file to give consumers a stronger
