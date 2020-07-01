@@ -174,7 +174,7 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 
 ### Bundle consumer:
 1. `pkg pull -b docker.io/klt/some-bundle:1.0.0`
-2. `ytt -f contents/ | kbld -f- | kapp deploy -a some-bundle -f-`
+2. `ytt -f contents/ | kbld -f ./.pkgx/images.yml | kapp deploy -a some-bundle -f-`
 
 **Notes:**
 * Producer could distribute a BundleLock file to give consumers a stronger
@@ -189,7 +189,7 @@ Same as above
 ### Bundle consumer:
 1. `pkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle:1.0.0` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
 2. `pkg pull -b internal.reg/some-bundle:1.0.0`
-3. `ytt -f contents | kbld -f- | kapp deploy -a some-bundle -f-`
+3. `ytt -f contents | kbld -f ./.pkgx/images.yml | kapp deploy -a some-bundle -f-`
 
 ---
 ## Use Case: Generic Relocation
