@@ -21,10 +21,10 @@ pkgx is a temporary name.
 
 ```yaml
 my-app/
-  .pkgx/ <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
-    bundle.yml <-- describes bundle contents and misc info
-    images.yml <-- list of referenced images in this bundle
-  * <-- configuration files or directories referencing images in images.yml; but could be anything
+  .pkgx/         <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
+    bundle.yml   <-- describes bundle contents and misc info
+    images.yml   <-- list of referenced images in this bundle
+  contents/      <-- configuration files or directories referencing images in images.yml; but could be anything
 ```
 
 ## Bundle YAML
@@ -41,7 +41,7 @@ websites:
 - url: blah.com
 contents:
   paths:
-  - **/* #! Paths under the containing directory
+  - contents/**/*  #! Paths under the containing directory
 ```
 
 **Note:** Paths must be present within the arguments to the push command
