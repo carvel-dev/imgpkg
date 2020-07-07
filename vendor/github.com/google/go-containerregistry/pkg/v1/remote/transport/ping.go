@@ -16,6 +16,8 @@ package transport
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -83,7 +85,12 @@ func ping(reg name.Registry, t http.RoundTripper) (*pingResp, error) {
 			// Potentially retry with http.
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() {
+			// By draining the body, make sure to reuse the connection made by
+			// the ping for the following access to the registry
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}()
 
 		switch resp.StatusCode {
 		case http.StatusOK:
@@ -93,7 +100,7 @@ func ping(reg name.Registry, t http.RoundTripper) (*pingResp, error) {
 				scheme:    scheme,
 			}, nil
 		case http.StatusUnauthorized:
-			wac := resp.Header.Get(http.CanonicalHeaderKey("WWW-Authenticate"))
+			wac := resp.Header.Get("WWW-Authenticate")
 			if parts := strings.SplitN(wac, " ", 2); len(parts) == 2 {
 				// If there are two parts, then parse the challenge parameters.
 				return &pingResp{
@@ -108,7 +115,7 @@ func ping(reg name.Registry, t http.RoundTripper) (*pingResp, error) {
 				scheme:    scheme,
 			}, nil
 		default:
-			return nil, fmt.Errorf("unrecognized HTTP status: %v", resp.Status)
+			return nil, CheckError(resp, http.StatusOK, http.StatusUnauthorized)
 		}
 	}
 	return nil, connErr

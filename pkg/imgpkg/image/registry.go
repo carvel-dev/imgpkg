@@ -8,7 +8,7 @@ import (
 	"net"
 	"net/http"
 	"time"
-
+	
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -68,7 +68,9 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 		return fmt.Errorf("Getting auth details: %s", err)
 	}
 
-	err = i.retry(func() error { return regremote.Write(ref, img, auth, httpTran) })
+	err = i.retry(func() error {
+		return regremote.Write(ref, img, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
+	})
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
 	}
@@ -96,7 +98,9 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 		return fmt.Errorf("Getting auth details: %s", err)
 	}
 
-	err = i.retry(func() error { return regremote.WriteIndex(ref, idx, auth, httpTran) })
+	err = i.retry(func() error {
+		return regremote.WriteIndex(ref, idx, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
+	})
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
 	}
@@ -115,16 +119,16 @@ func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 		return nil, fmt.Errorf("Getting auth details: %s", err)
 	}
 
-	return regremote.List(repo, auth, httpTran)
+	return regremote.List(repo, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
 }
 
-func (i Registry) imageOpts() ([]regremote.ImageOption, error) {
+func (i Registry) imageOpts() ([]regremote.Option, error) {
 	httpTran, err := i.newHTTPTransport()
 	if err != nil {
 		return nil, err
 	}
 
-	return []regremote.ImageOption{
+	return []regremote.Option{
 		regremote.WithTransport(httpTran),
 		regremote.WithAuthFromKeychain(i.registryKeychain()),
 	}, nil
@@ -199,7 +203,7 @@ type customRegistryKeychain struct {
 	opts RegistryOpts
 }
 
-func (k customRegistryKeychain) Resolve(reg regname.Registry) (regauthn.Authenticator, error) {
+func (k customRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authenticator, error) {
 	switch {
 	case len(k.opts.Username) > 0:
 		return &regauthn.Basic{Username: k.opts.Username, Password: k.opts.Password}, nil
@@ -208,6 +212,6 @@ func (k customRegistryKeychain) Resolve(reg regname.Registry) (regauthn.Authenti
 	case k.opts.Anon:
 		return regauthn.Anonymous, nil
 	default:
-		return regauthn.DefaultKeychain.Resolve(reg)
+		return regauthn.DefaultKeychain.Resolve(res)
 	}
 }
