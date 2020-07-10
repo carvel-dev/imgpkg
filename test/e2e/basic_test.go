@@ -24,7 +24,7 @@ func TestPushPull(t *testing.T) {
 		t.Fatalf("Mkdir empty-dir")
 	}
 
-	imgpkg.Run([]string{"push", "-i", env.Image, "-f", assetsPath})
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsPath})
 	imgpkg.Run([]string{"pull", "-i", env.Image, "-o", path})
 
 	expectedFiles := []string{
@@ -56,7 +56,7 @@ func TestPushMultipleFiles(t *testing.T) {
 	defer cleanUp()
 
 	imgpkg.Run([]string{
-		"push", "-i", env.Image,
+		"push", "-b", env.Image,
 		"-f", filepath.Join(assetsPath, "LICENSE"),
 		"-f", filepath.Join(assetsPath, "README.md"),
 		"-f", filepath.Join(assetsPath, "config"),

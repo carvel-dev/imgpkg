@@ -1,0 +1,11 @@
+apiVersion: pkgx.k14s.io/v1alpha1
+kind: ImagesLock
+spec:
+  images:
+  - name: my-app # we should think on a name for this key
+    tag: v1.0
+    url: docker.io/my-app@sha256:<digest>
+    metadata: ~
+  - name: another-app # we should think on a name for this key
+    url: docker.io/another-app@sha256:<digest>
+    metadata: ~

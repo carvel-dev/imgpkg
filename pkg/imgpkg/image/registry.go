@@ -8,7 +8,7 @@ import (
 	"net"
 	"net/http"
 	"time"
-	
+
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"

@@ -10,10 +10,10 @@ func TestDeterministicPush(t *testing.T) {
 
 	assetsPath := "assets/simple-app"
 
-	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", assetsPath})
+	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image + ":tag1", "-f", assetsPath})
 	tag1Digest := extractDigest(out, t)
 
-	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
+	out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image + ":tag2", "-f", assetsPath})
 	tag2Digest := extractDigest(out, t)
 
 	if tag1Digest != tag2Digest {

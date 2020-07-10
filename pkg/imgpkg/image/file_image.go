@@ -3,6 +3,7 @@ package image
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -44,6 +45,17 @@ func NewFileImage(path string) (*FileImage, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	manifest, err := img.Manifest()
+	if err != nil {
+		return nil, fmt.Errorf("Could not annotate manifest: %s", err)
+	}
+
+	if manifest.Annotations == nil {
+		manifest.Annotations = make(map[string]string)
+	}
+
+	manifest.Annotations["io.k14s.imgpkg.bundle"] = "true"
 
 	return &FileImage{img, path}, nil
 }
