@@ -187,7 +187,7 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 Same as above
 
 ### Bundle consumer:
-1. `pkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle:1.0.0` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
+1. `pkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
 2. `pkg pull -b internal.reg/some-bundle:1.0.0`
 3. `ytt -f contents | kbld -f ./.pkgx/images.yml | kapp deploy -a some-bundle -f-`
 
