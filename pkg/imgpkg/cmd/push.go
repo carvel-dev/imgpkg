@@ -41,6 +41,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	}
 	o.OutputFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
+	cmd.MarkFlagRequired("bundle")
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	return cmd

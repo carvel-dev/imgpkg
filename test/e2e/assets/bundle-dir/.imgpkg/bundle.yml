@@ -1,9 +1,0 @@
-apiVersion: pkgx.k14s.io/v1alpha1
-kind: Bundle
-metadata:
-  name: my-app
-authors:
-- name: blah
-  email: blah@blah.com
-websites:
-- url: blah.com

@@ -10,5 +10,4 @@ type BundleFlags struct {
 
 func (s *BundleFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&s.Bundle, "bundle", "b", "", "Set bundle (example: docker.io/dkalinin/test-content)")
-	cmd.MarkFlagRequired("bundle")
 }

@@ -15,6 +15,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
+const BundleAnnotation = "io.k14s.imgpkg.bundle"
+
 type FileImage struct {
 	v1.Image
 	path string
@@ -55,7 +57,7 @@ func NewFileImage(path string) (*FileImage, error) {
 		manifest.Annotations = make(map[string]string)
 	}
 
-	manifest.Annotations["io.k14s.imgpkg.bundle"] = "true"
+	manifest.Annotations[BundleAnnotation] = "true"
 
 	return &FileImage{img, path}, nil
 }

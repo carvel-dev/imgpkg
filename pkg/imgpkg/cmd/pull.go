@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -15,7 +18,9 @@ type PullOptions struct {
 
 	ImageFlags    ImageFlags
 	RegistryFlags RegistryFlags
+	BundleFlags   BundleFlags
 	OutputPath    string
+	LockPath      string
 }
 
 var _ ctlimg.ImagesMetadata = ctlimg.Registry{}
@@ -35,9 +40,11 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 	}
 	o.ImageFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	o.BundleFlags.Set(cmd)
 
 	cmd.Flags().StringVarP(&o.OutputPath, "output", "o", "", "Output directory path")
 	cmd.MarkFlagRequired("output")
+	cmd.Flags().StringVar(&o.LockPath, "lock", "", "Path to BundleLock file")
 
 	return cmd
 }
@@ -45,7 +52,12 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 func (o *PullOptions) Run() error {
 	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 
-	ref, err := regname.ParseReference(o.ImageFlags.Image, regname.WeakValidation)
+	inputRef, err := o.getRefFromFlags()
+	if err != nil {
+		return err
+	}
+
+	ref, err := regname.ParseReference(inputRef, regname.WeakValidation)
 	if err != nil {
 		return err
 	}
@@ -60,6 +72,20 @@ func (o *PullOptions) Run() error {
 	}
 
 	for _, img := range imgs {
+		manifest, err := img.Manifest()
+		if err != nil {
+			return fmt.Errorf("Getting image manifest: %s", err)
+		}
+
+		if o.ImageFlags.Image != "" {
+			if _, ok := manifest.Annotations[ctlimg.BundleAnnotation]; ok {
+				return fmt.Errorf("Expected bundle flag when pulling a bundle, please use -b instead of --image")
+			}
+			// expect annotation not to be set
+		} else if manifest.Annotations[ctlimg.BundleAnnotation] != "true" {
+			return fmt.Errorf("Expected image flag when pulling a image or index, please use --image instead of -b")
+		}
+
 		digest, err := img.Digest()
 		if err != nil {
 			return fmt.Errorf("Getting image digest: %s", err)
@@ -91,4 +117,34 @@ func (o *PullOptions) Run() error {
 	}
 
 	return fmt.Errorf("Expected to find at least one image, but found none")
+}
+
+func (o *PullOptions) getRefFromFlags() (string, error) {
+	var ref string
+	for _, s := range []string{o.LockPath, o.ImageFlags.Image, o.BundleFlags.Bundle} {
+		if s == "" {
+			continue
+		}
+		if ref != "" {
+			return "", fmt.Errorf("Expected only one of image, bundle, or lock")
+		}
+		ref = s
+	}
+	if ref == "" {
+		return "", fmt.Errorf("Expected either image, bundle, or lock")
+	}
+	//ref is not empty
+	if o.LockPath == "" {
+		return ref, nil
+	}
+	lockBytes, err := ioutil.ReadFile(ref)
+	if err != nil {
+		return "", err
+	}
+	var bundleLock BundleLock
+	err = yaml.Unmarshal(lockBytes, &bundleLock)
+	if err != nil {
+		return "", err
+	}
+	return bundleLock.Spec.Image.Url, nil
 }
