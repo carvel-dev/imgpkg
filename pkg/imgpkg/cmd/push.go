@@ -111,20 +111,25 @@ const BundleDir = ".imgpkg"
 
 func (o *PushOptions) validateFiles() error {
 	var bundlePaths []string
+	prunedFilepaths := make(map[string][]string)
 	for _, inputPath := range o.FileFlags.Files {
-		fi, err := os.Stat(inputPath)
-		if err != nil {
-			return err
-		}
-
-		if !fi.IsDir() {
-			continue
-		}
-
-		err = filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
+
+			prunedPath, err := filepath.Rel(inputPath, path)
+			if err != nil {
+				return err
+			}
+
+			if prunedPath == "." {
+				if info.IsDir() {
+					return nil
+				}
+				prunedPath = filepath.Base(inputPath)
+			}
+			prunedFilepaths[prunedPath] = append(prunedFilepaths[prunedPath], path)
 
 			if filepath.Base(path) != BundleDir {
 				return nil
@@ -153,5 +158,18 @@ func (o *PushOptions) validateFiles() error {
 		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundlePaths), strings.Join(bundlePaths, ", "))
 	}
 
+	return checkRepeatedPaths(prunedFilepaths)
+}
+
+func checkRepeatedPaths(prunedFilepaths map[string][]string) error {
+	var repeatedPaths []string
+	for _, v := range prunedFilepaths {
+		if len(v) > 1 {
+			repeatedPaths = append(repeatedPaths, v...)
+		}
+	}
+	if len(repeatedPaths) > 0 {
+		return fmt.Errorf("Found duplicate paths: %s", strings.Join(repeatedPaths, ", "))
+	}
 	return nil
 }

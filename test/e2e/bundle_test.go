@@ -45,7 +45,7 @@ func TestBundlePush(t *testing.T) {
 	}
 }
 
-func TestBunldePushLockOutput(t *testing.T) {
+func TestBundlePushLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}}
 	assetsDir := filepath.Join("assets", "bundle-dir")
@@ -72,7 +72,6 @@ spec:
 `, env.Image)
 
 	if string(bundleBs) != expectedYml {
-		t.Fatalf("Expected BundleLock to mach:\n\n %s\n\n, got:\n\n %s\n", expectedYml, string(bundleBs))
+		t.Fatalf("Expected BundleLock to match:\n\n %s\n\n, got:\n\n %s\n", expectedYml, string(bundleBs))
 	}
-
 }

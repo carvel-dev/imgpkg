@@ -17,7 +17,7 @@ $ echo "app1: true" > config.yml
 Push example content as tagged image `your-user/app1-config:0.1.1`
 
 ```bash
-$ imgpkg push -i your-user/app1-config:0.1.1 -f config.yml
+$ imgpkg push -b your-user/app1-config:0.1.1 -f config.yml
 Pushed image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
 
 Succeeded
