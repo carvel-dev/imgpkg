@@ -62,3 +62,12 @@ will output a BundleLock file to `bundle.lock.yml`. If another image in the repo
 later given the same tag (`v0.1.0`), the BundleLock will guarantee users continue to reference the
 original bundle by its digest.
 
+## Pushing an image
+
+Images are more generic than bundles. Users are able to push an image from any set of files or directories on their system as long as they don't "look" like a bundle. To push an image, use the `--image`/`-i` flag:
+
+`$ imgpkg push -f my-image -i index.docker.io/k8slt/sample-image`
+
+`imgpkg` will try to be helpful to ensure that you're using images and bundles correctly:
+- `imgpkg` will error if you try to push an image that has a `.imgpkg` directory
+- `imgpkg` does not allow images to output BundleLock files

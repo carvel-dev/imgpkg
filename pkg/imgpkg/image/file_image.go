@@ -22,7 +22,7 @@ type FileImage struct {
 	path string
 }
 
-func NewFileImage(path string) (*FileImage, error) {
+func NewFileImage(path string, bundle bool) (*FileImage, error) {
 	sha256, err := sha256Path(path)
 	if err != nil {
 		return nil, err
@@ -48,16 +48,18 @@ func NewFileImage(path string) (*FileImage, error) {
 		return nil, err
 	}
 
-	manifest, err := img.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("Could not annotate manifest: %s", err)
-	}
+	if bundle {
+		manifest, err := img.Manifest()
+		if err != nil {
+			return nil, fmt.Errorf("Could not annotate manifest: %s", err)
+		}
 
-	if manifest.Annotations == nil {
-		manifest.Annotations = make(map[string]string)
-	}
+		if manifest.Annotations == nil {
+			manifest.Annotations = make(map[string]string)
+		}
 
-	manifest.Annotations[BundleAnnotation] = "true"
+		manifest.Annotations[BundleAnnotation] = "true"
+	}
 
 	return &FileImage{img, path}, nil
 }

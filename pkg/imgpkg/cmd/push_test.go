@@ -45,6 +45,37 @@ func TestMultiImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected error to contain message about multiple .imgpkg dirs, got: %s", err)
 	}
 }
+func TestImageWithImgpkgDirError(t *testing.T) {
+	tempDir := os.TempDir()
+
+	pushDir := filepath.Join(tempDir, "imgpkg-push-units-image-dir")
+	defer Cleanup(pushDir)
+
+	// cleaned up via pushDir
+	fooDir := filepath.Join(pushDir, "foo")
+
+	// cleanup any previous state
+	Cleanup(pushDir)
+	err := os.Mkdir(pushDir, 0700)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	err = os.MkdirAll(filepath.Join(fooDir, ".imgpkg"), 0700)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	push := PushOptions{FileFlags: FileFlags{Files: []string{fooDir}}, ImageFlags: ImageFlags{Image: "foo"}}
+	err = push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Images cannot be pushed with a '.imgpkg' bundle directory") {
+		t.Fatalf("Expected error to contain message about image with bundle dir, got: %s", err)
+	}
+}
 
 func TestNestedImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
@@ -107,6 +138,42 @@ func TestDuplicateFilepathError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "Found duplicate paths:") {
 		t.Fatalf("Expected error to contain message about a duplicate filepath, got: %s", err)
+	}
+}
+
+func TestNoImageOrBundleError(t *testing.T) {
+	push := PushOptions{}
+	err := push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Expected either image or bundle") {
+		t.Fatalf("Expected error to contain message about invalid flags, got: %s", err)
+	}
+}
+
+func TestImageAndBundleError(t *testing.T) {
+	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, BundleFlags: BundleFlags{"my-bundle"}}
+	err := push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Expected only one of image or bundle") {
+		t.Fatalf("Expected error to contain message about invalid flags, got: %s", err)
+	}
+}
+
+func TestImageAndBundleLockError(t *testing.T) {
+	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, OutputFlags: OutputFlags{LockFilePath: "lock-file"}}
+	err := push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Lock output is not compatible with image, use bundle for lock output") {
+		t.Fatalf("Expected error to contain message about invalid flags, got: %s", err)
 	}
 }
 

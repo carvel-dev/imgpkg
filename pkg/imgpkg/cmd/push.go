@@ -17,6 +17,7 @@ import (
 type PushOptions struct {
 	ui ui.UI
 
+	ImageFlags    ImageFlags
 	BundleFlags   BundleFlags
 	OutputFlags   OutputFlags
 	FileFlags     FileFlags
@@ -36,31 +37,50 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
   # Push bundle dkalinin/app1-config with contents of config/ directory
   imgpkg push -b dkalinin/app1-config -f config/
 
-  # Push bundle dkalinin/app1-config with contents from multiple locations
-  imgpkg push -b dkalinin/app1-config -f config/ -f additional-config.yml`,
+  # Push image dkalinin/app1-config with contents from multiple locations
+  imgpkg push -i dkalinin/app1-config -f config/ -f additional-config.yml`,
 	}
-	o.OutputFlags.Set(cmd)
+	o.ImageFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
-	cmd.MarkFlagRequired("bundle")
+	o.OutputFlags.Set(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	return cmd
 }
 
 func (o *PushOptions) Run() error {
-	err := o.validateFiles()
+	err := o.validateFlags()
 	if err != nil {
 		return err
 	}
 
-	uploadRef, err := regname.NewTag(o.BundleFlags.Bundle, regname.WeakValidation)
+	err = o.validateFiles()
 	if err != nil {
-		return fmt.Errorf("Parsing bundle '%s': %s", o.BundleFlags.Bundle, err)
+		return err
+	}
+
+	var inputRef string
+	if o.isBundle() {
+		inputRef = o.BundleFlags.Bundle
+	} else {
+		inputRef = o.ImageFlags.Image
+	}
+
+	uploadRef, err := regname.NewTag(inputRef, regname.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("Parsing '%s': %s", inputRef, err)
 	}
 
 	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 
-	img, err := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.FileExcludeDefaults, InfoLog{o.ui}).AsFileImage()
+	var img *ctlimg.FileImage
+	tarImg := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.FileExcludeDefaults, InfoLog{o.ui})
+	if o.isBundle() {
+		img, err = tarImg.AsFileBundle()
+	} else {
+		img, err = tarImg.AsFileImage()
+	}
+
 	if err != nil {
 		return err
 	}
@@ -69,7 +89,7 @@ func (o *PushOptions) Run() error {
 
 	err = registry.WriteImage(uploadRef, img)
 	if err != nil {
-		return fmt.Errorf("Writing bundle '%s': %s", uploadRef.Name(), err)
+		return fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
 	}
 
 	digest, err := img.Digest()
@@ -79,7 +99,7 @@ func (o *PushOptions) Run() error {
 
 	imageURL := fmt.Sprintf("%s@%s", uploadRef.Context(), digest)
 
-	o.ui.BeginLinef("Pushed bundle '%s'", imageURL)
+	o.ui.BeginLinef("Pushed '%s'", imageURL)
 
 	if o.OutputFlags.LockFilePath != "" {
 		bundleLock := BundleLock{
@@ -110,6 +130,24 @@ func (o *PushOptions) Run() error {
 // TODO rename when we have a name
 const BundleDir = ".imgpkg"
 
+func (o *PushOptions) validateFlags() error {
+	if o.isImage() {
+		if o.isBundle() {
+			return fmt.Errorf("Expected only one of image or bundle")
+		}
+
+		if o.OutputFlags.LockFilePath != "" {
+			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
+		}
+	}
+
+	if !o.isImage() && !o.isBundle() {
+		return fmt.Errorf("Expected either image or bundle")
+	}
+
+	return nil
+}
+
 func (o *PushOptions) validateFiles() error {
 	var bundlePaths []string
 	prunedFilepaths := make(map[string][]string)
@@ -134,6 +172,10 @@ func (o *PushOptions) validateFiles() error {
 
 			if filepath.Base(path) != BundleDir {
 				return nil
+			}
+
+			if o.isImage() {
+				return fmt.Errorf("Images cannot be pushed with a '%s' bundle directory (found at '%s'), consider using a bundle", BundleDir, path)
 			}
 
 			if filepath.Dir(path) != inputPath {
@@ -173,4 +215,12 @@ func checkRepeatedPaths(prunedFilepaths map[string][]string) error {
 		return fmt.Errorf("Found duplicate paths: %s", strings.Join(repeatedPaths, ", "))
 	}
 	return nil
+}
+
+func (o *PushOptions) isBundle() bool {
+	return o.BundleFlags.Bundle != ""
+}
+
+func (o *PushOptions) isImage() bool {
+	return o.ImageFlags.Image != ""
 }
