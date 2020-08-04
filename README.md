@@ -8,9 +8,11 @@
 
 ```bash
 $ imgpkg push -b your-user/app1-config:0.1.1 -f config/
-$ imgpkg pull -i your-user/app1-config:0.1.1 -o /tmp/app1-config
+$ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1-config
 $ imgpkg tag ls -i your-user/app1-config
 ```
+
+See [detailed command usage](docs/commands.md).
 
 Features:
 

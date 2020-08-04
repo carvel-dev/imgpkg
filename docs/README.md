@@ -23,15 +23,19 @@ Pushed image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb806
 Succeeded
 ```
 
+See [detailed push usage](commands.md#imgpkg-push).
+
 Pull content into local directory
 
 ```bash
-$ imgpkg pull -i your-user/app1-config:0.1.1 -o /tmp/app1
+$ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1
 Pulling image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
 Extracting layer 'sha256:a839c66dfd6debaafe7c2b7274e339c805277b41c1b9b8a427b9ed4e1ad60d22' (1/1)
 
 Succeeded
 ```
+
+See [detailed pull usage](commands.md#imgpkg-pull).
 
 Verify content was unpacked
 
