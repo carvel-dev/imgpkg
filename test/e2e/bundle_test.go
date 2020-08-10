@@ -124,7 +124,7 @@ apiVersion: imgpkg.k14s.io/v1alpha1
 kind: BundleLock
 spec:
   image:
-    url: %s@sha256:b321a28561e70e369e5158516a80e51fb2180364138df8b51404a6c06f070e63
+    url: %s@sha256:97f5b8f8e0000631d368961bd15ef17690767b51704641031eb1c2de5548f4c1
     tag: latest
 `, env.Image)
 
