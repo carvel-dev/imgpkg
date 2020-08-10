@@ -54,7 +54,12 @@ func (o *PushOptions) Run() error {
 		return err
 	}
 
-	err = o.validateFiles()
+	err = o.extractBundleDir()
+	if err != nil {
+		return err
+	}
+
+	err = o.checkRepeatedPaths()
 	if err != nil {
 		return err
 	}
@@ -148,46 +153,32 @@ func (o *PushOptions) validateFlags() error {
 	return nil
 }
 
-func (o *PushOptions) validateFiles() error {
+func (o *PushOptions) extractBundleDir() error {
 	var bundlePaths []string
-	prunedFilepaths := make(map[string][]string)
-	for _, inputPath := range o.FileFlags.Files {
-		err := filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
+	for _, flagPath := range o.FileFlags.Files {
+		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 
-			prunedPath, err := filepath.Rel(inputPath, path)
-			if err != nil {
-				return err
-			}
-
-			if prunedPath == "." {
-				if info.IsDir() {
-					return nil
-				}
-				prunedPath = filepath.Base(inputPath)
-			}
-			prunedFilepaths[prunedPath] = append(prunedFilepaths[prunedPath], path)
-
-			if filepath.Base(path) != BundleDir {
+			if filepath.Base(currPath) != BundleDir {
 				return nil
 			}
 
 			if o.isImage() {
-				return fmt.Errorf("Images cannot be pushed with a '%s' bundle directory (found at '%s'), consider using a bundle", BundleDir, path)
+				return fmt.Errorf("Images cannot be pushed with a '%s' bundle directory (found at '%s'), consider using a bundle", BundleDir, currPath)
 			}
 
-			if filepath.Dir(path) != inputPath {
-				return fmt.Errorf("Expected '%s' dir to be a direct child of '%s', but was: '%s'", BundleDir, inputPath, path)
+			if filepath.Dir(currPath) != flagPath {
+				return fmt.Errorf("Expected '%s' dir to be a direct child of '%s', but was: '%s'", BundleDir, flagPath, currPath)
 			}
 
-			path, err = filepath.Abs(path)
+			currPath, err = filepath.Abs(currPath)
 			if err != nil {
 				return err
 			}
 
-			bundlePaths = append(bundlePaths, path)
+			bundlePaths = append(bundlePaths, currPath)
 
 			return nil
 		})
@@ -201,12 +192,39 @@ func (o *PushOptions) validateFiles() error {
 		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundlePaths), strings.Join(bundlePaths, ", "))
 	}
 
-	return checkRepeatedPaths(prunedFilepaths)
+	return nil
 }
 
-func checkRepeatedPaths(prunedFilepaths map[string][]string) error {
+func (o *PushOptions) checkRepeatedPaths() error {
+	imageRootPaths := make(map[string][]string)
+	for _, flagPath := range o.FileFlags.Files {
+		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			imageRootPath, err := filepath.Rel(flagPath, currPath)
+			if err != nil {
+				return err
+			}
+
+			if imageRootPath == "." {
+				if info.IsDir() {
+					return nil
+				}
+				imageRootPath = filepath.Base(flagPath)
+			}
+			imageRootPaths[imageRootPath] = append(imageRootPaths[imageRootPath], currPath)
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
 	var repeatedPaths []string
-	for _, v := range prunedFilepaths {
+	for _, v := range imageRootPaths {
 		if len(v) > 1 {
 			repeatedPaths = append(repeatedPaths, v...)
 		}
