@@ -7,10 +7,26 @@ type BundleLock struct {
 }
 
 type BundleSpec struct {
-	Image BundleImage
+	Image ImageLocation
 }
 
-type BundleImage struct {
-	Url string `yaml:"url,omitempty"`
-	Tag string `yaml:"tag,omitempty"`
+type ImageLock struct {
+	ApiVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Spec       ImageSpec
+}
+
+type ImageSpec struct {
+	Images []ImageDesc
+}
+
+type ImageDesc struct {
+	ImageLocation `yaml:,inline`
+	Name          string
+	Metadata      string
+}
+
+type ImageLocation struct {
+	DigestRef   string `yaml:"url,omitempty"`
+	OriginalTag string `yaml:"tag,omitempty"`
 }

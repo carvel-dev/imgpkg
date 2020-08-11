@@ -18,8 +18,8 @@ func TestPushPull(t *testing.T) {
 	cleanUp()
 	defer cleanUp()
 
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsPath})
-	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", path})
+	imgpkg.Run([]string{"push", "-i", env.Image, "-f", assetsPath})
+	imgpkg.Run([]string{"pull", "-i", env.Image, "-o", path})
 
 	expectedFiles := []string{
 		"README.md",

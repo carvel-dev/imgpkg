@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/name"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -54,9 +56,13 @@ func (o *PushOptions) Run() error {
 		return err
 	}
 
-	err = o.extractBundleDir()
+	bundleDirPath, err := o.extractBundleDirPath()
 	if err != nil {
 		return err
+	}
+
+	if o.isBundle() {
+		o.validateImages(bundleDirPath)
 	}
 
 	err = o.checkRepeatedPaths()
@@ -111,9 +117,9 @@ func (o *PushOptions) Run() error {
 			ApiVersion: "imgpkg.k14s.io/v1alpha1",
 			Kind:       "BundleLock",
 			Spec: BundleSpec{
-				Image: BundleImage{
-					Url: imageURL,
-					Tag: uploadRef.TagStr(),
+				Image: ImageLocation{
+					DigestRef:   imageURL,
+					OriginalTag: uploadRef.TagStr(),
 				},
 			},
 		}
@@ -153,7 +159,27 @@ func (o *PushOptions) validateFlags() error {
 	return nil
 }
 
-func (o *PushOptions) extractBundleDir() error {
+func (o *PushOptions) validateImages(bundleDirPath string) error {
+	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundleDirPath, "images.yml"))
+	if err != nil {
+		return err
+	}
+
+	var imagesLock ImageLock
+	err = yaml.Unmarshal(imagesBytes, &imagesLock)
+	if err != nil {
+		return err
+	}
+
+	for _, image := range imagesLock.Spec.Images {
+		if _, err := name.NewDigest(image.DigestRef); err != nil {
+			return errors.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
+		}
+	}
+	return nil
+}
+
+func (o *PushOptions) extractBundleDirPath() (string, error) {
 	var bundlePaths []string
 	for _, flagPath := range o.FileFlags.Files {
 		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
@@ -184,15 +210,18 @@ func (o *PushOptions) extractBundleDir() error {
 		})
 
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	if len(bundlePaths) > 1 {
-		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundlePaths), strings.Join(bundlePaths, ", "))
+	switch {
+	case len(bundlePaths) == 0 && o.isImage():
+		return "", nil
+	case len(bundlePaths) == 1:
+		return bundlePaths[0], nil
+	default:
+		return "", fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundlePaths), strings.Join(bundlePaths, ", "))
 	}
-
-	return nil
 }
 
 func (o *PushOptions) checkRepeatedPaths() error {

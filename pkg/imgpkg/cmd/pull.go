@@ -149,5 +149,5 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return bundleLock.Spec.Image.Url, nil
+	return bundleLock.Spec.Image.DigestRef, nil
 }

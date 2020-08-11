@@ -45,6 +45,7 @@ func TestMultiImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected error to contain message about multiple .imgpkg dirs, got: %s", err)
 	}
 }
+
 func TestImageWithImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
 
@@ -106,6 +107,29 @@ func TestNestedImgpkgDirError(t *testing.T) {
 	}
 }
 
+func TestBundleFlagWithoutDirectoryError(t *testing.T) {
+	tempDir := os.TempDir()
+	pushDir := filepath.Join(tempDir, "imgpkg-push-units-bundle-without-dir")
+	defer Cleanup(pushDir)
+
+	// cleanup any previous state
+	Cleanup(pushDir)
+	err := os.Mkdir(pushDir, 0700)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	push := PushOptions{FileFlags: FileFlags{Files: []string{pushDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
+	err = push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Expected one '.imgpkg' dir, got 0") {
+		t.Fatalf("Expected error to contain message about missing .imgpkg dir, got: %s", err)
+	}
+}
+
 func TestDuplicateFilepathError(t *testing.T) {
 	tempDir := os.TempDir()
 
@@ -114,11 +138,13 @@ func TestDuplicateFilepathError(t *testing.T) {
 
 	// cleaned up via pushDir
 	fooDir := filepath.Join(pushDir, "foo")
+	imgpkgDir := filepath.Join(fooDir, ".imgpkg")
 
 	// cleanup any previous state
 	Cleanup(pushDir)
 
-	err := os.MkdirAll(fooDir, 0700)
+	// Makes push, foo, and imgpkg dirs
+	err := os.MkdirAll(imgpkgDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
