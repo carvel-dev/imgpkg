@@ -21,7 +21,7 @@ type ImageSpec struct {
 }
 
 type ImageDesc struct {
-	ImageLocation `yaml:,inline`
+	ImageLocation `yaml:",inline"`
 	Name          string
 	Metadata      string
 }

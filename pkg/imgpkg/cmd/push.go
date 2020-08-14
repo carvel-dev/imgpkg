@@ -16,6 +16,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// TODO rename when we have a name
+const BundleDir = ".imgpkg"
+
 type PushOptions struct {
 	ui ui.UI
 
@@ -51,30 +54,55 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (o *PushOptions) Run() error {
-	err := o.validateFlags()
-	if err != nil {
-		return err
-	}
-
-	bundleDirPath, err := o.extractBundleDirPath()
-	if err != nil {
-		return err
-	}
-
-	if o.isBundle() {
-		o.validateImages(bundleDirPath)
-	}
-
-	err = o.checkRepeatedPaths()
-	if err != nil {
-		return err
-	}
-
 	var inputRef string
-	if o.isBundle() {
+
+	switch {
+	case o.isBundle() && o.isImage():
+		return fmt.Errorf("Expected only one of image or bundle")
+
+	case !o.isBundle() && !o.isImage():
+		return fmt.Errorf("Expected either image or bundle")
+
+	case o.isBundle():
+		// extract bundle dir contents
+		imgLock, err := o.extractBundleDir()
+		if err != nil {
+			return err
+		}
+
+		// validate images
+		err = o.validateImages(imgLock)
+		if err != nil {
+			return err
+		}
+
+		// set inputRef
 		inputRef = o.BundleFlags.Bundle
-	} else {
+
+	case o.isImage():
+		// make sure user doesn't expect BundleLock
+		if o.OutputFlags.LockFilePath != "" {
+			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
+		}
+
+		// find any bundle dirs
+		bundleDirPaths, err := o.findBundleDirs()
+		if err != nil {
+			return err
+		}
+
+		// check there are no bundle dirs
+		if len(bundleDirPaths) > 0 {
+			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
+		}
+
+		// set input ref
 		inputRef = o.ImageFlags.Image
+	}
+
+	err := o.checkRepeatedPaths()
+	if err != nil {
+		return err
 	}
 
 	uploadRef, err := regname.NewTag(inputRef, regname.WeakValidation)
@@ -138,39 +166,7 @@ func (o *PushOptions) Run() error {
 	return nil
 }
 
-// TODO rename when we have a name
-const BundleDir = ".imgpkg"
-
-func (o *PushOptions) validateFlags() error {
-	if o.isImage() {
-		if o.isBundle() {
-			return fmt.Errorf("Expected only one of image or bundle")
-		}
-
-		if o.OutputFlags.LockFilePath != "" {
-			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
-		}
-	}
-
-	if !o.isImage() && !o.isBundle() {
-		return fmt.Errorf("Expected either image or bundle")
-	}
-
-	return nil
-}
-
-func (o *PushOptions) validateImages(bundleDirPath string) error {
-	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundleDirPath, "images.yml"))
-	if err != nil {
-		return err
-	}
-
-	var imagesLock ImageLock
-	err = yaml.Unmarshal(imagesBytes, &imagesLock)
-	if err != nil {
-		return err
-	}
-
+func (o *PushOptions) validateImages(imagesLock ImageLock) error {
 	for _, image := range imagesLock.Spec.Images {
 		if _, err := name.NewDigest(image.DigestRef); err != nil {
 			return errors.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
@@ -179,7 +175,29 @@ func (o *PushOptions) validateImages(bundleDirPath string) error {
 	return nil
 }
 
-func (o *PushOptions) extractBundleDirPath() (string, error) {
+func (o *PushOptions) validateBundleDirs(bundleDirPaths []string) error {
+	if len(bundleDirPaths) != 1 {
+		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ", "))
+	}
+
+	path := bundleDirPaths[0]
+
+	// make sure it is a child of one input dir
+	for _, flagPath := range o.FileFlags.Files {
+		flagPath, err := filepath.Abs(flagPath)
+		if err != nil {
+			return err
+		}
+
+		if filepath.Dir(path) == flagPath {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Expected '%s' directory, to be a direct child of one of: %s; was %s", BundleDir, strings.Join(o.FileFlags.Files, ", "), path)
+}
+
+func (o *PushOptions) findBundleDirs() ([]string, error) {
 	var bundlePaths []string
 	for _, flagPath := range o.FileFlags.Files {
 		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
@@ -189,14 +207,6 @@ func (o *PushOptions) extractBundleDirPath() (string, error) {
 
 			if filepath.Base(currPath) != BundleDir {
 				return nil
-			}
-
-			if o.isImage() {
-				return fmt.Errorf("Images cannot be pushed with a '%s' bundle directory (found at '%s'), consider using a bundle", BundleDir, currPath)
-			}
-
-			if filepath.Dir(currPath) != flagPath {
-				return fmt.Errorf("Expected '%s' dir to be a direct child of '%s', but was: '%s'", BundleDir, flagPath, currPath)
 			}
 
 			currPath, err = filepath.Abs(currPath)
@@ -210,18 +220,36 @@ func (o *PushOptions) extractBundleDirPath() (string, error) {
 		})
 
 		if err != nil {
-			return "", err
+			return []string{}, err
 		}
 	}
 
-	switch {
-	case len(bundlePaths) == 0 && o.isImage():
-		return "", nil
-	case len(bundlePaths) == 1:
-		return bundlePaths[0], nil
-	default:
-		return "", fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundlePaths), strings.Join(bundlePaths, ", "))
+	return bundlePaths, nil
+}
+
+func (o *PushOptions) extractBundleDir() (ImageLock, error) {
+	bundlePaths, err := o.findBundleDirs()
+	if err != nil {
+		return ImageLock{}, nil
 	}
+
+	err = o.validateBundleDirs(bundlePaths)
+	if err != nil {
+		return ImageLock{}, err
+	}
+
+	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], "images.yml"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = fmt.Errorf("Must have images.yml in '%s' directory", BundleDir)
+		}
+		return ImageLock{}, err
+	}
+
+	var imgLock ImageLock
+	err = yaml.Unmarshal(imagesBytes, &imgLock)
+
+	return imgLock, err
 }
 
 func (o *PushOptions) checkRepeatedPaths() error {

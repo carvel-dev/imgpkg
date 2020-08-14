@@ -4,9 +4,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+const emptyImagesYaml = `apiVersion: pkgx.k14s.io/v1alpha1
+kind: ImagesLock
+spec:
+  images: []`
 
 func TestMultiImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
@@ -20,17 +26,22 @@ func TestMultiImgpkgDirError(t *testing.T) {
 
 	// cleanup any previous state
 	Cleanup(pushDir)
-	err := os.Mkdir(pushDir, 0700)
+	err := os.MkdirAll(fooDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
-	err = os.MkdirAll(filepath.Join(fooDir, ".imgpkg"), 0700)
+	err = os.MkdirAll(barDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
-	err = os.MkdirAll(filepath.Join(barDir, ".imgpkg"), 0700)
+	err = createBundleDir(fooDir, "")
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	err = createBundleDir(barDir, "")
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -54,15 +65,12 @@ func TestImageWithImgpkgDirError(t *testing.T) {
 
 	// cleaned up via pushDir
 	fooDir := filepath.Join(pushDir, "foo")
-
-	// cleanup any previous state
-	Cleanup(pushDir)
-	err := os.Mkdir(pushDir, 0700)
+	err := os.MkdirAll(fooDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
-	err = os.MkdirAll(filepath.Join(fooDir, ".imgpkg"), 0700)
+	err = createBundleDir(fooDir, "")
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -73,7 +81,8 @@ func TestImageWithImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	if !strings.Contains(err.Error(), "Images cannot be pushed with a '.imgpkg' bundle directory") {
+	reg := regexp.MustCompile("Images cannot be pushed with '.imgpkg' directories.*, consider using a bundle")
+	if !reg.MatchString(err.Error()) {
 		t.Fatalf("Expected error to contain message about image with bundle dir, got: %s", err)
 	}
 }
@@ -83,15 +92,14 @@ func TestNestedImgpkgDirError(t *testing.T) {
 	pushDir := filepath.Join(tempDir, "imgpkg-push-units-nested-dir")
 	defer Cleanup(pushDir)
 
-	// cleanup any previous state
-	Cleanup(pushDir)
-	err := os.Mkdir(pushDir, 0700)
+	// cleaned up via push dir
+	fooDir := filepath.Join(pushDir, "foo")
+	err := os.MkdirAll(fooDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
-	// cleaned up via push dir
-	err = os.MkdirAll(filepath.Join(pushDir, "foo", ".imgpkg"), 0700)
+	err = createBundleDir(fooDir, "")
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -102,7 +110,7 @@ func TestNestedImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	if !strings.Contains(err.Error(), "Expected '.imgpkg' dir to be a direct child") {
+	if !strings.Contains(err.Error(), "Expected '.imgpkg' directory, to be a direct child of one of") {
 		t.Fatalf("Expected error to contain message about .imgpkg being a direct child, got: %s", err)
 	}
 }
@@ -138,19 +146,18 @@ func TestDuplicateFilepathError(t *testing.T) {
 
 	// cleaned up via pushDir
 	fooDir := filepath.Join(pushDir, "foo")
-	imgpkgDir := filepath.Join(fooDir, ".imgpkg")
-
-	// cleanup any previous state
-	Cleanup(pushDir)
-
-	// Makes push, foo, and imgpkg dirs
-	err := os.MkdirAll(imgpkgDir, 0700)
+	err := os.MkdirAll(fooDir, 0700)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
 	someFile := filepath.Join(fooDir, "some-file.yml")
 	err = ioutil.WriteFile(someFile, []byte("foo: bar"), 0600)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	err = createBundleDir(fooDir, "")
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -207,4 +214,54 @@ func Cleanup(dirs ...string) {
 	for _, dir := range dirs {
 		os.RemoveAll(dir)
 	}
+}
+
+func TestUnresolvedImageRefError(t *testing.T) {
+	testDir := filepath.Join(os.TempDir(), "imgpkg-unresolved-ref-test")
+	defer Cleanup(testDir)
+
+	err := os.MkdirAll(testDir, 0700)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	imagesYml := `apiVersion: pkgx.k14s.io/v1alpha1
+kind: ImagesLock
+spec:
+  images:
+  - name: nginx
+    tag: latest
+    url: index.docker.io/library/nginx@sha256:36b74457bccb56fbf8b05f79c85569501b721d4db813b684391d63e02287c0b2
+  - name: another-app
+    tag: v1.0
+    url: docker.io/another-app:v1.0`
+
+	err = createBundleDir(testDir, imagesYml)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	push := PushOptions{FileFlags: FileFlags{Files: []string{testDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
+	err = push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	if !strings.Contains(err.Error(), "Expected ref to be in digest form, got") {
+		t.Fatalf("Expected error to contain message about an image reference not being in digest form, got: %s", err)
+	}
+}
+
+func createBundleDir(loc, imagesYaml string) error {
+	if imagesYaml == "" {
+		imagesYaml = emptyImagesYaml
+	}
+
+	bundleDir := filepath.Join(loc, ".imgpkg")
+	err := os.Mkdir(bundleDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
 }

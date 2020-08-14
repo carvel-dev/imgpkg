@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -30,14 +31,7 @@ const imagesYAML = `---
 apiVersion: pkgx.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
-  images:
-  - name: my-app # we should think on a name for this key
-    tag: v1.0
-    url: docker.io/my-app@sha256:<digest>
-    metadata: ~
-  - name: another-app # we should think on a name for this key
-    url: docker.io/another-app@sha256:<digest>
-    metadata: ~
+  images: []
 `
 
 func TestBundlePushPullAnnotation(t *testing.T) {
@@ -124,11 +118,11 @@ apiVersion: imgpkg.k14s.io/v1alpha1
 kind: BundleLock
 spec:
   image:
-    url: %s@sha256:97f5b8f8e0000631d368961bd15ef17690767b51704641031eb1c2de5548f4c1
+    url: %s@sha256:[A-Fa-f0-9]{64}
     tag: latest
 `, env.Image)
 
-	if string(bundleBs) != expectedYml {
+	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
 		t.Fatalf("Expected BundleLock to match:\n\n %s\n\n, got:\n\n %s\n", expectedYml, string(bundleBs))
 	}
 
