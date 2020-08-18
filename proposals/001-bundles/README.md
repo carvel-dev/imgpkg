@@ -159,6 +159,8 @@ Notes:
 ---
 # Use Cases
 
+See [workflow](workflow.md) for an example E2E workflow.
+
 ## Use Case: No relocate bundle consumption
 
 Developer wants to provide a no-surprises install of a "K8s-native" app, leveraging a number of publicly available images.
