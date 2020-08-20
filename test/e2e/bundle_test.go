@@ -40,7 +40,7 @@ spec:
 func TestBundlePushPullAnnotation(t *testing.T) {
 	// Do some setup
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
 	bundleDir, err := createBundleDir(assetsDir)
 	defer os.RemoveAll(bundleDir)
@@ -97,7 +97,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 
 func TestBundleLockFile(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
 	bundleDir, err := createBundleDir(assetsDir)
 	defer os.RemoveAll(bundleDir)
@@ -150,7 +150,7 @@ spec:
 
 func TestImagePullOnBundleError(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
 
 	bundleDir, err := createBundleDir(assetsDir)
@@ -179,7 +179,7 @@ func TestImagePullOnBundleError(t *testing.T) {
 
 func TestBundlePullOnImageError(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
 	assetsPath := filepath.Join("assets", "simple-app")
 	path := filepath.Join("tmp", "imgpkg-test-pull-image-error")

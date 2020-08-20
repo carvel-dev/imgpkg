@@ -9,7 +9,7 @@ import (
 
 func TestDeterministicPush(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
 	assetsPath := "assets/simple-app"
 

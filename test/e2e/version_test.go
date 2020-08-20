@@ -9,7 +9,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	out := Imgpkg{t, Logger{}}.Run([]string{"version"})
+	env := BuildEnv(t)
+	out := Imgpkg{t, Logger{}, env.ImgpkgPath}.Run([]string{"version"})
 
 	if !strings.Contains(out, "imgpkg version") {
 		t.Fatalf("Expected to find client version")

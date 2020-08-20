@@ -14,8 +14,9 @@ import (
 )
 
 type Imgpkg struct {
-	t *testing.T
-	l Logger
+	t          *testing.T
+	l          Logger
+	imgpkgPath string
 }
 
 type RunOpts struct {
@@ -37,8 +38,7 @@ func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
 
 	k.l.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))
 
-	cmdName := "imgpkg"
-	cmd := exec.Command(cmdName, args...)
+	cmd := exec.Command(k.imgpkgPath, args...)
 	cmd.Stdin = opts.StdinReader
 
 	var stderr, stdout bytes.Buffer

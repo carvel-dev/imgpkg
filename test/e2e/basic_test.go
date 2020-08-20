@@ -12,7 +12,7 @@ import (
 
 func TestPushPull(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
 	assetsPath := filepath.Join("assets", "simple-app")
 	path := filepath.Join(os.TempDir(), "imgpkg-test-basic")
@@ -38,7 +38,7 @@ func TestPushPull(t *testing.T) {
 
 func TestPushMultipleFiles(t *testing.T) {
 	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
 	assetsPath := filepath.Join("assets", "simple-app")
 	path := filepath.Join(os.TempDir(), "imgpkg-test-push-multiple-files")

@@ -10,12 +10,19 @@ import (
 )
 
 type Env struct {
-	Image string
+	Image      string
+	ImgpkgPath string
 }
 
 func BuildEnv(t *testing.T) Env {
+	imgpkgPath := os.Getenv("IMGPKG_BINARY")
+	if imgpkgPath == "" {
+		imgpkgPath = "imgpkg"
+	}
+
 	env := Env{
-		Image: os.Getenv("IMGPKG_E2E_IMAGE"),
+		Image:      os.Getenv("IMGPKG_E2E_IMAGE"),
+		ImgpkgPath: imgpkgPath,
 	}
 	env.Validate(t)
 	return env
