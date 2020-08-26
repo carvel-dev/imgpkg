@@ -4,7 +4,6 @@
 package e2e
 
 import (
-	"regexp"
 	"testing"
 
 	uitest "github.com/cppforlife/go-cli-ui/ui/test"
@@ -42,12 +41,4 @@ func TestTagList(t *testing.T) {
 			t.Fatalf("Expected to find tag '%s'", name)
 		}
 	}
-}
-
-func extractDigest(out string, t *testing.T) string {
-	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
-	if len(match) != 2 {
-		t.Fatalf("Expected to find digest in output '%s'", out)
-	}
-	return match[1]
 }

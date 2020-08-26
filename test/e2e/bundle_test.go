@@ -19,30 +19,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-const bundleYAML = `---
-apiVersion: pkgx.k14s.io/v1alpha1
-kind: Bundle
-metadata:
-  name: my-app
-authors:
-- name: blah
-  email: blah@blah.com
-websites:
-- url: blah.com
-`
-const imagesYAML = `---
-apiVersion: pkgx.k14s.io/v1alpha1
-kind: ImagesLock
-spec:
-  images: []
-`
-
 func TestBundlePushPullAnnotation(t *testing.T) {
 	// Do some setup
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
-	bundleDir, err := createBundleDir(assetsDir)
+	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
 	defer os.RemoveAll(bundleDir)
 	if err != nil {
 		t.Fatalf("Creating bundle directory: %s", err.Error())
@@ -99,7 +81,7 @@ func TestBundleLockFile(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
-	bundleDir, err := createBundleDir(assetsDir)
+	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
 	defer os.RemoveAll(bundleDir)
 	if err != nil {
 		t.Fatalf("Creating bundle directory: %s", err.Error())
@@ -153,7 +135,7 @@ func TestImagePullOnBundleError(t *testing.T) {
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
 
-	bundleDir, err := createBundleDir(assetsDir)
+	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
 	defer os.RemoveAll(bundleDir)
 	if err != nil {
 		t.Fatalf("Creating bundle directory: %s", err.Error())
@@ -203,24 +185,4 @@ func TestBundlePullOnImageError(t *testing.T) {
 	if !strings.Contains(errOut, "Expected image flag when pulling a image or index, please use --image instead of -b") {
 		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
 	}
-}
-
-func createBundleDir(dir string) (string, error) {
-	imgpkgDir := filepath.Join(dir, ".imgpkg")
-	err := os.Mkdir(imgpkgDir, 0700)
-	if err != nil {
-		return "", err
-	}
-
-	fileContents := map[string]string{
-		"bundle.yml": bundleYAML,
-		"images.yml": imagesYAML,
-	}
-	for filename, contents := range fileContents {
-		err = ioutil.WriteFile(filepath.Join(imgpkgDir, filename), []byte(contents), 0600)
-		if err != nil {
-			return imgpkgDir, err
-		}
-	}
-	return imgpkgDir, nil
 }

@@ -10,8 +10,9 @@ import (
 )
 
 type Env struct {
-	Image      string
-	ImgpkgPath string
+	Image          string
+	ImgpkgPath     string
+	RelocationRepo string
 }
 
 func BuildEnv(t *testing.T) Env {
@@ -21,8 +22,9 @@ func BuildEnv(t *testing.T) Env {
 	}
 
 	env := Env{
-		Image:      os.Getenv("IMGPKG_E2E_IMAGE"),
-		ImgpkgPath: imgpkgPath,
+		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
+		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
+		ImgpkgPath:     imgpkgPath,
 	}
 	env.Validate(t)
 	return env

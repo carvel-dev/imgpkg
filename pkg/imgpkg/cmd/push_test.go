@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-const emptyImagesYaml = `apiVersion: pkgx.k14s.io/v1alpha1
+const emptyImagesYaml = `apiVersion: imgpkg.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
   images: []`
@@ -228,7 +228,7 @@ func TestUnresolvedImageRefError(t *testing.T) {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
 
-	imagesYml := `apiVersion: pkgx.k14s.io/v1alpha1
+	imagesYml := `apiVersion: imgpkg.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
   images:

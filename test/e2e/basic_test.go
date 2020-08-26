@@ -4,7 +4,6 @@
 package e2e
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,21 +64,5 @@ func TestPushMultipleFiles(t *testing.T) {
 
 	for assetFile, downloadedFile := range expectedFiles {
 		compareFiles(filepath.Join(assetsPath, assetFile), filepath.Join(path, downloadedFile), t)
-	}
-}
-
-func compareFiles(path1, path2 string, t *testing.T) {
-	path1Bs, err := ioutil.ReadFile(path1)
-	if err != nil {
-		t.Fatalf("reading path1: %s", err)
-	}
-
-	path2Bs, err := ioutil.ReadFile(path2)
-	if err != nil {
-		t.Fatalf("reading path2: %s", err)
-	}
-
-	if string(path1Bs) != string(path2Bs) {
-		t.Fatalf("Expected contents to match for %s vs %s", path1, path2)
 	}
 }
