@@ -31,17 +31,18 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 	o.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
 	defer func() { o.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
 
-	var refs []regname.Reference
+	var refs []imagedesc.RefWithTag
 
 	for _, img := range foundImages.All() {
 		// Validate strictly as these refs were already resolved
-		ref, err := regname.NewDigest(img.URL, regname.StrictValidation)
+
+		ref, err := regname.ParseReference(img.URL)
 		if err != nil {
 			return nil, err
 		}
 
 		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.URL)))
-		refs = append(refs, ref)
+		refs = append(refs, imagedesc.RefWithTag{ref, img.Tag})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, registry)
@@ -70,7 +71,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			existingRef, err := regname.NewDigest(item.Ref())
+			existingRef, err := regname.ParseReference(item.Ref())
 			if err != nil {
 				errCh <- err
 				return
@@ -82,7 +83,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 				return
 			}
 
-			importedImages.Add(UnprocessedImageURL{existingRef.Name()}, Image{URL: importDigestRef.Name()})
+			importedImages.Add(UnprocessedImageURL{URL: existingRef.Name()}, Image{URL: importDigestRef.Name()})
 			errCh <- nil
 		}()
 	}
@@ -98,7 +99,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 }
 
 func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
-	existingRef regname.Digest, importRepo regname.Repository,
+	existingRef regname.Reference, importRepo regname.Repository,
 	registry ctlimg.Registry) (regname.Digest, error) {
 
 	itemDigest, err := item.Digest()
@@ -111,8 +112,13 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 		return regname.Digest{}, fmt.Errorf("Building new digest image ref: %s", err)
 	}
 
+	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
+	if item.Tag() != "" {
+		tag = item.Tag()
+	}
+
 	// Seems like AWS ECR doesnt like using digests for manifest uploads
-	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:imgpkg-%s-%s", importRepo.Name(), itemDigest.Algorithm, itemDigest.Hex))
+	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
 	if err != nil {
 		return regname.Digest{}, fmt.Errorf("Building upload tag image ref: %s", err)
 	}

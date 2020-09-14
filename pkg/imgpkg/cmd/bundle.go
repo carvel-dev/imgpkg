@@ -12,15 +12,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func isBundle(ref string, regOpts image.RegistryOpts) (bool, error) {
+func isBundle(ref name.Reference, regOpts image.RegistryOpts) (bool, error) {
 	reg := image.NewRegistry(regOpts)
 
-	parsedRef, err := name.ParseReference(ref)
-	if err != nil {
-		return false, err
-	}
-
-	img, err := reg.Image(parsedRef)
+	img, err := reg.Image(ref)
 	if err != nil {
 		return false, err
 	}
@@ -34,15 +29,10 @@ func isBundle(ref string, regOpts image.RegistryOpts) (bool, error) {
 	return present, nil
 }
 
-func GetReferencedImages(bundleRef string, regOpts image.RegistryOpts) ([]string, error) {
+func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) ([]string, error) {
 	reg := image.NewRegistry(regOpts)
 
-	parsedRef, err := name.ParseReference(bundleRef)
-	if err != nil {
-		return nil, err
-	}
-
-	img, err := reg.Image(parsedRef)
+	img, err := reg.Image(bundleRef)
 	if err != nil {
 		return nil, err
 	}

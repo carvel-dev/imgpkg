@@ -22,6 +22,11 @@ type Registry interface {
 	Image(regname.Reference) (regv1.Image, error)
 }
 
+type RefWithTag struct {
+	Ref regname.Reference
+	Tag string
+}
+
 type ImageRefDescriptors struct {
 	registry Registry
 
@@ -42,7 +47,7 @@ func NewImageRefDescriptorsFromBytes(data []byte) (*ImageRefDescriptors, error) 
 	return &ImageRefDescriptors{descs: descs}, nil
 }
 
-func NewImageRefDescriptors(refs []regname.Reference, registry Registry) (*ImageRefDescriptors, error) {
+func NewImageRefDescriptors(refs []RefWithTag, registry Registry) (*ImageRefDescriptors, error) {
 	registry = errRegistry{registry}
 
 	imageRefDescs := &ImageRefDescriptors{
@@ -61,7 +66,7 @@ func NewImageRefDescriptors(refs []regname.Reference, registry Registry) (*Image
 			buildThrottle.Take()
 			defer buildThrottle.Done()
 
-			regDesc, err := registry.Generic(ref)
+			regDesc, err := registry.Generic(ref.Ref)
 			if err != nil {
 				return err
 			}
@@ -99,14 +104,15 @@ func (ids *ImageRefDescriptors) Descriptors() []ImageOrImageIndexDescriptor {
 	return ids.descs
 }
 
-func (ids *ImageRefDescriptors) buildImageIndex(ref regname.Reference, regDesc regv1.Descriptor) (ImageIndexDescriptor, error) {
+func (ids *ImageRefDescriptors) buildImageIndex(ref RefWithTag, regDesc regv1.Descriptor) (ImageIndexDescriptor, error) {
 	td := ImageIndexDescriptor{
-		Refs:      []string{ref.Name()},
+		Refs:      []string{ref.Ref.Name()},
 		MediaType: string(regDesc.MediaType),
 		Digest:    regDesc.Digest.String(),
+		Tag:       ref.Tag,
 	}
 
-	imgIndex, err := ids.registry.Index(ref)
+	imgIndex, err := ids.registry.Index(ref.Ref)
 	if err != nil {
 		return td, err
 	}
@@ -125,13 +131,13 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref regname.Reference, regDesc r
 
 	for _, manDesc := range imgIndexManifest.Manifests {
 		if ids.isImageIndex(manDesc) {
-			imgIndexTd, err := ids.buildImageIndex(ids.buildRef(ref, manDesc.Digest.String()), manDesc)
+			imgIndexTd, err := ids.buildImageIndex(RefWithTag{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag}, manDesc)
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
 			td.Indexes = append(td.Indexes, imgIndexTd)
 		} else {
-			imgTd, err := ids.buildImage(ids.buildRef(ref, manDesc.Digest.String()))
+			imgTd, err := ids.buildImage(RefWithTag{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag})
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
@@ -142,10 +148,10 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref regname.Reference, regDesc r
 	return td, nil
 }
 
-func (ids *ImageRefDescriptors) buildImage(ref regname.Reference) (ImageDescriptor, error) {
+func (ids *ImageRefDescriptors) buildImage(ref RefWithTag) (ImageDescriptor, error) {
 	td := ImageDescriptor{}
 
-	img, err := ids.registry.Image(ref)
+	img, err := ids.registry.Image(ref.Ref)
 	if err != nil {
 		return td, err
 	}
@@ -173,7 +179,7 @@ func (ids *ImageRefDescriptors) buildImage(ref regname.Reference) (ImageDescript
 	}
 
 	td = ImageDescriptor{
-		Refs: []string{ref.String()},
+		Refs: []string{ref.Ref.String()},
 
 		Config: ConfigDescriptor{
 			Digest: cfgDigest.String(),
@@ -185,6 +191,7 @@ func (ids *ImageRefDescriptors) buildImage(ref regname.Reference) (ImageDescript
 			Digest:    manifestDigest.String(),
 			Raw:       string(manifestBlob),
 		},
+		Tag: ref.Tag,
 	}
 
 	layers, err := img.Layers()

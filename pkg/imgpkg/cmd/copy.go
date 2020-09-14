@@ -89,6 +89,9 @@ func (o *CopyOptions) Run() error {
 
 		if bundleURL != "" {
 			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
+			if err != nil {
+				return err
+			}
 		}
 
 		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
@@ -101,6 +104,9 @@ func (o *CopyOptions) Run() error {
 
 		if bundleURL != "" {
 			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
+			if err != nil {
+				return err
+			}
 		}
 
 		importRepo, err = regname.NewRepository(o.RepoDst)
@@ -165,7 +171,12 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			}
 
 			bundleRef = bundleLock.Spec.Image.DigestRef
-			isBundle, err := isBundle(bundleRef, o.RegistryFlags.AsRegistryOpts())
+			parsedRef, err := regname.ParseReference(bundleRef)
+			if err != nil {
+				return nil, "", err
+			}
+
+			isBundle, err := isBundle(parsedRef, o.RegistryFlags.AsRegistryOpts())
 			if err != nil {
 				return nil, "", err
 			}
@@ -174,15 +185,15 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 				return nil, "", fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")
 			}
 
-			imageRefs, err := GetReferencedImages(bundleRef, o.RegistryFlags.AsRegistryOpts())
+			imageRefs, err := GetReferencedImages(parsedRef, o.RegistryFlags.AsRegistryOpts())
 			if err != nil {
 				return nil, "", err
 			}
 
 			for _, imgRef := range imageRefs {
-				unprocessedImageURLs.Add(UnprocessedImageURL{imgRef})
+				unprocessedImageURLs.Add(UnprocessedImageURL{URL: imgRef})
 			}
-			//unprocessedImageURLs.Add(UnprocessedImageURL{bundleRef})
+			unprocessedImageURLs.Add(UnprocessedImageURL{bundleRef, bundleLock.Spec.Image.OriginalTag})
 
 		case lock.Kind == "ImagesLock":
 			imgLock, err := ReadImageLockFile(o.LockSrc)
@@ -191,14 +202,19 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			}
 
 			for _, img := range imgLock.Spec.Images {
-				unprocessedImageURLs.Add(UnprocessedImageURL{img.DigestRef})
+				unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.DigestRef})
 			}
 		default:
 			return nil, "", fmt.Errorf("Unexpected lock kind, expected bundleLock or imageLock, got: %v", lock.Kind)
 		}
 
 	case o.ImageSrc != "":
-		isBundle, err := isBundle(o.ImageSrc, o.RegistryFlags.AsRegistryOpts())
+		parsedRef, err := regname.ParseReference(o.ImageSrc)
+		if err != nil {
+			return nil, "", err
+		}
+
+		isBundle, err := isBundle(parsedRef, o.RegistryFlags.AsRegistryOpts())
 		if err != nil {
 			return nil, "", err
 		}
@@ -212,7 +228,12 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 	default:
 		bundleRef = o.BundleSrc
 
-		isBundle, err := isBundle(bundleRef, o.RegistryFlags.AsRegistryOpts())
+		parsedRef, err := regname.ParseReference(bundleRef)
+		if err != nil {
+			return nil, "", err
+		}
+
+		isBundle, err := isBundle(parsedRef, o.RegistryFlags.AsRegistryOpts())
 		if err != nil {
 			return nil, "", err
 		}
@@ -221,7 +242,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			return nil, "", fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")
 		}
 
-		imageRefs, err := GetReferencedImages(bundleRef, o.RegistryFlags.AsRegistryOpts())
+		imageRefs, err := GetReferencedImages(parsedRef, o.RegistryFlags.AsRegistryOpts())
 		if err != nil {
 			return nil, "", err
 		}
@@ -229,7 +250,13 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 		for _, imgRef := range imageRefs {
 			unprocessedImageURLs.Add(UnprocessedImageURL{URL: imgRef})
 		}
-		//unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef})
+
+		var bundleTag string
+		if t, ok := parsedRef.(regname.Tag); ok {
+			bundleTag = t.TagStr()
+		}
+
+		unprocessedImageURLs.Add(UnprocessedImageURL{bundleRef, bundleTag})
 	}
 
 	return unprocessedImageURLs, bundleRef, nil
@@ -237,11 +264,18 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 
 func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*UnprocessedImageURLs, error) {
 	checkedURLs := NewUnprocessedImageURLs()
-	checkedURLs.Add(UnprocessedImageURL{bundleURL})
-
-	bundleRepo := strings.Split(bundleURL, "@")[0]
+	bundleRef, err := regname.ParseReference(bundleURL)
+	if err != nil {
+		return nil, err
+	}
+	bundleRepo := bundleRef.Context().Name()
 
 	for _, img := range foundImages.All() {
+		if img.URL == bundleURL {
+			checkedURLs.Add(img)
+			continue
+		}
+
 		parts := strings.Split(img.URL, "@")
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("Parsing image URL: %s", img.URL)
@@ -256,7 +290,7 @@ func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundl
 
 		_, err = registry.Generic(ref)
 		if err == nil {
-			checkedURLs.Add(UnprocessedImageURL{newURL})
+			checkedURLs.Add(UnprocessedImageURL{URL: newURL})
 		} else {
 			checkedURLs.Add(img)
 		}

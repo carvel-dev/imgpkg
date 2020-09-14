@@ -21,6 +21,8 @@ func NewDescribedImage(desc ImageDescriptor, layerProvider LayerProvider) Descri
 
 func (i DescribedImage) Ref() string { return i.desc.Refs[0] }
 
+func (i DescribedImage) Tag() string { return i.desc.Tag }
+
 // Layers returns the ordered collection of filesystem layers that comprise this image.
 // The order of the list is oldest/base layer first, and most-recent/top layer last.
 func (i DescribedImage) Layers() ([]regv1.Layer, error) {

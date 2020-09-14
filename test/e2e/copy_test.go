@@ -166,12 +166,11 @@ spec:
 	bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
 	out = imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", assetsPath})
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
-	bundleDigestRef := env.Image + bundleDigest
 
 	// copy via created ref
-	imgpkg.Run([]string{"copy", "--bundle", bundleDigestRef, "--to-repo", env.RelocationRepo})
+	imgpkg.Run([]string{"copy", "--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag), "--to-repo", env.RelocationRepo})
 
-	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + bundleTag}
+	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleTag, env.RelocationRepo + bundleDigest}
 	if err := validateImagePresence(refs); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
 	}
@@ -213,15 +212,14 @@ spec:
 	defer os.RemoveAll(imgpkgDir)
 
 	// create bundle that refs image and a random tag based on time
-	bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-	out = imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", assetsPath})
+	out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 	bundleDigestRef := env.Image + bundleDigest
 
 	// copy via created ref
 	imgpkg.Run([]string{"copy", "--bundle", bundleDigestRef, "--to-repo", env.RelocationRepo})
 
-	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + bundleTag}
+	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest}
 	if err := validateImagePresence(refs); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
 	}
