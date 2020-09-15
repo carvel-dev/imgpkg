@@ -10,13 +10,12 @@ jobs:
       with:
         go-version: "1.13"
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
       with:
         path: src/github.com/k14s/kbld
     - name: Run Tests
       run: |
         set -e -x
-        export GOPATH=$(echo `pwd`/../../../../)
 
         # Install kapp for creating local registry
         mkdir -p /tmp/bin
@@ -32,6 +31,9 @@ jobs:
         chmod +x /tmp/bin/minikube
         minikube start --driver=docker --insecure-registry=172.17.0.0/16
         eval $(minikube docker-env --shell=bash)
+        
+        export GOPATH=$(echo `pwd`)
+        cd src/github.com/k14s/imgpkg
 
         # deploy local registry and run tests
         ./hack/test-all-minikube-local-registry.sh
