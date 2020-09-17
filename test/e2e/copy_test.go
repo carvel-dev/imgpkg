@@ -3,8 +3,6 @@ package e2e
 import (
 	"bytes"
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,11 +10,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
+	"gopkg.in/yaml.v2"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-func TestCopyBundleLockInputToRepo(t *testing.T) {
+func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -66,20 +68,43 @@ spec:
 		t.Fatalf("failed to read bundlelock file: %v", err)
 	}
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(bundleLockYml.Spec.Image.DigestRef, t))
-	bundleTag := fmt.Sprintf(":%s", bundleLockYml.Spec.Image.OriginalTag)
+	bundleTag := fmt.Sprintf("%s", bundleLockYml.Spec.Image.OriginalTag)
+
+	lockOutputPath := filepath.Join(os.TempDir(), "bundle-lock-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
 
 	// copy via output file
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo})
+	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+
+	bLockBytes, err := ioutil.ReadFile(lockOutputPath)
+	if err != nil {
+		t.Fatalf("could not read lock-output: %v", err)
+	}
+
+	var bLock cmd.BundleLock
+	err = yaml.Unmarshal(bLockBytes, &bLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
+	}
+
+	relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest)
+	if bLock.Spec.Image.DigestRef != relocatedRef {
+		t.Fatalf("expected bundle digest to be '%s', but was '%s'", relocatedRef, bLock.Spec.Image.DigestRef)
+	}
+
+	if bLock.Spec.Image.OriginalTag != bundleTag {
+		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", bundleTag, bLock.Spec.Image.OriginalTag)
+	}
 
 	// check if bundle and referenced images are present in dst repo
-	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + bundleTag}
+	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + ":" + bundleTag}
 	if err := validateImagePresence(refs); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
 	}
 
 }
 
-func TestCopyImageLockInputToRepo(t *testing.T) {
+func TestCopyImageLockInputToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -102,7 +127,7 @@ func TestCopyImageLockInputToRepo(t *testing.T) {
 	}
 	defer os.Remove(randFile)
 
-	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", assetsPath})
+	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":v1", "-f", assetsPath})
 	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 	imageDigestRef := env.Image + imageDigest
 
@@ -113,6 +138,7 @@ spec:
   images:
   - name: image
     url: %s
+    tag: "v1"
 `, imageDigestRef)
 
 	err = ioutil.WriteFile(lockFile, []byte(imgsYml), 0700)
@@ -120,9 +146,35 @@ spec:
 		t.Fatalf("failed to create images.lock file: %v", err)
 	}
 
-	// copy via output file
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo})
+	lockOutputPath := filepath.Join(os.TempDir(), "image-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
 
+	// copy via output file
+	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+
+	iLockBytes, err := ioutil.ReadFile(lockOutputPath)
+	if err != nil {
+		t.Fatalf("could not read lock-output: %v", err)
+	}
+
+	var iLock cmd.ImageLock
+	err = yaml.Unmarshal(iLockBytes, &iLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
+	}
+
+	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
+	if iLock.Spec.Images[0].DigestRef != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
+	}
+
+	if iLock.Spec.Images[0].OriginalTag != "v1" {
+		t.Fatalf("expected lock output to contain tag '%s', got '%s'", "v1", iLock.Spec.Images[0].OriginalTag)
+	}
+
+	if iLock.Spec.Images[0].Name != "image" {
+		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
+	}
 	// check if image is present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest}
 	if err := validateImagePresence(refs); err != nil {
@@ -130,7 +182,7 @@ spec:
 	}
 }
 
-func TestCopyBundleWithCollocatedReferencedImagesToRepo(t *testing.T) {
+func TestCopyBundleWithCollocatedReferencedImagesToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -167,8 +219,34 @@ spec:
 	out = imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", assetsPath})
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 
+	lockOutputPath := filepath.Join(os.TempDir(), "bundle-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
 	// copy via created ref
-	imgpkg.Run([]string{"copy", "--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag), "--to-repo", env.RelocationRepo})
+	imgpkg.Run([]string{"copy",
+		"--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag),
+		"--to-repo", env.RelocationRepo,
+		"--lock-output", lockOutputPath},
+	)
+
+	bLockBytes, err := ioutil.ReadFile(lockOutputPath)
+	if err != nil {
+		t.Fatalf("could not read lock-output: %v", err)
+	}
+
+	var bLock cmd.BundleLock
+	err = yaml.Unmarshal(bLockBytes, &bLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
+	}
+
+	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest)
+	if bLock.Spec.Image.DigestRef != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, bLock.Spec.Image.DigestRef)
+	}
+
+	if trimmedTag := strings.TrimPrefix(bundleTag, ":"); bLock.Spec.Image.OriginalTag != trimmedTag {
+		t.Fatalf("expected lock output to contain tag '%s', got '%s'", trimmedTag, bLock.Spec.Image.OriginalTag)
+	}
 
 	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleTag, env.RelocationRepo + bundleDigest}
 	if err := validateImagePresence(refs); err != nil {
@@ -225,7 +303,7 @@ spec:
 	}
 }
 
-func TestCopyImageInputToRepo(t *testing.T) {
+func TestCopyImageInputToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -239,21 +317,50 @@ func TestCopyImageInputToRepo(t *testing.T) {
 	}
 	defer os.Remove(randFile)
 
-	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", assetsPath})
+	tag := time.Now().UnixNano()
+	out := imgpkg.Run([]string{"push", "--tty", "-i", fmt.Sprintf("%s:%v", env.Image, tag), "-f", assetsPath})
 	imageDigestTag := fmt.Sprintf("@%s", extractDigest(out, t))
-	imageDigestRef := env.Image + imageDigestTag
+
+	lockOutputPath := filepath.Join(os.TempDir(), "image-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
 
 	// copy via create ref
-	imgpkg.Run([]string{"copy", "--image", imageDigestRef, "--to-repo", env.RelocationRepo})
+	imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s:%v", env.Image, tag), "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
-	// check if image is present in dst repo
-	refs := []string{env.RelocationRepo + imageDigestTag}
-	if err := validateImagePresence(refs); err != nil {
+	iLockBytes, err := ioutil.ReadFile(lockOutputPath)
+	if err != nil {
+		t.Fatalf("could not read lock-output: %v", err)
+	}
+
+	var iLock cmd.ImageLock
+	err = yaml.Unmarshal(iLockBytes, &iLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
+	}
+
+	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigestTag)
+	if iLock.Spec.Images[0].DigestRef != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
+	}
+
+	if iLock.Spec.Images[0].OriginalTag != fmt.Sprintf("%v", tag) {
+		t.Fatalf("expected lock output to contain tag '%v', got '%s'", tag, iLock.Spec.Images[0].OriginalTag)
+	}
+
+	if iLock.Spec.Images[0].Name != fmt.Sprintf("%s:%v", env.Image, tag) {
+		t.Fatalf("expected lock output to contain name '%v', got '%s'", fmt.Sprintf("%s:%v", env.Image, tag), iLock.Spec.Images[0].Name)
+	}
+
+	if err := validateImagePresence([]string{env.RelocationRepo + imageDigestTag}); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
+	}
+
+	if err := validateImagePresence([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}); err == nil {
+		t.Fatalf("expected not to find image with tag '%v', but did", tag)
 	}
 }
 
-func TestCopyBundleLockInputToTar(t *testing.T) {
+func TestCopyBundleLockInputViaTarWithTagAndLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -299,11 +406,11 @@ spec:
 
 	// create bundle that refs image with --lock-ouput
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsPath, "--lock-output", lockFile})
-	bundleLockYml, err := cmd.ReadBundleLockFile(lockFile)
+	bundlePushLockYml, err := cmd.ReadBundleLockFile(lockFile)
 	if err != nil {
 		t.Fatalf("failed to read bundlelock file: %v", err)
 	}
-	bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, extractDigest(bundleLockYml.Spec.Image.DigestRef, t))
+	bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, extractDigest(bundlePushLockYml.Spec.Image.DigestRef, t))
 
 	// copy via output file
 	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-tar", tarFilePath})
@@ -319,9 +426,44 @@ spec:
 			t.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
 		}
 	}
+
+	lockFilePath := filepath.Join(os.TempDir(), "relocate-from-tar-lock.yml")
+	defer os.Remove(lockFilePath)
+
+	// copy from tar to repo
+	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
+
+	bLockBytes, err := ioutil.ReadFile(lockFilePath)
+	if err != nil {
+		t.Fatalf("could not read lock file: %v", err)
+	}
+
+	var bundleLock cmd.BundleLock
+	err = yaml.Unmarshal(bLockBytes, &bundleLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal bundleLock")
+	}
+
+	relocatedRef := fmt.Sprintf("%s@%s", env.RelocationRepo, extractDigest(bundlePushLockYml.Spec.Image.DigestRef, t))
+	if bundleLock.Spec.Image.DigestRef != relocatedRef {
+		t.Fatalf("expected bundle digest to be '%s', but was '%s'", relocatedRef, bundleLock.Spec.Image.DigestRef)
+	}
+
+	if bundleLock.Spec.Image.OriginalTag != bundlePushLockYml.Spec.Image.OriginalTag {
+		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", bundlePushLockYml.Spec.Image.OriginalTag, bundleLock.Spec.Image.OriginalTag)
+	}
+
+	// validate bundle and image were relocated
+	relocatedBundleRef := relocatedRef
+	relocatedImageRef := env.RelocationRepo + imageDigest
+	relocatedBundleTagRef := fmt.Sprintf("%s:%v", env.RelocationRepo, bundlePushLockYml.Spec.Image.OriginalTag)
+
+	if err := validateImagePresence([]string{relocatedBundleRef, relocatedImageRef, relocatedBundleTagRef}); err != nil {
+		t.Fatalf("Failed to locate digest in relocationRepo: %v", err)
+	}
 }
 
-func TestCopyImageLockInputToTar(t *testing.T) {
+func TestCopyImageLockInputViaTarWithTagAndLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -356,6 +498,7 @@ spec:
   images:
   - name: image
     url: %s
+    tag: v1
 `, imageDigestRef)
 
 	err = ioutil.WriteFile(lockFile, []byte(imgsYml), 0700)
@@ -377,9 +520,45 @@ spec:
 			t.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
 		}
 	}
+
+	lockOutputPath := filepath.Join(os.TempDir(), "relocate-from-tar-lock.yml")
+	defer os.Remove(lockOutputPath)
+
+	// copy from tar to repo
+	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+
+	iLockBytes, err := ioutil.ReadFile(lockOutputPath)
+	if err != nil {
+		t.Fatalf("could not read lock-output: %v", err)
+	}
+
+	var iLock cmd.ImageLock
+	err = yaml.Unmarshal(iLockBytes, &iLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
+	}
+
+	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
+	if iLock.Spec.Images[0].DigestRef != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
+	}
+
+	if iLock.Spec.Images[0].OriginalTag != "v1" {
+		t.Fatalf("expected lock output to contain tag '%s', got '%s'", "v1", iLock.Spec.Images[0].OriginalTag)
+	}
+
+	if iLock.Spec.Images[0].Name != "image" {
+		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
+	}
+	// check if image is present in dst repo
+	refs := []string{env.RelocationRepo + imageDigest}
+	if err := validateImagePresence(refs); err != nil {
+		t.Fatalf("could not validate image presence: %v", err)
+	}
+
 }
 
-func TestCopyBundleInputToTarThenToRepo(t *testing.T) {
+func TestCopyBundleViaTarWithTagAndLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -422,40 +601,51 @@ spec:
 	}
 	defer os.RemoveAll(imgpkgDir)
 
+	tag := time.Now().UnixNano()
 	// create bundle that refs image
-	out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
+	out = imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s:%v", env.Image, tag), "-f", assetsPath})
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
-	bundleDigestRef := env.Image + bundleDigest
 
 	// copy to a tar
-	imgpkg.Run([]string{"copy", "-b", bundleDigestRef, "--to-tar", tarFilePath})
+	imgpkg.Run([]string{"copy", "-b", fmt.Sprintf("%s:%v", env.Image, tag), "--to-tar", tarFilePath})
 
-	// validate tar contains bundle and image
-	imagesOrIndexes, err := imagetar.NewTarReader(tarFilePath).Read()
-	if err != nil {
-		t.Fatalf("failed to read tar: %v", err)
-	}
-
-	for _, imageOrIndex := range imagesOrIndexes {
-		imageRefFromTar := imageOrIndex.Ref()
-		if !(imageRefFromTar == imageDigestRef || imageRefFromTar == bundleDigestRef) {
-			t.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
-		}
-	}
+	lockFilePath := filepath.Join(os.TempDir(), "relocate-from-tar-lock.yml")
+	defer os.Remove(lockFilePath)
 
 	// copy from tar to repo
-	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo})
+	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
+
+	bLockBytes, err := ioutil.ReadFile(lockFilePath)
+	if err != nil {
+		t.Fatalf("could not read lock file: %v", err)
+	}
+
+	var bundleLock cmd.BundleLock
+	err = yaml.Unmarshal(bLockBytes, &bundleLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal bundleLock")
+	}
+
+	relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest)
+	if bundleLock.Spec.Image.DigestRef != relocatedRef {
+		t.Fatalf("expected bundle digest to be '%s', but was '%s'", relocatedRef, bundleLock.Spec.Image.DigestRef)
+	}
+
+	if bundleLock.Spec.Image.OriginalTag != fmt.Sprintf("%v", tag) {
+		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", tag, bundleLock.Spec.Image.OriginalTag)
+	}
 
 	// validate bundle and image were relocated
 	relocatedBundleRef := env.RelocationRepo + bundleDigest
 	relocatedImageRef := env.RelocationRepo + imageDigest
+	relocatedBundleTagRef := fmt.Sprintf("%s:%v", env.RelocationRepo, tag)
 
-	if err := validateImagePresence([]string{relocatedBundleRef, relocatedImageRef}); err != nil {
+	if err := validateImagePresence([]string{relocatedBundleRef, relocatedImageRef, relocatedBundleTagRef}); err != nil {
 		t.Fatalf("Failed to locate digest in relocationRepo: %v", err)
 	}
 }
 
-func TestCopyImageInputToTar(t *testing.T) {
+func TestCopyImageInputViaTarWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -478,25 +668,50 @@ func TestCopyImageInputToTar(t *testing.T) {
 	}
 	defer os.Remove(randFile)
 
-	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", assetsPath})
+	tag := fmt.Sprintf("%d", time.Now().UnixNano())
+	tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
+	out := imgpkg.Run([]string{"push", "--tty", "-i", tagRef, "-f", assetsPath})
 	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 	imageDigestRef := env.Image + imageDigest
 
 	// copy to tar
-	imgpkg.Run([]string{"copy", "-i", imageDigestRef, "--to-tar", tarFilePath})
+	imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath})
 
-	// validate image was relocated
-	imagesOrIndexes, err := imagetar.NewTarReader(tarFilePath).Read()
+	lockOutputPath := filepath.Join(os.TempDir(), "relocate-from-tar-lock.yml")
+	defer os.Remove(lockOutputPath)
+
+	// copy from tar to repo
+	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+
+	iLockBytes, err := ioutil.ReadFile(lockOutputPath)
 	if err != nil {
-		t.Fatalf("failed to read tar: %v", err)
+		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	for _, imageOrIndex := range imagesOrIndexes {
-		imageRefFromTar := imageOrIndex.Ref()
-		if !(imageRefFromTar == imageDigestRef) {
-			t.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
-		}
+	var iLock cmd.ImageLock
+	err = yaml.Unmarshal(iLockBytes, &iLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal lock output: %v", err)
 	}
+
+	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
+	if iLock.Spec.Images[0].DigestRef != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
+	}
+
+	if iLock.Spec.Images[0].OriginalTag != tag {
+		t.Fatalf("expected lock output to contain tag '%s', got '%s'", tag, iLock.Spec.Images[0].OriginalTag)
+	}
+
+	if iLock.Spec.Images[0].Name != tagRef {
+		t.Fatalf("expected lock output to contain name '%s', got '%s'", imageDigestRef, iLock.Spec.Images[0].Name)
+	}
+	// check if image is present in dst repo
+	refs := []string{env.RelocationRepo + imageDigest}
+	if err := validateImagePresence(refs); err != nil {
+		t.Fatalf("could not validate image presence: %v", err)
+	}
+
 }
 
 func TestCopyBundleWhenImageError(t *testing.T) {
@@ -577,6 +792,19 @@ spec:
 	}
 	if !strings.Contains(errOut, "Expected bundle flag when copying a bundle, please use -b instead of -i") {
 		t.Fatalf("Expected error to contain message about using the wrong copy flag, got: %s", errOut)
+	}
+}
+
+func TestCopyErrorTarDstLockOutput(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	_, err := imgpkg.RunWithOpts(
+		[]string{"copy", "--tty", "-i", env.Image, "--to-tar", "file", "--lock-output", "bogus"},
+		RunOpts{AllowError: true},
+	)
+
+	if err == nil || !strings.Contains(err.Error(), "output lock file with tar destination") {
+		t.Fatalf("expected copy to fail when --lock-output is provided with a tar destination, got %v", err)
 	}
 }
 

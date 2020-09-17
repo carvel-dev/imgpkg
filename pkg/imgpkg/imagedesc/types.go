@@ -16,12 +16,14 @@ type ImageWithRef interface {
 	regv1.Image
 	Ref() string
 	Tag() string
+	Name() string
 }
 
 type ImageIndexWithRef interface {
 	regv1.ImageIndex
 	Ref() string
 	Tag() string
+	Name() string
 }
 
 type LayerProvider interface {
@@ -46,6 +48,7 @@ type ImageIndexDescriptor struct {
 	Digest    string
 	Raw       string
 	Tag       string
+	Name      string
 }
 
 type ImageDescriptor struct {
@@ -55,6 +58,7 @@ type ImageDescriptor struct {
 	Config   ConfigDescriptor
 	Manifest ManifestDescriptor
 	Tag      string
+	Name     string
 }
 
 type ImageLayerDescriptor struct {
@@ -126,6 +130,17 @@ func (t ImageOrIndex) Tag() string {
 		return (*t.Image).Tag()
 	case t.Index != nil:
 		return (*t.Index).Tag()
+	default:
+		panic("Unknown item")
+	}
+}
+
+func (t ImageOrIndex) Name() string {
+	switch {
+	case t.Image != nil:
+		return (*t.Image).Name()
+	case t.Index != nil:
+		return (*t.Index).Name()
 	default:
 		panic("Unknown item")
 	}

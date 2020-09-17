@@ -6,7 +6,17 @@ package cmd
 import (
 	"io/ioutil"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	ImageLockKind  string = "ImageLock"
+	BundleLockKind string = "BundleLock"
+
+	ImageLockAPIVersion  string = ""
+	BundleLockAPIVersion string = ""
 )
 
 type BundleLock struct {
@@ -23,6 +33,27 @@ type ImageLock struct {
 	ApiVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
 	Spec       ImageSpec
+}
+
+func (il *ImageLock) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// needed to avoid infinite recursion
+	type imageLockAlias ImageLock
+
+	var alias imageLockAlias
+	err := unmarshal(&alias)
+	if err != nil {
+		return err
+	}
+
+	for _, image := range alias.Spec.Images {
+		if _, err := name.NewDigest(image.DigestRef); err != nil {
+			return errors.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
+		}
+	}
+
+	*il = ImageLock(alias)
+
+	return nil
 }
 
 type ImageSpec struct {

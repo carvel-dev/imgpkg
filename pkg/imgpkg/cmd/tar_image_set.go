@@ -46,12 +46,27 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageURLs,
 }
 
 func (o *TarImageSet) Import(path string,
-	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, error) {
-
+	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, string, error) {
+	//return img or indexes and call image set import later
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return o.imageSet.Import(imgOrIndexes, importRepo, registry)
+	bundleRef := ""
+	for _, imgOrIndex := range imgOrIndexes {
+		if imgOrIndex.Index != nil {
+			continue
+		}
+
+		hasBundle, err := isBundle(*imgOrIndex.Image)
+		if err != nil {
+			return nil, "", err
+		}
+		if hasBundle {
+			bundleRef = (*imgOrIndex.Image).Ref()
+		}
+	}
+	processedImages, err := o.imageSet.Import(imgOrIndexes, importRepo, registry)
+	return processedImages, bundleRef, err
 }

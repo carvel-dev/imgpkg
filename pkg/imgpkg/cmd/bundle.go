@@ -7,19 +7,13 @@ import (
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"gopkg.in/yaml.v2"
 )
 
-func isBundle(ref name.Reference, regOpts image.RegistryOpts) (bool, error) {
-	reg := image.NewRegistry(regOpts)
-
-	img, err := reg.Image(ref)
-	if err != nil {
-		return false, err
-	}
-
+func isBundle(img v1.Image) (bool, error) {
 	manifest, err := img.Manifest()
 	if err != nil {
 		return false, err
@@ -29,7 +23,7 @@ func isBundle(ref name.Reference, regOpts image.RegistryOpts) (bool, error) {
 	return present, nil
 }
 
-func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) ([]string, error) {
+func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) ([]ImageDesc, error) {
 	reg := image.NewRegistry(regOpts)
 
 	img, err := reg.Image(bundleRef)
@@ -86,10 +80,5 @@ func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) (
 		return nil, fmt.Errorf("reading images.yml: %v", err)
 	}
 
-	var imageRefs []string
-	for _, img := range imgLock.Spec.Images {
-		imageRefs = append(imageRefs, img.DigestRef)
-	}
-
-	return imageRefs, nil
+	return imgLock.Spec.Images, nil
 }

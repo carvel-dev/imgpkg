@@ -31,7 +31,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 	o.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
 	defer func() { o.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
 
-	var refs []imagedesc.RefWithTag
+	var refs []imagedesc.Metadata
 
 	for _, img := range foundImages.All() {
 		// Validate strictly as these refs were already resolved
@@ -42,7 +42,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 		}
 
 		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.URL)))
-		refs = append(refs, imagedesc.RefWithTag{ref, img.Tag})
+		refs = append(refs, imagedesc.Metadata{ref, img.Tag, img.Name})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, registry)
@@ -83,7 +83,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 				return
 			}
 
-			importedImages.Add(UnprocessedImageURL{URL: existingRef.Name()}, Image{URL: importDigestRef.Name()})
+			importedImages.Add(UnprocessedImageURL{existingRef.Name(), item.Tag(), item.Name()}, Image{URL: importDigestRef.Name()})
 			errCh <- nil
 		}()
 	}
@@ -113,8 +113,15 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	}
 
 	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
-	if item.Tag() != "" {
-		tag = item.Tag()
+	if item.Image != nil {
+		isBundle, err := isBundle(*item.Image)
+		if err != nil {
+			return regname.Digest{}, fmt.Errorf("determining import tag: %v", err)
+		}
+
+		if isBundle {
+			tag = item.Tag()
+		}
 	}
 
 	// Seems like AWS ECR doesnt like using digests for manifest uploads

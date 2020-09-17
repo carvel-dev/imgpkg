@@ -11,10 +11,8 @@ import (
 	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
-	"github.com/google/go-containerregistry/pkg/name"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -68,13 +66,7 @@ func (o *PushOptions) Run() error {
 
 	case o.isBundle():
 		// extract bundle dir contents
-		imgLock, err := o.extractBundleDir()
-		if err != nil {
-			return err
-		}
-
-		// validate images
-		err = o.validateImages(imgLock)
+		err := o.validateBundle()
 		if err != nil {
 			return err
 		}
@@ -169,15 +161,6 @@ func (o *PushOptions) Run() error {
 	return nil
 }
 
-func (o *PushOptions) validateImages(imagesLock ImageLock) error {
-	for _, image := range imagesLock.Spec.Images {
-		if _, err := name.NewDigest(image.DigestRef); err != nil {
-			return errors.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
-		}
-	}
-	return nil
-}
-
 func (o *PushOptions) validateBundleDirs(bundleDirPaths []string) error {
 	if len(bundleDirPaths) != 1 {
 		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ", "))
@@ -230,15 +213,15 @@ func (o *PushOptions) findBundleDirs() ([]string, error) {
 	return bundlePaths, nil
 }
 
-func (o *PushOptions) extractBundleDir() (ImageLock, error) {
+func (o *PushOptions) validateBundle() error {
 	bundlePaths, err := o.findBundleDirs()
 	if err != nil {
-		return ImageLock{}, nil
+		return nil
 	}
 
 	err = o.validateBundleDirs(bundlePaths)
 	if err != nil {
-		return ImageLock{}, err
+		return err
 	}
 
 	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], "images.yml"))
@@ -246,13 +229,12 @@ func (o *PushOptions) extractBundleDir() (ImageLock, error) {
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("Must have images.yml in '%s' directory", BundleDir)
 		}
-		return ImageLock{}, err
+		return err
 	}
 
+	// read here to trigger validations via the custom unmarshal
 	var imgLock ImageLock
-	err = yaml.Unmarshal(imagesBytes, &imgLock)
-
-	return imgLock, err
+	return yaml.Unmarshal(imagesBytes, &imgLock)
 }
 
 func (o *PushOptions) checkRepeatedPaths() error {

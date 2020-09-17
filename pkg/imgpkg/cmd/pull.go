@@ -73,56 +73,57 @@ func (o *PullOptions) Run() error {
 		return fmt.Errorf("Collecting images: %s", err)
 	}
 
+	if len(imgs) == 0 {
+		return fmt.Errorf("Expected to find at least one image, but found none")
+	}
+
 	if len(imgs) > 1 {
 		o.ui.BeginLinef("Found multiple images, extracting first\n")
 	}
 
-	for _, img := range imgs {
-		manifest, err := img.Manifest()
-		if err != nil {
-			return fmt.Errorf("Getting image manifest: %s", err)
-		}
-
-		if o.ImageFlags.Image != "" {
-			if _, ok := manifest.Annotations[ctlimg.BundleAnnotation]; ok {
-				return fmt.Errorf("Expected bundle flag when pulling a bundle, please use -b instead of --image")
-			}
-			// expect annotation not to be set
-		} else if manifest.Annotations[ctlimg.BundleAnnotation] != "true" {
-			return fmt.Errorf("Expected image flag when pulling a image or index, please use --image instead of -b")
-		}
-
-		digest, err := img.Digest()
-		if err != nil {
-			return fmt.Errorf("Getting image digest: %s", err)
-		}
-
-		o.ui.BeginLinef("Pulling image '%s@%s'\n", ref.Context(), digest)
-
-		if o.OutputPath == "/" || o.OutputPath == "." || o.OutputPath == ".." {
-			return fmt.Errorf("Disallowed output directory (trying to avoid accidental deletion)")
-		}
-
-		// TODO protection for destination
-		err = os.RemoveAll(o.OutputPath)
-		if err != nil {
-			return fmt.Errorf("Removing output directory: %s", err)
-		}
-
-		err = os.MkdirAll(o.OutputPath, 0700)
-		if err != nil {
-			return fmt.Errorf("Creating output directory: %s", err)
-		}
-
-		err = ctlimg.NewDirImage(o.OutputPath, img, o.ui).AsDirectory()
-		if err != nil {
-			return fmt.Errorf("Extracting image into directory: %s", err)
-		}
-
-		return nil
+	img := imgs[0]
+	manifest, err := img.Manifest()
+	if err != nil {
+		return fmt.Errorf("Getting image manifest: %s", err)
 	}
 
-	return fmt.Errorf("Expected to find at least one image, but found none")
+	if o.ImageFlags.Image != "" {
+		if _, ok := manifest.Annotations[ctlimg.BundleAnnotation]; ok {
+			return fmt.Errorf("Expected bundle flag when pulling a bundle, please use -b instead of --image")
+		}
+		// expect annotation not to be set
+	} else if manifest.Annotations[ctlimg.BundleAnnotation] != "true" {
+		return fmt.Errorf("Expected image flag when pulling a image or index, please use --image instead of -b")
+	}
+
+	digest, err := img.Digest()
+	if err != nil {
+		return fmt.Errorf("Getting image digest: %s", err)
+	}
+
+	o.ui.BeginLinef("Pulling image '%s@%s'\n", ref.Context(), digest)
+
+	if o.OutputPath == "/" || o.OutputPath == "." || o.OutputPath == ".." {
+		return fmt.Errorf("Disallowed output directory (trying to avoid accidental deletion)")
+	}
+
+	// TODO protection for destination
+	err = os.RemoveAll(o.OutputPath)
+	if err != nil {
+		return fmt.Errorf("Removing output directory: %s", err)
+	}
+
+	err = os.MkdirAll(o.OutputPath, 0700)
+	if err != nil {
+		return fmt.Errorf("Creating output directory: %s", err)
+	}
+
+	err = ctlimg.NewDirImage(o.OutputPath, img, o.ui).AsDirectory()
+	if err != nil {
+		return fmt.Errorf("Extracting image into directory: %s", err)
+	}
+
+	return nil
 }
 
 func (o *PullOptions) getRefFromFlags() (string, error) {
