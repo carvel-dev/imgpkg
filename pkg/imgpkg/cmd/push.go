@@ -19,6 +19,7 @@ import (
 
 // TODO rename when we have a name
 const BundleDir = ".imgpkg"
+const ImageLockFile = "images.yml"
 
 type PushOptions struct {
 	ui ui.UI
@@ -224,7 +225,7 @@ func (o *PushOptions) validateBundle() error {
 		return err
 	}
 
-	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], "images.yml"))
+	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], ImageLockFile))
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("Must have images.yml in '%s' directory", BundleDir)

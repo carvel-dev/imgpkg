@@ -2,15 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
-
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -406,13 +404,10 @@ func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundl
 			continue
 		}
 
-		parts := strings.Split(img.URL, "@")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("Parsing image URL: %s", img.URL)
+		newURL, err := ImageWithRepository(img.URL, bundleRepo)
+		if err != nil {
+			return nil, err
 		}
-		digest := parts[1]
-
-		newURL := bundleRepo + "@" + digest
 		ref, err := regname.NewDigest(newURL, regname.StrictValidation)
 		if err != nil {
 			return nil, err

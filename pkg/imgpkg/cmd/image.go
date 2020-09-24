@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -56,4 +57,15 @@ func newImages(structs []imageStruct) []Image {
 		result = append(result, Image{URL: st.URL, metasRaw: st.Metas})
 	}
 	return result
+}
+
+func ImageWithRepository(img string, repo string) (string, error) {
+	parts := strings.Split(img, "@")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("Parsing image URL: %s", img)
+	}
+	digest := parts[1]
+
+	newURL := repo + "@" + digest
+	return newURL, nil
 }

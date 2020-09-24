@@ -41,6 +41,8 @@ kind: ImagesLock
 spec:
   images: []
 `
+const imageFile = "images.yml"
+const bundleFile = "bundle.yml"
 
 func createBundleDir(dir, bYml, iYml string) (string, error) {
 	imgpkgDir := filepath.Join(dir, ".imgpkg")
@@ -50,8 +52,8 @@ func createBundleDir(dir, bYml, iYml string) (string, error) {
 	}
 
 	fileContents := map[string]string{
-		"bundle.yml": bYml,
-		"images.yml": iYml,
+		bundleFile: bYml,
+		imageFile:  iYml,
 	}
 	for filename, contents := range fileContents {
 		err = ioutil.WriteFile(filepath.Join(imgpkgDir, filename), []byte(contents), 0600)

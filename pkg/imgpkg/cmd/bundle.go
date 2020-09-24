@@ -70,7 +70,7 @@ func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) (
 
 		basename := filepath.Base(header.Name)
 		dirname := filepath.Dir(header.Name)
-		if dirname == ".imgpkg" && basename == "images.yml" {
+		if dirname == BundleDir && basename == ImageLockFile {
 			break
 		}
 	}

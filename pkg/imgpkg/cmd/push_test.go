@@ -260,11 +260,11 @@ func createBundleDir(loc, imagesYaml string) error {
 		imagesYaml = emptyImagesYaml
 	}
 
-	bundleDir := filepath.Join(loc, ".imgpkg")
+	bundleDir := filepath.Join(loc, BundleDir)
 	err := os.Mkdir(bundleDir, 0700)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
+	return ioutil.WriteFile(filepath.Join(bundleDir, ImageLockFile), []byte(imagesYaml), 0600)
 }

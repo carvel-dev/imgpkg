@@ -5,10 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
-
-	"gopkg.in/yaml.v2"
+	"path/filepath"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -93,7 +93,7 @@ func (o *PullOptions) Run() error {
 		}
 		// expect annotation not to be set
 	} else if manifest.Annotations[ctlimg.BundleAnnotation] != "true" {
-		return fmt.Errorf("Expected image flag when pulling a image or index, please use --image instead of -b")
+		return fmt.Errorf("Expected image flag when pulling an image or index, please use --image instead of -b")
 	}
 
 	digest, err := img.Digest()
@@ -123,6 +123,12 @@ func (o *PullOptions) Run() error {
 		return fmt.Errorf("Extracting image into directory: %s", err)
 	}
 
+	if o.BundleFlags.Bundle != "" {
+		err = o.rewriteImageLock(ref, registry)
+		if err != nil {
+			return fmt.Errorf("Rewriting image lock file: %s", err)
+		}
+	}
 	return nil
 }
 
@@ -154,4 +160,53 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 		return "", err
 	}
 	return bundleLock.Spec.Image.DigestRef, nil
+}
+
+func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Registry) error {
+	imageLockDir := filepath.Join(o.OutputPath, BundleDir, ImageLockFile)
+	lockFile, err := ReadImageLockFile(imageLockDir)
+	if err != nil {
+		return fmt.Errorf("Reading image lock file: %s", err)
+	}
+	if len(lockFile.Spec.Images) == 0 {
+		return nil
+	}
+	o.ui.BeginLinef("Locating image lock file images...\n")
+
+	var newImgDescs []ImageDesc
+	for _, img := range lockFile.Spec.Images {
+		bundleRepo := ref.Context().Name()
+
+		newURL, err := ImageWithRepository(img.DigestRef, bundleRepo)
+
+		if err != nil {
+			return err
+		}
+		ref, err := regname.NewDigest(newURL, regname.StrictValidation)
+		if err != nil {
+			return err
+		}
+
+		_, err = registry.Generic(ref)
+		if err == nil {
+			newImgDescs = append(newImgDescs, ImageDesc{
+				ImageLocation: ImageLocation{
+					DigestRef:   newURL,
+					OriginalTag: img.OriginalTag},
+				Name:     img.Name,
+				Metadata: img.Metadata,
+			})
+		}
+		if err != nil {
+			o.ui.BeginLinef("One or more images not found in bundle repo. Skipping lock file update\n")
+			return nil
+		}
+	}
+	lockFile.Spec.Images = newImgDescs
+	imgLockBytes, err := yaml.Marshal(lockFile)
+	if err != nil {
+		return fmt.Errorf("Marshalling image lock file: %s", err)
+	}
+	o.ui.BeginLinef("All images found in bundle repo. Updating lock file\n")
+	return ioutil.WriteFile(imageLockDir, imgLockBytes, 600)
 }

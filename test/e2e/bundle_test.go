@@ -20,7 +20,6 @@ import (
 )
 
 func TestBundlePushPullAnnotation(t *testing.T) {
-	// Do some setup
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	assetsDir := filepath.Join("assets", "simple-app")
@@ -30,25 +29,23 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 		t.Fatalf("Creating bundle directory: %s", err.Error())
 	}
 
-	// push the bundle in the assets dir
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir})
 
-	// Validate bundle annotation is present
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
 	image, err := remote.Image(ref)
 	if err != nil {
-		t.Fatalf("Error getting remote image in test: %s", err)
+		t.Fatalf("Error getting remote image: %s", err)
 	}
 
 	manifestBs, err := image.RawManifest()
 	if err != nil {
-		t.Fatalf("Error getting manifest in test: %s", err)
+		t.Fatalf("Error getting manifest: %s", err)
 	}
 
 	var manifest v1.Manifest
 	err = json.Unmarshal(manifestBs, &manifest)
 	if err != nil {
-		t.Fatalf("Error unmarshaling manifest in test: %s", err)
+		t.Fatalf("Error unmarshaling manifest: %s", err)
 	}
 
 	if val, found := manifest.Annotations["io.k14s.imgpkg.bundle"]; !found || val != "true" {
@@ -57,7 +54,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 
 	outDir := filepath.Join(os.TempDir(), "bundle-pull")
 	if err := os.Mkdir(outDir, 0600); err != nil {
-		t.Fatalf("Error creating temp dir")
+		t.Fatalf("Error creating temp dir: %s", err)
 	}
 	defer os.RemoveAll(outDir)
 
@@ -95,7 +92,7 @@ func TestBundleLockFile(t *testing.T) {
 
 	bundleBs, err := ioutil.ReadFile(bundleLock)
 	if err != nil {
-		t.Fatalf("Could not read bundle lock file in test: %s", err)
+		t.Fatalf("Could not read bundle lock file: %s", err)
 	}
 
 	expectedYml := fmt.Sprintf(`---
@@ -182,7 +179,7 @@ func TestBundlePullOnImageError(t *testing.T) {
 
 	errOut := stderrBs.String()
 
-	if !strings.Contains(errOut, "Expected image flag when pulling a image or index, please use --image instead of -b") {
+	if !strings.Contains(errOut, "Expected image flag when pulling an image or index, please use --image instead of -b") {
 		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
 	}
 }
