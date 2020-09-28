@@ -12,8 +12,6 @@ Support creating, relocating, and inspecting "bundles". Bundle is an image in a 
 
 Key constraint: bundle image must always retain its digest when copied around.
 
-pkgx is a temporary name.
-
 ---
 # Resources
 
@@ -21,7 +19,7 @@ pkgx is a temporary name.
 
 ```yaml
 my-app/
-  .pkgx/         <-- .pkgx is what makes this a bundle and a max of 1 can be provided to pkgx push
+  .imgpkg/         <-- .imgpkg is what makes this a bundle and a max of 1 can be provided to imgpkg push
     bundle.yml   <-- describes bundle contents and misc info
     images.yml   <-- list of referenced images in this bundle
   contents/      <-- configuration files or directories referencing images in images.yml; but could be anything
@@ -30,7 +28,7 @@ my-app/
 ## Bundle YAML
 
 ```yaml
-apiVersion: pkgx.k14s.io/v1alpha1
+apiVersion: imgpkg.k14s.io/v1alpha1
 kind: Bundle
 metadata:
   name: my-app
@@ -53,7 +51,7 @@ Any paths specified will be placed off of root in the image. For example,
 ## BundleLock
 
 ```yaml
-apiVersion: pkgx.k14s.io/v1alpha1
+apiVersion: imgpkg.k14s.io/v1alpha1
 kind: BundleLock
 spec:
   image:
@@ -64,7 +62,7 @@ spec:
 ## ImagesLock
 
 ```yaml
-apiVersion: pkgx.k14s.io/v1alpha1
+apiVersion: imgpkg.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -176,7 +174,7 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 
 ### Bundle consumer:
 1. `pkg pull -b docker.io/klt/some-bundle:1.0.0`
-2. `ytt -f contents/ | kbld -f ./.pkgx/images.yml | kapp deploy -a some-bundle -f-`
+2. `ytt -f contents/ | kbld -f ./.imgpkg/images.yml | kapp deploy -a some-bundle -f-`
 
 **Notes:**
 * Producer could distribute a BundleLock file to give consumers a stronger
@@ -191,7 +189,7 @@ Same as above
 ### Bundle consumer:
 1. `pkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
 2. `pkg pull -b internal.reg/some-bundle:1.0.0`
-3. `ytt -f contents | kbld -f ./.pkgx/images.yml | kapp deploy -a some-bundle -f-`
+3. `ytt -f contents | kbld -f ./.imgpkg/images.yml | kapp deploy -a some-bundle -f-`
 
 ---
 ## Use Case: Generic Relocation
