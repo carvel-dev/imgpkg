@@ -15,8 +15,8 @@ const (
 	ImageLockKind  string = "ImageLock"
 	BundleLockKind string = "BundleLock"
 
-	ImageLockAPIVersion  string = ""
-	BundleLockAPIVersion string = ""
+	ImageLockAPIVersion  string = "imgpkg.k14s.io/v1alpha1"
+	BundleLockAPIVersion string = "imgpkg.k14s.io/v1alpha1"
 )
 
 type BundleLock struct {

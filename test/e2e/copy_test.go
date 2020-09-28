@@ -96,6 +96,10 @@ spec:
 		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", bundleTag, bLock.Spec.Image.OriginalTag)
 	}
 
+	if err := validateBundleLockApiVersionAndKind(bLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// check if bundle and referenced images are present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + ":" + bundleTag}
 	if err := validateImagePresence(refs); err != nil {
@@ -172,6 +176,10 @@ spec:
 		t.Fatalf("expected lock output to contain tag '%s', got '%s'", "v1", iLock.Spec.Images[0].OriginalTag)
 	}
 
+	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	if iLock.Spec.Images[0].Name != "image" {
 		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
 	}
@@ -246,6 +254,10 @@ spec:
 
 	if trimmedTag := strings.TrimPrefix(bundleTag, ":"); bLock.Spec.Image.OriginalTag != trimmedTag {
 		t.Fatalf("expected lock output to contain tag '%s', got '%s'", trimmedTag, bLock.Spec.Image.OriginalTag)
+	}
+
+	if err := validateBundleLockApiVersionAndKind(bLock); err != nil {
+		t.Fatal(err.Error())
 	}
 
 	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleTag, env.RelocationRepo + bundleDigest}
@@ -351,6 +363,10 @@ func TestCopyImageInputToRepoWithLockOutput(t *testing.T) {
 		t.Fatalf("expected lock output to contain name '%v', got '%s'", fmt.Sprintf("%s:%v", env.Image, tag), iLock.Spec.Images[0].Name)
 	}
 
+	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	if err := validateImagePresence([]string{env.RelocationRepo + imageDigestTag}); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
 	}
@@ -453,6 +469,10 @@ spec:
 		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", bundlePushLockYml.Spec.Image.OriginalTag, bundleLock.Spec.Image.OriginalTag)
 	}
 
+	if err := validateBundleLockApiVersionAndKind(bundleLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// validate bundle and image were relocated
 	relocatedBundleRef := relocatedRef
 	relocatedImageRef := env.RelocationRepo + imageDigest
@@ -550,6 +570,11 @@ spec:
 	if iLock.Spec.Images[0].Name != "image" {
 		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
 	}
+
+	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// check if image is present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest}
 	if err := validateImagePresence(refs); err != nil {
@@ -635,6 +660,10 @@ spec:
 		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", tag, bundleLock.Spec.Image.OriginalTag)
 	}
 
+	if err := validateBundleLockApiVersionAndKind(bundleLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// validate bundle and image were relocated
 	relocatedBundleRef := env.RelocationRepo + bundleDigest
 	relocatedImageRef := env.RelocationRepo + imageDigest
@@ -706,6 +735,11 @@ func TestCopyImageInputViaTarWithLockOutput(t *testing.T) {
 	if iLock.Spec.Images[0].Name != tagRef {
 		t.Fatalf("expected lock output to contain name '%s', got '%s'", imageDigestRef, iLock.Spec.Images[0].Name)
 	}
+
+	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// check if image is present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest}
 	if err := validateImagePresence(refs); err != nil {
@@ -825,6 +859,28 @@ func validateImagePresence(refs []string) error {
 		if _, err := remote.Image(ref); err != nil {
 			return fmt.Errorf("validating image %s: %v", refString, err)
 		}
+	}
+	return nil
+}
+
+func validateBundleLockApiVersionAndKind(bLock cmd.BundleLock) error {
+	if bLock.ApiVersion != cmd.BundleLockAPIVersion {
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", cmd.BundleLockAPIVersion, bLock.ApiVersion)
+	}
+
+	if bLock.Kind != cmd.BundleLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", cmd.BundleLockKind, bLock.Kind)
+	}
+	return nil
+}
+
+func validateImageLockApiVersionAndKind(iLock cmd.ImageLock) error {
+	if iLock.ApiVersion != cmd.ImageLockAPIVersion {
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", cmd.ImageLockAPIVersion, iLock.ApiVersion)
+	}
+
+	if iLock.Kind != cmd.ImageLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", cmd.ImageLockKind, iLock.Kind)
 	}
 	return nil
 }
