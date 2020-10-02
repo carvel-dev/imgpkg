@@ -178,29 +178,24 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 		bundleRepo := ref.Context().Name()
 
 		newURL, err := ImageWithRepository(img.DigestRef, bundleRepo)
-
 		if err != nil {
 			return err
 		}
-		ref, err := regname.NewDigest(newURL, regname.StrictValidation)
+		foundImg, err := checkImageExists([]string{newURL, img.DigestRef}, registry)
 		if err != nil {
 			return err
 		}
-
-		_, err = registry.Generic(ref)
-		if err == nil {
-			newImgDescs = append(newImgDescs, ImageDesc{
-				ImageLocation: ImageLocation{
-					DigestRef:   newURL,
-					OriginalTag: img.OriginalTag},
-				Name:     img.Name,
-				Metadata: img.Metadata,
-			})
-		}
-		if err != nil {
+		if foundImg != newURL {
 			o.ui.BeginLinef("One or more images not found in bundle repo. Skipping lock file update\n")
 			return nil
 		}
+		newImgDescs = append(newImgDescs, ImageDesc{
+			ImageLocation: ImageLocation{
+				DigestRef:   foundImg,
+				OriginalTag: img.OriginalTag},
+			Name:     img.Name,
+			Metadata: img.Metadata,
+		})
 	}
 	lockFile.Spec.Images = newImgDescs
 	imgLockBytes, err := yaml.Marshal(lockFile)
@@ -209,4 +204,19 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 	}
 	o.ui.BeginLinef("All images found in bundle repo. Updating lock file\n")
 	return ioutil.WriteFile(imageLockDir, imgLockBytes, 600)
+}
+
+func checkImageExists(urls []string, registry ctlimg.Registry) (string, error) {
+	var err error
+	for _, img := range urls {
+		ref, parseErr := regname.NewDigest(img)
+		if parseErr != nil {
+			return "", parseErr
+		}
+		_, err = registry.Generic(ref)
+		if err == nil {
+			return img, nil
+		}
+	}
+	return "", fmt.Errorf("Checking image existance: %s", err)
 }
