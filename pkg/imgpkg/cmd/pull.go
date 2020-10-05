@@ -5,15 +5,14 @@ package cmd
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 type PullOptions struct {
@@ -173,19 +172,22 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 	}
 	o.ui.BeginLinef("Locating image lock file images...\n")
 
+	bundleRepo := ref.Context().Name()
+	inBundleRepo := 0
 	var newImgDescs []ImageDesc
 	for _, img := range lockFile.Spec.Images {
-		bundleRepo := ref.Context().Name()
-
-		newURL, err := ImageWithRepository(img.DigestRef, bundleRepo)
+		bundleRepoImgRef, err := ImageWithRepository(img.DigestRef, bundleRepo)
 		if err != nil {
 			return err
 		}
-		foundImg, err := checkImageExists([]string{newURL, img.DigestRef}, registry)
+		if img.DigestRef == bundleRepoImgRef {
+			inBundleRepo = inBundleRepo + 1
+		}
+		foundImg, err := checkImageExists([]string{bundleRepoImgRef, img.DigestRef}, registry)
 		if err != nil {
 			return err
 		}
-		if foundImg != newURL {
+		if foundImg != bundleRepoImgRef {
 			o.ui.BeginLinef("One or more images not found in bundle repo. Skipping lock file update\n")
 			return nil
 		}
@@ -196,6 +198,9 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 			Name:     img.Name,
 			Metadata: img.Metadata,
 		})
+	}
+	if inBundleRepo == len(lockFile.Spec.Images) {
+		return nil
 	}
 	lockFile.Spec.Images = newImgDescs
 	imgLockBytes, err := yaml.Marshal(lockFile)
