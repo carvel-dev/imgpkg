@@ -1,6 +1,6 @@
 # Bundles
 
-- Status: **Being written** | Being implemented | Included in release | Rejected
+- Status: Being written | **Being implemented** | Included in release | Rejected
 
 # Summary
 
