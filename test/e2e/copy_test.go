@@ -270,20 +270,19 @@ func TestCopyBundleWithNonCollocatedReferencedImagesToRepo(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
-	// create generic image
 	assetsPath := filepath.Join("assets", "simple-app")
 
-	// force digest to change so test is meaningful
 	randFile, err := addRandomFile(assetsPath)
 	if err != nil {
 		t.Fatalf("failed to create unuique file: %v", err)
 	}
 	defer os.Remove(randFile)
 
-	out := imgpkg.Run([]string{"push", "--tty", "-i", "index.docker.io/k8slt/test", "-f", assetsPath})
+	image := env.Image + "-image-outside-repo"
+	out := imgpkg.Run([]string{"push", "--tty", "-i", image, "-f", assetsPath})
 	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
-	// fallback url for image, image intentionally does not exist in this repo
-	imageDigestRef := "index.docker.io/k8slt/test" + imageDigest
+	// image intentionally does not exist in bundle repo
+	imageDigestRef := image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
 apiVersion: imgpkg.k14s.io/v1alpha1
@@ -294,19 +293,16 @@ spec:
     url: %s
 `, imageDigestRef)
 
-	// create a bundle with ref to image
 	imgpkgDir, err := createBundleDir(assetsPath, bundleYAML, imgsYml)
 	if err != nil {
 		t.Fatalf("failed to create bundle dir: %v", err)
 	}
 	defer os.RemoveAll(imgpkgDir)
 
-	// create bundle that refs image and a random tag based on time
 	out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 	bundleDigestRef := env.Image + bundleDigest
 
-	// copy via created ref
 	imgpkg.Run([]string{"copy", "--bundle", bundleDigestRef, "--to-repo", env.RelocationRepo})
 
 	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest}
