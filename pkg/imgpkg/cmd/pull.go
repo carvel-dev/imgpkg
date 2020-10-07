@@ -188,7 +188,7 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 			return err
 		}
 		if foundImg != bundleRepoImgRef {
-			o.ui.BeginLinef("One or more images not found in bundle repo. Skipping lock file update\n")
+			o.ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 			return nil
 		}
 		newImgDescs = append(newImgDescs, ImageDesc{
@@ -207,7 +207,7 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 	if err != nil {
 		return fmt.Errorf("Marshalling image lock file: %s", err)
 	}
-	o.ui.BeginLinef("All images found in bundle repo. Updating lock file\n")
+	o.ui.BeginLinef("All images found in bundle repo; updating lock file: %s\n", imageLockDir)
 	return ioutil.WriteFile(imageLockDir, imgLockBytes, 600)
 }
 
