@@ -57,6 +57,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 
 func (o *PushOptions) Run() error {
 	var inputRef string
+	var registry ctlimg.Registry
 
 	switch {
 	case o.isBundle() && o.isImage():
@@ -66,33 +67,28 @@ func (o *PushOptions) Run() error {
 		return fmt.Errorf("Expected either image or bundle")
 
 	case o.isBundle():
-		// extract bundle dir contents
-		err := o.validateBundle()
+		registry = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+		err := o.validateBundle(registry)
 		if err != nil {
 			return err
 		}
 
-		// set inputRef
 		inputRef = o.BundleFlags.Bundle
 
 	case o.isImage():
-		// make sure user doesn't expect BundleLock
 		if o.OutputFlags.LockFilePath != "" {
 			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
 		}
 
-		// find any bundle dirs
 		bundleDirPaths, err := o.findBundleDirs()
 		if err != nil {
 			return err
 		}
 
-		// check there are no bundle dirs
 		if len(bundleDirPaths) > 0 {
 			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
 		}
-
-		// set input ref
+		registry = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 		inputRef = o.ImageFlags.Image
 	}
 
@@ -105,8 +101,6 @@ func (o *PushOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("Parsing '%s': %s", inputRef, err)
 	}
-
-	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 
 	var img *ctlimg.FileImage
 	tarImg := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.FileExcludeDefaults, InfoLog{o.ui})
@@ -214,7 +208,7 @@ func (o *PushOptions) findBundleDirs() ([]string, error) {
 	return bundlePaths, nil
 }
 
-func (o *PushOptions) validateBundle() error {
+func (o *PushOptions) validateBundle(registry ctlimg.Registry) error {
 	bundlePaths, err := o.findBundleDirs()
 	if err != nil {
 		return nil
@@ -233,9 +227,20 @@ func (o *PushOptions) validateBundle() error {
 		return err
 	}
 
-	// read here to trigger validations via the custom unmarshal
 	var imgLock ImageLock
-	return yaml.Unmarshal(imagesBytes, &imgLock)
+	err = yaml.Unmarshal(imagesBytes, &imgLock)
+	if err != nil {
+		return fmt.Errorf("Unmarshalling image lock: %s", err)
+	}
+
+	bundles, err := imgLock.CheckForBundles(registry)
+	if err != nil {
+		return fmt.Errorf("Checking image lock for bundles: %s", err)
+	}
+	if len(bundles) != 0 {
+		return fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
+	}
+	return nil
 }
 
 func (o *PushOptions) checkRepeatedPaths() error {

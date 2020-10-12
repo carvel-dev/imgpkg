@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	regname "github.com/google/go-containerregistry/pkg/name"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"io/ioutil"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -104,4 +106,29 @@ func readPathInto(path string, obj interface{}) error {
 	}
 
 	return yaml.Unmarshal(bs, obj)
+}
+
+func (il *ImageLock) CheckForBundles(reg ctlimg.Registry) ([]string, error) {
+	var bundles []string
+	for _, img := range il.Spec.Images {
+		imgRef := img.DigestRef
+		parsedRef, err := regname.ParseReference(imgRef)
+		if err != nil {
+			return nil, err
+		}
+		image, err := reg.Image(parsedRef)
+		if err != nil {
+			return nil, err
+		}
+
+		isBundle, err := isBundle(image)
+		if err != nil {
+			return nil, err
+		}
+
+		if isBundle {
+			bundles = append(bundles, imgRef)
+		}
+	}
+	return bundles, nil
 }

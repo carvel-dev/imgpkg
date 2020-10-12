@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -224,25 +225,15 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 				return nil, "", err
 			}
 
+			bundles, err := imgLock.CheckForBundles(reg)
+			if err != nil {
+				return nil, "", fmt.Errorf("Checking image lock for bundles: %s", err)
+			}
+			if len(bundles) != 0 {
+				return nil, "", fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
+			}
+
 			for _, img := range imgLock.Spec.Images {
-				imgRef := img.DigestRef
-				parsedRef, err := regname.ParseReference(imgRef)
-				if err != nil {
-					return nil, "", err
-				}
-				image, err := reg.Image(parsedRef)
-				if err != nil {
-					return nil, "", err
-				}
-
-				isBundle, err := isBundle(image)
-				if err != nil {
-					return nil, "", err
-				}
-
-				if isBundle {
-					return nil, "", fmt.Errorf("Expected image lock to not contain bundle reference: %s", imgRef)
-				}
 				unprocessedImageURLs.Add(UnprocessedImageURL{img.DigestRef, img.OriginalTag, img.Name})
 			}
 		default:

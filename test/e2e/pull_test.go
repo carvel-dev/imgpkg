@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -58,45 +57,5 @@ spec:
 	expectedImageRef := env.Image + imageDigestRef
 	if actualImageRef != expectedImageRef {
 		t.Fatalf("Expected images lock to be updated with bundle repository: %s, but got: %s", expectedImageRef, actualImageRef)
-	}
-}
-
-func TestPullImageLockImageNotFoundErr(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
-
-	pushDir := filepath.Join(os.TempDir(), "imgpkg-test-imagelock-rewrite-push")
-	pullDir := filepath.Join(os.TempDir(), "imgpkg-test-imagelock-rewrite-pull")
-	cleanUp := func() { os.RemoveAll(pushDir); os.RemoveAll(pullDir) }
-	defer cleanUp()
-
-	err := os.Mkdir(pushDir, 0700)
-	if err != nil {
-		t.Fatalf("failed to create push directory: %v", err)
-	}
-	imageDigestRef := "@sha256:ebf526c190a78fa138634b9746c50ec38077ec9b3986227e79eb888d26f59dc6"
-	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
-kind: ImagesLock
-spec:
-  images:	
-  - name: image
-    url: alpine%s
-    tag: "latest"
-`, imageDigestRef)
-
-	_, err = createBundleDir(pushDir, bundleYAML, imgsYml)
-	if err != nil {
-		t.Fatalf("failed to create image lock file: %v", err)
-	}
-
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", pushDir})
-	_, err = imgpkg.RunWithOpts([]string{"pull", "-b", env.Image, "-o", pullDir}, RunOpts{AllowError: true})
-
-	if err == nil {
-		t.Fatalf("Expected rewriting image lock to error because image not found, but got: success")
-	}
-	if !strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-		t.Fatalf("Expected rewriting image lock to error because image not found, but got: %s", err.Error())
 	}
 }
