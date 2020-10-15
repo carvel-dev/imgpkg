@@ -14,12 +14,12 @@ import (
 )
 
 func isBundle(img v1.Image) (bool, error) {
-	manifest, err := img.Manifest()
+	cfg, err := img.ConfigFile()
 	if err != nil {
 		return false, err
 	}
 
-	_, present := manifest.Annotations[image.BundleAnnotation]
+	_, present := cfg.Config.Labels[image.BundleAnnotation]
 	return present, nil
 }
 

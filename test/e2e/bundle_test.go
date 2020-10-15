@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
@@ -37,19 +35,13 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 		t.Fatalf("Error getting remote image: %s", err)
 	}
 
-	manifestBs, err := image.RawManifest()
+	config, err := image.ConfigFile()
 	if err != nil {
 		t.Fatalf("Error getting manifest: %s", err)
 	}
 
-	var manifest v1.Manifest
-	err = json.Unmarshal(manifestBs, &manifest)
-	if err != nil {
-		t.Fatalf("Error unmarshaling manifest: %s", err)
-	}
-
-	if val, found := manifest.Annotations["io.k14s.imgpkg.bundle"]; !found || val != "true" {
-		t.Fatalf("Expected manifest to contain bundle annotation, instead had: %v", manifest.Annotations)
+	if _, found := config.Config.Labels["io.k14s.imgpkg.bundle"]; !found {
+		t.Fatalf("Expected config to contain bundle label, instead had: %v", config.Config.Labels)
 	}
 
 	outDir := filepath.Join(os.TempDir(), "bundle-pull")

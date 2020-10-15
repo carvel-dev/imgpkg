@@ -52,16 +52,21 @@ func NewFileImage(path string, bundle bool) (*FileImage, error) {
 	}
 
 	if bundle {
-		manifest, err := img.Manifest()
+		cfg, err := img.ConfigFile()
 		if err != nil {
-			return nil, fmt.Errorf("Could not annotate manifest: %s", err)
+			return nil, fmt.Errorf("Could not add bundle label: %s", err)
 		}
 
-		if manifest.Annotations == nil {
-			manifest.Annotations = make(map[string]string)
+		if cfg.Config.Labels == nil {
+			cfg.Config.Labels = make(map[string]string)
 		}
 
-		manifest.Annotations[BundleAnnotation] = "true"
+		cfg.Config.Labels[BundleAnnotation] = "true"
+
+		img, err = mutate.ConfigFile(img, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &FileImage{img, path}, nil

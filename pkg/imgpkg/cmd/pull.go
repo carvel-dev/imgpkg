@@ -5,14 +5,15 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 type PullOptions struct {
@@ -81,17 +82,17 @@ func (o *PullOptions) Run() error {
 	}
 
 	img := imgs[0]
-	manifest, err := img.Manifest()
+	isBundle, err := isBundle(img)
 	if err != nil {
-		return fmt.Errorf("Getting image manifest: %s", err)
+		return fmt.Errorf("checking if image is bunlde: %v", err)
 	}
 
 	if o.ImageFlags.Image != "" {
-		if _, ok := manifest.Annotations[ctlimg.BundleAnnotation]; ok {
+		if isBundle {
 			return fmt.Errorf("Expected bundle flag when pulling a bundle, please use -b instead of --image")
 		}
 		// expect annotation not to be set
-	} else if manifest.Annotations[ctlimg.BundleAnnotation] != "true" {
+	} else if !isBundle {
 		return fmt.Errorf("Expected image flag when pulling an image or index, please use --image instead of -b")
 	}
 
