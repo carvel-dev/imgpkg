@@ -18,7 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-const BundleAnnotation = "io.k14s.imgpkg.bundle"
+const BundleConfigLabel = "io.k14s.imgpkg.bundle"
 
 type FileImage struct {
 	v1.Image
@@ -61,7 +61,7 @@ func NewFileImage(path string, bundle bool) (*FileImage, error) {
 			cfg.Config.Labels = make(map[string]string)
 		}
 
-		cfg.Config.Labels[BundleAnnotation] = "true"
+		cfg.Config.Labels[BundleConfigLabel] = "true"
 
 		img, err = mutate.ConfigFile(img, cfg)
 		if err != nil {

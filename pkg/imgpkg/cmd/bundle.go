@@ -19,7 +19,7 @@ func isBundle(img v1.Image) (bool, error) {
 		return false, err
 	}
 
-	_, present := cfg.Config.Labels[image.BundleAnnotation]
+	_, present := cfg.Config.Labels[image.BundleConfigLabel]
 	return present, nil
 }
 
