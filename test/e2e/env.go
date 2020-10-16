@@ -37,6 +37,10 @@ func (e Env) Validate(t *testing.T) {
 		errStrs = append(errStrs, "Expected Image to be non-empty")
 	}
 
+	if len(e.RelocationRepo) == 0 {
+		errStrs = append(errStrs, "Expected RelocationRepo to be non-empty")
+	}
+
 	if len(errStrs) > 0 {
 		t.Fatalf("%s", strings.Join(errStrs, "\n"))
 	}

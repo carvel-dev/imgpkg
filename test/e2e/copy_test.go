@@ -212,8 +212,8 @@ kind: ImagesLock
 spec:
   images:
   - name: image
-    url: index.docker.io/k8slt/imgpkg-test%s
-`, imageDigest)
+    url: %s%s
+`, env.Image, imageDigest)
 
 	// create a bundle with ref to generic
 	imgpkgDir, err := createBundleDir(assetsPath, bundleYAML, imgsYml)
