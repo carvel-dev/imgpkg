@@ -14,6 +14,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"gopkg.in/yaml.v2"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
@@ -852,7 +853,7 @@ func addRandomFile(dir string) (string, error) {
 func validateImagePresence(refs []string) error {
 	for _, refString := range refs {
 		ref, _ := name.ParseReference(refString)
-		if _, err := remote.Image(ref); err != nil {
+		if _, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 			return fmt.Errorf("validating image %s: %v", refString, err)
 		}
 	}

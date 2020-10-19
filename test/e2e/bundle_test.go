@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
@@ -30,7 +31,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir})
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
-	image, err := remote.Image(ref)
+	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		t.Fatalf("Error getting remote image: %s", err)
 	}
