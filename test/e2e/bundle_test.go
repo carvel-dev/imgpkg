@@ -41,7 +41,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 		t.Fatalf("Error getting manifest: %s", err)
 	}
 
-	if _, found := config.Config.Labels["io.k14s.imgpkg.bundle"]; !found {
+	if _, found := config.Config.Labels["dev.carvel.imgpkg.bundle"]; !found {
 		t.Fatalf("Expected config to contain bundle label, instead had: %v", config.Config.Labels)
 	}
 

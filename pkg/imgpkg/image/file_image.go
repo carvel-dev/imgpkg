@@ -18,7 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-const BundleConfigLabel = "io.k14s.imgpkg.bundle"
+const BundleConfigLabel = "dev.carvel.imgpkg.bundle"
 
 type FileImage struct {
 	v1.Image
