@@ -9,7 +9,7 @@ import (
 )
 
 func TestImageLockUnmarshalError(t *testing.T) {
-	imageLockYaml := []byte(`apiVersion: imgpkg.k14s.io/v1alpha1
+	imageLockYaml := []byte(`apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:

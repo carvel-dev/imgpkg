@@ -25,7 +25,7 @@ func TestPullImageLockRewrite(t *testing.T) {
 	}
 	imageDigestRef := "@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:

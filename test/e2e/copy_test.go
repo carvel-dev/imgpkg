@@ -47,7 +47,7 @@ func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -137,7 +137,7 @@ func TestCopyImageLockInputToRepoWithLockOutput(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -208,7 +208,7 @@ func TestCopyBundleWithCollocatedReferencedImagesToRepoWithLockOutput(t *testing
 	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -286,7 +286,7 @@ func TestCopyBundleWithNonCollocatedReferencedImagesToRepo(t *testing.T) {
 	imageDigestRef := image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -402,7 +402,7 @@ func TestCopyBundleLockInputViaTarWithTagAndLockOutput(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -509,7 +509,7 @@ func TestCopyImageLockInputViaTarWithTagAndLockOutput(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -608,7 +608,7 @@ func TestCopyBundleViaTarWithTagAndLockOutput(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
@@ -794,7 +794,7 @@ func TestCopyImageWhenBundleError(t *testing.T) {
 	imageDigestRef := env.Image + imageDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:

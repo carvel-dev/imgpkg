@@ -89,7 +89,7 @@ func TestBundleLockFile(t *testing.T) {
 	}
 
 	expectedYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: BundleLock
 spec:
   image:

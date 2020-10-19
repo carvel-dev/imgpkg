@@ -25,7 +25,7 @@ func compareFiles(path1, path2 string, t *testing.T) {
 }
 
 const bundleYAML = `---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: Bundle
 metadata:
   name: my-app
@@ -36,7 +36,7 @@ websites:
 - url: blah.com
 `
 const imagesYAML = `---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images: []

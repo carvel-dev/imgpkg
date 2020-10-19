@@ -132,8 +132,8 @@ func (o *PushOptions) Run() error {
 
 	if o.OutputFlags.LockFilePath != "" {
 		bundleLock := BundleLock{
-			ApiVersion: "imgpkg.k14s.io/v1alpha1",
-			Kind:       "BundleLock",
+			ApiVersion: BundleLockAPIVersion,
+			Kind:       BundleLockKind,
 			Spec: BundleSpec{
 				Image: ImageLocation{
 					DigestRef:   imageURL,

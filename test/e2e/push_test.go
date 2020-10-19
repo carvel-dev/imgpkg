@@ -27,7 +27,7 @@ func TestPushBundleInImageLockErr(t *testing.T) {
 	bundleDigestRef := env.Image + bundleDigest
 
 	imgsYml := fmt.Sprintf(`---
-apiVersion: imgpkg.k14s.io/v1alpha1
+apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
