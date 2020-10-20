@@ -30,20 +30,24 @@ type RegistryOpts struct {
 }
 
 type Registry struct {
-	opts RegistryOpts
+	opts []regremote.Option
 }
 
-func NewRegistry(opts RegistryOpts) Registry {
-	return Registry{opts}
+func NewRegistry(opts RegistryOpts) (Registry, error) {
+	httpTran, err := newHTTPTransport(opts)
+	if err != nil {
+		return Registry{}, err
+	}
+
+	return Registry{
+		opts: []regremote.Option{
+			regremote.WithTransport(httpTran),
+			regremote.WithAuthFromKeychain(registryKeychain(opts)),
+		}}, nil
 }
 
 func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
-	opts, err := i.imageOpts()
-	if err != nil {
-		return regv1.Descriptor{}, err
-	}
-
-	desc, err := regremote.Get(ref, opts...)
+	desc, err := regremote.Get(ref, i.opts...)
 	if err != nil {
 		return regv1.Descriptor{}, err
 	}
@@ -52,27 +56,12 @@ func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 }
 
 func (i Registry) Image(ref regname.Reference) (regv1.Image, error) {
-	opts, err := i.imageOpts()
-	if err != nil {
-		return nil, err
-	}
-
-	return regremote.Image(ref, opts...)
+	return regremote.Image(ref, i.opts...)
 }
 
 func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
-	httpTran, err := i.newHTTPTransport()
-	if err != nil {
-		return err
-	}
-
-	auth, err := i.registryKeychain().Resolve(ref.Context().Registry)
-	if err != nil {
-		return fmt.Errorf("Getting auth details: %s", err)
-	}
-
-	err = i.retry(func() error {
-		return regremote.Write(ref, img, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
+	err := i.retry(func() error {
+		return regremote.Write(ref, img, i.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
@@ -82,27 +71,12 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 }
 
 func (i Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
-	opts, err := i.imageOpts()
-	if err != nil {
-		return nil, err
-	}
-
-	return regremote.Index(ref, opts...)
+	return regremote.Index(ref, i.opts...)
 }
 
 func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
-	httpTran, err := i.newHTTPTransport()
-	if err != nil {
-		return err
-	}
-
-	auth, err := i.registryKeychain().Resolve(ref.Context().Registry)
-	if err != nil {
-		return fmt.Errorf("Getting auth details: %s", err)
-	}
-
-	err = i.retry(func() error {
-		return regremote.WriteIndex(ref, idx, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
+	err := i.retry(func() error {
+		return regremote.WriteIndex(ref, idx, i.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
@@ -112,43 +86,21 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 }
 
 func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
-	httpTran, err := i.newHTTPTransport()
-	if err != nil {
-		return nil, err
-	}
-
-	auth, err := i.registryKeychain().Resolve(repo.Registry)
-	if err != nil {
-		return nil, fmt.Errorf("Getting auth details: %s", err)
-	}
-
-	return regremote.List(repo, regremote.WithAuth(auth), regremote.WithTransport(httpTran))
+	return regremote.List(repo, i.opts...)
 }
 
-func (i Registry) imageOpts() ([]regremote.Option, error) {
-	httpTran, err := i.newHTTPTransport()
-	if err != nil {
-		return nil, err
-	}
-
-	return []regremote.Option{
-		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(i.registryKeychain()),
-	}, nil
+func registryKeychain(opts RegistryOpts) regauthn.Keychain {
+	return customRegistryKeychain{opts}
 }
 
-func (i Registry) registryKeychain() regauthn.Keychain {
-	return customRegistryKeychain{i.opts}
-}
-
-func (i Registry) newHTTPTransport() (*http.Transport, error) {
+func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		pool = x509.NewCertPool()
 	}
 
-	if len(i.opts.CACertPaths) > 0 {
-		for _, path := range i.opts.CACertPaths {
+	if len(opts.CACertPaths) > 0 {
+		for _, path := range opts.CACertPaths {
 			if certs, err := ioutil.ReadFile(path); err != nil {
 				return nil, fmt.Errorf("Reading CA certificates from '%s': %s", path, err)
 			} else if ok := pool.AppendCertsFromPEM(certs); !ok {
@@ -175,7 +127,7 @@ func (i Registry) newHTTPTransport() (*http.Transport, error) {
 		// Use the cert pool with k8s cert bundle appended.
 		TLSClientConfig: &tls.Config{
 			RootCAs:            pool,
-			InsecureSkipVerify: (i.opts.VerifyCerts == false),
+			InsecureSkipVerify: (opts.VerifyCerts == false),
 		},
 	}, nil
 }

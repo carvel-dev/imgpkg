@@ -70,12 +70,14 @@ func (o *CopyOptions) Run() error {
 
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	if err != nil {
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+	}
 	imageSet := ImageSet{o.Concurrency, prefixedLogger}
 
 	var importRepo regname.Repository
 	var unprocessedImageUrls *UnprocessedImageURLs
-	var err error
 	var bundleURL string
 	var processedImages *ProcessedImages
 	switch {
@@ -174,7 +176,10 @@ func (o *CopyOptions) hasOneSrc() bool {
 func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, error) {
 	unprocessedImageURLs := NewUnprocessedImageURLs()
 	var bundleRef string
-	reg := image.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	reg, err := image.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	if err != nil {
+		return nil, "", fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+	}
 	switch {
 
 	case o.LockSrc != "":

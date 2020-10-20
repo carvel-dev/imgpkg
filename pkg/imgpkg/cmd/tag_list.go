@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -39,7 +40,10 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (o *TagListOptions) Run() error {
-	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	if err != nil {
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+	}
 
 	ref, err := regname.ParseReference(o.ImageFlags.Image, regname.WeakValidation)
 	if err != nil {

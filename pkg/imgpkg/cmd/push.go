@@ -58,6 +58,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 func (o *PushOptions) Run() error {
 	var inputRef string
 	var registry ctlimg.Registry
+	var err error
 
 	switch {
 	case o.isBundle() && o.isImage():
@@ -67,8 +68,11 @@ func (o *PushOptions) Run() error {
 		return fmt.Errorf("Expected either image or bundle")
 
 	case o.isBundle():
-		registry = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
-		err := o.validateBundle(registry)
+		registry, err = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+		if err != nil {
+			return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		}
+		err = o.validateBundle(registry)
 		if err != nil {
 			return err
 		}
@@ -88,11 +92,14 @@ func (o *PushOptions) Run() error {
 		if len(bundleDirPaths) > 0 {
 			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
 		}
-		registry = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+		registry, err = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+		if err != nil {
+			return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		}
 		inputRef = o.ImageFlags.Image
 	}
 
-	err := o.checkRepeatedPaths()
+	err = o.checkRepeatedPaths()
 	if err != nil {
 		return err
 	}

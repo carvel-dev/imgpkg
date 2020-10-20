@@ -56,7 +56,10 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 }
 
 func (o *PullOptions) Run() error {
-	registry := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	if err != nil {
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+	}
 
 	inputRef, err := o.getRefFromFlags()
 	if err != nil {
