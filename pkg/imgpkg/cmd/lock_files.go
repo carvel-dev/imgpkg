@@ -4,12 +4,13 @@
 package cmd
 
 import (
-	regname "github.com/google/go-containerregistry/pkg/name"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"fmt"
 	"io/ioutil"
 
+	regname "github.com/google/go-containerregistry/pkg/name"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -47,9 +48,13 @@ func (il *ImageLock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	for _, image := range alias.Spec.Images {
+	for i, image := range alias.Spec.Images {
 		if _, err := name.NewDigest(image.DigestRef); err != nil {
-			return errors.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
+			return fmt.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
+		}
+
+		if image.Name == "" {
+			return fmt.Errorf("found image at index %d with no name", i)
 		}
 	}
 

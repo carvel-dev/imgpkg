@@ -8,7 +8,6 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-containerregistry v0.1.1
 	github.com/onsi/gomega v1.10.0 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.0.0
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
