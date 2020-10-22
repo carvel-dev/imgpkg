@@ -54,7 +54,7 @@ func (il *ImageLock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 
 		if image.Name == "" {
-			return fmt.Errorf("found image in image lock file at index %d with no name", i)
+			return fmt.Errorf("Expected one 'name' for image at index %d in image lock file, but got 0", i)
 		}
 	}
 

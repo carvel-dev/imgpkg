@@ -44,7 +44,7 @@ spec:
 		t.Fatalf("Expected unmarshal to error")
 	}
 
-	if msg := err.Error(); !(strings.Contains(msg, "with no name") && strings.Contains(msg, "1")) {
+	if msg := err.Error(); !(strings.Contains(msg, "Expected one 'name'") && strings.Contains(msg, "1")) {
 		t.Fatalf("Expected unmarshal to fail due to missing name, but got %v", err)
 	}
 }
