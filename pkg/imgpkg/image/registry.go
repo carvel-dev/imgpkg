@@ -22,6 +22,7 @@ import (
 type RegistryOpts struct {
 	CACertPaths []string
 	VerifyCerts bool
+	Insecure    bool
 
 	Username string
 	Password string
@@ -30,7 +31,8 @@ type RegistryOpts struct {
 }
 
 type Registry struct {
-	opts []regremote.Option
+	opts    []regremote.Option
+	refOpts []regname.Option
 }
 
 func NewRegistry(opts RegistryOpts) (Registry, error) {
@@ -39,15 +41,26 @@ func NewRegistry(opts RegistryOpts) (Registry, error) {
 		return Registry{}, err
 	}
 
+	var refOpts []regname.Option
+	if opts.Insecure {
+		refOpts = append(refOpts, regname.Insecure)
+	}
+
 	return Registry{
 		opts: []regremote.Option{
 			regremote.WithTransport(httpTran),
 			regremote.WithAuthFromKeychain(registryKeychain(opts)),
-		}}, nil
+		},
+		refOpts: refOpts,
+	}, nil
 }
 
 func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
-	desc, err := regremote.Get(ref, i.opts...)
+	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+	if err != nil {
+		return regv1.Descriptor{}, err
+	}
+	desc, err := regremote.Get(overriddenRef, i.opts...)
 	if err != nil {
 		return regv1.Descriptor{}, err
 	}
@@ -56,12 +69,22 @@ func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 }
 
 func (i Registry) Image(ref regname.Reference) (regv1.Image, error) {
-	return regremote.Image(ref, i.opts...)
+	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return regremote.Image(overriddenRef, i.opts...)
 }
 
 func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
-	err := i.retry(func() error {
-		return regremote.Write(ref, img, i.opts...)
+	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+	if err != nil {
+		return err
+	}
+
+	err = i.retry(func() error {
+		return regremote.Write(overriddenRef, img, i.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
@@ -71,12 +94,21 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 }
 
 func (i Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
-	return regremote.Index(ref, i.opts...)
+	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.Index(overriddenRef, i.opts...)
 }
 
 func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
-	err := i.retry(func() error {
-		return regremote.WriteIndex(ref, idx, i.opts...)
+	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+	if err != nil {
+		return err
+	}
+
+	err = i.retry(func() error {
+		return regremote.WriteIndex(overriddenRef, idx, i.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
@@ -86,7 +118,11 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 }
 
 func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
-	return regremote.List(repo, i.opts...)
+	overriddenRepo, err := regname.NewRepository(repo.Name(), i.refOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.List(overriddenRepo, i.opts...)
 }
 
 func registryKeychain(opts RegistryOpts) regauthn.Keychain {

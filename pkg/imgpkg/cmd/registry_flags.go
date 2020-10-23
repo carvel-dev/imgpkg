@@ -13,6 +13,7 @@ import (
 type RegistryFlags struct {
 	CACertPaths []string
 	VerifyCerts bool
+	Insecure    bool
 
 	Username string
 	Password string
@@ -23,6 +24,7 @@ type RegistryFlags struct {
 func (s *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&s.CACertPaths, "registry-ca-cert-path", nil, "Add CA certificates for registry API (format: /tmp/foo) (can be specified multiple times)")
 	cmd.Flags().BoolVar(&s.VerifyCerts, "registry-verify-certs", true, "Set whether to verify server's certificate chain and host name")
+	cmd.Flags().BoolVar(&s.Insecure, "registry-insecure", false, "Allow the use of http when interacting with registries")
 
 	cmd.Flags().StringVar(&s.Username, "registry-username", "", "Set username for auth ($IMGPKG_USERNAME)")
 	cmd.Flags().StringVar(&s.Password, "registry-password", "", "Set password for auth ($IMGPKG_PASSWORD)")
@@ -34,6 +36,7 @@ func (s *RegistryFlags) AsRegistryOpts() ctlimg.RegistryOpts {
 	opts := ctlimg.RegistryOpts{
 		CACertPaths: s.CACertPaths,
 		VerifyCerts: s.VerifyCerts,
+		Insecure:    s.Insecure,
 
 		Username: s.Username,
 		Password: s.Password,

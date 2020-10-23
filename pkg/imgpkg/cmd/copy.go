@@ -52,6 +52,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.TarSrc, "from-tar", "", "Path to tarball to copy from")
 	cmd.Flags().StringVar(&o.LockOutput, "lock-output", "", "Path to output an updated lock file")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "concurrency")
+	o.RegistryFlags.Set(cmd)
 	return cmd
 }
 
