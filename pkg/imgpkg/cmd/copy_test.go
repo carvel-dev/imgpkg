@@ -34,7 +34,7 @@ func TestMultiSrc(t *testing.T) {
 		t.Fatalf("Expected Run() to err")
 	}
 
-	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --tar as a source") {
+	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --from-tar as a source") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 
@@ -46,7 +46,7 @@ func TestNoSrc(t *testing.T) {
 		t.Fatalf("Expected Run() to err")
 	}
 
-	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --tar as a source") {
+	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --from-tar as a source") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 

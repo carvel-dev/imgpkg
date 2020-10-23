@@ -57,7 +57,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 
 func (o *CopyOptions) Run() error {
 	if !o.hasOneSrc() {
-		return fmt.Errorf("Expected either --lock, --bundle (-b), --image (-i), or --tar as a source")
+		return fmt.Errorf("Expected either --lock, --bundle (-b), --image (-i), or --from-tar as a source")
 	}
 
 	if !o.hasOneDest() {
