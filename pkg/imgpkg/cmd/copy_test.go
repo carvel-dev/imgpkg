@@ -6,7 +6,7 @@ import (
 )
 
 func TestMultiDest(t *testing.T) {
-	err := (&CopyOptions{RepoDst: "foo", TarDst: "bar", TarSrc: "foo"}).Run()
+	err := (&CopyOptions{RepoDst: "foo", TarFlags: TarFlags{TarDst: "bar", TarSrc: "foo"}}).Run()
 	if err == nil {
 		t.Fatalf("Expected Run() to err")
 	}
@@ -17,7 +17,7 @@ func TestMultiDest(t *testing.T) {
 }
 
 func TestNoDest(t *testing.T) {
-	err := (&CopyOptions{TarSrc: "foo"}).Run()
+	err := (&CopyOptions{TarFlags: TarFlags{TarSrc: "foo"}}).Run()
 	if err == nil {
 		t.Fatalf("Expected Run() to err")
 	}
@@ -29,7 +29,7 @@ func TestNoDest(t *testing.T) {
 }
 
 func TestMultiSrc(t *testing.T) {
-	err := (&CopyOptions{LockSrc: "foo", ImageSrc: "bar"}).Run()
+	err := (&CopyOptions{LockInputFlags: LockInputFlags{LockFilePath: "foo"}, ImageFlags: ImageFlags{Image: "bar"}}).Run()
 	if err == nil {
 		t.Fatalf("Expected Run() to err")
 	}

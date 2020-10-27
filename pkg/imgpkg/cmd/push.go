@@ -24,11 +24,11 @@ const ImageLockFile = "images.yml"
 type PushOptions struct {
 	ui ui.UI
 
-	ImageFlags    ImageFlags
-	BundleFlags   BundleFlags
-	OutputFlags   OutputFlags
-	FileFlags     FileFlags
-	RegistryFlags RegistryFlags
+	ImageFlags      ImageFlags
+	BundleFlags     BundleFlags
+	LockOutputFlags LockOutputFlags
+	FileFlags       FileFlags
+	RegistryFlags   RegistryFlags
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -49,7 +49,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	}
 	o.ImageFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
-	o.OutputFlags.Set(cmd)
+	o.LockOutputFlags.Set(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	return cmd
@@ -80,7 +80,7 @@ func (o *PushOptions) Run() error {
 		inputRef = o.BundleFlags.Bundle
 
 	case o.isImage():
-		if o.OutputFlags.LockFilePath != "" {
+		if o.LockOutputFlags.LockFilePath != "" {
 			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
 		}
 
@@ -137,7 +137,7 @@ func (o *PushOptions) Run() error {
 
 	o.ui.BeginLinef("Pushed '%s'", imageURL)
 
-	if o.OutputFlags.LockFilePath != "" {
+	if o.LockOutputFlags.LockFilePath != "" {
 		bundleLock := BundleLock{
 			ApiVersion: BundleLockAPIVersion,
 			Kind:       BundleLockKind,
@@ -154,7 +154,7 @@ func (o *PushOptions) Run() error {
 			return err
 		}
 
-		err = ioutil.WriteFile(o.OutputFlags.LockFilePath, append([]byte("---\n"), manifestBs...), 0700)
+		err = ioutil.WriteFile(o.LockOutputFlags.LockFilePath, append([]byte("---\n"), manifestBs...), 0700)
 		if err != nil {
 			return fmt.Errorf("Writing lock file: %s", err)
 		}

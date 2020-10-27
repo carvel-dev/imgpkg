@@ -7,11 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type OutputFlags struct {
+type LockOutputFlags struct {
 	LockFilePath string
 }
 
-func (s *OutputFlags) Set(cmd *cobra.Command) {
+func (s *LockOutputFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&s.LockFilePath, "lock-output", "",
-		"Path to output a lock file to (either BundleLock or ImageLock)")
+		"Location to output lockfile. lockfile type (BundleLock or ImagesLock) is determined from contents moved.")
 }

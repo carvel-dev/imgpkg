@@ -14,3 +14,7 @@ type ImageFlags struct {
 func (s *ImageFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&s.Image, "image", "i", "", "Set image (example: docker.io/dkalinin/test-content)")
 }
+
+func (s *ImageFlags) SetCopy(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&s.Image, "image", "i", "", "Image reference for copying a generic image (example: docker.io/dkalinin/test-content)")
+}

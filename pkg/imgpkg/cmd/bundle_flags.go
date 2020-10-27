@@ -14,3 +14,7 @@ type BundleFlags struct {
 func (s *BundleFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&s.Bundle, "bundle", "b", "", "Set bundle (example: docker.io/dkalinin/test-content)")
 }
+
+func (s *BundleFlags) SetCopy(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&s.Bundle, "bundle", "b", "", "Bundle reference for copying (happens thickly, i.e. bundle image + all referenced images)")
+}

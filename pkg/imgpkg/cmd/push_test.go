@@ -202,7 +202,7 @@ func TestImageAndBundleError(t *testing.T) {
 }
 
 func TestImageAndBundleLockError(t *testing.T) {
-	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, OutputFlags: OutputFlags{LockFilePath: "lock-file"}}
+	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, LockOutputFlags: LockOutputFlags{LockFilePath: "lock-file"}}
 	err := push.Run()
 	if err == nil {
 		t.Fatalf("Expected validations to err, but did not")

@@ -19,11 +19,11 @@ import (
 type PullOptions struct {
 	ui ui.UI
 
-	ImageFlags    ImageFlags
-	RegistryFlags RegistryFlags
-	BundleFlags   BundleFlags
-	OutputPath    string
-	LockPath      string
+	ImageFlags     ImageFlags
+	RegistryFlags  RegistryFlags
+	BundleFlags    BundleFlags
+	LockInputFlags LockInputFlags
+	OutputPath     string
 }
 
 var _ ctlimg.ImagesMetadata = ctlimg.Registry{}
@@ -47,10 +47,9 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 	o.ImageFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
-
+	o.LockInputFlags.Set(cmd)
 	cmd.Flags().StringVarP(&o.OutputPath, "output", "o", "", "Output directory path")
 	cmd.MarkFlagRequired("output")
-	cmd.Flags().StringVar(&o.LockPath, "lock", "", "Path to BundleLock file")
 
 	return cmd
 }
@@ -137,7 +136,7 @@ func (o *PullOptions) Run() error {
 
 func (o *PullOptions) getRefFromFlags() (string, error) {
 	var ref string
-	for _, s := range []string{o.LockPath, o.ImageFlags.Image, o.BundleFlags.Bundle} {
+	for _, s := range []string{o.LockInputFlags.LockFilePath, o.ImageFlags.Image, o.BundleFlags.Bundle} {
 		if s == "" {
 			continue
 		}
@@ -150,7 +149,7 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 		return "", fmt.Errorf("Expected either image, bundle, or lock")
 	}
 	//ref is not empty
-	if o.LockPath == "" {
+	if o.LockInputFlags.LockFilePath == "" {
 		return ref, nil
 	}
 	lockBytes, err := ioutil.ReadFile(ref)

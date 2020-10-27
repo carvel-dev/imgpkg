@@ -17,18 +17,15 @@ import (
 type CopyOptions struct {
 	ui ui.UI
 
-	RegistryFlags RegistryFlags
-	Concurrency   int
+	ImageFlags      ImageFlags
+	BundleFlags     BundleFlags
+	LockInputFlags  LockInputFlags
+	LockOutputFlags LockOutputFlags
+	TarFlags        TarFlags
+	RegistryFlags   RegistryFlags
 
-	LockSrc   string
-	TarSrc    string
-	BundleSrc string
-	ImageSrc  string
-
-	RepoDst string
-	TarDst  string
-
-	LockOutput string
+	RepoDst     string
+	Concurrency int
 }
 
 func NewCopyOptions(ui ui.UI) *CopyOptions {
@@ -43,16 +40,14 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 		Example: ``,
 	}
 
-	// TODO switch to using shared flags and collapse --images-lock into --lock
-	cmd.Flags().StringVar(&o.LockSrc, "lock", "", "Lock file pointing to objects to relocate")
-	cmd.Flags().StringVarP(&o.BundleSrc, "bundle", "b", "", "Bundle reference to copy")
-	cmd.Flags().StringVarP(&o.ImageSrc, "image", "i", "", "Image reference to copy")
-	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Repository to copy to")
-	cmd.Flags().StringVar(&o.TarDst, "to-tar", "", "Path to write tarball to")
-	cmd.Flags().StringVar(&o.TarSrc, "from-tar", "", "Path to tarball to copy from")
-	cmd.Flags().StringVar(&o.LockOutput, "lock-output", "", "Path to output an updated lock file")
-	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "concurrency")
+	o.ImageFlags.SetCopy(cmd)
+	o.BundleFlags.SetCopy(cmd)
+	o.LockInputFlags.Set(cmd)
+	o.LockOutputFlags.Set(cmd)
+	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
+	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	return cmd
 }
 
@@ -88,9 +83,9 @@ func (o *CopyOptions) Run() error {
 			return fmt.Errorf("Building import repository ref: %s", err)
 		}
 		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
-		processedImages, bundleURL, err = tarImageSet.Import(o.TarSrc, importRepo, registry)
+		processedImages, bundleURL, err = tarImageSet.Import(o.TarFlags.TarSrc, importRepo, registry)
 	case o.isRepoSrc() && o.isTarDst():
-		if o.LockOutput != "" {
+		if o.LockOutputFlags.LockFilePath != "" {
 			return fmt.Errorf("cannot output lock file with tar destination")
 		}
 
@@ -107,7 +102,7 @@ func (o *CopyOptions) Run() error {
 		}
 
 		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
-		err = tarImageSet.Export(unprocessedImageUrls, o.TarDst, registry) // download to tar
+		err = tarImageSet.Export(unprocessedImageUrls, o.TarFlags.TarDst, registry) // download to tar
 	case o.isRepoSrc() && o.isRepoDst():
 		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
 		if err != nil {
@@ -132,7 +127,7 @@ func (o *CopyOptions) Run() error {
 		return err
 	}
 
-	if o.LockOutput != "" {
+	if o.LockOutputFlags.LockFilePath != "" {
 		err = o.writeLockOutput(processedImages, bundleURL)
 	}
 
@@ -140,15 +135,15 @@ func (o *CopyOptions) Run() error {
 }
 
 func (o *CopyOptions) isTarSrc() bool {
-	return o.TarSrc != ""
+	return o.TarFlags.TarSrc != ""
 }
 
 func (o *CopyOptions) isRepoSrc() bool {
-	return o.ImageSrc != "" || o.BundleSrc != "" || o.LockSrc != ""
+	return o.ImageFlags.Image != "" || o.BundleFlags.Bundle != "" || o.LockInputFlags.LockFilePath != ""
 }
 
 func (o *CopyOptions) isTarDst() bool {
-	return o.TarDst != ""
+	return o.TarFlags.TarDst != ""
 }
 
 func (o *CopyOptions) isRepoDst() bool {
@@ -163,7 +158,7 @@ func (o *CopyOptions) hasOneDest() bool {
 
 func (o *CopyOptions) hasOneSrc() bool {
 	var seen bool
-	for _, ref := range []string{o.LockSrc, o.TarSrc, o.BundleSrc, o.ImageSrc} {
+	for _, ref := range []string{o.LockInputFlags.LockFilePath, o.TarFlags.TarSrc, o.BundleFlags.Bundle, o.ImageFlags.Image} {
 		if ref != "" {
 			if seen {
 				return false
@@ -183,14 +178,14 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 	}
 	switch {
 
-	case o.LockSrc != "":
-		lock, err := ReadLockFile(o.LockSrc)
+	case o.LockInputFlags.LockFilePath != "":
+		lock, err := ReadLockFile(o.LockInputFlags.LockFilePath)
 		if err != nil {
 			return nil, "", err
 		}
 		switch {
 		case lock.Kind == "BundleLock":
-			bundleLock, err := ReadBundleLockFile(o.LockSrc)
+			bundleLock, err := ReadBundleLockFile(o.LockInputFlags.LockFilePath)
 			if err != nil {
 				return nil, "", err
 			}
@@ -226,7 +221,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef, Tag: bundleLock.Spec.Image.OriginalTag})
 
 		case lock.Kind == "ImagesLock":
-			imgLock, err := ReadImageLockFile(o.LockSrc)
+			imgLock, err := ReadImageLockFile(o.LockInputFlags.LockFilePath)
 			if err != nil {
 				return nil, "", err
 			}
@@ -246,8 +241,8 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			return nil, "", fmt.Errorf("Unexpected lock kind, expected bundleLock or imageLock, got: %v", lock.Kind)
 		}
 
-	case o.ImageSrc != "":
-		parsedRef, err := regname.ParseReference(o.ImageSrc)
+	case o.ImageFlags.Image != "":
+		parsedRef, err := regname.ParseReference(o.ImageFlags.Image)
 		if err != nil {
 			return nil, "", err
 		}
@@ -281,10 +276,10 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			return nil, "", fmt.Errorf("Expected bundle flag when copying a bundle, please use -b instead of -i")
 		}
 
-		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageSrc, imageTag, o.ImageSrc})
+		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageFlags.Image, imageTag, o.ImageFlags.Image})
 
 	default:
-		bundleRef = o.BundleSrc
+		bundleRef = o.BundleFlags.Bundle
 
 		parsedRef, err := regname.ParseReference(bundleRef)
 		if err != nil {
@@ -384,7 +379,7 @@ func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleUR
 
 	}
 
-	return ioutil.WriteFile(o.LockOutput, outBytes, 0700)
+	return ioutil.WriteFile(o.LockOutputFlags.LockFilePath, outBytes, 0700)
 }
 
 func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*UnprocessedImageURLs, error) {

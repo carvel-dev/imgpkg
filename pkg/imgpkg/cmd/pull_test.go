@@ -21,7 +21,7 @@ func TestNoImageOrBundleOrLockError(t *testing.T) {
 }
 
 func TestImageAndBundleAndLockError(t *testing.T) {
-	pull := PullOptions{ImageFlags: ImageFlags{"image@123456"}, BundleFlags: BundleFlags{"my-bundle"}, LockPath: "lockpath"}
+	pull := PullOptions{ImageFlags: ImageFlags{"image@123456"}, BundleFlags: BundleFlags{"my-bundle"}, LockInputFlags: LockInputFlags{LockFilePath: "lockpath"}}
 	err := pull.Run()
 	if err == nil {
 		t.Fatalf("Expected validations to err, but did not")
