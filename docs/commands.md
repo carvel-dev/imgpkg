@@ -2,6 +2,7 @@
 
 - [`imgpkg push`](#imgpkg-push)
 - [`imgpkg pull`](#imgpkg-pull)
+- [`imgpkg copy`](#imgpkg-copy)
 
 ## `imgpkg push`
 
@@ -13,7 +14,7 @@ An image is a generic set of files or directories. Ultimately, an image is a tar
 
 A bundle is an image with some additional characteristics:
 - a bundle directory, `.imgpkg`, must exist at the root-level of the bundle that is responsible for containing bundle metadata
-- the image manifest will have an additional annotation `"io.k14s.imgpkg.bundle": "true"` when pushed
+- the image config will have a label notating that the image is a bundle
 
 `imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
 
@@ -65,7 +66,7 @@ There are a few restrictions when creating a bundle from directories that contai
 
 `push` may also output a BundleLock file for users that would like a deterministic reference to a pushed bundle. For example, running:
 
-`$ impgpkg push -f my-bundle -b index.docker.io/k8slt/sample-bundle:v0.1.0 -o
+`$ impgpkg push -f my-bundle -b index.docker.io/k8slt/sample-bundle:v0.1.0 --lock-output
 bundle.lock.yml`
 
 will output a BundleLock file to `bundle.lock.yml`. If another image in the repository is later given the same tag (`v0.1.0`), the BundleLock will guarantee users continue to reference the original bundle by its digest.
@@ -93,3 +94,30 @@ After pushing images to a registry, users can retrieve the images with `imgpkg p
 `$ imgpkg pull -i index.docker.io/k8slt/sample-image -o my-image`
 
 will pull a bundle from `index.docker.io/k8slt/sample-image` and output it to `my-image`.
+
+## `imgpkg copy`
+
+### Copying a bundle
+
+Users are able to copy a bundle from a registry, to another registry using `--to-repo`: 
+
+`$ imgpkg copy -b index.docker.io/k8slt/sample-bundle --to-repo internal-registry/sample-bundle-name`
+
+or into a local tarball for air-gapped relocation using `--to-tar`:
+ 
+`$ imgpkg copy -b index.docker.io/k8slt/sample-bundle --to-tar=/Volumes/secure-thumb/bundle.tar`
+
+The bundle image at `index.docker.io/k8slt/sample-bundle` will be copied thickly (bundle image + all referenced images)
+to either destination. After coping a bundle to another registry, any referenced images in the ([ImagesLock](resources.md#imageslock)) file
+will be updated with the destination registry since each referenced image was relocated alongside the bundle image.
+
+
+### Copying an image
+
+Users are able to copy an image bundle from a registry, to another registry:
+
+`$ imgpkg copy -i index.docker.io/k8slt/sample-image --to-repo internal-registry/sample-image-name`
+
+or into a local tarball for air-gapped relocation:
+ 
+`$ imgpkg copy -i index.docker.io/k8slt/sample-image --to-tar=/Volumes/secure-thumb/image.tar`
