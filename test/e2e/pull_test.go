@@ -1,13 +1,17 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package e2e
 
 import (
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
+	"gopkg.in/yaml.v2"
 )
 
 func TestPullImageLockRewrite(t *testing.T) {

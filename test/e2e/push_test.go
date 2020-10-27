@@ -1,14 +1,18 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package e2e
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
 )
 
 func TestPushBundleInImageLockErr(t *testing.T) {
