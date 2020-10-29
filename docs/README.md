@@ -34,7 +34,7 @@ Succeeded
 See [detailed push usage](commands.md#imgpkg-push).
 
 Copy content to another registry (or local tarball using `--to-tar`)
-```bash
+```
 $ imgpkg copy -b your-user/app1-config:0.1.1 --to-repo other-user/app1
 copy | exporting 2 images...
 copy | will export index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da

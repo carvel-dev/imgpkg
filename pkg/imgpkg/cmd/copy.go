@@ -38,10 +38,15 @@ func NewCopyOptions(ui ui.UI) *CopyOptions {
 
 func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "copy",
-		Short:   "Copy a bundle from one location to another",
-		RunE:    func(_ *cobra.Command, _ []string) error { return o.Run() },
-		Example: ``,
+		Use:   "copy",
+		Short: "Copy a bundle from one location to another",
+		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
+		Example: `
+    # Copy bundle dkalinin/app1-bundle to local tarball at /Volumes/app1-bundle.tar
+    imgpkg copy -b dkalinin/app1-bundle --to-tar /Volumes/app1-bundle.tar
+
+    # Copy image dkalinin/app1-image to another registry (or repository)
+    imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image`,
 	}
 
 	o.ImageFlags.SetCopy(cmd)
