@@ -45,7 +45,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 		}
 
 		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.URL)))
-		refs = append(refs, imagedesc.Metadata{ref, img.Tag, img.Name})
+		refs = append(refs, imagedesc.Metadata{ref, img.Tag})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, registry)
@@ -86,7 +86,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 				return
 			}
 
-			importedImages.Add(UnprocessedImageURL{existingRef.Name(), item.Tag(), item.Name()}, Image{URL: importDigestRef.Name()})
+			importedImages.Add(UnprocessedImageURL{existingRef.Name(), item.Tag()}, Image{URL: importDigestRef.Name()})
 			errCh <- nil
 		}()
 	}

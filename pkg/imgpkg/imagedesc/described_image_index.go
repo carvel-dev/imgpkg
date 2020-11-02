@@ -34,10 +34,6 @@ func (i DescribedImageIndex) Tag() string {
 	return i.desc.Tag
 }
 
-func (i DescribedImageIndex) Name() string {
-	return i.desc.Name
-}
-
 func (i DescribedImageIndex) Digest() (regv1.Hash, error)  { return regv1.NewHash(i.desc.Digest) }
 func (i DescribedImageIndex) RawManifest() ([]byte, error) { return []byte(i.desc.Raw), nil }
 

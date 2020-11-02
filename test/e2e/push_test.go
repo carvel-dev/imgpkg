@@ -35,8 +35,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, bundleDigestRef)
 	err = ioutil.WriteFile(filepath.Join(assetsPath, cmd.BundleDir, imageFile), []byte(imgsYml), 0600)
 	if err != nil {

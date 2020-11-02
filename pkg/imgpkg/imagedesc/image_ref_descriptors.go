@@ -26,9 +26,8 @@ type Registry interface {
 }
 
 type Metadata struct {
-	Ref  regname.Reference
-	Tag  string
-	Name string
+	Ref regname.Reference
+	Tag string
 }
 
 type ImageRefDescriptors struct {
@@ -114,7 +113,6 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref Metadata, regDesc regv1.Desc
 		MediaType: string(regDesc.MediaType),
 		Digest:    regDesc.Digest.String(),
 		Tag:       ref.Tag,
-		Name:      ref.Name,
 	}
 
 	imgIndex, err := ids.registry.Index(ref.Ref)
@@ -136,13 +134,13 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref Metadata, regDesc regv1.Desc
 
 	for _, manDesc := range imgIndexManifest.Manifests {
 		if ids.isImageIndex(manDesc) {
-			imgIndexTd, err := ids.buildImageIndex(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag, ref.Name}, manDesc)
+			imgIndexTd, err := ids.buildImageIndex(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag}, manDesc)
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
 			td.Indexes = append(td.Indexes, imgIndexTd)
 		} else {
-			imgTd, err := ids.buildImage(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag, ref.Name})
+			imgTd, err := ids.buildImage(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag})
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
@@ -196,8 +194,7 @@ func (ids *ImageRefDescriptors) buildImage(ref Metadata) (ImageDescriptor, error
 			Digest:    manifestDigest.String(),
 			Raw:       string(manifestBlob),
 		},
-		Tag:  ref.Tag,
-		Name: ref.Name,
+		Tag: ref.Tag,
 	}
 
 	layers, err := img.Layers()

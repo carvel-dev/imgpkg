@@ -225,7 +225,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			}
 
 			for _, image := range images {
-				unprocessedImageURLs.Add(UnprocessedImageURL{URL: image.DigestRef, Tag: image.OriginalTag})
+				unprocessedImageURLs.Add(UnprocessedImageURL{URL: image.Image})
 			}
 			unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef, Tag: bundleLock.Spec.Image.OriginalTag})
 
@@ -244,7 +244,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			}
 
 			for _, img := range imgLock.Spec.Images {
-				unprocessedImageURLs.Add(UnprocessedImageURL{img.DigestRef, img.OriginalTag, img.Name})
+				unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.Image})
 			}
 		default:
 			return nil, "", fmt.Errorf("Unexpected lock kind, expected bundleLock or imageLock, got: %v", lock.Kind)
@@ -285,7 +285,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 			return nil, "", fmt.Errorf("Expected bundle flag when copying a bundle, please use -b instead of -i")
 		}
 
-		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageFlags.Image, imageTag, o.ImageFlags.Image})
+		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageFlags.Image, imageTag})
 
 	default:
 		bundleRef = o.BundleFlags.Bundle
@@ -331,7 +331,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 		}
 
 		for _, img := range images {
-			unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.DigestRef, Tag: img.OriginalTag})
+			unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.Image})
 		}
 
 		unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef, Tag: bundleTag})
@@ -349,12 +349,10 @@ func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleUR
 	case "":
 		iLock := ImageLock{ApiVersion: ImageLockAPIVersion, Kind: ImageLockKind}
 		for _, img := range processedImages.All() {
-			imgLoc := ImageLocation{DigestRef: img.Image.URL, OriginalTag: img.Tag}
 			iLock.Spec.Images = append(
 				iLock.Spec.Images,
 				ImageDesc{
-					Name:          img.UnprocessedImageURL.Name,
-					ImageLocation: imgLoc,
+					Image: img.Image.URL,
 				},
 			)
 		}
@@ -416,7 +414,7 @@ func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundl
 
 		_, err = registry.Generic(ref)
 		if err == nil {
-			checkedURLs.Add(UnprocessedImageURL{newURL, img.Tag, img.Name})
+			checkedURLs.Add(UnprocessedImageURL{newURL, img.Tag})
 		} else {
 			checkedURLs.Add(img)
 		}

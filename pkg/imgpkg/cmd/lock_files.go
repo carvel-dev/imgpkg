@@ -48,14 +48,11 @@ func (il *ImageLock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	for i, image := range alias.Spec.Images {
-		if _, err := name.NewDigest(image.DigestRef); err != nil {
-			return fmt.Errorf("Expected ref to be in digest form, got %s", image.DigestRef)
+	for _, image := range alias.Spec.Images {
+		if _, err := name.NewDigest(image.Image); err != nil {
+			return fmt.Errorf("Expected ref to be in digest form, got %s", image.Image)
 		}
 
-		if image.Name == "" {
-			return fmt.Errorf("Expected one 'name' for image at index %d in image lock file, but got 0", i)
-		}
 	}
 
 	*il = ImageLock(alias)
@@ -68,9 +65,8 @@ type ImageSpec struct {
 }
 
 type ImageDesc struct {
-	ImageLocation `yaml:",inline"`
-	Name          string
-	Metadata      string
+	Image       string
+	Annotations map[string]string
 }
 
 type ImageLocation struct {
@@ -116,7 +112,7 @@ func readPathInto(path string, obj interface{}) error {
 func (il *ImageLock) CheckForBundles(reg ctlimg.Registry) ([]string, error) {
 	var bundles []string
 	for _, img := range il.Spec.Images {
-		imgRef := img.DigestRef
+		imgRef := img.Image
 		parsedRef, err := regname.ParseReference(imgRef)
 		if err != nil {
 			return nil, err

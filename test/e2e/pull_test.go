@@ -33,9 +33,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: hello-world%s
-    tag: "latest"
+  - image: hello-world%s
 `, imageDigestRef)
 
 	_, err = createBundleDir(pushDir, bundleYAML, imgsYml)
@@ -57,7 +55,7 @@ spec:
 		t.Fatalf("could not unmarshal images lock: %v", err)
 	}
 
-	actualImageRef := iLock.Spec.Images[0].DigestRef
+	actualImageRef := iLock.Spec.Images[0].Image
 	expectedImageRef := env.Image + imageDigestRef
 	if actualImageRef != expectedImageRef {
 		t.Fatalf("Expected images lock to be updated with bundle repository: %s, but got: %s", expectedImageRef, actualImageRef)

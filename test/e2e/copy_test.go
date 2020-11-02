@@ -54,8 +54,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, imageDigestRef)
 
 	// create a bundle with ref to generic
@@ -144,9 +143,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
-    tag: "v1"
+  - image: %s
 `, imageDigestRef)
 
 	err = ioutil.WriteFile(lockFile, []byte(imgsYml), 0700)
@@ -172,21 +169,14 @@ spec:
 	}
 
 	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	if iLock.Spec.Images[0].DigestRef != expectedRef {
-		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
-	}
-
-	if iLock.Spec.Images[0].OriginalTag != "v1" {
-		t.Fatalf("expected lock output to contain tag '%s', got '%s'", "v1", iLock.Spec.Images[0].OriginalTag)
+	if iLock.Spec.Images[0].Image != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].Image)
 	}
 
 	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
-	if iLock.Spec.Images[0].Name != "image" {
-		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
-	}
 	// check if image is present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest}
 	if err := validateImagePresence(refs); err != nil {
@@ -215,8 +205,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s%s
+  - image: %s%s
 `, env.Image, imageDigest)
 
 	// create a bundle with ref to generic
@@ -293,8 +282,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, imageDigestRef)
 
 	imgpkgDir, err := createBundleDir(assetsPath, bundleYAML, imgsYml)
@@ -351,16 +339,8 @@ func TestCopyImageInputToRepoWithLockOutput(t *testing.T) {
 	}
 
 	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigestTag)
-	if iLock.Spec.Images[0].DigestRef != expectedRef {
-		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
-	}
-
-	if iLock.Spec.Images[0].OriginalTag != fmt.Sprintf("%v", tag) {
-		t.Fatalf("expected lock output to contain tag '%v', got '%s'", tag, iLock.Spec.Images[0].OriginalTag)
-	}
-
-	if iLock.Spec.Images[0].Name != fmt.Sprintf("%s:%v", env.Image, tag) {
-		t.Fatalf("expected lock output to contain name '%v', got '%s'", fmt.Sprintf("%s:%v", env.Image, tag), iLock.Spec.Images[0].Name)
+	if iLock.Spec.Images[0].Image != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].Image)
 	}
 
 	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
@@ -409,8 +389,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, imageDigestRef)
 
 	// create a bundle with ref to generic
@@ -516,9 +495,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
-    tag: v1
+  - image: %s
 `, imageDigestRef)
 
 	err = ioutil.WriteFile(lockFile, []byte(imgsYml), 0700)
@@ -559,16 +536,8 @@ spec:
 	}
 
 	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	if iLock.Spec.Images[0].DigestRef != expectedRef {
-		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
-	}
-
-	if iLock.Spec.Images[0].OriginalTag != "v1" {
-		t.Fatalf("expected lock output to contain tag '%s', got '%s'", "v1", iLock.Spec.Images[0].OriginalTag)
-	}
-
-	if iLock.Spec.Images[0].Name != "image" {
-		t.Fatalf("expected lock output to contain name '%s', got '%s'", "image", iLock.Spec.Images[0].Name)
+	if iLock.Spec.Images[0].Image != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].Image)
 	}
 
 	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
@@ -615,8 +584,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, imageDigestRef)
 
 	// create a bundle with ref to generic
@@ -701,7 +669,6 @@ func TestCopyImageInputViaTarWithLockOutput(t *testing.T) {
 	tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
 	out := imgpkg.Run([]string{"push", "--tty", "-i", tagRef, "-f", assetsPath})
 	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
-	imageDigestRef := env.Image + imageDigest
 
 	// copy to tar
 	imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath})
@@ -724,16 +691,8 @@ func TestCopyImageInputViaTarWithLockOutput(t *testing.T) {
 	}
 
 	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	if iLock.Spec.Images[0].DigestRef != expectedRef {
-		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].DigestRef)
-	}
-
-	if iLock.Spec.Images[0].OriginalTag != tag {
-		t.Fatalf("expected lock output to contain tag '%s', got '%s'", tag, iLock.Spec.Images[0].OriginalTag)
-	}
-
-	if iLock.Spec.Images[0].Name != tagRef {
-		t.Fatalf("expected lock output to contain name '%s', got '%s'", imageDigestRef, iLock.Spec.Images[0].Name)
+	if iLock.Spec.Images[0].Image != expectedRef {
+		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, iLock.Spec.Images[0].Image)
 	}
 
 	if err := validateImageLockApiVersionAndKind(iLock); err != nil {
@@ -801,8 +760,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: image
-    url: %s
+  - image: %s
 `, imageDigestRef)
 
 	// create a bundle with ref to generic
@@ -840,6 +798,80 @@ func TestCopyErrorTarDstLockOutput(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "output lock file with tar destination") {
 		t.Fatalf("expected copy to fail when --lock-output is provided with a tar destination, got %v", err)
 	}
+}
+
+func TestCopyBundlePreserveImgLockAnnotations(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+
+	// general setup
+	testDir := filepath.Join(os.TempDir(), "imgpkg-test-copy-bundleLock-repo")
+	err := os.MkdirAll(testDir, 0700)
+	if err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	// create generic image
+	assetsPath := filepath.Join("assets", "simple-app")
+
+	randFile, err := addRandomFile(assetsPath)
+	if err != nil {
+		t.Fatalf("failed to create unuique file: %v", err)
+	}
+	defer os.Remove(randFile)
+
+	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", assetsPath})
+	imageDigest := fmt.Sprintf("@%s", extractDigest(out, t))
+	imageDigestRef := env.Image + imageDigest
+
+	imgsYml := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+spec:
+  images:
+  - image: %s
+    annotations:
+      greeting: hello world
+`, imageDigestRef)
+
+	// create a bundle with ref to generic
+	imgpkgDir, err := createBundleDir(assetsPath, bundleYAML, imgsYml)
+	if err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+	defer os.RemoveAll(imgpkgDir)
+
+	// create bundle that refs image with --lock-ouput and a random tag based on time
+	out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
+	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
+	bundleDigestRef := env.Image + bundleDigest
+
+	// copy
+	imgpkg.Run([]string{"copy", "-b", bundleDigestRef, "--to-repo", env.RelocationRepo})
+
+	// pull
+	bundleDigestRef = env.RelocationRepo + bundleDigest
+	imgpkg.Run([]string{"pull", "-b", bundleDigestRef, "-o", testDir})
+
+	iLockBytes, err := ioutil.ReadFile(filepath.Join(testDir, cmd.BundleDir, imageFile))
+	if err != nil {
+		t.Fatalf("could not read images lock: %v", err)
+	}
+	var iLock cmd.ImageLock
+	err = yaml.Unmarshal(iLockBytes, &iLock)
+	if err != nil {
+		t.Fatalf("could not unmarshal images lock: %v", err)
+	}
+
+	greeting, ok := iLock.Spec.Images[0].Annotations["greeting"]
+	if !ok {
+		t.Fatalf("could not find annoation greeting in images lock")
+	}
+	if greeting != "hello world" {
+		t.Fatalf("Expected images lock to have annotation saying 'hello world', got: %s", greeting)
+	}
+
 }
 
 func addRandomFile(dir string) (string, error) {

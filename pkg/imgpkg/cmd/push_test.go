@@ -232,12 +232,8 @@ func TestUnresolvedImageRefError(t *testing.T) {
 kind: ImagesLock
 spec:
   images:
-  - name: nginx
-    tag: latest
-    url: index.docker.io/library/nginx@sha256:36b74457bccb56fbf8b05f79c85569501b721d4db813b684391d63e02287c0b2
-  - name: another-app
-    tag: v1.0
-    url: docker.io/another-app:v1.0`
+  - image: index.docker.io/library/nginx@sha256:36b74457bccb56fbf8b05f79c85569501b721d4db813b684391d63e02287c0b2
+  - image: docker.io/another-app:v1.0`
 
 	err = createBundleDir(testDir, imagesYml)
 	if err != nil {

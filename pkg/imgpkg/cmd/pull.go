@@ -179,14 +179,14 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 	inBundleRepo := 0
 	var newImgDescs []ImageDesc
 	for _, img := range lockFile.Spec.Images {
-		bundleRepoImgRef, err := ImageWithRepository(img.DigestRef, bundleRepo)
+		bundleRepoImgRef, err := ImageWithRepository(img.Image, bundleRepo)
 		if err != nil {
 			return err
 		}
-		if img.DigestRef == bundleRepoImgRef {
+		if img.Image == bundleRepoImgRef {
 			inBundleRepo = inBundleRepo + 1
 		}
-		foundImg, err := checkImageExists([]string{bundleRepoImgRef, img.DigestRef}, registry)
+		foundImg, err := checkImageExists([]string{bundleRepoImgRef, img.Image}, registry)
 		if err != nil {
 			return err
 		}
@@ -195,11 +195,8 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 			return nil
 		}
 		newImgDescs = append(newImgDescs, ImageDesc{
-			ImageLocation: ImageLocation{
-				DigestRef:   foundImg,
-				OriginalTag: img.OriginalTag},
-			Name:     img.Name,
-			Metadata: img.Metadata,
+			Image:       foundImg,
+			Annotations: img.Annotations,
 		})
 	}
 	if inBundleRepo == len(lockFile.Spec.Images) {

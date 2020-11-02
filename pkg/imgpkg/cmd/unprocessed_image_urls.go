@@ -8,9 +8,8 @@ import (
 )
 
 type UnprocessedImageURL struct {
-	URL  string
-	Tag  string
-	Name string
+	URL string
+	Tag string
 }
 
 type UnprocessedImageURLs struct {
