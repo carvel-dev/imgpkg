@@ -36,5 +36,6 @@ Features:
 eval $(minikube docker-env)
 docker login
 export IMGPKG_E2E_IMAGE=dkalinin/test-simple-content
+export IMGPKG_E2E_RELOCATION_REPO=dkalinin/test-simple-relocation
 ./hack/test-all.sh
 ```
