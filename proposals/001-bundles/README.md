@@ -4,15 +4,25 @@
 
 # Summary
 
-Support creating, relocating, and inspecting "bundles". Bundle is an image in a registry. It includes:
+Support creating, relocating, and pulling images.
+# Concepts
+
+## Bundle
+
+A bundle abstracts away the difference between configuration and the images
+referenced by it. This abstraction allows people to treat both their config
+and the images it depends on as a single artifact, removing the overhead
+associated with operations such as relocation.
+
+Bundles are simply images stored in a registry. They include:
 
 - bundle metadata (e.g. name, authors)
-- bundle contents which is a set of files (e.g. kubernetes manifests)
-- optionally, list of image references that are considered to be part of a bundle
+- bundle contents - a set of files (e.g. kubernetes manifests)
+- list of image references that are considered to be part of a bundle (can be
+  empty, but must be present)
 
 Key constraint: bundle image must always retain its digest when copied around.
 
----
 # Resources
 
 ## Bundle Directory
@@ -27,6 +37,10 @@ my-app/
 
 ## Bundle YAML
 
+The Bundle YAML file is meant to contain metadata associated with the bundle. In
+the future, the intention is to expand this file to contain a `paths` key which
+will allow users to specify paths that are included in the bundle.
+
 ```yaml
 apiVersion: imgpkg.k14s.io/v1alpha1
 kind: Bundle
@@ -37,18 +51,12 @@ authors:
   email: blah@blah.com
 websites:
 - url: blah.com
-contents:
-  paths:
-  - contents/**/*  #! Paths under the containing directory
 ```
 
-**Note:** Paths must be present within the arguments to the push command
-
-Any paths specified will be placed off of root in the image. For example,
-`contents/dir1` will have location `/dir1` within the bundle image, and location
-`<pull-output-arg>/dir1` after pulling the bundle.
-
 ## BundleLock
+
+A BundleLock file serves as a deterministic reference to a bundle. It will
+contain the original tag, as well as a url that references the bundle image by digest.
 
 ```yaml
 apiVersion: imgpkg.k14s.io/v1alpha1
@@ -61,28 +69,45 @@ spec:
 
 ## ImagesLock
 
+An ImagesLock file acts as a way to reference multiple images deterministically.
+When included in a bundle image, it will cause imgpkg to relocate all referenced
+images along with the bundle image during a copy. Users are also able to
+provide just an ImagesLock file when copying to support relocation of multiple
+generic images. Initially, the ImagesLock file should only contain references to
+generic images, but in the future we plan to allow it to reference bundles,
+enabling users to recursively relocate bundles or relocate a list of bundles.
+
 ```yaml
 apiVersion: imgpkg.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: my-app # we should think on a name for this key
-    tag: v1.0
-    url: docker.io/my-app@sha256:<digest>
-    metadata:
+  - image: docker.io/my-app@sha256:<digest>
+    annotations: # <--------- This field is to be populated by other tools
       <image metadata>
-  - name: another-app # we should think on a name for this key
-    url: docker.io/another-app@sha256:<digest>
-    metadata:
+  - image: docker.io/another-app@sha256:<digest>
+    annotations:
       <image metadata>
 ```
 
-Note: pgkx will require all images to be in digest reference form
+Note: imgpkg will require all images to be in digest reference form
 
 ---
 # Initial Commands
 
-## pkg push ( Create a bundle )
+## imgpkg push ( Create a bundle or config image)
+
+This command will package a section of the local file system in to an OCI
+image and push it to the specified image repository. The push command will be
+able to push two types of images, a bundle and a generic image. The presence of
+a `.imgpkg` directory as a direct child of one of the arguments to `-f` will
+cause imgpkg to label the image's config, denoting it is a bundle. If the imgpkg
+directory is in any other location, if there are multiple `.imgpkg` directories, or
+if a `.imgpkg` exists when a `-i` flag was used, `imgpkg push` will error.
+
+In the near future, we would like to allow users to push a bundle using the `-b`
+flag, even if a `.imgpkg` directory does not exist, by automatically creating an
+empty one.
 
 Flags:
 * `-f` - bundle directory to create bundle from # Can be used multiple times
@@ -90,15 +115,20 @@ Flags:
 * `--lock-output` - location to write a BundleLock file to
 
 Examples:
-- `pkg push -f ... -b docker.io/klt/foo:v123 # simple case; just pack up dir and push`
-- `pkg push -f ... -b docker.io/klt/foo:v123 --lock-output bundle.lock.yml # with BundleLock output`
-- `pkg push -f ... -b docker.io/klt/foo --lock-output bundle.lock.yml # tag gets auto-incremented?`
+- `imgpkg push -f ... -b docker.io/klt/foo:v123 # simple case; just pack up dir and push`
+- `imgpkg push -f ... -b docker.io/klt/foo:v123 --lock-output bundle.lock.yml # with BundleLock output`
+- `imgpkg push -f ... -b docker.io/klt/foo --lock-output bundle.lock.yml # tag gets auto-incremented?`
 
 Notes:
-* Annotates image to denote it is a bundle
+* Adds Label to image config to denote it is a bundle
+* Requires `.imgpkg` directory to push a bundle
+* If present, requires `.imgpkg` to:
+  * be a direct child of an argument to `-f`
+  * be a singleton
+  * contain an images.yml file
 
 ---
-## pkg pull ( Download and unpack the contents of a bundle to your local filesystem )
+## imgpkg pull ( Download and unpack the contents of a bundle to your local filesystem )
 
 Flags:
 * `-o` - location to unpack the bundle directory
@@ -107,24 +137,27 @@ Flags:
 * `--image` - An image to unpack
 
 Examples:
-- `pkg pull -o /tmp -b foo:v123`
-- `pkg pull -o /tmp --lock bundle.lock.yml`
-- `pkg pull -o /tmp -b foo:v123@digest`
-- `pkg pull -o /tmp -b foo@digest`
-- `pkg pull -o /tmp --image foov123`
+- `imgpkg pull -o /tmp -b foo:v123`
+- `imgpkg pull -o /tmp --lock bundle.lock.yml`
+- `imgpkg pull -o /tmp -b foo:v123@digest`
+- `imgpkg pull -o /tmp -b foo@digest`
+- `imgpkg pull -o /tmp --image foov123`
 
 Notes:
 * Will rewrite bundle's images.lock.yml if images are in same repo as bundle
     * can be determined by a get to the repo with the digest
-    * potentially create a tag that denotes the bundle has been relocated,
-      meaning lock needs to be rewritten
 
 ---
-## pkg copy ( Copy bundles and images to various locations )
+## imgpkg copy ( Copy bundles and images to various locations )
+
+Copy is responsible for relocating artifacts. It is able to consume a variety of
+inputs and copy all required images to either an image repository or a tar file
+on the local filesystem. When relocating bundles, imgpkg will also relocate any
+images references by the bundle's ImagesLock file.
 
 Flags:
 * `--bundle` - the bundle reference we are copying (happens thickly, i.e. bundle image + all referenced images)
-* `--tar` - Tar file which contains assets to be copied to a registry
+* `--from-tar` - Tar file which contains assets to be copied to a registry
 * `--lock` - either an ImageLock file or BundleLock file with asset references to copy to destination
 * `--image` - image reference for copying generic images
 * `--to-repo` - the location to upload assets
@@ -133,26 +166,23 @@ Flags:
 * `--lock-output` - location to output updated lockfile. If BundleLock in, BundleLock out. If ImagesLock in, ImagesLock out.
 
 Examples:
-- `pkg copy --bundle docker.io/foo:v123 --to-repo gcr.io/foo # repo to repo thick copy without outputting an update lockfile`
-- `pkg copy --bundle docker.io/foo:v123 --to-repo gcr.io/foo --lock-output bundle.lock.yml --to-tag v124 # repo to repo copy with updated lock output and tag override`
-- `pkg copy --bundle docker.io/foo:v123 --to-tar foo.tar # write bundle contents (thickly) to a tar on the local file system`
-- `pkg copy --tar foo.tar --to-repo gcr.io/foo # upload bundle assets from foo.tar to remote repo foo`
-- `pkg copy --lock bundle.lock.yml      --to-repo gcr.io/foo --lock-output bundle.lock.yml # thickly copy the bundle referenced by bundle.lock.yml to the repo foo (tags will be preserved)`
-- `pkg copy --image docker.io/foo:v123  --to-repo gcr.io/foo # relocate a generic image to the foo repo -- Do we want to preserve tags? It could result in collisions`
+- `imgpkg copy --bundle docker.io/foo:v123 --to-repo gcr.io/foo # repo to repo thick copy without outputting an update lockfile`
+- `imgpkg copy --bundle docker.io/foo:v123 --to-repo gcr.io/foo --lock-output bundle.lock.yml --to-tag v124 # repo to repo copy with updated lock output and tag override`
+- `imgpkg copy --bundle docker.io/foo:v123 --to-tar foo.tar # write bundle contents (thickly) to a tar on the local file system`
+- `imgpkg copy --from-tar foo.tar --to-repo gcr.io/foo # upload bundle assets from foo.tar to remote repo foo`
+- `imgpkg copy --lock bundle.lock.yml      --to-repo gcr.io/foo --lock-output bundle.lock.yml # thickly copy the bundle referenced by bundle.lock.yml to the repo foo (tags will be preserved)`
+- `imgpkg copy --image docker.io/foo:v123  --to-repo gcr.io/foo # relocate a generic image to the foo repo -- Do we want to preserve tags? It could result in collisions`
 
 Notes:
-* Do we want a way to generate a lock-file from some assets without a copy?
 * Source lock file may contain bundle or images lock contents
-* Source tar file may contain bundle image + referenced images or just referenced images
-* Check annotation on image and compare to flag type (--bundle, --image) if they don't match error
 
 ---
 # Potential Extensions
 
-## pkg list ( list bundles in a repo or registry )
+## imgpkg list ( list bundles in a repo or registry )
 
 ---
-## pkg init ( initialize a directory with the bundle format)
+## imgpkg init ( initialize a directory with the bundle format )
 
 ---
 # Use Cases
@@ -170,10 +200,10 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 
 ### Bundle creator:
 1. Create a bundle directory
-2. `pkg push -f <bundle-directory> -b docker.io/klt/some-bundle:1.0.0`
+2. `imgpkg push -f <bundle-directory> -b docker.io/klt/some-bundle:1.0.0`
 
 ### Bundle consumer:
-1. `pkg pull -b docker.io/klt/some-bundle:1.0.0`
+1. `imgpkg pull -b docker.io/klt/some-bundle:1.0.0`
 2. `ytt -f contents/ | kbld -f ./.imgpkg/images.yml | kapp deploy -a some-bundle -f-`
 
 **Notes:**
@@ -187,17 +217,17 @@ Developer wants to provide a no-surprises install of a "K8s-native" app, leverag
 Same as above
 
 ### Bundle consumer:
-1. `pkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
-2. `pkg pull -b internal.reg/some-bundle:1.0.0`
+1. `imgpkg copy --bundle docker.io/klt/some-bundle:1.0.0 --to-repo internal.reg/some-bundle` (or using --bundle + --to-tar and --tar + --to-repo for air-gapped environments, but outcome is the same)
+2. `imgpkg pull -b internal.reg/some-bundle:1.0.0`
 3. `ytt -f contents | kbld -f ./.imgpkg/images.yml | kapp deploy -a some-bundle -f-`
 
 ---
 ## Use Case: Generic Relocation
 
 ### A Single Image
-1. `pkg copy --image gcr.io/my-image --to-repo docker.io/klt --lock-output image.lock.yml`
+1. `imgpkg copy --image gcr.io/my-image --to-repo docker.io/klt --lock-output image.lock.yml`
 
 or
 
 ### Multiple Images
-1. `pkg copy --lock images.lock.yml --to-repo docker.io/klt --lock-output relocated-images.lock.yml`
+1. `imgpkg copy --lock images.lock.yml --to-repo docker.io/klt --lock-output relocated-images.lock.yml`
