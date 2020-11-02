@@ -52,9 +52,8 @@ apiVersion: imgpkg.k14s.io/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - name: my-app
-    tag: v1.0
-    url: docker.io/my-app@sha256:42462d0cb227497976754bb67348bdd7471c7bd159819d6bd63fdf479eb7eb19
-  - name: another-app
-    url: docker.io/another-app@sha256:6ecba6f14373a449f8d54fa4286f57fb8ef37c4ffa637969551f2fda52672206
+  - image: docker.io/my-app@sha256:42462d0cb227497976754bb67348bdd7471c7bd159819d6bd63fdf479eb7eb19
+    annotaions:
+      kbld.carvel.dev/id: "my-app:v1"
+  - image: docker.io/another-app@sha256:6ecba6f14373a449f8d54fa4286f57fb8ef37c4ffa637969551f2fda52672206
 ```
