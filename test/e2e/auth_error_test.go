@@ -10,15 +10,13 @@ import (
 )
 
 func TestAuthErr(t *testing.T) {
-	t.Skip("skipping test due to regression in error message returned from ggcr")
-
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
 	var stderrBs bytes.Buffer
 
 	_, err := imgpkg.RunWithOpts([]string{
-		"pull", "-i", env.Image, "-o", "/tmp/unused",
+		"pull", "-i", "index.docker.io/k8slt/imgpkg-test", "-o", "/tmp/unused",
 		"--registry-username", "incorrect-user",
 		"--registry-password", "incorrect-password",
 	}, RunOpts{AllowError: true, StderrWriter: &stderrBs})
@@ -28,7 +26,7 @@ func TestAuthErr(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected auth error")
 	}
-	if !strings.Contains(errOut, "UNAUTHORIZED: incorrect username or password") {
+	if !strings.Contains(errOut, "incorrect username or password") {
 		t.Fatalf("Expected auth error explanation in output '%s'", errOut)
 	}
 }
