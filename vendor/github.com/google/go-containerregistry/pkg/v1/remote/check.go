@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -35,9 +34,8 @@ func CheckPushPermission(ref name.Reference, kc authn.Keychain, t http.RoundTrip
 	// authorize a push. Figure out how to return early here when we can,
 	// to avoid a roundtrip for spec-compliant registries.
 	w := writer{
-		repo:    ref.Context(),
-		client:  &http.Client{Transport: tr},
-		context: context.Background(),
+		repo:   ref.Context(),
+		client: &http.Client{Transport: tr},
 	}
 	loc, _, err := w.initiateUpload("", "")
 	if loc != "" {

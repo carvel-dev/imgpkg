@@ -16,7 +16,6 @@ package remote
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -169,7 +168,10 @@ func (d *Descriptor) ImageIndex() (v1.ImageIndex, error) {
 
 func (d *Descriptor) remoteImage() *remoteImage {
 	return &remoteImage{
-		fetcher:    d.fetcher,
+		fetcher: fetcher{
+			Ref:    d.Ref,
+			Client: d.Client,
+		},
 		manifest:   d.Manifest,
 		mediaType:  d.MediaType,
 		descriptor: &d.Descriptor,
@@ -178,7 +180,10 @@ func (d *Descriptor) remoteImage() *remoteImage {
 
 func (d *Descriptor) remoteIndex() *remoteIndex {
 	return &remoteIndex{
-		fetcher:    d.fetcher,
+		fetcher: fetcher{
+			Ref:    d.Ref,
+			Client: d.Client,
+		},
 		manifest:   d.Manifest,
 		mediaType:  d.MediaType,
 		descriptor: &d.Descriptor,
@@ -187,9 +192,8 @@ func (d *Descriptor) remoteIndex() *remoteIndex {
 
 // fetcher implements methods for reading from a registry.
 type fetcher struct {
-	Ref     name.Reference
-	Client  *http.Client
-	context context.Context
+	Ref    name.Reference
+	Client *http.Client
 }
 
 func makeFetcher(ref name.Reference, o *options) (*fetcher, error) {
@@ -198,9 +202,8 @@ func makeFetcher(ref name.Reference, o *options) (*fetcher, error) {
 		return nil, err
 	}
 	return &fetcher{
-		Ref:     ref,
-		Client:  &http.Client{Transport: tr},
-		context: o.context,
+		Ref:    ref,
+		Client: &http.Client{Transport: tr},
 	}, nil
 }
 
@@ -225,7 +228,7 @@ func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType
 	}
 	req.Header.Set("Accept", strings.Join(accept, ","))
 
-	resp, err := f.Client.Do(req.WithContext(f.context))
+	resp, err := f.Client.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -279,12 +282,7 @@ func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType
 
 func (f *fetcher) fetchBlob(h v1.Hash) (io.ReadCloser, error) {
 	u := f.url("blobs", h.String())
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := f.Client.Do(req.WithContext(f.context))
+	resp, err := f.Client.Get(u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -299,12 +297,7 @@ func (f *fetcher) fetchBlob(h v1.Hash) (io.ReadCloser, error) {
 
 func (f *fetcher) headBlob(h v1.Hash) (*http.Response, error) {
 	u := f.url("blobs", h.String())
-	req, err := http.NewRequest(http.MethodHead, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := f.Client.Do(req.WithContext(f.context))
+	resp, err := f.Client.Head(u.String())
 	if err != nil {
 		return nil, err
 	}

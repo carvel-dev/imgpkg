@@ -52,11 +52,7 @@ func CatalogPage(target name.Registry, last string, n int, options ...Option) ([
 	}
 
 	client := http.Client{Transport: tr}
-	req, err := http.NewRequest(http.MethodGet, uri.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := client.Do(req.WithContext(o.context))
+	resp, err := client.Get(uri.String())
 	if err != nil {
 		return nil, err
 	}
@@ -95,11 +91,6 @@ func Catalog(ctx context.Context, target name.Registry, options ...Option) ([]st
 	}
 
 	client := http.Client{Transport: tr}
-
-	// WithContext overrides the ctx passed directly.
-	if o.context != context.Background() {
-		ctx = o.context
-	}
 
 	var (
 		parsed   catalog

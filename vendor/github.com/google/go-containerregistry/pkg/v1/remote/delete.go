@@ -47,7 +47,7 @@ func Delete(ref name.Reference, options ...Option) error {
 		return err
 	}
 
-	resp, err := c.Do(req.WithContext(o.context))
+	resp, err := c.Do(req)
 	if err != nil {
 		return err
 	}

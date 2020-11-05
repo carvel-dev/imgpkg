@@ -89,7 +89,8 @@ func (e *Error) Temporary() bool {
 		return false
 	}
 	for _, d := range e.Errors {
-		if _, ok := temporaryErrorCodes[d.Code]; !ok {
+		// TODO: Include other error types.
+		if d.Code != BlobUploadInvalidErrorCode {
 			return false
 		}
 	}
@@ -148,14 +149,7 @@ const (
 	UnauthorizedErrorCode        ErrorCode = "UNAUTHORIZED"
 	DeniedErrorCode              ErrorCode = "DENIED"
 	UnsupportedErrorCode         ErrorCode = "UNSUPPORTED"
-	TooManyRequestsErrorCode     ErrorCode = "TOOMANYREQUESTS"
 )
-
-// TODO: Include other error types.
-var temporaryErrorCodes = map[ErrorCode]struct{}{
-	BlobUploadInvalidErrorCode: struct{}{},
-	TooManyRequestsErrorCode:   struct{}{},
-}
 
 // CheckError returns a structured error if the response status is not in codes.
 func CheckError(resp *http.Response, codes ...int) error {
@@ -172,14 +166,10 @@ func CheckError(resp *http.Response, codes ...int) error {
 
 	// https://github.com/docker/distribution/blob/master/docs/spec/api.md#errors
 	structuredError := &Error{}
-
-	// This can fail if e.g. the response body is not valid JSON. That's fine,
-	// we'll construct an appropriate error string from the body and status code.
-	_ = json.Unmarshal(b, structuredError)
-
-	structuredError.rawBody = string(b)
+	if err := json.Unmarshal(b, structuredError); err != nil {
+		structuredError.rawBody = string(b)
+	}
 	structuredError.StatusCode = resp.StatusCode
 	structuredError.request = resp.Request
-
 	return structuredError
 }

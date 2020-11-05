@@ -16,7 +16,6 @@ package remote
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -57,9 +56,8 @@ func Write(ref name.Reference, img v1.Image, options ...Option) error {
 		return err
 	}
 	w := writer{
-		repo:    ref.Context(),
-		client:  &http.Client{Transport: tr},
-		context: o.context,
+		repo:   ref.Context(),
+		client: &http.Client{Transport: tr},
 	}
 
 	// Upload individual layers in goroutines and collect any errors.
@@ -132,9 +130,8 @@ func Write(ref name.Reference, img v1.Image, options ...Option) error {
 
 // writer writes the elements of an image to a remote image reference.
 type writer struct {
-	repo    name.Repository
-	client  *http.Client
-	context context.Context
+	repo   name.Repository
+	client *http.Client
 }
 
 // url returns a url.Url for the specified path in the context of this remote image reference.
@@ -169,12 +166,7 @@ func (w *writer) nextLocation(resp *http.Response) (string, error) {
 func (w *writer) checkExistingBlob(h v1.Hash) (bool, error) {
 	u := w.url(fmt.Sprintf("/v2/%s/blobs/%s", w.repo.RepositoryStr(), h.String()))
 
-	req, err := http.NewRequest(http.MethodHead, u.String(), nil)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Head(u.String())
 	if err != nil {
 		return false, err
 	}
@@ -198,7 +190,7 @@ func (w *writer) checkExistingManifest(h v1.Hash, mt types.MediaType) (bool, err
 	}
 	req.Header.Set("Accept", string(mt))
 
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -228,12 +220,7 @@ func (w *writer) initiateUpload(from, mount string) (location string, mounted bo
 	u.RawQuery = uv.Encode()
 
 	// Make the request to initiate the blob upload.
-	req, err := http.NewRequest(http.MethodPost, u.String(), nil)
-	if err != nil {
-		return "", false, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Post(u.String(), "application/json", nil)
 	if err != nil {
 		return "", false, err
 	}
@@ -268,7 +255,7 @@ func (w *writer) streamBlob(blob io.ReadCloser, streamLocation string) (commitLo
 		return "", err
 	}
 
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -299,7 +286,7 @@ func (w *writer) commitBlob(location, digest string) error {
 		return err
 	}
 
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -439,7 +426,7 @@ func (w *writer) commitImage(t Taggable, ref name.Reference) error {
 	}
 	req.Header.Set("Content-Type", string(desc.MediaType))
 
-	resp, err := w.client.Do(req.WithContext(w.context))
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -498,9 +485,8 @@ func WriteIndex(ref name.Reference, ii v1.ImageIndex, options ...Option) error {
 		return err
 	}
 	w := writer{
-		repo:    ref.Context(),
-		client:  &http.Client{Transport: tr},
-		context: o.context,
+		repo:   ref.Context(),
+		client: &http.Client{Transport: tr},
 	}
 
 	for _, desc := range index.Manifests {
@@ -552,9 +538,8 @@ func WriteLayer(repo name.Repository, layer v1.Layer, options ...Option) error {
 		return err
 	}
 	w := writer{
-		repo:    repo,
-		client:  &http.Client{Transport: tr},
-		context: o.context,
+		repo:   repo,
+		client: &http.Client{Transport: tr},
 	}
 
 	return w.uploadOne(layer)
@@ -579,9 +564,8 @@ func Tag(tag name.Tag, t Taggable, options ...Option) error {
 		return err
 	}
 	w := writer{
-		repo:    tag.Context(),
-		client:  &http.Client{Transport: tr},
-		context: o.context,
+		repo:   tag.Context(),
+		client: &http.Client{Transport: tr},
 	}
 
 	return w.commitImage(t, tag)
