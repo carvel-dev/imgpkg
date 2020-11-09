@@ -58,6 +58,6 @@ spec:
 	actualImageRef := iLock.Spec.Images[0].Image
 	expectedImageRef := env.Image + imageDigestRef
 	if actualImageRef != expectedImageRef {
-		t.Fatalf("Expected images lock to be updated with bundle repository: %s, but got: %s", expectedImageRef, actualImageRef)
+		t.Fatalf("Expected images lock to be updated with bundle repository; diff expected...actual:\n%v\n", diffText(expectedImageRef, actualImageRef))
 	}
 }

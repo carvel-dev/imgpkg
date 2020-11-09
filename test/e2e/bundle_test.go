@@ -98,7 +98,7 @@ spec:
 `, env.Image)
 
 	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
-		t.Fatalf("Expected BundleLock to match:\n\n %s\n\n, got:\n\n %s\n", expectedYml, string(bundleBs))
+		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
 	}
 
 	outputDir := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-pull")

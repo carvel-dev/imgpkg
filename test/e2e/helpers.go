@@ -4,10 +4,13 @@
 package e2e
 
 import (
+	"fmt"
+	"github.com/k14s/difflib"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +28,30 @@ func compareFiles(path1, path2 string, t *testing.T) {
 	if string(path1Bs) != string(path2Bs) {
 		t.Fatalf("Expected contents to match for %s vs %s", path1, path2)
 	}
+}
+
+func diffText(left, right string) string {
+	var sb strings.Builder
+
+	recs := difflib.Diff(strings.Split(right, "\n"), strings.Split(left, "\n"))
+
+	for _, diff := range recs {
+		var mark string
+
+		switch diff.Delta {
+		case difflib.RightOnly:
+			mark = " + |"
+		case difflib.LeftOnly:
+			mark = " - |"
+		case difflib.Common:
+			mark = "   |"
+		}
+
+		// make sure to have line numbers to make sure diff is truly unique
+		sb.WriteString(fmt.Sprintf("%3d,%3d%s%s\n", diff.LineLeft, diff.LineRight, mark, diff.Payload))
+	}
+
+	return sb.String()
 }
 
 const bundleYAML = `---

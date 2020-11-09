@@ -7,6 +7,7 @@ require (
 	github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-containerregistry v0.1.4
+	github.com/k14s/difflib v0.0.0-20201103203400-90558b9d63e4
 	github.com/onsi/gomega v1.10.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
