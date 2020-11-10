@@ -77,13 +77,13 @@ func TestBundleLockFile(t *testing.T) {
 		t.Fatalf("Creating bundle directory: %s", err.Error())
 	}
 
-	bundleLock := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-test.yml")
-	defer os.RemoveAll(bundleLock)
+	bundleLockFilepath := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-test.yml")
+	defer os.RemoveAll(bundleLockFilepath)
 
 	// push the bundle in the assets dir
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--lock-output", bundleLock})
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--lock-output", bundleLockFilepath})
 
-	bundleBs, err := ioutil.ReadFile(bundleLock)
+	bundleBs, err := ioutil.ReadFile(bundleLockFilepath)
 	if err != nil {
 		t.Fatalf("Could not read bundle lock file: %s", err)
 	}
@@ -93,9 +93,9 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: BundleLock
 spec:
   image:
-    url: %s@sha256:[A-Fa-f0-9]{64}
+    url: (%s/)?%s@sha256:[A-Fa-f0-9]{64}
     tag: latest
-`, env.Image)
+`, name.DefaultRegistry, env.Image)
 
 	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
 		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
@@ -103,7 +103,7 @@ spec:
 
 	outputDir := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-pull")
 	defer os.RemoveAll(outputDir)
-	imgpkg.Run([]string{"pull", "--lock", bundleLock, "-o", outputDir})
+	imgpkg.Run([]string{"pull", "--lock", bundleLockFilepath, "-o", outputDir})
 
 	expectedFiles := []string{
 		"README.md",
