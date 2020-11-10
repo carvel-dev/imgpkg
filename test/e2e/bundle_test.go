@@ -93,9 +93,9 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: BundleLock
 spec:
   image:
-    url: (%s/)?%s@sha256:[A-Fa-f0-9]{64}
+    url: %s@sha256:[A-Fa-f0-9]{64}
     tag: latest
-`, name.DefaultRegistry, env.Image)
+`, env.Image)
 
 	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
 		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
