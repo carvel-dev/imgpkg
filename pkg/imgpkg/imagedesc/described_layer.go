@@ -4,6 +4,7 @@
 package imagedesc
 
 import (
+	"fmt"
 	"io"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -32,6 +33,17 @@ func (l DescribedLayer) Uncompressed() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	h, err := l.Digest()
+	if err != nil {
+		return nil, fmt.Errorf("Computing digest: %v", err)
+	}
+
+	rc, err = v1util.VerifyReadCloser(rc, h)
+	if err != nil {
+		return nil, fmt.Errorf("Creating verified reader: %v", err)
+	}
+
 	return v1util.GzipReadCloser(rc), nil
 }
 
