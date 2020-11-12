@@ -76,7 +76,7 @@ There are a few restrictions when creating a bundle from directories that contai
   of references.
 
   This provides a guarantee to consumers that the file will always be present
-  and is safe to rely on in automation that consumers bundles.
+  and is safe to rely on in automation that consumes bundles.
 
 
 #### Generating a [BundleLock](resources.md#bundlelock)
