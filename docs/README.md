@@ -1,6 +1,46 @@
-## Docs
+## Documentation
 
-### Example Usage
+### What is imgpkg
+
+`imgpkg` is a tool that allows the user to store and distribute sets of files as OCI images.
+A typical use for these OCI Images is to group configurations for a particular application and make
+it available in the Registry.
+
+The tool introduces a new concept of a Bundle, which is an OCI image that contains configuration files and
+references of images that can be used with these configurations. (TODO: add a possible example of what this is)
+
+### Commands
+
+
+### Example Usage(Workflows)
+
+... Check here to see some [possible workflows](workflows.md)
+
+#### Air-gapped environment
+
+The tool allows the retrieval of this OCI image from the registry and create a Tarball that later can 
+me used in an Air-gapped environment
+For more information check [this document](air-gapped-workflow.md)
+
+### Resource
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Authenticate (see below section for alternative authentication configuration)
 
