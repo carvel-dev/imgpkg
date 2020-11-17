@@ -4,132 +4,32 @@
 
 `imgpkg` is a tool that allows the user to store and distribute sets of files as OCI images.
 A typical use for these OCI Images is to group configurations for a particular application and make
-it available in the Registry.
+it available in a Registry.
 
 The tool introduces a new concept of a Bundle, which is an OCI image that contains configuration files and
-references of images that can be used with these configurations. (TODO: add a possible example of what this is)
+references of images that can be used with these configurations.
 
 ### Commands
 
+`imgpkg` supports four commands:
+- [`push`](commands-ref.md#imgpkg-push) an image/bundle from files on a local system to a registry. 
+- [`pull`](commands-ref.md#imgpkg-pull) an image/bundle by retrieving it from a registry.
+- [`copy`](commands-ref.md#imgpkg-copy) an image/bundle from a registry or tarball to another registry or tarball.
+- [`tag list`](commands-ref.md#imgpkg-tag-list) to list pushed tags.
 
 ### Example Usage(Workflows)
 
-... Check here to see some [possible workflows](workflows.md)
+#### Basic bundle workflow
+
+`imgpkg` encourages, but does not require, the use of bundles when creating and relocating OCI images. 
+This [basic workflow](basic-workflow.md) uses a bundle to outline the basics of the push, pull, and copy commands, 
+as well as takes a deeper look into the [difference between a bundle and an image](basic-workflow.md#images-vs-bundles). 
 
 #### Air-gapped environment
 
-The tool allows the retrieval of this OCI image from the registry and create a Tarball that later can 
-me used in an Air-gapped environment
-For more information check [this document](air-gapped-workflow.md)
-
-### Resource
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Authenticate (see below section for alternative authentication configuration)
-
-```bash
-$ docker login
-```
-
-Create simple content
-
-```bash
-$ echo "app1: true" > app/config.yml
-$ tree -a app/
-.
-├── .imgpkg
-│   └── images.yml
-└── config.yml
-```
-
-Push example content as tagged image `your-user/app1-config:0.1.1`
-
-```bash
-$ imgpkg push -b your-user/app1-config:0.1.1 -f app/
-dir: .imgpkg
-file: .imgpkg/images.yml
-file: config.yml
-Pushed 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
-
-Succeeded
-```
-
-See [detailed push usage](commands.md#imgpkg-push).
-
-Copy content to another registry (or local tarball using `--to-tar`)
-```
-$ imgpkg copy -b your-user/app1-config:0.1.1 --to-repo other-user/app1
-copy | exporting 2 images...
-copy | will export index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | will export index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
-copy | exported 2 images
-copy | importing 2 images...
-copy | importing  index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da  ->  index.docker.io/other-user/app1@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | importing  index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a  ->   index.docker.io/other-user/app1@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
-copy | imported 2 images
-
-Succeeded
-```
-
-See [detailed copy usage](commands.md#imgpkg-copy).
-
-Pull content into local directory
-
-```bash
-$ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1
-Pulling image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
-Extracting layer 'sha256:a839c66dfd6debaafe7c2b7274e339c805277b41c1b9b8a427b9ed4e1ad60d22' (1/1)
-
-Succeeded
-```
-
-See [detailed pull usage](commands.md#imgpkg-pull).
-Verify content was unpacked
-
-```bash
-$ cat /tmp/app1/config.yml
-app1: true
-
-List pushed tags
-
-```bash
-$ imgpkg tag ls -i your-user/app1-config
-Tags
-
-Name   Digest
-0.1.1  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-0.1.2  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-
-2 tags
-
-Succeeded
-```
-
-### Authentication
-
-By default imgpkg uses `~/.docker/config.json` to authenticate against registries. You can explicitly specify credentials via following environment variables (or flags; see `imgpkg push -h` for details).
-
-- `--registry-username` (or `$IMGPKG_USERNAME`)
-- `--registry-password` (or `$IMGPKG_PASSWORD`)
-- `--registry-token` (or `$IMGPKG_TOKEN`): used as an alternative to username/password combination
-- `--registry-anon` (or `$IMGPKG_ANON=truy`): used for anonymous access (commonly used for pulling)
+`imgpkg` allows the retrieval of an OCI image from the registry, and 
+creates a tarball that later can be used in an air-gapped environment. 
+For more information, see [example air-gapped workflow](air-gapped-workflow.md). 
 
 ### Misc
 
