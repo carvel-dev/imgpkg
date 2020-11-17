@@ -9,6 +9,19 @@ it available in a Registry.
 The tool introduces a new concept of a Bundle, which is an OCI image that contains configuration files and
 references of images that can be used with these configurations.
 
+### Images vs Bundles
+
+An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
+
+A bundle is an image with some additional characteristics:
+- Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
+  contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
+  optionally, a [bundle metadata file](resources.md#bundle-metadata)
+- Has a config label notating that the image is a bundle
+
+`imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
+
+
 ### Commands
 
 `imgpkg` supports four commands:
