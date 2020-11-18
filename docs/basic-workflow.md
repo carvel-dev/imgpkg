@@ -3,7 +3,7 @@
 The simplest workflow that a user can take advantage of `imgpkg` is the distribution of a simple folder
 with a group of configuration, that eventually would be used to stand up an application.
 
-The code for this example can be found in [here](../example/basic)
+The code for these examples can be found in [here](../example)
 
 ### Configuration distribution
 
@@ -30,13 +30,12 @@ The application developer can push the above folder using the following command
 
 `imgpkg push -f example/basic -i localhost:5000/simple-app-configuration`
 
-Brief explanation of the command:
-  
-  Flag `-i` indicates that the user want to push a simple OCI Image to the registry
-  Flag `-f` indicates the folder the user want to package as a OCI Image
+Flags used in the command:
+  * `-i` indicates that the user want to push a simple OCI Image to the registry
+  * `-f` indicates the folder the user want to package as a OCI Image
 
-The expected output is:
-```shell
+The output will display all the files that will be packaged, and the destination of the image:
+```
 dir: .
 file: deployment.yml
 file: service.yml
@@ -44,17 +43,14 @@ Pushed 'localhost:5000/simple-app-configuration@sha256:98ff397d8a8200ecb228c9add
 Succeeded
 ```
 
-The output displays all the files that will be packaged and the destination of the image
-
 #### How to retrieve the configuration
 The person that will deploy the application can do the following command to download the configuration
 
 `imgpkg pull -o /tmp/simple-app-config -i localhost:5000/simple-app-configuration`
 
-Brief explanation of the command:
-
-  Flag `-i` indicates that the user want to pull a simple OCI Image from the Registry
-  Flag `-o` indicates the folder where the OCI image will be unpacked
+Flags used in the command:
+  * `-i` indicates that the user want to pull a simple OCI Image from the Registry
+  * `-o` indicates the folder where the OCI image will be unpacked
 
 The expected output is:
 ```shell
@@ -118,7 +114,7 @@ Succeeded
 
 ### Bundle distribution
 
-For more information on bundles please check [here](.....)
+For more information on bundles please check [here](README.md#images-vs-bundles)
 
 #### Scenario
 The application developer pushed the OCI Image with the application to a Docker Registry,
@@ -144,10 +140,9 @@ The application developer can push the above folder using the following command
 
 `imgpkg push -f example/basic-bundle -b localhost:5000/simple-app-bundle`
 
-Brief explanation of the command:
-
-Flag `-b` indicates that the user want to push a bundle to the registry
-Flag `-f` indicates the folder the user want to package
+Flags used in the command:
+  * `-b` indicates that the user want to push a bundle to the registry
+  * `-f` indicates the folder the user want to package
 
 The expected output is:
 ```shell
@@ -167,10 +162,9 @@ The person that will deploy the application can do the following command to down
 
 `imgpkg pull -o simple-app-bundle -b localhost:5000/simple-app-bundle`
 
-Brief explanation of the command:
-
-Flag `-b` indicates that the user want to pull a bundle from the Registry
-Flag `-o` indicates the folder where the OCI image will be unpacked
+Flags used in the command:
+  * `-b` indicates that the user want to pull a bundle from the Registry
+  * `-o` indicates the folder where the OCI image will be unpacked
 
 The expected output is:
 ```shell
@@ -181,8 +175,7 @@ One or more images not found in bundle repo; skipping lock file update
 
 Succeeded
 ```
-
-  __Note:__ the message indicates that this bundle has an image associated but will not do any change to it.
+__Note:__ the message indicates that this bundle has an image associated but will not do any change to it.
 
 The result of the command is the creation of the following folder in `/tmp/simple-app-config`
 
@@ -200,7 +193,7 @@ simple-app-bundle
 To deploy the application `kapp` can be used as shown below
 
 ```shell
-$ kapp deploy -a simple-app -f simple-app-config
+$ kapp deploy -a simple-app -f simple-app-bundle
 
 Target cluster 'https://127.0.0.1:53449' (nodes: kind-control-plane)
 
@@ -238,170 +231,186 @@ Continue? [yN]: y
 Succeeded
 ```
 
+### Bundle relocation
 
+#### Scenario
+In a scenario where the application developer creates a bundle with images and configurations, and the person that wants
+to use the application prefers to use a different registry to store the images and configuration.
+This scenario can happen if you are getting an application from an external source, and want to use a registry
+that is collocated with the Kubernetes deployment.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-COPIED FROM COMMANDS:
-### Pushing a bundle
-
-If a `.imgpkg` directory is present in any of the input directories, imgpkg will push a bundle that has the list of referenced images and any other metadata contained within the `.imgpkg/` directory associated with it.
-
-There are a few restrictions when creating a bundle from directories that contain a `.imgpkg` directory, namely:
-
-* Only one `.imgpkg` directory is allowed across all directories provided via `-f`. So, the following example will cause an error:
-
-  `$ imgpkg -f foo -f bar -b <bundle>`
-
-  given:
-
-  ```
-  foo/
-  L .imgpkg/
-
-  bar/
-  L .imgpkg/
-  ```
-
-  This restriction ensures there is a single source of bundle metadata and referenced images.
-
-* The `.imgpkg` directory must be a direct child of one of the input directories. For example,
-
-  `$ imgpkg -f foo/ -b <bundle>`
-
-  will fail if `foo/` has the structure
-
-  ```
-    foo/
-    L bar/
-      L .imgpkg
-  ```
-
-  This prevents any confusion around the scope that the `.impkg` metadata applies to.
-
-* The `.imgpkg` directory must contain a single
-  [ImagesLock](resources.md#imageslock) file names `images.yml`, though it can contain an empty list
-  of references.
-
-  This provides a guarantee to consumers that the file will always be present
-  and is safe to rely on in automation that consumes bundles.
-
-### Images vs Bundles
-
-An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
-
-A bundle is an image with some additional characteristics:
-- Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
-  contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
-  optionally, a [bundle metadata file](resources.md#bundle-metadata)
-- Has a config label notating that the image is a bundle
-
-`imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
-
----
-
-COPIED FROM README:
-
-Authenticate ([alternative authentication options](commands-ref.md#authentication))
-
-```bash
-$ docker login
-```
-
-Create simple content
-
-```bash
-$ echo "app1: true" > app/config.yml
-$ tree -a app/
-.
+#### Pre requirements
+In the folder [example/advanced-bundle](../example/advanced-bundle) there is a set of configuration files that
+will allow a user to create a service and a deployment of a simple application.
+```shell
+$ tree -a example/advanced-bundle
 ├── .imgpkg
+│   ├── bundle.yml
 │   └── images.yml
 └── config.yml
+
+1 directory, 3 files
 ```
 
-Push example content as tagged image `your-user/app1-config:0.1.1`
+__Note:__ A call out to the `config.yml` file, we will use `ytt` to interpolate the image location and sha after
+the relocation that is the reason we have the following snippet:
+```ytt
+        - name: simple-app
+          image: #@ data.values.spec.images[0].image
+          env:
+            - name: HELLO_MSG
+```
 
-```bash
-$ imgpkg push -b your-user/app1-config:0.1.1 -f app/
+#### How to distribute the configuration
+The application developer can push the above folder using the following command
+
+`imgpkg push -f example/advanced-bundle -b localhost:5000/simple-app-adv-bundle`
+
+Flags used in the command:
+  * `-b` indicates that the user want to push a bundle to the registry
+  * `-f` indicates the folder the user want to package
+
+The expected output is:
+```shell
+dir: .
 dir: .imgpkg
+file: .imgpkg/bundle.yml
 file: .imgpkg/images.yml
 file: config.yml
-Pushed 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
+Pushed 'localhost:5000/simple-app-adv-bundle@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22'
+Succeeded
+```
+
+The output displays all the files that will be packaged, and the destination of the image
+
+#### How to retrieve the bundle
+The person that will deploy the application can do the following command to download the bundle
+
+`imgpkg pull -o /tmp/simple-app-adv-bundle -b localhost:5000/simple-app-adv-bundle`
+
+Flags used in the command:
+  * `-b` indicates that the user want to pull a bundle from the Registry
+  * `-o` indicates the folder where the OCI image will be unpacked
+
+The expected output is:
+```shell
+Pulling image 'localhost:5000/simple-app-adv-bundle@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22'
+Extracting layer 'sha256:5721be8e33d24a774486870a983aa2f48b14e3e2e1b20e252c396a21f64e3c0c' (1/1)
+Locating image lock file images...
+One or more images not found in bundle repo; skipping lock file update
 
 Succeeded
 ```
 
-See [detailed push usage](commands.md#imgpkg-push).
+__Note:__ the message indicates that this bundle has an image associated but will not do any change to it.
 
-Copy content to another registry (or local tarball using `--to-tar`)
+The result of the command is the creation of the following folder in `/tmp/simple-app-adv-bundle`
+
+```shell
+tree -a /tmp/simple-app-adv-bundle
+simple-app-adv-bundle
+├── .imgpkg
+│   ├── bundle.yml
+│   └── images.yml
+└── config.yml
+
+1 directory, 3 files
 ```
-$ imgpkg copy -b your-user/app1-config:0.1.1 --to-repo other-user/app1
+
+#### Relocate to a different registry
+This step will relocate the bundle configuration, and the images associated with it.
+
+To relocate use the following command:
+`imgpkg copy -b localhost:5000/simple-app-adv-bundle --to-repo localhost:9001/simple-app-new-repo`
+
+Flags used in the command:
+  * `-b` indicates that the user want to pull a bundle from the Registry
+  * `--to-repo` indicates the new Registry where the bundle and associated images should be copied to
+
+The expected output is:
+```shell
 copy | exporting 2 images...
-copy | will export index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | will export index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
+copy | will export docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+copy | will export localhost:5000/simple-app-adv-bundle@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22
 copy | exported 2 images
 copy | importing 2 images...
-copy | importing  index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da  ->  index.docker.io/other-user/app1@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | importing  index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a  ->   index.docker.io/other-user/app1@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
+copy | importing localhost:5000/simple-app-adv-bundle@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22 -> localhost:9001/simple-app-new-repo@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22...
+copy | importing index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> localhost:9001/simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0...
 copy | imported 2 images
+Succeeded
+```
+
+__Note:__ As you can see above the bundle and the images present in `.imgpkg/images.yml` are
+copied to the new registry `localhost:9001`
+
+
+#### How to retrieve the relocated bundle
+After the relocation the person that will deploy the application can do the following command to download the bundle
+
+`imgpkg pull -o /tmp/simple-app-new-repo -b localhost:9001/simple-app-new-repo`
+
+The expected output is:
+```shell
+Pulling image 'localhost:9001/simple-app-new-repo@sha256:21bf5f94871e1a74d6b61924bfd05ff9e2be9e4e53962feae64e5d1760642f22'
+Extracting layer 'sha256:5721be8e33d24a774486870a983aa2f48b14e3e2e1b20e252c396a21f64e3c0c' (1/1)
+Locating image lock file images...
+All images found in bundle repo; updating lock file: /tmp/simple-app-new-repo/.imgpkg/images.yml
 
 Succeeded
 ```
 
-See [detailed copy usage](commands.md#imgpkg-copy).
-
-Pull content into local directory
-
-```bash
-$ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1
-Pulling image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
-Extracting layer 'sha256:a839c66dfd6debaafe7c2b7274e339c805277b41c1b9b8a427b9ed4e1ad60d22' (1/1)
-
-Succeeded
+__Note:__ the message indicates that the file `.imgpkg/images.yml` was updated with the new location of the images.
+This happens because in the prior step all the images where relocated.
+```shell
+$ cat /tmp/simple-app-new-repo/.imgpkg/images.yml
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+spec:
+  images:
+  - image: localhost:9001/simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+    annotations: {}
 ```
 
-See [detailed pull usage](commands.md#imgpkg-pull).
-Verify content was unpacked
+#### Install the application
+Due to the relocation we will need to use `ytt` to interpolate the new image location and only after we will use
+`kapp` to deploy the application.
 
-```bash
-$ cat /tmp/app1/config.yml
-app1: true
+```shell
+$ echo "#@data/values
+---" > /tmp/simple-app-new-repo/data.yml && cat /tmp/simple-app-new-repo/.imgpkg/images.yml >> /tmp/simple-app-new-repo/data.yml
+$ kapp deploy -a simple-app -f <(ytt -f /tmp/simple-app-new-repo/config.yml -f /tmp/simple-app-new-repo/data.yml)
+Target cluster 'https://127.0.0.1:53449' (nodes: kind-control-plane)
 
-List pushed tags
+Changes
 
-```bash
-$ imgpkg tag ls -i your-user/app1-config
-Tags
+Namespace  Name        Kind        Conds.  Age  Op      Op st.  Wait to    Rs  Ri
+default    simple-app  Deployment  -       -    create  -       reconcile  -   -
+^          simple-app  Service     -       -    create  -       reconcile  -   -
 
-Name   Digest
-0.1.1  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-0.1.2  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
+Op:      2 create, 0 delete, 0 update, 0 noop
+Wait to: 2 reconcile, 0 delete, 0 noop
 
-2 tags
+Continue? [yN]: y
+
+4:11:26PM: ---- applying 2 changes [0/2 done] ----
+4:11:26PM: create service/simple-app (v1) namespace: default
+4:11:27PM: create deployment/simple-app (apps/v1) namespace: default
+4:11:27PM: ---- waiting on 2 changes [0/2 done] ----
+4:11:27PM: ok: reconcile service/simple-app (v1) namespace: default
+4:11:28PM: ongoing: reconcile deployment/simple-app (apps/v1) namespace: default
+4:11:28PM:  ^ Waiting for generation 2 to be observed
+4:11:28PM:  L ok: waiting on replicaset/simple-app-8dcb8c9c4 (apps/v1) namespace: default
+4:11:28PM:  L ongoing: waiting on pod/simple-app-8dcb8c9c4-m2nc2 (v1) namespace: default
+4:11:28PM:     ^ Pending: ContainerCreating
+4:11:28PM: ---- waiting on 1 changes [1/2 done] ----
+4:11:28PM: ongoing: reconcile deployment/simple-app (apps/v1) namespace: default
+4:11:28PM:  ^ Waiting for 1 unavailable replicas
+4:11:28PM:  L ok: waiting on replicaset/simple-app-8dcb8c9c4 (apps/v1) namespace: default
+4:11:28PM:  L ongoing: waiting on pod/simple-app-8dcb8c9c4-m2nc2 (v1) namespace: default
+4:11:28PM:     ^ Pending: ContainerCreating
+4:11:30PM: ok: reconcile deployment/simple-app (apps/v1) namespace: default
+4:11:30PM: ---- applying complete [2/2 done] ----
+4:11:30PM: ---- waiting complete [2/2 done] ----
 
 Succeeded
 ```
