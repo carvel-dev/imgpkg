@@ -4,7 +4,7 @@
 
 `imgpkg` is a tool that allows the user to store and distribute sets of files as OCI images.
 A typical use for these OCI Images is to group configurations for a particular application and make
-it available in a Registry.
+it available in a registry.
 
 The tool introduces a new concept of a Bundle, which is an OCI image that contains configuration files and
 references of images that can be used with these configurations.
@@ -21,22 +21,21 @@ A bundle is an image with some additional characteristics:
 
 `imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
 
-
 ### Commands
 
 `imgpkg` supports four commands:
-- [`push`](commands-ref.md#imgpkg-push) an image/bundle from files on a local system to a registry. 
-- [`pull`](commands-ref.md#imgpkg-pull) an image/bundle by retrieving it from a registry.
-- [`copy`](commands-ref.md#imgpkg-copy) an image/bundle from a registry or tarball to another registry or tarball.
-- [`tag list`](commands-ref.md#imgpkg-tag-list) to list pushed tags.
+- [`push`](commands-ref.md#push) an image/bundle from files on a local system to a registry. 
+- [`pull`](commands-ref.md#pull) an image/bundle by retrieving it from a registry.
+- [`copy`](commands-ref.md#copy) an image/bundle from a registry or tarball to another registry or tarball.
+- [`tag list`](commands-ref.md#tag-list) to list pushed tags.
 
-### Example Usage(Workflows)
+### Example Usage (Workflows)
 
 #### Basic bundle workflow
 
 `imgpkg` encourages, but does not require, the use of bundles when creating and relocating OCI images. 
-This [basic workflow](basic-workflow.md) uses a bundle to outline the basics of the push, pull, and copy commands, 
-as well as takes a deeper look into the [difference between a bundle and an image](basic-workflow.md#images-vs-bundles). 
+This [basic workflow](basic-workflow.md) uses a bundle to outline the basics of the `push`, `pull`, and `copy` 
+commands.
 
 #### Air-gapped environment
 
@@ -46,4 +45,5 @@ For more information, see [example air-gapped workflow](air-gapped-workflow.md).
 
 ### Misc
 
-Currently imgpkg always produces a single layer images, hence it's not optimized to repush large sized directories that infrequently change.
+Currently imgpkg always produces a single layer image. It's not optimized to repush 
+large sized directories that infrequently change.
