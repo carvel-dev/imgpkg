@@ -13,6 +13,9 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: src/github.com/${{ github.repository }}
+    - name: Start local registry
+      run: |
+        docker run -d -p 5000:5000 --restart always --name registry registry:
     - name: Run Tests
       run: |
         set -e -x
@@ -25,12 +28,6 @@ jobs:
 
         # Remove stable imgpkg
         rm -f /tmp/bin/imgpkg
-
-        # start minikube cluster for running local registry
-        wget -O- https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 > /tmp/bin/minikube
-        chmod +x /tmp/bin/minikube
-        minikube start --driver=docker --insecure-registry=172.17.0.0/16
-        eval $(minikube docker-env --shell=bash)
 
         export GOPATH=$(echo `pwd`)
         cd src/github.com/${{ github.repository }}
