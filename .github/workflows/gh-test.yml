@@ -20,18 +20,9 @@ jobs:
       run: |
         set -e -x
 
-        # Install kapp for creating local registry
-        mkdir -p /tmp/bin
-        export PATH=/tmp/bin:$PATH
-
-        wget -O- https://k14s.io/install.sh | K14SIO_INSTALL_BIN_DIR=/tmp/bin bash
-
-        # Remove stable imgpkg
-        rm -f /tmp/bin/imgpkg
-
         export GOPATH=$(echo `pwd`)
         cd src/github.com/${{ github.repository }}
 
         # deploy local registry and run tests
-        ./hack/test-all-minikube-local-registry.sh
+        ./hack/test-all-local-registry.sh
 

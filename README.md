@@ -33,8 +33,8 @@ Features:
 ```bash
 ./hack/build.sh
 
-eval $(minikube docker-env)
-docker login
+docker run -d -p 5000:5000 --restart always --name registry registry:2
+
 export IMGPKG_E2E_IMAGE=dkalinin/test-simple-content
 export IMGPKG_E2E_RELOCATION_REPO=dkalinin/test-simple-relocation
 ./hack/test-all.sh
