@@ -1,9 +1,9 @@
 # Commands
 
-- [`imgpkg push`](#imgpkg-push)
-- [`imgpkg pull`](#imgpkg-pull)
-- [`imgpkg copy`](#imgpkg-copy)
-- [`imgpkg tag`](#imgpkg-tag)
+- [`imgpkg push`](#push)
+- [`imgpkg pull`](#pull)
+- [`imgpkg copy`](#copy)
+- [`imgpkg tag`](#tag)
 
 ## Push
 
