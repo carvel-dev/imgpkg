@@ -1,13 +1,16 @@
-## Documentation
+# imgpkg Documentation
 
 ### What is imgpkg
 
-`imgpkg` is a tool that allows the user to store and distribute sets of files as OCI images.
-A typical use for these OCI Images is to group configurations for a particular application and make
-it available in a registry.
+`imgpkg` is a tool that allows users to store and distribute sets of files as OCI images.
+A typical use for these OCI images is to group configurations for a particular application 
+and make it available in an image registry.
 
-The tool introduces a new concept of a Bundle, which is an OCI image that contains configuration files and
+The tool introduces the concept of a Bundle, which is an OCI image that contains configuration files and
 references of images that can be used with these configurations.
+
+Currently, `imgpkg` always produces a single layer image. It's not optimized to repush 
+large sized directories that infrequently change.
 
 ### Images vs Bundles
 
@@ -24,26 +27,24 @@ A bundle is an image with some additional characteristics:
 ### Commands
 
 `imgpkg` supports four commands:
-- [`push`](commands-ref.md#push) an image/bundle from files on a local system to a registry. 
-- [`pull`](commands-ref.md#pull) an image/bundle by retrieving it from a registry.
-- [`copy`](commands-ref.md#copy) an image/bundle from a registry or tarball to another registry or tarball.
-- [`tag list`](commands-ref.md#tag-list) to list pushed tags.
+- [`push`](commands.md#push) an image/bundle from files on a local system to a registry. 
+- [`pull`](commands.md#pull) an image/bundle by retrieving it from a registry.
+- [`copy`](commands.md#copy) an image/bundle from a registry or tarball to another registry or tarball.
+- [`tag`](commands.md#tag) currently supports listing pushed image tags.
 
 ### Example Usage (Workflows)
 
-#### Basic bundle workflow
+To go through some example workflows to better understand `imgpkg` use cases and use `imgpkg` in guided 
+scenarios, the basic workflow and air gapped environment guides are available below.
 
-`imgpkg` encourages, but does not require, the use of bundles when creating and relocating OCI images. 
-This [basic workflow](basic-workflow.md) uses a bundle to outline the basics of the `push`, `pull`, and `copy` 
-commands.
+#### Basic workflow
+
+`imgpkg` encourages but does not require the use of bundles when creating and relocating OCI images. 
+This [basic workflow](basic-workflow.md) uses image/bundle workflows to outline the basics of the `push`, 
+`pull`, and `copy` commands.
 
 #### Air-gapped environment
 
-`imgpkg` allows the retrieval of an OCI image from the registry, and 
-creates a tarball that later can be used in an air-gapped environment. 
+`imgpkg` allows the retrieval of an OCI image from an external registry, and 
+creates a tarball that later can be used in an air-gapped environment (i.e. no internet access). 
 For more information, see [example air-gapped workflow](air-gapped-workflow.md). 
-
-### Misc
-
-Currently imgpkg always produces a single layer image. It's not optimized to repush 
-large sized directories that infrequently change.

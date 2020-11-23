@@ -1,6 +1,6 @@
 ## Config Resources
 
-Imgpkg introduces a few resources to enable working with a bundle.
+`imgpkg` introduces a few resources to enable working with a bundle.
 
 ### `.imgpkg` directory
 
