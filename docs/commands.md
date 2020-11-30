@@ -1,12 +1,13 @@
 # Commands
 
-- [`imgpkg push`](#imgpkg-push)
-- [`imgpkg pull`](#imgpkg-pull)
-- [`imgpkg copy`](#imgpkg-copy)
+- [`imgpkg push`](#push)
+- [`imgpkg pull`](#pull)
+- [`imgpkg copy`](#copy)
+- [`imgpkg tag`](#tag)
 
-## `imgpkg push`
+## Push
 
-Push allows users to create an image or a bundle from files or directories on their local file system and
+Push allows users to create an image or a bundle from files or directories on their local file systems and
 then push the resulting artifact to a registry. For example,
 
 `$ imgpkg push -f my-bundle -b index.docker.io/k8slt/sample-bundle`
@@ -21,19 +22,6 @@ In both cases, the `-f` flag can be used multiple times to add different files o
 
 The `-b`/`--bundle` or `-i`/`--image` flags are used to specify the destination of the push.
 If the specified destination does not include a tag, the artifact will be pushed with the default tag `:latest`.
-
-
-### Images vs Bundles
-
-An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
-
-A bundle is an image with some additional characteristics:
-- Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
-  contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
-  optionally, a [bundle metadata file](resources.md#bundle-metadata)
-- Has a config label notating that the image is a bundle
-
-`imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
 
 ### Pushing a bundle
 
@@ -79,7 +67,7 @@ There are a few restrictions when creating a bundle from directories that contai
   and is safe to rely on in automation that consumes bundles.
 
 
-#### Generating a [BundleLock](resources.md#bundlelock)
+### Generating a [BundleLock](resources.md#bundlelock)
 
 `push` may also output a BundleLock file for users that would like a deterministic reference to a pushed bundle. For example, running:
 
@@ -97,7 +85,7 @@ If a bundle is not desired then users still have the ability to push a generic i
 If the `-i/--image` flag is used with inputs that also contain a `.imgpkg`
 directory, imgpkg will error.
 
-## `imgpkg pull`
+## Pull
 
 ### Pulling an artifact
 
@@ -117,7 +105,7 @@ If all referenced digests are found, imgpkg will rewrite the bundle's
 of the image digests are not found in the repository, imgpkg will not update the
 references.
 
-## `imgpkg copy`
+## Copy
 
 ### Copying a bundle
 
@@ -153,3 +141,18 @@ For example,
 
 will copy the images references within the ImagesLock file, `images.yml`, to the
 `my-images` repository.
+
+## Tag
+
+`imgpkg tag` supports a `list` subcommand that allows users to list the tags of images 
+pushed to registries. The command features an `--image`/`-i` option that allows a user 
+to specify an image name. 
+
+An example of this is shown below:
+
+```
+imgpkg tag list -i index.docker.io/k8slt/sample-bundle
+```
+
+The output should show the names of all tags associated with the image along with its 
+digest.

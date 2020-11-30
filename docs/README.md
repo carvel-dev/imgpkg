@@ -1,96 +1,62 @@
-## Docs
+# imgpkg Documentation
 
-### Example Usage
+### What is imgpkg
 
-Authenticate (see below section for alternative authentication configuration)
+`imgpkg` is a tool that allows users to store and distribute sets of files as OCI images. The 
+tool introduces the concept of a Bundle, which is an OCI image that contains configuration files 
+and references of images that can be used with these configurations.
 
-```bash
-$ docker login
-```
+A typical use for Bundles is to group configurations and images for a particular application 
+and make it available in an image registry. An example of this use case is grouping together 
+Kubernetes resources and storing these configurations/images together in an image registry as 
+a single Bundle.
 
-Create simple content
+Currently, `imgpkg` always produces a single layer image. It's not optimized to repush 
+large sized directories that infrequently change.
 
-```bash
-$ echo "app1: true" > app/config.yml
-$ tree -a app/
-.
-├── .imgpkg
-│   └── images.yml
-└── config.yml
-```
+### Images vs Bundles
 
-Push example content as tagged image `your-user/app1-config:0.1.1`
+An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
 
-```bash
-$ imgpkg push -b your-user/app1-config:0.1.1 -f app/
-dir: .imgpkg
-file: .imgpkg/images.yml
-file: config.yml
-Pushed 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
+A bundle is an image with some additional characteristics:
+- Contains both files/directories along with images specified via image references in files
+- Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
+  contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
+  optionally, a [bundle metadata file](resources.md#bundle-metadata)
+- Has the `dev.carvel.imgpkg.bundle` [label](https://docs.docker.com/config/labels-custom-metadata/) marking the image as an imgpkg Bundle
 
-Succeeded
-```
+`imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
 
-See [detailed push usage](commands.md#imgpkg-push).
+### Commands
 
-Copy content to another registry (or local tarball using `--to-tar`)
-```
-$ imgpkg copy -b your-user/app1-config:0.1.1 --to-repo other-user/app1
-copy | exporting 2 images...
-copy | will export index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | will export index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
-copy | exported 2 images
-copy | importing 2 images...
-copy | importing  index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da  ->  index.docker.io/other-user/app1@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-copy | importing  index.docker.io/some-user/<app1-dependency>@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a  ->   index.docker.io/other-user/app1@sha256:da37a87bd9dd5c2011368bf92b627138a3114cf3cec75d10695724a9e73a182a
-copy | imported 2 images
-
-Succeeded
-```
-
-See [detailed copy usage](commands.md#imgpkg-copy).
-
-Pull content into local directory
-
-```bash
-$ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1
-Pulling image 'index.docker.io/your-user/app1-config@sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da'
-Extracting layer 'sha256:a839c66dfd6debaafe7c2b7274e339c805277b41c1b9b8a427b9ed4e1ad60d22' (1/1)
-
-Succeeded
-```
-
-See [detailed pull usage](commands.md#imgpkg-pull).
-Verify content was unpacked
-
-```bash
-$ cat /tmp/app1/config.yml
-app1: true
-
-List pushed tags
-
-```bash
-$ imgpkg tag ls -i your-user/app1-config
-Tags
-
-Name   Digest
-0.1.1  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-0.1.2  sha256:50735e6055e4230bfb80645628fbbbb369a988975f59d15f4256067149c502da
-
-2 tags
-
-Succeeded
-```
+`imgpkg` supports four commands:
+- [`push`](commands.md#push) an image/bundle from files on a local system to a registry. 
+- [`pull`](commands.md#pull) an image/bundle by retrieving it from a registry.
+- [`copy`](commands.md#copy) an image/bundle from a registry or tarball to another registry or tarball.
+- [`tag`](commands.md#tag) currently supports listing pushed image tags.
 
 ### Authentication
 
-By default imgpkg uses `~/.docker/config.json` to authenticate against registries. You can explicitly specify credentials via following environment variables (or flags; see `imgpkg push -h` for details).
-
+By default imgpkg uses `~/.docker/config.json` to authenticate against registries. You can explicitly specify 
+credentials via the following environment variables or flags below. See `imgpkg push -h` for further details.
 - `--registry-username` (or `$IMGPKG_USERNAME`)
 - `--registry-password` (or `$IMGPKG_PASSWORD`)
 - `--registry-token` (or `$IMGPKG_TOKEN`): used as an alternative to username/password combination
 - `--registry-anon` (or `$IMGPKG_ANON=truy`): used for anonymous access (commonly used for pulling)
 
-### Misc
+### Example Usage (Workflows)
 
-Currently imgpkg always produces a single layer images, hence it's not optimized to repush large sized directories that infrequently change.
+To go through some example workflows to better understand `imgpkg` use cases and use `imgpkg` in guided 
+scenarios, the basic workflow and air gapped environment guides are available below.
+
+#### Basic workflow
+
+`imgpkg` encourages but does not require the use of bundles when creating and relocating OCI images. 
+This [basic workflow](basic-workflow.md) uses image/bundle workflows to outline the basics of the `push`, 
+`pull`, and `copy` commands.
+
+#### Air-gapped environment
+
+`imgpkg` allows the retrieval of an OCI image from an external registry, and 
+creates a tarball that later can be used in an air-gapped environment (i.e. no internet access). 
+For more information, see [example air-gapped workflow](air-gapped-workflow.md). 
