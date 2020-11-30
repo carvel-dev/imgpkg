@@ -3,8 +3,8 @@
 ### Prerequisites 
 
 To complete these workflows, you will need access to a local Docker registry and Kubernetes cluster. We 
-recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your cluster locally as this will be the cluster 
-used in the instructions below.
+recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your cluster locally as this will be the 
+cluster used in the instructions below.
 
 Steps:
 1. Create a local registry running at port 9001: `docker run -d -p 9001:5000 --restart=always --name registry registry:2`
@@ -13,12 +13,12 @@ Steps:
 
 ### What/why an air-gapped workflow:
 
-Users who wish to run an appilcation in their air-gapped (i.e. not connected to internet) environment 
-can use `imgpkg` to copy the application image from a registry to a tarball on local storage. The user
-could then upload the tarball to the air-gapped internal registry to make it available to deploy that 
-application inside the environment.
+Users who wish to run applications in their air-gapped (i.e. not connected to the internet) environments 
+can use `imgpkg` to copy application images from a registry to a tarball on local storage. Users
+can then upload the tarball to the air-gapped internal registry to make it available to deploy that 
+application in the environment.
 
-### How to distribute the configuration
+### How to distribute an image
 
 In the folder [examples/basic](../examples/basic), there is a set of configuration files that
 will allow a user to create a service and a deployment for a simple application that runs on Kubernetes.
@@ -33,8 +33,8 @@ Start by pushing the image to a local registry:
 `imgpkg push -f examples/basic -i localhost:9001/simple-app-configuration`
 
 Flags used in the command:
-  * `-f` indicates the folder the user wants to package as an OCI Image
-  * `-i` indicates that the user want to push a simple OCI Image to a registry
+  * `-f` indicates the folder to package as an OCI image
+  * `-i` indicates to push the assets from `-f` as an OCI image to a registry
 
 The output will display all the files that will be packaged and the destination of the image:
 ```
@@ -49,8 +49,8 @@ Copy the image to a tarball on your local thumbdrive from the Docker registry yo
 `imgpkg copy -i localhost:9001/simple-app-configuration --to-tar /tmp/my-image.tar`
 
 Flags used in the command:
-  * `-i` indicates that the user want to push a simple OCI Image to a registry
-  * `--to-tar` indicates location to write a tar file containing assets
+  * `-i` indicates to relocate a particular OCI image
+  * `--to-tar` indicates local location to write a tar file containing the OCI image assets
 
 The output will display the image being converted to a tarball on your local machine:
 ```
@@ -59,22 +59,14 @@ file: deployment.yml
 file: service.yml
 Pushed 'localhost:9001/simple-app-configuration@sha256:98ff397d8a8200ecb228c9add5767ef40c4e59d751a6e85880a1f903394ee3e7'
 Succeeded
-dhelfand-a01:imgpkg dhelfand$ imgpkg copy -i localhost:9001/simple-app-configuration --to-tar /tmp/my-image.tar
-copy | exporting 1 images...
-copy | will export localhost:9001/simple-app-configuration
-copy | exported 1 images
-copy | writing layers...
-copy | done: file 'manifest.json' (5.61µs)
-copy | done: file 'sha256-d31ba7a7738be66aa15e2630dbb245d23627c6b2dceda3d57972704f5dbbc327.tar.gz' (66.709µs)
-Succeeded
 ```
 
 Copy the tarball to an internal private registry
  `imgpkg copy --from-tar /tmp/my-image.tar --to-repo localhost:5000/simple-app-configuration`
 
 Flags used in the command:
-  * `--from-tar` indicates path to tar file which contains assets to be copied to a registry
-  * `--to-repo` indicates location to upload the tarball
+  * `--from-tar` indicates path to tar file containing assets to be copied to an image registry
+  * `--to-repo` indicates image registry to upload the tarball to
 
 The output shows the tarball is successfully pushed to an image registry:
 ```
@@ -154,9 +146,9 @@ remove the application from your cluster:
 kapp delete -a simple-app -y
 ```
 
-### How to distribute the bundle
+### How to distribute a bundle
 
-For more information on bundles, read more here [here](README.md#images-vs-bundles)
+For more information on bundles, read more here [here](README.md#images-vs-bundles).
 
 In the folder [examples/basic-bundle](../examples/basic-bundle), there is a set of configuration files that
 will allow a user to create a service and a deployment for a simple application that runs on Kubernetes.
@@ -174,8 +166,8 @@ You can push the above folder using the following command:
 `imgpkg push -f examples/basic-bundle -b localhost:9001/simple-app-bundle`
 
 Flags used in the command:
-  * `-f` indicates the folder the user wants to package as a bundle
-  * `-b` indicates that the user want to push a bundle to a registry
+  * `-f` indicates the folder to package as a bundle
+  * `-b` indicates the image registry to push a bundle to
 
 
 The output will display all the files that will be packaged, and the destination of the bundle:
@@ -191,6 +183,10 @@ Succeeded
 
 Copy the bundle a tarball on your local thumbdrive:
 `imgpkg copy -b localhost:9001/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb --to-tar /tmp/my-image.tar`
+
+Flags used in the command:
+  * `-b` indicates the image registry to push the bundle to
+  * `--to-tar` indicates local location to write a tar file containing the bundle assets
 
 The output will display the bundle being converted to a tarball on your local machine:
 ```
@@ -208,6 +204,10 @@ Succeeded
 Copy the bundle from your local thumbdrive to a different local registry:
 `imgpkg copy --from-tar /tmp/my-image.tar --to-repo localhost:5000/simple-app-bundle`
 
+Flags used in the command:
+  * `--from-tar` indicates path to tar file containing assets to be copied to an image registry
+  * `--to-repo` indicates image registry to upload the tarball to
+
 The output shows the tarball is successfully pushed to an image registry:
 ```
 copy | importing 2 images...
@@ -222,6 +222,10 @@ Succeeded
 To start, pull the image you just pushed:
 
 `imgpkg pull -o /tmp/simple-app-bundle -b localhost:5000/simple-app-bundle`
+
+Flags used in the command:
+  * `-o` indicates the local folder where the bundle will be unpacked
+  * `-b` indicates to pull a particular bundle from an image registry
 
 You should see the following output:
 

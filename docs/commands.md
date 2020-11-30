@@ -142,7 +142,7 @@ For example,
 will copy the images references within the ImagesLock file, `images.yml`, to the
 `my-images` repository.
 
-### Tag
+## Tag
 
 `imgpkg tag` supports a `list` subcommand that allows users to list the tags of images 
 pushed to registries. The command features an `--image`/`-i` option that allows a user 

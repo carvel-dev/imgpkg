@@ -2,12 +2,14 @@
 
 ### What is imgpkg
 
-`imgpkg` is a tool that allows users to store and distribute sets of files as OCI images.
-A typical use for these OCI images is to group configurations for a particular application 
-and make it available in an image registry.
+`imgpkg` is a tool that allows users to store and distribute sets of files as OCI images. The 
+tool introduces the concept of a Bundle, which is an OCI image that contains configuration files 
+and references of images that can be used with these configurations.
 
-The tool introduces the concept of a Bundle, which is an OCI image that contains configuration files and
-references of images that can be used with these configurations.
+A typical use for Bundles is to group configurations and images for a particular application 
+and make it available in an image registry. An example of this use case is grouping together 
+Kubernetes resources and storing these configurations/images together in an image registry as 
+a single Bundle.
 
 Currently, `imgpkg` always produces a single layer image. It's not optimized to repush 
 large sized directories that infrequently change.
@@ -17,10 +19,11 @@ large sized directories that infrequently change.
 An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
 
 A bundle is an image with some additional characteristics:
+- Contains both files/directories along with images specified via image references in files
 - Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
   contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
   optionally, a [bundle metadata file](resources.md#bundle-metadata)
-- Has a config label notating that the image is a bundle
+- Has the `dev.carvel.imgpkg.bundle` [label](https://docs.docker.com/config/labels-custom-metadata/) marking the image as an imgpkg Bundle
 
 `imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
 
@@ -31,6 +34,15 @@ A bundle is an image with some additional characteristics:
 - [`pull`](commands.md#pull) an image/bundle by retrieving it from a registry.
 - [`copy`](commands.md#copy) an image/bundle from a registry or tarball to another registry or tarball.
 - [`tag`](commands.md#tag) currently supports listing pushed image tags.
+
+### Authentication
+
+By default imgpkg uses `~/.docker/config.json` to authenticate against registries. You can explicitly specify 
+credentials via the following environment variables or flags below. See `imgpkg push -h` for further details.
+- `--registry-username` (or `$IMGPKG_USERNAME`)
+- `--registry-password` (or `$IMGPKG_PASSWORD`)
+- `--registry-token` (or `$IMGPKG_TOKEN`): used as an alternative to username/password combination
+- `--registry-anon` (or `$IMGPKG_ANON=truy`): used for anonymous access (commonly used for pulling)
 
 ### Example Usage (Workflows)
 

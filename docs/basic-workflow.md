@@ -23,10 +23,10 @@ to address this issue.
 The simplest workflow that you can take advantage of with `imgpkg` is the distribution of a simple folder
 with a group of configurations that eventually would be used to deploy an application.
 
-#### How to distribute the image
+#### How to distribute an image
 
 In the folder [examples/basic](../examples/basic), there is a set of configuration files that
-will allow a user to create a service and a deployment of a simple application that will run on 
+will allow a user to create a service and a deployment for a simple application that will run on 
 Kubernetes.
 
 ```
@@ -40,8 +40,8 @@ You can push the above folder to a local Docker registry using the following com
 `imgpkg push -f examples/basic -i localhost:9001/simple-app-configuration`
 
 Flags used in the command:
-  * `-f` indicates the folder the user wants to package as an OCI Image
-  * `-i` indicates that the user want to push a simple OCI image to a registry
+  * `-f` indicates the folder to package as an OCI image
+  * `-i` indicates to push the assets from `-f` as an OCI image to a registry
 
 The output will display all the files that will be packaged and the destination of the image:
 ```
@@ -59,8 +59,8 @@ You can run the following command to download the configuration:
 `imgpkg pull -o /tmp/simple-app-config -i localhost:9001/simple-app-configuration`
 
 Flags used in the command:
-  * `-o` indicates the folder where the OCI image will be unpacked
-  * `-i` indicates that the user want to pull a simple OCI Image from the Registry
+  * `-o` indicates the local folder where the OCI image will be unpacked
+  * `-i` indicates to pull an OCI image from an image registry
 
 The output shows the image pull was successful:
 ```shell
@@ -149,8 +149,8 @@ You can push the above folder containing a bundle to your local Docker registry 
 `imgpkg push -f examples/basic-bundle -b localhost:5000/simple-app-bundle`
 
 Flags used in the command:
-  * `-f` indicates the folder the user want to package
-  * `-b` indicates that the user want to push a bundle to the registry
+  * `-f` indicates the folder to package as a bundle and push to a registry
+  * `-b` indicates to push the assets from `-f` as a bundle to a registry
 
 The output displays all the files that will be packaged and the destination of the bundle:
 ```shell
@@ -170,8 +170,8 @@ You can retrieve the bundle by running the following command to download the bun
 `imgpkg pull -o /tmp/simple-app-bundle -b localhost:5000/simple-app-bundle`
 
 Flags used in the command:
-  * `-o` indicates the folder where the bundle will be unpacked
-  * `-b` indicates that the user want to pull a bundle from the registry
+  * `-o` indicates the local folder where the OCI image will be unpacked
+  * `-b` indicates to pull a bundle from an image registry
 
 The output shows the image pull was successful:
 ```shell
@@ -257,16 +257,15 @@ kapp delete -a simple-app -y
 
 #### Scenario
 
-In this scenario, an application developer creates a bundle with images and configurations and another develop that wants
-to use the application prefers to use a different registry to store the images and configuration. This scenario can happen 
-if you are downloading an application from an external source and want to use a registry that is associated with the Kubernetes deployment.
+In this scenario, an application developer creates a bundle with images and configurations and another developer that wants
+to use the application prefers to use a different registry to store the images and configuration. 
 
 __Note:__ The example below shows how a bundle is being relocated, but the same flow should apply for relocating non bundle images. Simply changing the `-b` option to `-i` and using the folder in the [Image distribution](#image-distribution) scenario will showcase the same concepts using `imgpkg`.
 
 #### How to relocate bundle
 
-In the folder [examples/basic-bundle](../examples/basic-bundle) there is a set of configuration files that
-will allow a user to create a service and a deployment of a simple application.
+In the folder [examples/basic-bundle](../examples/basic-bundle), there is a set of configuration files that
+will allow a user to create a service and a deployment for a simple application.
 
 ```shell
 basic-bundle
@@ -281,8 +280,8 @@ You can push the above folder using the following command:
 `imgpkg push -f examples/basic-bundle -b localhost:9001/simple-app-bundle`
 
 Flags used in the command:
-  * `-b` indicates that the user want to push a bundle to the registry
-  * `-f` indicates the folder the user want to package
+  * `-f` indicates the folder to package as a bundle and push to a registry
+  * `-b` indicates to push the assets from `-f` as a bundle to a registry
 
 The output displays all the files that will be packaged and the destination of the bundle:
 ```shell
@@ -297,14 +296,15 @@ Succeeded
 
 #### Relocate to a different registry
 
-This step will relocate the bundle configuration and the images associated with it.
+This step will relocate the bundle configuration and the images associated with it from one image registry 
+to another one.
 
 To relocate, use the following command:
 `imgpkg copy -b localhost:9001/simple-app-bundle --to-repo localhost:5000/simple-app-new-repo`
 
 Flags used in the command:
-  * `-b` indicates that the user want to copy a bundle from the Registry
-  * `--to-repo` indicates the new Registry where the bundle and associated images should be copied to
+  * `-b` indicates that the user wants to copy a bundle from the registry
+  * `--to-repo` indicates the registry where the bundle and associated images should be copied to
 
 The output shows the bundle and the images present in `.imgpkg/images.yml` are copied to the new registry 
 `localhost:5000`:
