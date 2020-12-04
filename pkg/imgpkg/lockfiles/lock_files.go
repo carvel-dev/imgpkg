@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"gopkg.in/yaml.v2"
 )
