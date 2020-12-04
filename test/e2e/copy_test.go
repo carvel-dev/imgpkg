@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"gopkg.in/yaml.v2"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
@@ -66,12 +66,12 @@ spec:
 
 	// create bundle that refs image with --lock-ouput and a random tag based on time
 	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", assetsPath, "--lock-output", lockFile})
-	bundleLockYml, err := cmd.ReadBundleLockFile(lockFile)
+	bundleLockYml, err := lf.ReadBundleLockFile(lockFile)
 	if err != nil {
 		t.Fatalf("failed to read bundlelock file: %v", err)
 	}
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(bundleLockYml.Spec.Image.DigestRef, t))
-	bundleTag := fmt.Sprintf("%s", bundleLockYml.Spec.Image.OriginalTag)
+	bundleTag := bundleLockYml.Spec.Image.OriginalTag
 
 	lockOutputPath := filepath.Join(os.TempDir(), "bundle-lock-relocate-lock.yml")
 	defer os.Remove(lockOutputPath)
@@ -84,7 +84,7 @@ spec:
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var bLock cmd.BundleLock
+	var bLock lf.BundleLock
 	err = yaml.Unmarshal(bLockBytes, &bLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -108,7 +108,6 @@ spec:
 	if err := validateImagePresence(refs); err != nil {
 		t.Fatalf("could not validate image presence: %v", err)
 	}
-
 }
 
 func TestCopyImageLockInputToRepoWithLockOutput(t *testing.T) {
@@ -162,7 +161,7 @@ spec:
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -234,7 +233,7 @@ spec:
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var bLock cmd.BundleLock
+	var bLock lf.BundleLock
 	err = yaml.Unmarshal(bLockBytes, &bLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -332,7 +331,7 @@ func TestCopyImageInputToRepoWithLockOutput(t *testing.T) {
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -401,7 +400,7 @@ spec:
 
 	// create bundle that refs image with --lock-ouput
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsPath, "--lock-output", lockFile})
-	bundlePushLockYml, err := cmd.ReadBundleLockFile(lockFile)
+	bundlePushLockYml, err := lf.ReadBundleLockFile(lockFile)
 	if err != nil {
 		t.Fatalf("failed to read bundlelock file: %v", err)
 	}
@@ -433,7 +432,7 @@ spec:
 		t.Fatalf("could not read lock file: %v", err)
 	}
 
-	var bundleLock cmd.BundleLock
+	var bundleLock lf.BundleLock
 	err = yaml.Unmarshal(bLockBytes, &bundleLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal bundleLock")
@@ -529,7 +528,7 @@ spec:
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -613,7 +612,7 @@ spec:
 		t.Fatalf("could not read lock file: %v", err)
 	}
 
-	var bundleLock cmd.BundleLock
+	var bundleLock lf.BundleLock
 	err = yaml.Unmarshal(bLockBytes, &bundleLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal bundleLock")
@@ -684,7 +683,7 @@ func TestCopyImageInputViaTarWithLockOutput(t *testing.T) {
 		t.Fatalf("could not read lock-output: %v", err)
 	}
 
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal lock output: %v", err)
@@ -854,11 +853,11 @@ spec:
 	bundleDigestRef = env.RelocationRepo + bundleDigest
 	imgpkg.Run([]string{"pull", "-b", bundleDigestRef, "-o", testDir})
 
-	iLockBytes, err := ioutil.ReadFile(filepath.Join(testDir, cmd.BundleDir, imageFile))
+	iLockBytes, err := ioutil.ReadFile(filepath.Join(testDir, lf.BundleDir, imageFile))
 	if err != nil {
 		t.Fatalf("could not read images lock: %v", err)
 	}
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal images lock: %v", err)
@@ -895,24 +894,24 @@ func validateImagePresence(refs []string) error {
 	return nil
 }
 
-func validateBundleLockApiVersionAndKind(bLock cmd.BundleLock) error {
-	if bLock.ApiVersion != cmd.BundleLockAPIVersion {
-		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", cmd.BundleLockAPIVersion, bLock.ApiVersion)
+func validateBundleLockApiVersionAndKind(bLock lf.BundleLock) error {
+	if bLock.ApiVersion != lf.BundleLockAPIVersion {
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", lf.BundleLockAPIVersion, bLock.ApiVersion)
 	}
 
-	if bLock.Kind != cmd.BundleLockKind {
-		return fmt.Errorf("expected Kind to equal: %s, but got: %s", cmd.BundleLockKind, bLock.Kind)
+	if bLock.Kind != lf.BundleLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", lf.BundleLockKind, bLock.Kind)
 	}
 	return nil
 }
 
-func validateImageLockApiVersionAndKind(iLock cmd.ImageLock) error {
-	if iLock.ApiVersion != cmd.ImageLockAPIVersion {
-		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", cmd.ImageLockAPIVersion, iLock.ApiVersion)
+func validateImageLockApiVersionAndKind(iLock lf.ImageLock) error {
+	if iLock.ApiVersion != lf.ImagesLockAPIVersion {
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", lf.ImagesLockAPIVersion, iLock.ApiVersion)
 	}
 
-	if iLock.Kind != cmd.ImageLockKind {
-		return fmt.Errorf("expected Kind to equal: %s, but got: %s", cmd.ImageLockKind, iLock.Kind)
+	if iLock.Kind != lf.ImagesLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", lf.ImagesLockKind, iLock.Kind)
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 type Images []Image
@@ -34,32 +34,6 @@ func (i Image) Description() string {
 	}
 
 	return strings.TrimSpace(string(yamlBytes))
-}
-
-type imageStruct struct {
-	URL   string
-	Metas []interface{}
-}
-
-func newImageStructs(images []Image) []imageStruct {
-	var result []imageStruct
-	for _, img := range images {
-		result = append(result, newImageStruct(img))
-	}
-	return result
-}
-
-func newImageStruct(image Image) imageStruct {
-	result := imageStruct{URL: image.URL}
-	return result
-}
-
-func newImages(structs []imageStruct) []Image {
-	var result []Image
-	for _, st := range structs {
-		result = append(result, Image{URL: st.URL, metasRaw: st.Metas})
-	}
-	return result
 }
 
 func ImageWithRepository(img string, repo string) (string, error) {

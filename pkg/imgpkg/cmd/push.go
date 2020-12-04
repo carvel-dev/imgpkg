@@ -13,13 +13,10 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
-
-// TODO rename when we have a name
-const BundleDir = ".imgpkg"
-const ImageLockFile = "images.yml"
 
 type PushOptions struct {
 	ui ui.UI
@@ -90,7 +87,7 @@ func (o *PushOptions) Run() error {
 		}
 
 		if len(bundleDirPaths) > 0 {
-			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
+			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", lf.BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
 		}
 		registry, err = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 		if err != nil {
@@ -138,11 +135,11 @@ func (o *PushOptions) Run() error {
 	o.ui.BeginLinef("Pushed '%s'", imageURL)
 
 	if o.LockOutputFlags.LockFilePath != "" {
-		bundleLock := BundleLock{
-			ApiVersion: BundleLockAPIVersion,
-			Kind:       BundleLockKind,
-			Spec: BundleSpec{
-				Image: ImageLocation{
+		bundleLock := lf.BundleLock{
+			ApiVersion: lf.BundleLockAPIVersion,
+			Kind:       lf.BundleLockKind,
+			Spec: lf.BundleSpec{
+				Image: lf.ImageLocation{
 					DigestRef:   imageURL,
 					OriginalTag: uploadRef.TagStr(),
 				},
@@ -165,7 +162,7 @@ func (o *PushOptions) Run() error {
 
 func (o *PushOptions) validateBundleDirs(bundleDirPaths []string) error {
 	if len(bundleDirPaths) != 1 {
-		return fmt.Errorf("Expected one '%s' dir, got %d: %s", BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ", "))
+		return fmt.Errorf("Expected one '%s' dir, got %d: %s", lf.BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ", "))
 	}
 
 	path := bundleDirPaths[0]
@@ -182,7 +179,7 @@ func (o *PushOptions) validateBundleDirs(bundleDirPaths []string) error {
 		}
 	}
 
-	return fmt.Errorf("Expected '%s' directory, to be a direct child of one of: %s; was %s", BundleDir, strings.Join(o.FileFlags.Files, ", "), path)
+	return fmt.Errorf("Expected '%s' directory, to be a direct child of one of: %s; was %s", lf.BundleDir, strings.Join(o.FileFlags.Files, ", "), path)
 }
 
 func (o *PushOptions) findBundleDirs() ([]string, error) {
@@ -193,7 +190,7 @@ func (o *PushOptions) findBundleDirs() ([]string, error) {
 				return err
 			}
 
-			if filepath.Base(currPath) != BundleDir {
+			if filepath.Base(currPath) != lf.BundleDir {
 				return nil
 			}
 
@@ -226,15 +223,15 @@ func (o *PushOptions) validateBundle(registry ctlimg.Registry) error {
 		return err
 	}
 
-	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], ImageLockFile))
+	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], lf.ImageLockFile))
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = fmt.Errorf("Must have images.yml in '%s' directory", BundleDir)
+			err = fmt.Errorf("Must have images.yml in '%s' directory", lf.BundleDir)
 		}
 		return err
 	}
 
-	var imgLock ImageLock
+	var imgLock lf.ImageLock
 	err = yaml.Unmarshal(imagesBytes, &imgLock)
 	if err != nil {
 		return fmt.Errorf("Unmarshalling image lock: %s", err)
@@ -244,6 +241,7 @@ func (o *PushOptions) validateBundle(registry ctlimg.Registry) error {
 	if err != nil {
 		return fmt.Errorf("Checking image lock for bundles: %s", err)
 	}
+
 	if len(bundles) != 0 {
 		return fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
 	}

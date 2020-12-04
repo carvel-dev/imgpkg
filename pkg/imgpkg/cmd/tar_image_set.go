@@ -11,6 +11,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 type TarImageSet struct {
@@ -62,7 +63,7 @@ func (o *TarImageSet) Import(path string,
 			continue
 		}
 
-		hasBundle, err := isBundle(*imgOrIndex.Image)
+		hasBundle, err := lf.IsBundle(*imgOrIndex.Image)
 		if err != nil {
 			return nil, "", err
 		}

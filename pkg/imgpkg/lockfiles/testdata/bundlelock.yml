@@ -1,0 +1,6 @@
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+spec:
+  image:
+    url: docker.io/my-app@sha256:b12026c7a0a6a1756a82a2a74ac759e9a7036523faca0e33dbddebc214e097df
+    tag: v1.0

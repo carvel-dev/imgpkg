@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,11 +45,11 @@ spec:
 	imgpkg.Run([]string{"copy", "-b", env.Image, "--to-repo", env.Image})
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", pullDir})
 
-	iLockBytes, err := ioutil.ReadFile(filepath.Join(pullDir, cmd.BundleDir, imageFile))
+	iLockBytes, err := ioutil.ReadFile(filepath.Join(pullDir, lf.BundleDir, imageFile))
 	if err != nil {
 		t.Fatalf("could not read images lock: %v", err)
 	}
-	var iLock cmd.ImageLock
+	var iLock lf.ImageLock
 	err = yaml.Unmarshal(iLockBytes, &iLock)
 	if err != nil {
 		t.Fatalf("could not unmarshal images lock: %v", err)
