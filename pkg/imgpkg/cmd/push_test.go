@@ -4,13 +4,14 @@
 package cmd
 
 import (
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1
