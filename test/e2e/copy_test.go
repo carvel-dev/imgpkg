@@ -895,23 +895,33 @@ func validateImagePresence(refs []string) error {
 }
 
 func validateBundleLockApiVersionAndKind(bLock lf.BundleLock) error {
-	if bLock.ApiVersion != lf.BundleLockAPIVersion {
-		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", lf.BundleLockAPIVersion, bLock.ApiVersion)
+	// Do not replace bundleLockKind or bundleLockAPIVersion with consts
+	// BundleLockKind or BundleLockAPIVersion.
+	// This is done to prevent updating the const.
+	bundleLockKind := "BundleLock"
+	bundleLockAPIVersion := "imgpkg.carvel.dev/v1alpha1"
+	if bLock.ApiVersion != bundleLockAPIVersion {
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", bundleLockAPIVersion, bLock.ApiVersion)
 	}
 
-	if bLock.Kind != lf.BundleLockKind {
-		return fmt.Errorf("expected Kind to equal: %s, but got: %s", lf.BundleLockKind, bLock.Kind)
+	if bLock.Kind != bundleLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", bundleLockKind, bLock.Kind)
 	}
 	return nil
 }
 
 func validateImageLockApiVersionAndKind(iLock lf.ImageLock) error {
+	// Do not replace imageLockKind or imagesLockAPIVersion with consts
+	// ImagesLockKind or ImagesLockAPIVersion.
+	// This is done to prevent updating the const.
+	imagesLockKind := "ImagesLock"
+	imagesLockAPIVersion := "imgpkg.carvel.dev/v1alpha1"
 	if iLock.ApiVersion != lf.ImagesLockAPIVersion {
-		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", lf.ImagesLockAPIVersion, iLock.ApiVersion)
+		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", imagesLockAPIVersion, iLock.ApiVersion)
 	}
 
-	if iLock.Kind != lf.ImagesLockKind {
-		return fmt.Errorf("expected Kind to equal: %s, but got: %s", lf.ImagesLockKind, iLock.Kind)
+	if iLock.Kind != imagesLockKind {
+		return fmt.Errorf("expected Kind to equal: %s, but got: %s", imagesLockKind, iLock.Kind)
 	}
 	return nil
 }
