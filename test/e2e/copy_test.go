@@ -13,13 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
-	"gopkg.in/yaml.v2"
-
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
+	"gopkg.in/yaml.v2"
 )
 
 func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
