@@ -4,10 +4,11 @@
 package lockfiles
 
 import (
+	"testing"
+
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	fake "github.com/google/go-containerregistry/pkg/v1/fake"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"testing"
 )
 
 func TestIsBundle_ImageIsBundle(t *testing.T) {
