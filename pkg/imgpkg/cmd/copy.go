@@ -15,9 +15,8 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
-	"gopkg.in/yaml.v2"
-
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 type CopyOptions struct {
