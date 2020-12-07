@@ -915,7 +915,7 @@ func validateImageLockApiVersionAndKind(iLock lf.ImageLock) error {
 	// This is done to prevent updating the const.
 	imagesLockKind := "ImagesLock"
 	imagesLockAPIVersion := "imgpkg.carvel.dev/v1alpha1"
-	if iLock.ApiVersion != lf.ImagesLockAPIVersion {
+	if iLock.ApiVersion != imagesLockAPIVersion {
 		return fmt.Errorf("expected apiVersion to equal: %s, but got: %s", imagesLockAPIVersion, iLock.ApiVersion)
 	}
 
