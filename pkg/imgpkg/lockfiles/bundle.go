@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package lockfiles
 
 import (
 	"archive/tar"
@@ -9,24 +9,29 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"gopkg.in/yaml.v2"
 )
 
-func isBundle(img v1.Image) (bool, error) {
+type Bundle struct {
+	URL   string
+	Tag   string
+	Image regv1.Image
+}
+
+func IsBundle(img regv1.Image) (bool, error) {
 	cfg, err := img.ConfigFile()
 	if err != nil {
 		return false, err
 	}
-
 	_, present := cfg.Config.Labels[image.BundleConfigLabel]
 	return present, nil
 }
 
-func GetReferencedImages(bundleRef name.Reference, regOpts image.RegistryOpts) ([]ImageDesc, error) {
+func GetReferencedImages(bundleRef regname.Reference, regOpts image.RegistryOpts) ([]ImageDesc, error) {
 	reg, err := image.NewRegistry(regOpts)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create a registry with the options %v: %v", regOpts, err)

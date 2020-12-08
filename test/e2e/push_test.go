@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 func TestPushBundleInImageLockErr(t *testing.T) {
@@ -37,7 +37,7 @@ spec:
   images:
   - image: %s
 `, bundleDigestRef)
-	err = ioutil.WriteFile(filepath.Join(assetsPath, cmd.BundleDir, imageFile), []byte(imgsYml), 0600)
+	err = ioutil.WriteFile(filepath.Join(assetsPath, lf.BundleDir, imageFile), []byte(imgsYml), 0600)
 	if err != nil {
 		t.Fatalf("failed to create image lock file: %v", err)
 	}

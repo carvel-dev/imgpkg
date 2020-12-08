@@ -9,6 +9,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
@@ -117,7 +118,7 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 
 	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
 	if item.Image != nil {
-		isBundle, err := isBundle(*item.Image)
+		isBundle, err := lf.IsBundle(*item.Image)
 		if err != nil {
 			return regname.Digest{}, fmt.Errorf("determining import tag: %v", err)
 		}

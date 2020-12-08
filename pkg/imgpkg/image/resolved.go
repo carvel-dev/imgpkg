@@ -21,8 +21,6 @@ type ResolvedImageSourceURL struct {
 	Tag  string
 }
 
-func (ResolvedImageSourceURL) meta() {}
-
 func NewResolvedImage(url string, registry Registry) ResolvedImage {
 	return ResolvedImage{url, registry}
 }

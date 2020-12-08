@@ -1,25 +1,26 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package lockfiles
 
 import (
 	"fmt"
 	"io/ioutil"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-
-	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	ImageLockKind  string = "ImageLock"
+	ImagesLockKind string = "ImagesLock"
 	BundleLockKind string = "BundleLock"
 
-	ImageLockAPIVersion  string = "imgpkg.carvel.dev/v1alpha1"
+	ImagesLockAPIVersion string = "imgpkg.carvel.dev/v1alpha1"
 	BundleLockAPIVersion string = "imgpkg.carvel.dev/v1alpha1"
+
+	BundleDir     string = ".imgpkg"
+	ImageLockFile string = "images.yml"
 )
 
 type BundleLock struct {
@@ -49,7 +50,7 @@ func (il *ImageLock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	for _, image := range alias.Spec.Images {
-		if _, err := name.NewDigest(image.Image); err != nil {
+		if _, err := regname.NewDigest(image.Image); err != nil {
 			return fmt.Errorf("Expected ref to be in digest form, got %s", image.Image)
 		}
 
@@ -122,7 +123,7 @@ func (il *ImageLock) CheckForBundles(reg ctlimg.Registry) ([]string, error) {
 			return nil, err
 		}
 
-		isBundle, err := isBundle(image)
+		isBundle, err := IsBundle(image)
 		if err != nil {
 			return nil, err
 		}

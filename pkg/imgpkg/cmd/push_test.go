@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1
@@ -256,11 +258,11 @@ func createBundleDir(loc, imagesYaml string) error {
 		imagesYaml = emptyImagesYaml
 	}
 
-	bundleDir := filepath.Join(loc, BundleDir)
+	bundleDir := filepath.Join(loc, lf.BundleDir)
 	err := os.Mkdir(bundleDir, 0700)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(bundleDir, ImageLockFile), []byte(imagesYaml), 0600)
+	return ioutil.WriteFile(filepath.Join(bundleDir, lf.ImageLockFile), []byte(imagesYaml), 0600)
 }

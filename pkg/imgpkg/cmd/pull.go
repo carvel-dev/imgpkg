@@ -12,6 +12,7 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -84,9 +85,9 @@ func (o *PullOptions) Run() error {
 	}
 
 	img := imgs[0]
-	isBundle, err := isBundle(img)
+	isBundle, err := lf.IsBundle(img)
 	if err != nil {
-		return fmt.Errorf("checking if image is bunlde: %v", err)
+		return fmt.Errorf("checking if image is bundle: %v", err)
 	}
 
 	if o.ImageFlags.Image != "" {
@@ -156,7 +157,7 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var bundleLock BundleLock
+	var bundleLock lf.BundleLock
 	err = yaml.Unmarshal(lockBytes, &bundleLock)
 	if err != nil {
 		return "", err
@@ -165,8 +166,8 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 }
 
 func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Registry) error {
-	imageLockDir := filepath.Join(o.OutputPath, BundleDir, ImageLockFile)
-	lockFile, err := ReadImageLockFile(imageLockDir)
+	imageLockDir := filepath.Join(o.OutputPath, lf.BundleDir, lf.ImageLockFile)
+	lockFile, err := lf.ReadImageLockFile(imageLockDir)
 	if err != nil {
 		return fmt.Errorf("Reading image lock file: %s", err)
 	}
@@ -177,7 +178,7 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 
 	bundleRepo := ref.Context().Name()
 	inBundleRepo := 0
-	var newImgDescs []ImageDesc
+	var newImgDescs []lf.ImageDesc
 	for _, img := range lockFile.Spec.Images {
 		bundleRepoImgRef, err := ImageWithRepository(img.Image, bundleRepo)
 		if err != nil {
@@ -194,7 +195,7 @@ func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Re
 			o.ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 			return nil
 		}
-		newImgDescs = append(newImgDescs, ImageDesc{
+		newImgDescs = append(newImgDescs, lf.ImageDesc{
 			Image:       foundImg,
 			Annotations: img.Annotations,
 		})

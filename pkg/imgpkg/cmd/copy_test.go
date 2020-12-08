@@ -56,5 +56,12 @@ func TestNoSrc(t *testing.T) {
 }
 
 func TestTarSrcWithTarDst(t *testing.T) {
-	t.Skip("implement the test")
+	err := (&CopyOptions{TarFlags: TarFlags{TarDst: "bar", TarSrc: "foo"}}).Run()
+	if err == nil {
+		t.Fatalf("Expected Run() to err")
+	}
+
+	if !strings.Contains(err.Error(), "Cannot use tar source (--from-tar) with tar destination (--to-tar)") {
+		t.Fatalf("Expected error message related to destinations, got: %s", err)
+	}
 }
