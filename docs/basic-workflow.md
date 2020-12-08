@@ -133,8 +133,8 @@ For more information on bundles, read more [here](README.md#images-vs-bundles).
 
 In the folder [examples/basic-bundle](../examples/basic-bundle), there is a set of configuration files that
 will allow a user to create a service and a deployment for an application that will run on Kubernetes. The 
-folder also contains the [`.imgpkg`](resources.md#imageslock) hidden directory with an `ImagesLock` file and 
-a [bundle metadata file](resources.md#bundle-metadata).
+folder also contains the [`.imgpkg`](resources.md#imageslock) hidden directory with a **required** [`ImagesLock`](resources.md#imageslock) file and an **optional** 
+[bundle metadata file](resources.md#bundle-metadata).
 
 ```shell
 examples/basic-bundle
@@ -325,6 +325,11 @@ Succeeded
 After the relocation, you can run the following command to download the bundle:
 
 `imgpkg pull -o /tmp/simple-app-new-repo -b localhost:5000/simple-app-new-repo`
+
+Flags used in the command:
+
+* `-o` indicates the local folder where the OCI image will be unpacked
+* `-b` indicates to pull a bundle from an image registry
 
 The output shows the bundle pull was successful:
 ```shell
