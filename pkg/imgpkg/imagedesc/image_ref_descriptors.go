@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -18,6 +19,8 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"golang.org/x/sync/errgroup"
 )
+
+const gcloudErrorToRetryOn = "gcloud crashed (OperationalError)"
 
 type Registry interface {
 	Generic(regname.Reference) (regv1.Descriptor, error)
@@ -69,24 +72,34 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 			buildThrottle.Take()
 			defer buildThrottle.Done()
 
-			regDesc, err := registry.Generic(ref.Ref)
+			f := func() (interface{}, error) {
+				return registry.Generic(ref.Ref)
+			}
+
+			regDesc, err := retry(f)
 			if err != nil {
 				return err
 			}
 
 			var td ImageOrImageIndexDescriptor
 
-			if imageRefDescs.isImageIndex(regDesc) {
-				imgIndexTd, err := imageRefDescs.buildImageIndex(ref, regDesc)
+			if imageRefDescs.isImageIndex(regDesc.(regv1.Descriptor)) {
+				imgIndexTd, err := imageRefDescs.buildImageIndex(ref, regDesc.(regv1.Descriptor))
 				if err != nil {
 					return err
 				}
 				td = ImageOrImageIndexDescriptor{ImageIndex: &imgIndexTd}
 			} else {
-				imgTd, err := imageRefDescs.buildImage(ref)
+				ftd := func() (interface{}, error) {
+					return imageRefDescs.buildImage(ref)
+				}
+
+				img, err := retry(ftd)
 				if err != nil {
 					return err
 				}
+
+				imgTd := img.(ImageDescriptor)
 				td = ImageOrImageIndexDescriptor{Image: &imgTd}
 			}
 
@@ -105,6 +118,24 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 
 func (ids *ImageRefDescriptors) Descriptors() []ImageOrImageIndexDescriptor {
 	return ids.descs
+}
+
+func retry(doFunc func() (interface{}, error)) (interface{}, error) {
+	var lastErr error
+	var desc interface{}
+
+	for i := 0; i < 5; i++ {
+		desc, lastErr = doFunc()
+		if lastErr == nil {
+			return desc, nil
+		}
+		if !strings.Contains(lastErr.Error(), gcloudErrorToRetryOn) {
+			return desc, lastErr
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	return desc, lastErr
 }
 
 func (ids *ImageRefDescriptors) buildImageIndex(ref Metadata, regDesc regv1.Descriptor) (ImageIndexDescriptor, error) {

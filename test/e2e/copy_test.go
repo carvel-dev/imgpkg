@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -54,16 +55,9 @@ spec:
 	if err != nil {
 		t.Fatalf("failed to create bundle dir: %v", err)
 	}
-	defer os.RemoveAll(testDir)
 
 	// create bundle that refs image with --lock-ouput and a random tag based on time
 	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
-	//bundleLockYml, err := cmd.ReadBundleLockFile(lockFile)
-	//if err != nil {
-	//	t.Fatalf("failed to read bundlelock file: %v", err)
-	//}
-	//bundleDigest := fmt.Sprintf("@%s", extractDigest(bundleLockYml.Spec.Image.DigestRef, t))
-	//bundleTag := fmt.Sprintf("%s", bundleLockYml.Spec.Image.OriginalTag)
 
 	lockOutputPath := filepath.Join(os.TempDir(), "bundle-lock-relocate-lock.yml")
 	defer os.Remove(lockOutputPath)
@@ -75,32 +69,36 @@ spec:
 		t.Fatalf("failed to read docker config: %v", err)
 	}
 
-	// TODO: create the container volume
+	exec.Command("docker", "pull", "ubuntu:21.04").Run()
 	defer exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
 
-	err = ioutil.WriteFile(dockerConfigPath, []byte(`{
-"credHelpers": {
-    "gcr.io": "hack-script"
-  }
-}
-`), os.ModePerm)
+	var dockerConfigJSONMap map[string]interface{}
+	err = json.Unmarshal(originalDockerConfigJSONContents, &dockerConfigJSONMap)
+	if err != nil {
+		t.Fatalf("failed to unmarshal docker config.json: %v", err)
+	}
+	dockerConfigJSONMap["credHelpers"] = map[string]string{"gcr.io": "gcloud-race-condition-db-error"}
+
+	dockerConfigJSONContents, err := json.Marshal(dockerConfigJSONMap)
+	if err != nil {
+		t.Fatalf("failed to marshal new docker config.json: %v", err)
+	}
+
+	err = ioutil.WriteFile(dockerConfigPath, dockerConfigJSONContents, os.ModePerm)
 	if err != nil {
 		t.Fatalf("failed to write docker config: %v", err)
 	}
 
 	defer ioutil.WriteFile(dockerConfigPath, originalDockerConfigJSONContents, os.ModePerm)
 
-	// get working directory for setting PATH with copy command
-	workingDir, err := os.Getwd()
+	dir, err := filepath.Abs("./")
 	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
+		t.Fatalf("failed to get directory of current file: %v", err)
 	}
 
-	//list of environment vars to set for copy command
-	envVars := []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), workingDir+"/assets/")}
-	// Run copy command
+	// copy via output file
 	imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, RunOpts{
-		EnvVars: envVars,
+		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
 	})
 }
 
