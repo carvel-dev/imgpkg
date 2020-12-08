@@ -3,12 +3,11 @@
 ### Prerequisites 
 
 To complete these workflows, you will need access to a local Docker registry and Kubernetes cluster. We 
-recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your cluster locally as this will be the local 
-cluster used in the instructions below.
+recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your local cluster.
 
 Steps:
-1. Create a local registry running at port 9001: `docker run -d -p 9001:5000 --restart=always --name registry registry:2`
-2. Run the script shown [here](https://kind.sigs.k8s.io/docs/user/local-registry/) to create a KinD cluster that uses a local Docker registry running at port 5000.
+1. Create a local registry running on port 9001: `docker run -d -p 9001:5000 --restart=always --name registry registry:2`
+2. Run the [Create A Cluster And Registry](https://kind.sigs.k8s.io/docs/user/local-registry/) script to create a KinD cluster that uses a local Docker registry running on port 5000.
 3. (Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
 
 ### Scenario
@@ -21,7 +20,7 @@ to address this issue.
 ### Image distribution
 
 The simplest workflow that you can take advantage of with `imgpkg` is the distribution of a simple folder
-with a group of configurations that eventually would be used to deploy an application.
+with a group of configurations that would eventually be used to deploy an application.
 
 #### How to distribute an image
 
@@ -40,10 +39,10 @@ You can push the above folder to a local Docker registry using the following com
 `imgpkg push -f examples/basic -i localhost:9001/simple-app-configuration`
 
 Flags used in the command:
-  * `-f` indicates the folder to package as an OCI image
-  * `-i` indicates to push the assets from `-f` as an OCI image to a registry
+  * `-f` indicates the folder to package and push (in this case `examples/basic`)
+  * `-i` indicates the type; push the assets collected with `-f` _as an OCI image_ to a registry
 
-The output will display all the files that will be packaged and the destination of the image:
+The output will display all the files to be packaged and the destination of the image:
 ```
 dir: .
 file: deployment.yml
@@ -59,8 +58,8 @@ You can run the following command to download the configuration:
 `imgpkg pull -o /tmp/simple-app-config -i localhost:9001/simple-app-configuration`
 
 Flags used in the command:
-  * `-o` indicates the local folder where the OCI image will be unpacked
-  * `-i` indicates to pull an OCI image from an image registry
+  * `-o` indicates the local destination folder to unpack the OCI image
+  * `-i` indicates the type; pull _an OCI image_ from an image registry
 
 The output shows the image pull was successful:
 ```shell
@@ -70,7 +69,7 @@ Extracting layer 'sha256:d31ba7a7738be66aa15e2630dbb245d23627c6b2dceda3d57972704
 Succeeded
 ```
 
-The result of the command is the creation of the following folder in `/tmp/simple-app-config`, which contains the deployment 
+The result of the command is the creation of the `/tmp/simple-app-config` folder, which contains the deployment
 and service for the application that you just pushed.
 
 ```
@@ -127,7 +126,9 @@ kapp delete -a simple-app -y
 
 ### Bundle distribution
 
-For more information on bundles, read more [here](README.md#images-vs-bundles).
+Given the same scenario, we can also accomplish it with bundles.
+
+For more information on bundles, see the the [Images vs Bundles](README.md#images-vs-bundles) docs.
 
 #### How to distribute the bundle
 
@@ -149,8 +150,8 @@ You can push the above folder containing a bundle to your local Docker registry 
 `imgpkg push -f examples/basic-bundle -b localhost:5000/simple-app-bundle`
 
 Flags used in the command:
-  * `-f` indicates the folder to package as a bundle and push to a registry
-  * `-b` indicates to push the assets from `-f` as a bundle to a registry
+  * `-f` indicates the folder to package and push (in this case `examples/basic-bundle`)
+  * `-b` indicates the type; push the assets collected with `-f` _as a bundle_ to a registry
 
 The output displays all the files that will be packaged and the destination of the bundle:
 ```shell
@@ -170,8 +171,8 @@ You can retrieve the bundle by running the following command to download the bun
 `imgpkg pull -o /tmp/simple-app-bundle -b localhost:5000/simple-app-bundle`
 
 Flags used in the command:
-  * `-o` indicates the local folder where the OCI image will be unpacked
-  * `-b` indicates to pull a bundle from an image registry
+  * `-o` indicates the local destination folder where the bundle will be unpacked
+  * `-b` indicates the type; pull _a bundle_ from an image registry
 
 The output shows the image pull was successful:
 ```shell
@@ -183,11 +184,17 @@ One or more images not found in bundle repo; skipping lock file update
 Succeeded
 ```
 
-__Note:__ The message `One or more images not found in bundle repo; skipping lock file update` indicates that the file 
-`/tmp/simple-app-bundle/.imgpkg/images.yml` was not updated since the bundle has never been pushed to the Docker registry 
-before. 
+__Note:__ The message `One or more images not found in bundle repo; skipping lock file update` is expected, and indicates
+that the ImagesLock file (`/tmp/simple-app-bundle/.imgpkg/images.yml`) was not modified.
 
-The result of the command is the creation of the following folder in `/tmp/simple-app-bundle`.
+If imgpkg had been able to find all images that were referenced in the lock file in the new registry, then it would
+update that lock file to point to the new location. In other words, instead of having to reach out to the public docker registry,
+imgpkg will update your lock file with the new registry address for future reference.
+
+See what happens to the lock file if you run the same pull command after copying the referenced image to your local registry!
+Hint: Take a look at the `copy` command and the `--to-repo` flag.
+
+The result of the pull command is the creation of the following folder in `/tmp/simple-app-bundle`.
 
 ```shell
 simple-app-bundle
