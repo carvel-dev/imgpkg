@@ -107,7 +107,7 @@ func (o *PushOptions) Run() error {
 	}
 
 	var img *ctlimg.FileImage
-	tarImg := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.ExcludedFileBasenames, InfoLog{o.ui})
+	tarImg := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths, InfoLog{o.ui})
 	if o.isBundle() {
 		img, err = tarImg.AsFileBundle()
 	} else {

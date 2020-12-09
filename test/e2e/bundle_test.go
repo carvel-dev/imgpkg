@@ -67,7 +67,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 	}
 }
 
-func TestPushFileExclude(t *testing.T) {
+func TestPushWithFileExclusion(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 
@@ -79,13 +79,25 @@ func TestPushFileExclude(t *testing.T) {
 	}
 
 	excludedFileName := "excluded-file.txt"
-	err = ioutil.WriteFile(filepath.Join(assetsDir, excludedFileName), []byte("unused"), 0600)
+	err = ioutil.WriteFile(filepath.Join(assetsDir, excludedFileName), []byte("excluded"), 0600)
 	defer os.RemoveAll(filepath.Join(assetsDir, excludedFileName))
 	if err != nil {
 		t.Fatalf("Error creating excluded file: %s", err)
 	}
 
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--file-base-exclude", excludedFileName})
+	nestedDir := filepath.Join(assetsDir, "nested-dir")
+	err = os.Mkdir(nestedDir, 0700)
+	defer os.RemoveAll(nestedDir)
+	if err != nil {
+		t.Fatalf("Error creating nested directory: %s", err)
+	}
+	includedFilePath := filepath.Join(nestedDir, excludedFileName)
+	err = ioutil.WriteFile(includedFilePath, []byte("included"), 0600)
+	if err != nil {
+		t.Fatalf("Error creating nested included file: %s", err)
+	}
+
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--file-exclusion", excludedFileName})
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
 	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
@@ -136,6 +148,7 @@ func TestPushFileExclude(t *testing.T) {
 		"LICENSE",
 		"config/config.yml",
 		"config/inner-dir/README.txt",
+		"nested-dir/excluded-file.txt",
 	}
 
 	if len(pulledFileNames) != len(expectedFiles) {
