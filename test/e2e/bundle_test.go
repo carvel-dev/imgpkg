@@ -67,6 +67,99 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 	}
 }
 
+func TestPushWithFileExclusion(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+
+	assetsDir := filepath.Join("assets", "simple-app")
+	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
+	defer os.RemoveAll(bundleDir)
+	if err != nil {
+		t.Fatalf("Creating bundle directory: %s", err.Error())
+	}
+
+	excludedFileName := "excluded-file.txt"
+	err = ioutil.WriteFile(filepath.Join(assetsDir, excludedFileName), []byte("excluded"), 0600)
+	defer os.RemoveAll(filepath.Join(assetsDir, excludedFileName))
+	if err != nil {
+		t.Fatalf("Error creating excluded file: %s", err)
+	}
+
+	nestedDir := filepath.Join(assetsDir, "nested-dir")
+	err = os.Mkdir(nestedDir, 0700)
+	defer os.RemoveAll(nestedDir)
+	if err != nil {
+		t.Fatalf("Error creating nested directory: %s", err)
+	}
+	includedFilePath := filepath.Join(nestedDir, excludedFileName)
+	err = ioutil.WriteFile(includedFilePath, []byte("included"), 0600)
+	if err != nil {
+		t.Fatalf("Error creating nested included file: %s", err)
+	}
+
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--file-exclusion", excludedFileName})
+
+	ref, _ := name.NewTag(env.Image, name.WeakValidation)
+	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		t.Fatalf("Error getting remote image: %s", err)
+	}
+
+	config, err := image.ConfigFile()
+	if err != nil {
+		t.Fatalf("Error getting manifest: %s", err)
+	}
+
+	if _, found := config.Config.Labels["dev.carvel.imgpkg.bundle"]; !found {
+		t.Fatalf("Expected config to contain bundle label, instead had: %v", config.Config.Labels)
+	}
+
+	outDir := filepath.Join(os.TempDir(), "bundle-pull")
+	if err = os.Mkdir(outDir, 0600); err != nil {
+		t.Fatalf("Error creating temp dir: %s", err)
+	}
+	defer os.RemoveAll(outDir)
+
+	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
+
+	var pulledFileNames []string
+	err = filepath.Walk(outDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			t.Fatalf("Could not access path during walk %q: %v\n", path, err)
+		}
+		if !info.IsDir() {
+			relPath, relErr := filepath.Rel(outDir, path)
+			if relErr != nil {
+				t.Fatalf("Could not get relative path from %q: %v\n", path, relErr)
+			}
+			pulledFileNames = append(pulledFileNames, relPath)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("error walking the pulled directory %q: %v\n", outDir, err)
+		return
+	}
+
+	expectedFiles := []string{
+		".imgpkg/bundle.yml",
+		".imgpkg/images.yml",
+		"README.md",
+		"LICENSE",
+		"config/config.yml",
+		"config/inner-dir/README.txt",
+		"nested-dir/excluded-file.txt",
+	}
+
+	if len(pulledFileNames) != len(expectedFiles) {
+		t.Fatalf("Number of pulled files did not match expected.\nPulled: %v\nExpected: %v", pulledFileNames, expectedFiles)
+	}
+
+	for _, file := range expectedFiles {
+		compareFiles(filepath.Join(assetsDir, file), filepath.Join(outDir, file), t)
+	}
+}
+
 func TestBundleLockFile(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
