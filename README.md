@@ -1,8 +1,8 @@
 # imgpkg
 
-- Slack: [#k14s in Kubernetes slack](https://slack.kubernetes.io)
+- Slack: [#carvel in Kubernetes slack](https://kubernetes.slack.com/archives/CH8KCCKA5)
 - [Docs](docs/README.md) with example workflow and other details
-- Install: Grab prebuilt binaries from the [Releases page](https://github.com/k14s/imgpkg/releases) or [Homebrew k14s tap](https://github.com/k14s/homebrew-tap)
+- Install: Grab prebuilt binaries from the [Releases page](https://github.com/vmware-tanzu/carvel-imgpkg/releases) or [Homebrew Carvel tap](https://github.com/vmware-tanzu/homebrew-carvel)
 
 `imgpkg` (pronounced: "image package") allows you to store and distribute sets of files (e.g. application configuration)
  as images in Docker (OCI) registries. Combine your configuration files, and a list of references to images on
