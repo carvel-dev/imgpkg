@@ -19,7 +19,7 @@ a Kubernetes cluster.
 (Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and kubectl.
 
 ---
-## Finding bundle in source registry
+## Step 1: Finding bundle in source registry
 
 In most cases you already have a bundle to work with pushed by a configuration author. In case you need to create your own bundle here are the steps:
 
@@ -53,7 +53,7 @@ Flags used in the command:
   * `-b` indicates the registry to push a bundle to
 
 ---
-## Two methods of copying bundles
+## Step 2: Two methods of copying bundles
 
 You have two options how to transfer bundle from one registry to another:
 
@@ -135,7 +135,7 @@ You have two options how to transfer bundle from one registry to another:
       * `--to-repo` indicates destination bundle location in the registry
 
 ---
-## Pulling bundle from destination registry
+## Step 3: Pulling bundle from destination registry
 
 1. Pull the bundle from destination registry:
 
