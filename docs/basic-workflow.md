@@ -2,13 +2,11 @@
 
 ### Prerequisites 
 
-To complete these workflows, you will need access to a local Docker registry and Kubernetes cluster. We 
-recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your local cluster.
+To complete these workflows you will need access to an OCI registry like Docker Hub, and optionally, 
+a Kubernetes cluster. 
 
-Steps:
-1. Create a local registry running on port 9001: `docker run -d -p 9001:5000 --restart=always --name registry registry:2`
-2. Run the [Create A Cluster And Registry](https://kind.sigs.k8s.io/docs/user/local-registry/) script to create a KinD cluster that uses a local Docker registry running on port 5000.
-3. (Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
+(Optional) If you would like to use a local registry or Kubernetes cluster, there are instructions [here](https://kind.sigs.k8s.io/docs/user/local-registry/).
+If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
 
 ### Scenario
 
