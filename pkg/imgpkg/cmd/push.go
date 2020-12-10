@@ -236,6 +236,9 @@ func (o *PushOptions) validateBundle(registry ctlimg.Registry) error {
 	if err != nil {
 		return fmt.Errorf("Unmarshalling image lock: %s", err)
 	}
+	if imgLock.Kind != lf.ImagesLockKind {
+		return fmt.Errorf("Invalid `kind` in lockfile at %s. Expected: %s, got: %s", filepath.Join(bundlePaths[0], lf.ImageLockFile), lf.ImagesLockKind, imgLock.Kind)
+	}
 
 	bundles, err := imgLock.CheckForBundles(registry)
 	if err != nil {
