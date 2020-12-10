@@ -2,17 +2,18 @@
 
 ### Prerequisites 
 
-To complete these workflows, you will need access to a local Docker registry and Kubernetes cluster. We 
-recommend using [`KinD`](https://kind.sigs.k8s.io/) to create your local cluster.
+To complete these workflows you will need access to an OCI registry like Docker Hub, and optionally, 
+a Kubernetes cluster. 
 
-Steps:
-1. Create a local registry running on port 9001: `docker run -d -p 9001:5000 --restart=always --name registry registry:2`
-2. Run the [Create A Cluster And Registry](https://kind.sigs.k8s.io/docs/user/local-registry/) script to create a KinD cluster that uses a local Docker registry running on port 5000.
-3. (Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
+To complete the following workflows, `export NAME` to your registry's namespace prefix (ie, using docker hub, it is the authenicated user).
+
+(Optional) If you would like to use a local registry or Kubernetes cluster, there are instructions [here](https://kind.sigs.k8s.io/docs/user/local-registry/).
+
+(Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
 
 ### Scenario
 
-An application developer has pushed an image that supports an application to a Docker registry.
+An application developer has pushed an image that supports an application to an OCI registry.
 With the application image pushed, the next question is how to package and share the deployment 
 manifests that use the pushed application image. The workflows below show examples of using `imgpkg` 
 to address this issue.
@@ -34,20 +35,20 @@ examples/basic/
 └── service.yml
 ```
 
-You can push the above folder to a local Docker registry using the following command:
+You can push the above folder to an OCI registry using the following command. 
 
-`imgpkg push -f examples/basic -i localhost:9001/simple-app-configuration`
+`imgpkg push --file examples/basic --image $NAME/simple-app-configuration`
 
 Flags used in the command:
-  * `-f` indicates the folder to package and push (in this case `examples/basic`)
-  * `-i` indicates the type; push the assets collected with `-f` _as an OCI image_ to a registry
+  * `--file` indicates the folder to package and push (in this case `examples/basic`)
+  * `--image` indicates the type; push the assets collected with `--file` _as an OCI image_ to a registry
 
 The output will display all the files to be packaged and the destination of the image:
 ```
 dir: .
 file: deployment.yml
 file: service.yml
-Pushed 'localhost:9001/simple-app-configuration@sha256:98ff397d8a8200ecb228c9add5767ef40c4e59d751a6e85880a1f903394ee3e7'
+Pushed '.../simple-app-configuration@sha256:98ff397d8a8200ecb228c9add5767ef40c4e59d751a6e85880a1f903394ee3e7'
 Succeeded
 ```
 
@@ -55,15 +56,15 @@ Succeeded
 
 You can run the following command to download the configuration:
 
-`imgpkg pull -o /tmp/simple-app-config -i localhost:9001/simple-app-configuration`
+`imgpkg pull --output /tmp/simple-app-config --image $NAME/simple-app-configuration`
 
 Flags used in the command:
-  * `-o` indicates the local destination folder to unpack the OCI image
-  * `-i` indicates the type; pull _an OCI image_ from an image registry
+  * `--output` indicates the local destination folder to unpack the OCI image
+  * `--image` indicates the type; pull _an OCI image_ from an image registry
 
 The output shows the image pull was successful:
 ```shell
-Pulling image 'localhost:9001/simple-app-configuration@sha256:98ff397d8a8200ecb228c9add5767ef40c4e59d751a6e85880a1f903394ee3e7'
+Pulling image '.../simple-app-configuration@sha256:98ff397d8a8200ecb228c9add5767ef40c4e59d751a6e85880a1f903394ee3e7'
 Extracting layer 'sha256:d31ba7a7738be66aa15e2630dbb245d23627c6b2dceda3d57972704f5dbbc327' (1/1)
 
 Succeeded
@@ -145,13 +146,13 @@ examples/basic-bundle
 └── config.yml
 ```
 
-You can push the above folder containing a bundle to your local Docker registry using the following command:
+You can push the above folder containing a bundle to your OCI registry using the following command:
 
-`imgpkg push -f examples/basic-bundle -b localhost:5000/simple-app-bundle`
+`imgpkg push --file examples/basic-bundle --bundle $NAME/simple-app-bundle`
 
 Flags used in the command:
-  * `-f` indicates the folder to package and push (in this case `examples/basic-bundle`)
-  * `-b` indicates the type; push the assets collected with `-f` _as a bundle_ to a registry
+  * `--file` indicates the folder to package and push (in this case `examples/basic-bundle`)
+  * `--bundle` indicates the type; push the assets collected with `--file` _as a bundle_ to a registry
 
 The output displays all the files that will be packaged and the destination of the bundle:
 ```shell
@@ -160,7 +161,7 @@ dir: .imgpkg
 file: .imgpkg/bundle.yml
 file: .imgpkg/images.yml
 file: config.yml
-Pushed 'localhost:5000/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
+Pushed '.../simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
 Succeeded
 ```
 
@@ -168,15 +169,15 @@ Succeeded
 
 You can retrieve the bundle by running the following command to download the bundle:
 
-`imgpkg pull -o /tmp/simple-app-bundle -b localhost:5000/simple-app-bundle`
+`imgpkg pull --output /tmp/simple-app-bundle --bundle $NAME/simple-app-bundle`
 
 Flags used in the command:
-  * `-o` indicates the local destination folder where the bundle will be unpacked
-  * `-b` indicates the type; pull _a bundle_ from an image registry
+  * `--output` indicates the local destination folder where the bundle will be unpacked
+  * `--bundle` indicates the type; pull _a bundle_ from an image registry
 
 The output shows the image pull was successful:
 ```shell
-Pulling image 'localhost:5000/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
+Pulling image '.../simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
 Extracting layer 'sha256:7906b9650be657359ead106e354f2728e16c8f317e1d87f72b05b5c5ec3d89cc' (1/1)
 Locating image lock file images...
 One or more images not found in bundle repo; skipping lock file update
@@ -188,7 +189,7 @@ __Note:__ The message `One or more images not found in bundle repo; skipping loc
 that the ImagesLock file (`/tmp/simple-app-bundle/.imgpkg/images.yml`) was not modified.
 
 If imgpkg had been able to find all images that were referenced in the lock file in the new registry, then it would
-update that lock file to point to the new location. In other words, instead of having to reach out to the public docker registry,
+update that lock file to point to the new location. In other words, instead of having to reach out to the public registry,
 imgpkg will update your lock file with the new registry address for future reference.
 
 See what happens to the lock file if you run the same pull command after copying the referenced image to your local registry!
@@ -267,7 +268,7 @@ kapp delete -a simple-app -y
 In this scenario, an application developer creates a bundle with images and configurations and another developer that wants
 to use the application prefers to use a different registry to store the images and configuration. 
 
-__Note:__ The example below shows how a bundle is being relocated, but the same flow should apply for relocating non bundle images. Simply changing the `-b` option to `-i` and using the folder in the [Image distribution](#image-distribution) scenario will showcase the same concepts using `imgpkg`.
+__Note:__ The example below shows how a bundle is being relocated, but the same flow should apply for relocating non bundle images. Simply changing the `--bundle` option to `--image` and using the folder in the [Image distribution](#image-distribution) scenario will showcase the same concepts using `imgpkg`.
 
 #### How to relocate bundle
 
@@ -284,11 +285,11 @@ basic-bundle
 
 You can push the above folder using the following command:
 
-`imgpkg push -f examples/basic-bundle -b localhost:9001/simple-app-bundle`
+`imgpkg push --file examples/basic-bundle --bundle $NAME/simple-app-bundle`
 
 Flags used in the command:
-  * `-f` indicates the folder to package as a bundle and push to a registry
-  * `-b` indicates to push the assets from `-f` as a bundle to a registry
+  * `--file` indicates the folder to package as a bundle and push to a registry
+  * `--bundle` indicates to push the assets from `--file` as a bundle to a registry
 
 The output displays all the files that will be packaged and the destination of the bundle:
 ```shell
@@ -297,32 +298,32 @@ dir: .imgpkg
 file: .imgpkg/bundle.yml
 file: .imgpkg/images.yml
 file: config.yml
-Pushed 'localhost:9001/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
+Pushed '.../simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
 Succeeded
 ```
 
 #### Relocate to a different registry
 
-This step will relocate the bundle configuration and the images associated with it from one image registry 
+This step will relocate the bundle configuration and the images associated with it from one registry 
 to another one.
 
 To relocate, use the following command:
-`imgpkg copy -b localhost:9001/simple-app-bundle --to-repo localhost:5000/simple-app-new-repo`
+`imgpkg copy --bundle $NAME/simple-app-bundle --to-repo $NAME/simple-app-new-repo`
 
 Flags used in the command:
-  * `-b` indicates that the user wants to copy a bundle from the registry
+  * `--bundle` indicates that the user wants to copy a bundle from the registry
   * `--to-repo` indicates the registry where the bundle and associated images should be copied to
 
 The output shows the bundle and the images present in `.imgpkg/images.yml` are copied to the new registry 
-`localhost:5000`:
+`...`:
 ```shell
 copy | exporting 2 images...
-copy | will export localhost:9001/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-copy | will export localhost:9001/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb
+copy | will export .../simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+copy | will export .../simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb
 copy | exported 2 images
 copy | importing 2 images...
-copy | importing localhost:9001/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb -> localhost:5000/simple-app-new-repo@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb...
-copy | importing localhost:9001/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> localhost:5000/simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0...
+copy | importing .../simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb -> localhost:5000/simple-app-new-repo@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb...
+copy | importing .../simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> localhost:5000/simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0...
 copy | imported 2 images
 Succeeded
 ```
@@ -331,16 +332,16 @@ Succeeded
 
 After the relocation, you can run the following command to download the bundle:
 
-`imgpkg pull -o /tmp/simple-app-new-repo -b localhost:5000/simple-app-new-repo`
+`imgpkg pull --output /tmp/simple-app-new-repo --bundle $NAME/simple-app-new-repo`
 
 Flags used in the command:
 
-* `-o` indicates the local folder where the OCI image will be unpacked
-* `-b` indicates to pull a bundle from an image registry
+* `--output` indicates the local folder where the OCI image will be unpacked
+* `--bundle` indicates to pull a bundle from an image registry
 
 The output shows the bundle pull was successful:
 ```shell
-Pulling image 'localhost:5000/simple-app-new-repo@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
+Pulling image '.../simple-app-new-repo@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
 Extracting layer 'sha256:233f1d0dbdc8cf675af965df8639b0dfd4ef7542dfc9fcfd03bfc45c570b0e4d' (1/1)
 Locating image lock file images...
 All images found in bundle repo; updating lock file: /tmp/simple-app-new-repo/.imgpkg/images.yml
@@ -355,7 +356,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 spec:
   images:
-  - image: localhost:5000/simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+  - image: .../simple-app-new-repo@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
     annotations:
       kbld.carvel.dev/id: docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
 ```

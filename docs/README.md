@@ -8,13 +8,13 @@ Primary concept imgpkg introduces is a bundle which is an OCI image that holds 0
 
 ## Images vs Bundles
 
-An image contains a generic set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
+An image contains an arbitrary set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
 
 A bundle is an image with some additional characteristics:
-- Contains both files/directories along with images specified via image references in files
+- Contains both files/directories along with references to dependant images
 - Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
-  contain info about the bundle, such as an [ImagesLock](resources.md#imageslock) and,
-  optionally, a [bundle metadata file](resources.md#bundle-metadata)
+  contains info about the bundle, in a **required** [ImagesLock file](resources.md#imageslock) and,
+  optionally, a [Bundle metadata file](resources.md#bundle-metadata)
 - Has the `dev.carvel.imgpkg.bundle` [label](https://docs.docker.com/config/labels-custom-metadata/) marking the image as an imgpkg Bundle
 
 `imgpkg` tries to be helpful to ensure that you're correctly using images and bundles, so it will error if any incompatibilities arise.
