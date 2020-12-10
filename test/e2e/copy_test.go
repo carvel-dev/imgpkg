@@ -5,9 +5,11 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +22,88 @@ import (
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"gopkg.in/yaml.v2"
 )
+
+func TestCopyBundleLockInputToRepoUsingGCloudWithAnExpiredToken(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+
+	// general setup
+	testDir := filepath.Join(os.TempDir(), "imgpkg-test-copy-bundleLock-repo")
+	lockFile := filepath.Join(testDir, "bundle.lock.yml")
+	err := os.MkdirAll(testDir, 0700)
+	if err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	// create generic image
+	imgsYml := `---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+spec:
+ images:
+  - annotations:
+      kbld.carvel.dev/id: gcr.io/cf-k8s-lifecycle-tooling-klt/kpack-build-init@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632
+    image: gcr.io/cf-k8s-lifecycle-tooling-klt/kpack-build-init@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632
+  - annotations:
+      kbld.carvel.dev/id: gcr.io/cf-k8s-lifecycle-tooling-klt/nginx@sha256:f35b49b1d18e083235015fd4bbeeabf6a49d9dc1d3a1f84b7df3794798b70c13
+    image: gcr.io/cf-k8s-lifecycle-tooling-klt/nginx@sha256:f35b49b1d18e083235015fd4bbeeabf6a49d9dc1d3a1f84b7df3794798b70c13
+  - annotations:
+      kbld.carvel.dev/id: gcr.io/cf-k8s-lifecycle-tooling-klt/kpack-completion@sha256:1e83c4ccb56ad3e0fccbac74f91dfc404db280f8d3380cfa20c7d68fd0359235
+    image: gcr.io/cf-k8s-lifecycle-tooling-klt/kpack-completion@sha256:1e83c4ccb56ad3e0fccbac74f91dfc404db280f8d3380cfa20c7d68fd0359235
+`
+
+	// create a bundle with ref to generic
+	_, err = createBundleDir(testDir, bundleYAML, imgsYml)
+	if err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// create bundle that refs image with --lock-ouput and a random tag based on time
+	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
+
+	lockOutputPath := filepath.Join(os.TempDir(), "bundle-lock-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
+
+	homeDir, _ := os.UserHomeDir()
+	dockerConfigPath := filepath.Join(homeDir, ".docker/config.json")
+	originalDockerConfigJSONContents, err := ioutil.ReadFile(dockerConfigPath)
+	if err != nil {
+		t.Fatalf("failed to read docker config: %v", err)
+	}
+
+	exec.Command("docker", "pull", "ubuntu:21.04").Run()
+	defer exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
+
+	var dockerConfigJSONMap map[string]interface{}
+	err = json.Unmarshal(originalDockerConfigJSONContents, &dockerConfigJSONMap)
+	if err != nil {
+		t.Fatalf("failed to unmarshal docker config.json: %v", err)
+	}
+	dockerConfigJSONMap["credHelpers"] = map[string]string{"gcr.io": "gcloud-race-condition-db-error"}
+
+	dockerConfigJSONContents, err := json.Marshal(dockerConfigJSONMap)
+	if err != nil {
+		t.Fatalf("failed to marshal new docker config.json: %v", err)
+	}
+
+	err = ioutil.WriteFile(dockerConfigPath, dockerConfigJSONContents, os.ModePerm)
+	if err != nil {
+		t.Fatalf("failed to write docker config: %v", err)
+	}
+
+	defer ioutil.WriteFile(dockerConfigPath, originalDockerConfigJSONContents, os.ModePerm)
+
+	dir, err := filepath.Abs("./")
+	if err != nil {
+		t.Fatalf("failed to get directory of current file: %v", err)
+	}
+
+	// copy via output file
+	imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, RunOpts{
+		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
+	})
+}
 
 func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)

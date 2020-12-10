@@ -26,6 +26,7 @@ type RunOpts struct {
 	StdinReader  io.Reader
 	CancelCh     chan struct{}
 	Redact       bool
+	EnvVars      []string
 }
 
 func (k Imgpkg) Run(args []string) string {
@@ -39,6 +40,13 @@ func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
 	k.l.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))
 
 	cmd := exec.Command(k.imgpkgPath, args...)
+	if len(opts.EnvVars) != 0 {
+		cmd.Env = os.Environ()
+		for _, env := range opts.EnvVars {
+			cmd.Env = append(cmd.Env, env)
+		}
+	}
+
 	cmd.Stdin = opts.StdinReader
 
 	var stderr, stdout bytes.Buffer
