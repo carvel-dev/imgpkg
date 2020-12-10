@@ -84,11 +84,17 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 			var td ImageOrImageIndexDescriptor
 
 			if imageRefDescs.isImageIndex(regDesc.(regv1.Descriptor)) {
-				imgIndexTd, err := imageRefDescs.buildImageIndex(ref, regDesc.(regv1.Descriptor))
+				buildImageIndexFunc := func() (interface{}, error) {
+					return imageRefDescs.buildImageIndex(ref, regDesc.(regv1.Descriptor))
+				}
+				imgIndexTd, err := retry(buildImageIndexFunc)
+
 				if err != nil {
 					return err
 				}
-				td = ImageOrImageIndexDescriptor{ImageIndex: &imgIndexTd}
+
+				descriptor := imgIndexTd.(ImageIndexDescriptor)
+				td = ImageOrImageIndexDescriptor{ImageIndex: &descriptor}
 			} else {
 				ftd := func() (interface{}, error) {
 					return imageRefDescs.buildImage(ref)
