@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +21,88 @@ import (
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"gopkg.in/yaml.v2"
 )
+
+func TestCopyBundleLockInputToRepoUsingGCloudWithAnExpiredToken(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+
+	// general setup
+	testDir := filepath.Join(os.TempDir(), "imgpkg-test-copy-bundleLock-repo")
+	lockFile := filepath.Join(testDir, "bundle.lock.yml")
+	err := os.MkdirAll(testDir, 0700)
+	if err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	// create generic image
+	imgsYml := `---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+spec:
+ images:
+  - annotations:
+      kbld.carvel.dev/id: gcr.io/cf-build-service-public/kpack/build-init@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632
+    image: gcr.io/cf-build-service-public/kpack/build-init@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632
+  - annotations:
+      kbld.carvel.dev/id: gcr.io/cf-build-service-public/kpack/completion@sha256:1e83c4ccb56ad3e0fccbac74f91dfc404db280f8d3380cfa20c7d68fd0359235
+    image: gcr.io/cf-build-service-public/kpack/completion@sha256:1e83c4ccb56ad3e0fccbac74f91dfc404db280f8d3380cfa20c7d68fd0359235
+`
+
+	// create a bundle with ref to generic
+	_, err = createBundleDir(testDir, bundleYAML, imgsYml)
+	if err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	// create bundle that refs image with --lock-ouput and a random tag based on time
+	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
+	//bundleLockYml, err := cmd.ReadBundleLockFile(lockFile)
+	//if err != nil {
+	//	t.Fatalf("failed to read bundlelock file: %v", err)
+	//}
+	//bundleDigest := fmt.Sprintf("@%s", extractDigest(bundleLockYml.Spec.Image.DigestRef, t))
+	//bundleTag := fmt.Sprintf("%s", bundleLockYml.Spec.Image.OriginalTag)
+
+	lockOutputPath := filepath.Join(os.TempDir(), "bundle-lock-relocate-lock.yml")
+	defer os.Remove(lockOutputPath)
+
+	homeDir, _ := os.UserHomeDir()
+	dockerConfigPath := filepath.Join(homeDir, ".docker/config.json")
+	originalDockerConfigJSONContents, err := ioutil.ReadFile(dockerConfigPath)
+	if err != nil {
+		t.Fatalf("failed to read docker config: %v", err)
+	}
+
+	// TODO: create the container volume
+	defer exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
+
+	err = ioutil.WriteFile(dockerConfigPath, []byte(`{
+"credHelpers": {
+    "gcr.io": "hack-script"
+  }
+}
+`), os.ModePerm)
+	if err != nil {
+		t.Fatalf("failed to write docker config: %v", err)
+	}
+
+	defer ioutil.WriteFile(dockerConfigPath, originalDockerConfigJSONContents, os.ModePerm)
+
+	// get working directory for setting PATH with copy command
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+
+	//list of environment vars to set for copy command
+	envVars := []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), workingDir+"/assets/")}
+	// Run copy command
+	imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, RunOpts{
+		EnvVars: envVars,
+	})
+}
 
 func TestCopyBundleLockInputToRepoWithLockOutput(t *testing.T) {
 	env := BuildEnv(t)
