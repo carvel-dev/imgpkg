@@ -2,12 +2,21 @@
 
 ## Bundle
 
-Following resources are part of a bundle.
+An image contains an arbitrary set of files or directories. Ultimately, an image is a tarball of all the provided inputs.
+
+A bundle is an image with some additional characteristics:
+- Contains both files/directories along with references to dependant images
+- Contains a bundle directory (`.imgpkg/`), which must exist at the root-level of the bundle and
+  contains info about the bundle
+  
+`imgpkg` tries to be helpful to ensure that bundles are referenced and constructed correctly, so it will error if any incompatibilities arise.
+
+The following resources are part of a bundle.
 
 ### `.imgpkg` directory
 
-Stores files with bundle information such as images referenced by the
-bundle ([ImagesLock](#imageslock)) and metadata describing the bundle ([Bundle Metadata](#bundle-metadata)). 
+Stores files with bundle information in a **required** ([ImagesLock](#imageslock)) file that stores referenced images, and in an optional ([Bundle Metadata](#bundle-metadata)) file that stores metadata describing the bundle. 
+
 Only one can exist per bundle and it will always be found at the top level.
 
 ```
