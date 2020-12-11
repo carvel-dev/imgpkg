@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -17,6 +18,18 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	regremtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
+)
+
+// constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
+const (
+	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
+	// the same message and docker can handle it properly.
+	errCredentialsNotFoundMessage = "credentials not found in native keychain"
+
+	// ErrCredentialsMissingServerURL and ErrCredentialsMissingUsername standardize
+	// invalid credentials or credentials management operations
+	errCredentialsMissingServerURLMessage = "no credentials server URL"
+	errCredentialsMissingUsernameMessage  = "no credentials username"
 )
 
 type RegistryOpts struct {
@@ -203,6 +216,27 @@ func (k customRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authent
 	case k.opts.Anon:
 		return regauthn.Anonymous, nil
 	default:
-		return regauthn.DefaultKeychain.Resolve(res)
+		return retryDefaultKeychain(func() (regauthn.Authenticator, error) {
+			return regauthn.DefaultKeychain.Resolve(res)
+		})
 	}
+}
+
+func retryDefaultKeychain(doFunc func() (regauthn.Authenticator, error)) (regauthn.Authenticator, error) {
+	var auth regauthn.Authenticator
+	var lastErr error
+
+	for i := 0; i < 5; i++ {
+		auth, lastErr = doFunc()
+		if lastErr == nil {
+			return auth, nil
+		}
+
+		if strings.Contains(lastErr.Error(), errCredentialsNotFoundMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingUsernameMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingServerURLMessage) {
+			return auth, lastErr
+		}
+
+		time.Sleep(2 * time.Second)
+	}
+	return auth, fmt.Errorf("Retried 5 times: %s", lastErr)
 }
