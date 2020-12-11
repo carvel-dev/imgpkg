@@ -11,13 +11,19 @@ A bundle is an image with some additional characteristics:
   
 `imgpkg` tries to be helpful to ensure that bundles are referenced and constructed correctly, so it will error if any incompatibilities arise.
 
-The following resources are part of a bundle.
-
 ### `.imgpkg` directory
 
-Stores files with bundle information in a **required** ([ImagesLock](#imageslock)) file that stores referenced images, and in an optional ([Bundle Metadata](#bundle-metadata)) file that stores metadata describing the bundle. 
+There are a few restrictions when creating a bundle:
 
-Only one can exist per bundle and it will always be found at the top level.
+* Only one `.imgpkg` directory is allowed across all directories provided via `-f`. This restriction ensures there is a single source of bundle metadata and referenced images.
+
+* The `.imgpkg` directory must be a direct child of one of the input directories. This prevents any confusion around the scope that the `.imgpkg` metadata applies to.
+
+* The `.imgpkg` directory must contain a **required** [ImagesLock](resources.md#imageslock) file named `images.yml` that contains 0+ referenced images. This provides a guarantee to consumers that the files will always be present and is safe to rely on in automation that consumes bundles.
+
+* An optional [Bundle Metadata](#bundle-metadata) file that stores metadata describing the bundle.
+
+A bundle directory has this structure:
 
 ```
 .imgpkg/
