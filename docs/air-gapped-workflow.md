@@ -23,11 +23,11 @@ a Kubernetes cluster.
 
 In most cases you already have a bundle to work with pushed by a configuration author. In case you need to create your own bundle here are the steps:
 
-In the folder [examples/basic-bundle](../examples/basic-bundle), there is a set of configuration files that
+In the folder [examples/basic-step-2](../examples/basic-step-2), there is a set of configuration files that
 will allow a user to create Kubernetes Service and Deployment resources for a simple application:
 
 ```bash
-examples/basic-bundle
+examples/basic-step-2
 ├── .imgpkg
 │   ├── bundle.yml
 │   └── images.yml
@@ -37,7 +37,7 @@ examples/basic-bundle
 1. Create bundle from above folder using the following command:
 
 ```bash
-$ imgpkg push -f examples/basic-bundle -b index.docker.io/user1/simple-app-bundle
+$ imgpkg push -f examples/basic-step-2 -b index.docker.io/user1/simple-app-bundle
 
 dir: .
 dir: .imgpkg
