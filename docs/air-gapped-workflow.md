@@ -4,53 +4,23 @@ title: Air-gapped Workflow
 
 ## Scenario
 
-Users who want their applications to avoid relying on external registries can use `imgpkg copy` command to copy bundle between registries via one of following methods:
+You want to ensure Kubernetes application does not rely on images from external registries when deployed.
 
-- copy bundle from source registry to destination registry from a location that has access to both registries
-- or, save bundle from source registry to a tarball and then import the tarball to the destination registry
+This scenario _also_ applies for ensuring that all images are consolidated into a single registry even if that registry is not air-gapped.
 
 ## Prerequisites
 
-To complete these workflows you will need access to an OCI registry like Docker Hub, and optionally, 
-a Kubernetes cluster.
+To complete this workflow you will need access to an OCI registry like Docker Hub, and optionally, 
+a Kubernetes cluster. (If you would like to use a local registry (with local Kubernetes cluster), try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
 
-(Optional) If you would like to use a local registry or Kubernetes cluster, there are instructions [here](https://kind.sigs.k8s.io/docs/user/local-registry/).
-
-(Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and kubectl.
+If you would like to deploy the results of this scenario to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and kubectl.
 
 ---
 ## Step 1: Finding bundle in source registry
 
-In most cases you already have a bundle to work with pushed by a configuration author. In case you need to create your own bundle here are the steps:
+If you already have a bundle pushed to the registry, continue with the next step.
 
-In the folder [examples/basic-step-2](../examples/basic-step-2), there is a set of configuration files that
-will allow a user to create Kubernetes Service and Deployment resources for a simple application:
-
-```bash
-examples/basic-step-2
-├── .imgpkg
-│   ├── bundle.yml
-│   └── images.yml
-└── config.yml
-```
-
-1. Create bundle from above folder using the following command:
-
-```bash
-$ imgpkg push -f examples/basic-step-2 -b index.docker.io/user1/simple-app-bundle
-
-dir: .
-dir: .imgpkg
-file: .imgpkg/bundle.yml
-file: .imgpkg/images.yml
-file: config.yml
-Pushed 'index.docker.io/user1/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
-Succeeded
-```
-
-Flags used in the command:
-  * `-f` indicates the folder to package as a bundle
-  * `-b` indicates the registry to push a bundle to
+If you are trying to bundle your own or third-part software, you will need to create a bundle. Refer to basic workflow's ["Step 1: Creating the bundle" and "Step 2: Pushing the bundle to registry"](basic-workflow.md#step-1-creating-the-bundle).
 
 ---
 ## Step 2: Two methods of copying bundles
@@ -62,12 +32,16 @@ You have two options how to transfer bundle from one registry to another:
 
 ### Option 1: From a common location connected to both registries
 
-1. Make sure imgpkg is authenticated to connect to both registries
+1. Get to a location that can access both registries
 
-1. Run following command from a location that can access both registries
+    This may be a server that has access to both internal and external networks. If there is no such location, you will have to use "Option 2" below.
+
+1. [Authenticate](auth.md) with both, source and destination, registries
+
+1. Run following command to copy bundle from one registry to another:
 
     ```bash
-    $ imgpkg copy --bundle index.docker.io/user1/simple-app-bundle --to-repo registry.corp.com/apps/simple-app-bundle
+    $ imgpkg copy -b index.docker.io/user1/simple-app-bundle:v1.0.0 --to-repo registry.corp.com/apps/simple-app-bundle
 
     copy | exporting 2 images...
     copy | will export index.docker.io/user1/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
@@ -82,20 +56,22 @@ You have two options how to transfer bundle from one registry to another:
     Succeeded
     ```
 
-    Note that all dependent images referenced in the bundle are copied as well.
+    Bundle and all images referenced in the bundle are copied to destination registry.
 
     Flags used in the command:
-      * `--bundle` indicates that the user wants to copy a bundle from the registry
+      * `-b` (`--bundle`) indicates bundle location in source registry
       * `--to-repo` indicates the registry where the bundle and associated images should be copied to
 
 ### Option 2: With intermediate tarball
 
-1. Authenticate imgpkg to source registry
+1. Get to a location that can access source registry
 
-1. Save the bundle to a tarball on your machine:
+1. [Authenticate to source registry](auth.md)
+
+1. Save the bundle to a tarball
 
     ```bash
-    $ imgpkg copy -b index.docker.io/user1/simple-app-bundle --to-tar /tmp/my-image.tar
+    $ imgpkg copy -b index.docker.io/user1/simple-app-bundle:v1.0.0 --to-tar /tmp/my-image.tar
 
     copy | exporting 2 images...
     copy | will export index.docker.io/user1/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
@@ -109,14 +85,14 @@ You have two options how to transfer bundle from one registry to another:
     ```
 
     Flags used in the command:
-      * `-b` indicates bundle location in a source registry
+      * `-b` (`--bundle`) indicates bundle location in a source registry
       * `--to-tar` indicates local location to write a tar file containing the bundle assets
 
 1. Transfer locally saved tarball `/tmp/my-image.tar` to a location that has access to destination registry
 
-1. Authenticate imgpkg to destination registry
+1. [Authenticate to destination registry](auth.md)
 
-1. Import bundle from your tarball to a destination registry:
+1. Import bundle from your tarball to destination registry:
 
     ```bash
     $ imgpkg copy --from-tar /tmp/my-image.tar --to-repo registry.corp.com/apps/simple-app-bundle
@@ -128,7 +104,7 @@ You have two options how to transfer bundle from one registry to another:
     Succeeded
     ```
 
-    Note that all dependent images referenced in the bundle are copied as well.
+    Bundle and all images referenced in the bundle are copied to destination registry.
 
     Flags used in the command:
       * `--from-tar` indicates path to tar file containing assets to be copied to an image registry
@@ -137,10 +113,12 @@ You have two options how to transfer bundle from one registry to another:
 ---
 ## Step 3: Pulling bundle from destination registry
 
+1. [Authenticate to destination registry](auth.md)
+
 1. Pull the bundle from destination registry:
 
     ```bash
-    $ imgpkg pull -b registry.corp.com/apps/simple-app-bundle -o /tmp/bundle
+    $ imgpkg pull -b registry.corp.com/apps/simple-app-bundle:v1.0.0 -o /tmp/bundle
 
     Pulling image 'registry.corp.com/apps/simple-app-bundle@sha256:70225df0a05137ac385c95eb69f89ded3e7ef3a0c34db43d7274fd9eba3705bb'
     Extracting layer 'sha256:233f1d0dbdc8cf675af965df8639b0dfd4ef7542dfc9fcfd03bfc45c570b0e4d' (1/1)
@@ -151,10 +129,10 @@ You have two options how to transfer bundle from one registry to another:
     ```
 
     Flags used in the command:
-      * `-b` indicates to pull a particular bundle from a registry
-      * `-o` indicates the local folder where the bundle will be unpacked
+      * `-b` (`--bundle`) indicates to pull a particular bundle from a registry
+      * `-o` (`--output`) indicates the local folder where the bundle will be unpacked
 
-    __Note:__ The message indicates that the file `/tmp/bundle/.imgpkg/images.yml` was updated with the new location of the images. This happens because in the prior step bundle was copied into destination registry.
+    Note that `.imgpkg/images.yml` file was updated with the destination registry locations of the images. This happens because in the prior step bundle was copied into destination registry.
 
     ```bash
     $ cat /tmp/bundle/.imgpkg/images.yml
@@ -164,18 +142,10 @@ You have two options how to transfer bundle from one registry to another:
       images:
       - image: registry.corp.com/apps/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
         annotations:
-          kbld.carvel.dev/id: docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+          kbld.carvel.dev/id: docker.io/dkalinin/k8s-simple-app
     ```
 
-1. Apply Kubernetes configuration but use kbld to update image references with their new locations (in the destination registry) beforehand:
+---
+## Step 4: Use pulled bundle contents
 
-    ```shell
-    $ kbld -f /tmp/bundle/config.yml -f /tmp/bundle/.imgpkg/images.yml | kubectl apply -f-
-
-    resolve | final: docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> registry.corp.com/apps/simple-app-bundle@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-
-    service/simple-app configured
-    deployment/simple-app configured
-    ```
-
-    kbld understands `.imgpkg/images.yml` format and knows how to find and replace old image locations with new ones.
+Regardless which location bundle is downloaded from (source registry or destination registry), use of pulled bundle contents remains the same. Follow directions from ["Step 4: Use pulled bundle contents" of basic workflow](basic-workflow.md#step-4-use-pulled-bundle-contents).
