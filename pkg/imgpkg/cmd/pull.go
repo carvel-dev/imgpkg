@@ -162,6 +162,9 @@ func (o *PullOptions) getRefFromFlags() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if bundleLock.Kind != lf.BundleLockKind {
+		return "", fmt.Errorf("Invalid `kind` in lockfile at %s. Expected: %s, got: %s", ref, lf.BundleLockKind, bundleLock.Kind)
+	}
 	return bundleLock.Spec.Image.DigestRef, nil
 }
 

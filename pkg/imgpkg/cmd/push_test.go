@@ -62,6 +62,44 @@ func TestMultiImgpkgDirError(t *testing.T) {
 	}
 }
 
+func TestInvalidLockKindError(t *testing.T) {
+	tempDir := os.TempDir()
+
+	pushDir := filepath.Join(tempDir, "imgpkg-push-units-invalid-kind")
+	defer Cleanup(pushDir)
+
+	// cleaned up via pushDir
+	bundleDir := filepath.Join(pushDir, "bundle-dir")
+	err := os.MkdirAll(bundleDir, 0700)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	// This images.yml file came from kbld resolving nginx
+	err = createBundleDir(bundleDir, `apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+minimumRequiredVersion: 0.27.0
+overrides:
+  - image: nginx
+newImage: index.docker.io/library/nginx@sha256:6b1daa9462046581ac15be20277a7c75476283f969cb3a61c8725ec38d3b01c3
+preresolved: true
+`)
+	if err != nil {
+		t.Fatalf("Failed to setup test: %s", err)
+	}
+
+	push := PushOptions{FileFlags: FileFlags{Files: []string{bundleDir}}, BundleFlags: BundleFlags{Bundle: "org/repo"}}
+	err = push.Run()
+	if err == nil {
+		t.Fatalf("Expected validations to err, but did not")
+	}
+
+	reg := regexp.MustCompile("Invalid `kind` in lockfile at .*bundle-dir/\\.imgpkg/images\\.yml. Expected: ImagesLock, got: Config")
+	if !reg.MatchString(err.Error()) {
+		t.Fatalf("Expected error to contain message about invalid images.yml kind, got: %s", err)
+	}
+}
+
 func TestImageWithImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
 
