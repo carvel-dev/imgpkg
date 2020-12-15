@@ -82,7 +82,7 @@ If you would like to deploy the results of this scenario to your Kubernetes clus
       * `-b` (`--bundle`) refers to a location for a bundle within an OCI registry
       * `-f` (`--file`) indicates directory contents to include
 
-1. Bundle is now available at `index.docker.io/user1/simple-app-bundle:v1.0.0`
+1. The pushed bundle is now available at `index.docker.io/user1/simple-app-bundle:v1.0.0`
 
 ---
 ## Step 3: Pulling the bundle to registry

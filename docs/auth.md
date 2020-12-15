@@ -34,7 +34,7 @@ You can explicitly specify credentials via command flags or associated environme
 
 ## Via Environment Variables
 
-As of v0.4.0+, kbld can also use following environment variables:
+As of v0.4.0+, `imgpkg` can also use following environment variables:
 
 - `IMGPKG_REGISTRY_HOSTNAME` to specify registry hostname (e.g. gcr.io, docker.io)
 - `IMGPKG_REGISTRY_USERNAME` to specify registry username
@@ -46,7 +46,7 @@ Since you may need to provide multiple registry credentials, the environment var
 
 - Create a service account with "Storage Admin" permissions for push access
   - See [Permissions and Roles](https://cloud.google.com/container-registry/docs/access-control#permissions_and_roles)
-- Download JSON service account key and place it somewhere on filesystem (e.g. `/tmp/key`)
+- Download a JSON service account key and place it somewhere on filesystem (e.g. `/tmp/key`)
   - See [Advanced authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#json_key_file)
 - Run `cat /tmp/key | docker login -u _json_key --password-stdin https://gcr.io` to authenticate
 

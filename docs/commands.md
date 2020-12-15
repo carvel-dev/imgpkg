@@ -76,7 +76,7 @@ $ imgpkg copy -b index.docker.io/k8slt/sample-bundle --to-tar=/Volumes/secure-th
 $ imgpkg copy --from-tar=/Volumes/secure-thumb/bundle.tar --to-repo registry.corp.com/user2/sample-bundle-name
 ```
 
-In either case bundle image and all dependendent images are copied to the destination location `registry.corp.com/user2/sample-bundle-name`.
+In either case, the bundle image and all dependent images are copied to the destination location `registry.corp.com/user2/sample-bundle-name`.
 
 ### Copying via lock file
 
