@@ -1,106 +1,150 @@
-# Basic Workflow
+---
+title: Basic Workflow
+---
 
-## Prerequisites 
+## Scenario
 
-To complete these workflows you will need access to an OCI registry like Docker Hub, and optionally, 
-a Kubernetes cluster. 
+You want to create an immutable artifact containing Kubernetes configuration and images used in that configuration. Later, you want to grab that artifact and deploy it to Kubernetes.
 
-(Optional) If you would like to use a local registry or Kubernetes cluster, there are instructions [here](https://kind.sigs.k8s.io/docs/user/local-registry/).
+## Prerequisites
 
-(Optional) If you would like to deploy the results of the scenarios to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and [`kapp`](https://get-kapp.io/).
+To complete this workflow you will need access to an OCI registry like Docker Hub, and optionally, 
+a Kubernetes cluster. (If you would like to use a local registry and Kubernetes cluster, try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
 
-## Bundle distribution
+If you would like to deploy the results of this scenario to your Kubernetes cluster, you will additionally need [`kbld`](https://get-kbld.io/) and kubectl.
 
-For more information on bundles, see the [Bundles](resources.md#Bundles) docs.
+## Step 1: Creating the bundle
 
-### Scenario
+1. Prepare bundle contents
 
-An application developer has pushed an image that supports an application to an OCI registry.
-A configuration author has created the Kubernetes deployment manifests that reference that application image. Using `imgpkg`, the configuration author can distribute these as a bundle and a configuration consumer can retrieve the configuration.
+    The [examples/basic-step-1/](../examples/basic-step-1) directory has a `config.yml` file, which contains a very simple Kubernetes application. Your application may have as many configuration files as necessary in various formats such as plain YAML, ytt templates, Helm templates, etc.
 
-### Step 1. Distribute the bundle
+    In our example `config.yml` includes an image reference to `docker.io/dkalinin/k8s-simple-app`. This reference does not point to an exact image (via digest) meaning that it may change over time. To ensure we get precisely the bits we expect, we will lock it down to an exact image next.
 
-In most cases you already have a bundle to work with pushed by a configuration author. If you need to create your own bundle here are the steps:
+1. Add `.imgpkg/` directory
 
-In the folder [examples/basic-bundle](../examples/basic-bundle), there is a set of configuration files that
-will allow a user to create a Service and a Deployment for an application that will run on Kubernetes. The 
-folder also contains the [`.imgpkg`](resources.md#imageslock) hidden directory with a **required** [`ImagesLock`](resources.md#imageslock) file and an **optional** 
-[bundle metadata file](resources.md#bundle-metadata).
+    [examples/basic-step-2](../examples/basic-step-2) shows what a `.imgpkg/` directory may look like. It contains:
 
-```shell
-examples/basic-bundle
-├── .imgpkg
-│   ├── bundle.yml
-│   └── images.yml
-└── config.yml
-```
+    - **optional** [bundle.yml](resources.md#bundle-metadata): a file which records informational metadata
+    - **required** [images.yml](resources.md#imageslock): a file which records image references used by the configuration
 
-You can push the above folder containing a bundle to your OCI registry using the following command:
+    ```bash
+    examples/basic-step-2
+    ├── .imgpkg
+    │   ├── bundle.yml
+    │   └── images.yml
+    └── config.yml
+    ```
 
-```
-imgpkg push --file examples/basic-bundle --bundle index.docker.io/user1/simple-app-bundle
+    Note that `.imgpkg/images.yml` contains a list of images, each with fully resolved digest reference (e.g `index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4...`) and a little bit of additional metadata (e.g. `annotations` section). See [ImagesLock configuration](resources.md#imageslock-configuration) for details.
 
-dir: .
-dir: .imgpkg
-file: .imgpkg/bundle.yml
-file: .imgpkg/images.yml
-file: config.yml
-Pushed 'index.docker.io/user1/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
-Succeeded
-```
+    ```yaml
+    apiVersion: imgpkg.carvel.dev/v1alpha1
+    kind: ImagesLock
+    spec:
+      images:
+      - image: index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+        annotations:
+          kbld.carvel.dev/id: docker.io/dkalinin/k8s-simple-app
+    ```
 
-Flags used in the command:
-  * `--file` indicates the folder to package and push (in this case `examples/basic-bundle`)
-  * `--bundle` indicates the type; push the assets collected with `--file` _as a bundle_ to a registry
+    This allows us to record the exact image that will be used by our Kubernetes configuration. We expect that `.imgpkg/images.yml` would be created either manually, or in an automated way. Our recommendation is to use [kbld](get-kbld.io) to generate `.imgpkg/images.yml`:
 
-### Step 2. Retrieve the bundle
+    ```bash
+    $ cd examples/basic-bundle/
 
-You can retrieve the bundle by running the following command to download the bundle:
+    $ kbld -f config.yml --imgpkg-lock-output .imgpkg/images.yml
+    ```
 
-```bash
-imgpkg pull --output /tmp/simple-app-bundle --bundle index.docker.io/user1/simple-app-bundle
+---
+## Step 2: Pushing the bundle to a registry
 
-Pulling image 'index.docker.io/user1/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
-Extracting layer 'sha256:7906b9650be657359ead106e354f2728e16c8f317e1d87f72b05b5c5ec3d89cc' (1/1)
-Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update
+1. [Authenticate with a registry](auth.md) where we will push our bundle
 
-Succeeded
-```
+1. Push the bundle to the registry
 
-Flags used in the command:
-  * `--output` indicates the local destination folder where the bundle will be unpacked
-  * `--bundle` indicates the type; pull _a bundle_ from an image registry
+    You can push the bundle with our specified contents to an OCI registry using the following command:
 
-__Note:__ The message `One or more images not found in bundle repo; skipping lock file update` is expected, and indicates
-that the ImagesLock file (`/tmp/simple-app-bundle/.imgpkg/images.yml`) was not modified.
+    ```
+    $ imgpkg push -b index.docker.io/user1/simple-app-bundle:v1.0.0 -f examples/basic-step-2
 
-If imgpkg had been able to find all images that were referenced in the [ImagesLock file](resources.md#ImageLock) in the new registry, then it would
-update that lock file to point to the new location. In other words, instead of having to reach out to the public registry,
-imgpkg will update your lock file with the new registry address for future reference.
+    dir: .
+    dir: .imgpkg
+    file: .imgpkg/bundle.yml
+    file: .imgpkg/images.yml
+    file: config.yml
+    Pushed 'index.docker.io/user1/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
 
-See what happens to the lock file if you run the same pull command after [copying](air-gapped-workflow.md) the bundle to another registry!
+    Succeeded
+    ```
 
-The result of the pull command is the creation of the following folder in `/tmp/simple-app-bundle`.
+    Flags used in the command:
+      * `-b` (`--bundle`) refers to a location for a bundle within an OCI registry
+      * `-f` (`--file`) indicates directory contents to include
 
-```shell
-simple-app-bundle
-├── .imgpkg
-│   ├── bundle.yml
-│   └── images.yml
-└── config.yml
-```
+1. The pushed bundle is now available at `index.docker.io/user1/simple-app-bundle:v1.0.0`
 
-### Deploy the application
+---
+## Step 3: Pulling the bundle to registry
 
-To deploy the application, [`kbld`](https://get-kbld.io/) and kubectl can be used as shown below:
+Now that we have pushed a bundle to a registry, other users can pull it.
 
-```bash
-$ kbld -f /tmp/simple-app-bundle/config.yml -f /tmp/simple-app-bundle/.imgpkg/images.yml | kubectl apply -f-
+1. [Authenticate with the registry](auth.md) from which we'll pull our bundle
 
-resolve | final: docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-resolve | final: index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+1. Download the bundle by running the following command:
 
-service/simple-app configured
-deployment/simple-app configured
-```
+    ```bash
+    $ imgpkg pull -b index.docker.io/user1/simple-app-bundle:v1.0.0 -o  /tmp/simple-app-bundle
+
+    Pulling image 'index.docker.io/user1/simple-app-bundle@sha256:ec3f870e958e404476b9ec67f28c598fa8f00f819b8ae05ee80d51bac9f35f5d'
+    Extracting layer 'sha256:7906b9650be657359ead106e354f2728e16c8f317e1d87f72b05b5c5ec3d89cc' (1/1)
+    Locating image lock file images...
+    One or more images not found in bundle repo; skipping lock file update
+
+    Succeeded
+    ```
+
+    Flags used in the command:
+      * `-b` (`--bundle`) refers to a location for a bundle within an OCI registry
+      * `-o` (`--output`) indicates the destination directory on your local machine where the bundle contents will be placed
+
+    Bundle contents will be extracted into `/tmp/simple-app-bundle` directory:
+
+    ```bash
+    /tmp/simple-app-bundle
+    ├── .imgpkg
+    │   ├── bundle.yml
+    │   └── images.yml
+    └── config.yml
+    ```
+
+    __Note:__ The message `One or more images not found in bundle repo; skipping lock file update` is expected, and indicates that `/tmp/simple-app-bundle/.imgpkg/images.yml` (ImagesLock configuration) was not modified.
+
+    If imgpkg had been able to find all images that were referenced in the [ImagesLock configuration](resources.md#imageslock-configuration) in the registry where bundle is located, then it would update `.imgpkg/images.yml` file to point to the registry-local locations.
+
+    See what happens to the lock file if you run the same pull command after [copying](air-gapped-workflow.md) the bundle to another registry!
+
+---
+## Step 4: Use pulled bundle contents
+
+1. Now that we have have pulled bundle contents to a local directory, we can deploy Kubernetes configuration:
+
+    Before we apply Kubernetes configuration, let's use [kbld](get-kbld.io) to ensure that Kubernetes configuration uses exact image reference from `.imgpkg/images.yml`. (You can of course use other tools to take advantage of data stored in `.imgpkg/images.yml`).
+
+    ```bash
+    $ cd /tmp/simple-app-bundle/
+
+    $ kbld -f ./config.yml -f .imgpkg/images.yml | kubectl apply -f-
+
+    resolve | final: docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+    resolve | final: index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0 -> index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+
+    service/simple-app configured
+    deployment/simple-app configured
+    ```
+
+    kbld found `docker.io/dkalinin/k8s-simple-app` in Kubernetes configuration and replaced it with `index.docker.io/dkalinin/k8s-simple-app@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0` before forwarding configuration to kubectl.
+
+## Next steps
+
+In this workflow we saw how to publish and download a bundle to distribute a Kubernetes application. Next, follow the [Air-gapped workflow](air-gapped-workflow.md) to see how we can use the `imgpkg copy` command to copy a bundle between registries.
