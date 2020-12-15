@@ -97,4 +97,4 @@ An example of this is shown below:
 $ imgpkg tag list -i index.docker.io/k8slt/image
 ```
 
-The output should show the names of all tags associated with the image along with its digest.
+The output shows the names of all tags associated with the image, along with its digest.
