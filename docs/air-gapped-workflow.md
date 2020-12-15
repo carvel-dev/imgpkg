@@ -6,19 +6,19 @@ title: Air-gapped Workflow
 
 You want to ensure Kubernetes application does not rely on images from external registries when deployed.
 
-This scenario _also_ applies for ensuring that all images are consolidated into a single registry even if that registry is not air-gapped.
+This scenario _also_ applies when trying to ensure that all images are consolidated into a single registry, even if that registry is not air-gapped.
 
 ## Prerequisites
 
 To complete this workflow you will need access to an OCI registry like Docker Hub, and optionally, 
-a Kubernetes cluster. (If you would like to use a local registry (with local Kubernetes cluster), try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
+a Kubernetes cluster. (If you would like to use a local registry and Kubernetes cluster, try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
 
-If you would like to deploy the results of this scenario to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and kubectl.
+If you would like to deploy the results of this scenario to your Kubernetes cluster, you will additionally need [`kbld`](https://get-kbld.io/) and kubectl.
 
 ---
 ## Step 1: Finding bundle in source registry
 
-If you already have a bundle pushed to the registry, continue with the next step.
+If you have already pushed a bundle to the registry, continue to the next step.
 
 If you are trying to bundle your own or third-part software, you will need to create a bundle. Refer to basic workflow's ["Step 1: Creating the bundle" and "Step 2: Pushing the bundle to registry"](basic-workflow.md#step-1-creating-the-bundle).
 
@@ -30,13 +30,13 @@ You have two options how to transfer bundle from one registry to another:
 - Option 1: From a common location connected to both registries. This option is more effecient because only changed image layers will be transfered between registries.
 - Option 2: With intermediate tarball. This option works best when registries have no common network access.
 
-### Option 1: From a common location connected to both registries
+### Option 1: From a location connected to both registries
 
 1. Get to a location that can access both registries
 
     This may be a server that has access to both internal and external networks. If there is no such location, you will have to use "Option 2" below.
 
-1. [Authenticate](auth.md) with both, source and destination, registries
+1. [Authenticate](auth.md) with both source, and destination registries
 
 1. Run following command to copy bundle from one registry to another:
 
@@ -56,17 +56,17 @@ You have two options how to transfer bundle from one registry to another:
     Succeeded
     ```
 
-    Bundle and all images referenced in the bundle are copied to destination registry.
+    The bundle, and all images referenced in the bundle, are copied to the destination registry.
 
     Flags used in the command:
-      * `-b` (`--bundle`) indicates bundle location in source registry
+      * `-b` (`--bundle`) indicates the bundle location in the source registry
       * `--to-repo` indicates the registry where the bundle and associated images should be copied to
 
 ### Option 2: With intermediate tarball
 
 1. Get to a location that can access source registry
 
-1. [Authenticate to source registry](auth.md)
+1. [Authenticate with the source registry](auth.md)
 
 1. Save the bundle to a tarball
 
@@ -85,14 +85,14 @@ You have two options how to transfer bundle from one registry to another:
     ```
 
     Flags used in the command:
-      * `-b` (`--bundle`) indicates bundle location in a source registry
-      * `--to-tar` indicates local location to write a tar file containing the bundle assets
+      * `-b` (`--bundle`) indicates the bundle location in the source registry
+      * `--to-tar` indicates the local location to write a tar file containing the bundle assets
 
-1. Transfer locally saved tarball `/tmp/my-image.tar` to a location that has access to destination registry
+1. Transfer the local tarball `/tmp/my-image.tar` to a location with access to the destination registry
 
-1. [Authenticate to destination registry](auth.md)
+1. [Authenticate with the destination registry](auth.md)
 
-1. Import bundle from your tarball to destination registry:
+1. Import the bundle from your tarball to the destination registry:
 
     ```bash
     $ imgpkg copy --from-tar /tmp/my-image.tar --to-repo registry.corp.com/apps/simple-app-bundle
@@ -104,18 +104,18 @@ You have two options how to transfer bundle from one registry to another:
     Succeeded
     ```
 
-    Bundle and all images referenced in the bundle are copied to destination registry.
+    The bundle, and all images referenced in the bundle, are copied to the destination registry.
 
     Flags used in the command:
-      * `--from-tar` indicates path to tar file containing assets to be copied to an image registry
+      * `--from-tar` indicates the path to a tar file containing the assets to be copied to a registry
       * `--to-repo` indicates destination bundle location in the registry
 
 ---
 ## Step 3: Pulling bundle from destination registry
 
-1. [Authenticate to destination registry](auth.md)
+1. [Authenticate with the destination registry](auth.md)
 
-1. Pull the bundle from destination registry:
+1. Pull the bundle from the destination registry:
 
     ```bash
     $ imgpkg pull -b registry.corp.com/apps/simple-app-bundle:v1.0.0 -o /tmp/bundle
@@ -132,7 +132,7 @@ You have two options how to transfer bundle from one registry to another:
       * `-b` (`--bundle`) indicates to pull a particular bundle from a registry
       * `-o` (`--output`) indicates the local folder where the bundle will be unpacked
 
-    Note that `.imgpkg/images.yml` file was updated with the destination registry locations of the images. This happens because in the prior step bundle was copied into destination registry.
+    Note that the `.imgpkg/images.yml` file was updated with the destination registry locations of the images. This happened because, in the prior step, the images referenced by the bundle were copied into the destination registry.
 
     ```bash
     $ cat /tmp/bundle/.imgpkg/images.yml
@@ -148,4 +148,4 @@ You have two options how to transfer bundle from one registry to another:
 ---
 ## Step 4: Use pulled bundle contents
 
-Regardless which location bundle is downloaded from (source registry or destination registry), use of pulled bundle contents remains the same. Follow directions from ["Step 4: Use pulled bundle contents" of basic workflow](basic-workflow.md#step-4-use-pulled-bundle-contents).
+Regardless which location the bundle is downloaded from, source registry or destination registry, use of the pulled bundle contents remains the same. Continue with ["Step 4: Use pulled bundle contents"](basic-workflow.md#step-4-use-pulled-bundle-contents) in the basic workflow.

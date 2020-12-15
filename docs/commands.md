@@ -45,9 +45,9 @@ After pushing bundles to a registry, users can retrieve them with `imgpkg pull`.
 $ imgpkg pull -b index.docker.io/k8slt/sample-bundle -o my-bundle/
 ```
 
-will pull a bundle from `index.docker.io/k8slt/sample-bundle` and extract its contents in to the `my-bundle/` directory, which gets created if it does not exist.
+will pull a bundle from `index.docker.io/k8slt/sample-bundle` and extract its contents into the `my-bundle/` directory, which gets created if it does not already exist.
 
-When pulling a bundle, imgpkg ensures that the referenced images are updated to account for any relocations. Because images are referenced by digest, imgpkg will search for all the referenced images in the same repository as the bundle. If all referenced digests are found, imgpkg will update image references in bundle's [`.imgpkg/images.yml` file](resources.md#imgpkg-directory). If any of the digests are not found in the repository, imgpkg will not update the references.
+When pulling a bundle, imgpkg ensures that the referenced images are updated to account for any relocations. It will search for each referenced image by digest in the same repository as the bundle. If all referenced digests are found, imgpkg will update image references in the bundle's [`.imgpkg/images.yml` file](resources.md#imgpkg-directory). If any of the digests are not found in the repository, imgpkg will not update any references.
 
 ### Pulling via lock file
 
@@ -62,17 +62,17 @@ $ imgpkg pull --lock bundle.lock.yml -o my-bundle/
 
 ### Overview
 
-`copy` command allows to copy a bundle from a registry to another registry (when both registries are accessible from the location where command is running):
+The `copy` command copies a bundle from a registry to another registry (as long as both registries are accessible from where the command is running):
 
 ```bash
 $ imgpkg copy -b index.docker.io/k8slt/sample-bundle --to-repo registry.corp.com/user2/sample-bundle-name
 ```
 
-Alternatively `copy` command allows to copy bundle between non-accessible registries by creating an intermediate tarball:
+Alternatively `copy` can copy a bundle between registries which are not both accessible from a single location, by creating an intermediate tarball:
 
 ```bash
 $ imgpkg copy -b index.docker.io/k8slt/sample-bundle --to-tar=/Volumes/secure-thumb/bundle.tar
-# ... take thumd driver to a different location ...
+# ... take thumb driver to a different location ...
 $ imgpkg copy --from-tar=/Volumes/secure-thumb/bundle.tar --to-repo registry.corp.com/user2/sample-bundle-name
 ```
 
@@ -89,7 +89,7 @@ $ imgpkg copy --lock bundle.lock.yml --to-repo registry.corp.com/user2/sample-bu
 ---
 ## Tag
 
-`imgpkg tag` supports a `list` subcommand that allows users to list the tags of images pushed to registries. The command features an `--image`/`-i` option that allows a user to specify image name. 
+`imgpkg tag` supports a `list` subcommand that allows users to list the image tags pushed to registries. The command features an `--image`/`-i` option that allows a user to specify an image name. 
 
 An example of this is shown below:
 

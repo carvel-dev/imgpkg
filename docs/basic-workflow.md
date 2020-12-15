@@ -4,29 +4,29 @@ title: Basic Workflow
 
 ## Scenario
 
-You want to create an immutable artifact containing Kubernetes configuration and images used in that configuration. Then later grab that artifact and deploy it to Kubernetes.
+You want to create an immutable artifact containing Kubernetes configuration and images used in that configuration. Later, you want to grab that artifact and deploy it to Kubernetes.
 
 ## Prerequisites
 
 To complete this workflow you will need access to an OCI registry like Docker Hub, and optionally, 
-a Kubernetes cluster. (If you would like to use a local registry (with local Kubernetes cluster), try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
+a Kubernetes cluster. (If you would like to use a local registry and Kubernetes cluster, try using [Kind](https://kind.sigs.k8s.io/docs/user/local-registry/))
 
-If you would like to deploy the results of this scenario to your Kubernetes cluster, download [`kbld`](https://get-kbld.io/) and kubectl.
+If you would like to deploy the results of this scenario to your Kubernetes cluster, you will additionally need [`kbld`](https://get-kbld.io/) and kubectl.
 
 ## Step 1: Creating the bundle
 
 1. Prepare bundle contents
 
-    [examples/basic-step-1/](../examples/basic-step-1) directory has `config.yml` which contains very small example of a Kubernetes application. Your application may have as many configuration files as necessary in various formats such as plain YAML, ytt templates, Helm templates, etc.
+    The [examples/basic-step-1/](../examples/basic-step-1) directory has a `config.yml` file, which contains a very simple Kubernetes application. Your application may have as many configuration files as necessary in various formats such as plain YAML, ytt templates, Helm templates, etc.
 
-    In our example `config.yml` uses `docker.io/dkalinin/k8s-simple-app` image reference. This image reference is not pointing to an exact image (via digest) meaning that it may change over time. We will try to lock it down to an exact image next.
+    In our example `config.yml` includes an image reference to `docker.io/dkalinin/k8s-simple-app`. This reference does not point to an exact image (via digest) meaning that it may change over time. To ensure we get precisely the bits we expect, we will lock it down to an exact image next.
 
 1. Add `.imgpkg/` directory
 
-    [examples/basic-step-2](../examples/basic-step-2) shows what `.imgpkg/` directory may look like. It contains:
+    [examples/basic-step-2](../examples/basic-step-2) shows what a `.imgpkg/` directory may look like. It contains:
 
-    - **optional** [bundle.yml](resources.md#bundle-metadata) file which record informational metadata
-    - **required** [images.yml](resources.md#imageslock) file which records image references used by the configuration
+    - **optional** [bundle.yml](resources.md#bundle-metadata): a file which records informational metadata
+    - **required** [images.yml](resources.md#imageslock): a file which records image references used by the configuration
 
     ```bash
     examples/basic-step-2
@@ -48,7 +48,7 @@ If you would like to deploy the results of this scenario to your Kubernetes clus
           kbld.carvel.dev/id: docker.io/dkalinin/k8s-simple-app
     ```
 
-    This allows us to record exact image that is used by our Kubernetes configuration. We expect that `.imgpkg/images.yml` would be created either manually, or in an automated way. Our recommendation is to use [kbld](get-kbld.io) to generate `.imgpkg/images.yml`:
+    This allows us to record the exact image that will be used by our Kubernetes configuration. We expect that `.imgpkg/images.yml` would be created either manually, or in an automated way. Our recommendation is to use [kbld](get-kbld.io) to generate `.imgpkg/images.yml`:
 
     ```bash
     $ cd examples/basic-bundle/
@@ -57,13 +57,13 @@ If you would like to deploy the results of this scenario to your Kubernetes clus
     ```
 
 ---
-## Step 2: Pushing the bundle to registry
+## Step 2: Pushing the bundle to a registry
 
-1. [Authenticate with registry](auth.md) where we will push our bundle
+1. [Authenticate with a registry](auth.md) where we will push our bundle
 
-1. Push bundle to the registry
+1. Push the bundle to the registry
 
-    You can push bundle with our bundle contents to OCI registry using the following command:
+    You can push the bundle with our specified contents to an OCI registry using the following command:
 
     ```
     $ imgpkg push -b index.docker.io/user1/simple-app-bundle:v1.0.0 -f examples/basic-step-2
@@ -79,7 +79,7 @@ If you would like to deploy the results of this scenario to your Kubernetes clus
     ```
 
     Flags used in the command:
-      * `-b` (`--bundle`) refers to a location for a bundle within OCI registry
+      * `-b` (`--bundle`) refers to a location for a bundle within an OCI registry
       * `-f` (`--file`) indicates directory contents to include
 
 1. Bundle is now available at `index.docker.io/user1/simple-app-bundle:v1.0.0`
@@ -87,9 +87,9 @@ If you would like to deploy the results of this scenario to your Kubernetes clus
 ---
 ## Step 3: Pulling the bundle to registry
 
-Now that we have pushed a bundle to a registry, other users can pull our bundle.
+Now that we have pushed a bundle to a registry, other users can pull it.
 
-1. [Authenticate with registry](auth.md) from where to pull our bundle
+1. [Authenticate with the registry](auth.md) from which we'll pull our bundle
 
 1. Download the bundle by running the following command:
 
@@ -105,8 +105,8 @@ Now that we have pushed a bundle to a registry, other users can pull our bundle.
     ```
 
     Flags used in the command:
-      * `-b` (`--bundle`) refers to a location for a bundle within OCI registry
-      * `-o` (`--output`) indicates destination directory on the local machine where to place bundle contents
+      * `-b` (`--bundle`) refers to a location for a bundle within an OCI registry
+      * `-o` (`--output`) indicates the destination directory on your local machine where the bundle contents will be placed
 
     Bundle contents will be extracted into `/tmp/simple-app-bundle` directory:
 
@@ -147,4 +147,4 @@ Now that we have pushed a bundle to a registry, other users can pull our bundle.
 
 ## Next steps
 
-In this workflow we show how to publish and then download a bundle to distribute Kubernetes application. Next, follow [Air-gapped workflow](air-gapped-workflow.md) to see how we can use `imgpkg copy` command to copy bundle between registries.
+In this workflow we saw how to publish and download a bundle to distribute a Kubernetes application. Next, follow the [Air-gapped workflow](air-gapped-workflow.md) to see how we can use the `imgpkg copy` command to copy a bundle between registries.

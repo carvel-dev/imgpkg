@@ -1,5 +1,5 @@
 ## Working directly with images
 
-In some cases imgpkg's [bundle](resources.md#bundle) concept is not wanted (or necessary). imgpkg provides `--image` flag for push, pull and copy commands. When `--image` flag is used, there is no need for a special `.imgpkg` directory where metadata is stored.
+In rare cases imgpkg's [bundle](resources.md#bundle) concept is not wanted (or necessary). imgpkg provides a `--image` flag for push, pull and copy commands. When the `--image` flag is used, there is no need for a `.imgpkg` directory to store metadata.
 
-We recommend to use bundle concept (`--bundle` flag) for most use cases.
+For most use cases, we suggest using the bundle concept and `--bundle` flag.
