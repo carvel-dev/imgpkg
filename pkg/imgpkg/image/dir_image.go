@@ -143,8 +143,7 @@ func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
 		}
 
 	case tar.TypeLink, tar.TypeSymlink:
-		// TODO currently not implemented
-		fmt.Printf("TODO Skipping file link '%s'\n", header.Name)
+		// skipping symlinks as a security feature
 		return nil
 
 	default:
