@@ -85,10 +85,11 @@ github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7
 github.com/coreos/pkg v0.0.0-20160727233714-3ac0863d7acf/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/coreos/pkg v0.0.0-20180108230652-97fdf19511ea/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
-github.com/cppforlife/cobrautil v0.0.0-20180924214100-a39a1714c920 h1:RTikdXczo1UY3c/8WuySawdmOXQg10OuDb7s66K687I=
-github.com/cppforlife/cobrautil v0.0.0-20180924214100-a39a1714c920/go.mod h1:2w+qxVu2KSGW78Ex/XaIqfh/OvBgjEsmN53S4T8vEyA=
+github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72 h1:rPWcUBgMb1ox2eCohCuZ8gsZVe0aB5qBbYaBpdoxfCE=
+github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72/go.mod h1:2w+qxVu2KSGW78Ex/XaIqfh/OvBgjEsmN53S4T8vEyA=
 github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc h1:Wq67+0TH61A42xWBrIeZSUxPMSmmfSkCw2T/nheUCGU=
 github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc/go.mod h1:I0qrzCmuPWYI6kAOvkllYjaW2aovclWbJ96+v+YyHb0=
+github.com/cppforlife/go-cli-ui v0.0.0-20200716203538-1e47f820817f h1:yVW0v4zDXzJo1i8G9G3vtvNpyzhvtLalO34BsN/K88E=
 github.com/cpuguy83/go-md2man/v2 v2.0.0/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/creack/pty v1.1.9 h1:uDmaGzcdjhF4i/plgjmEsriH11Y0o7RKapEf/LDaM3w=
