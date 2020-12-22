@@ -8,13 +8,19 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
+
+type ImageRetriever interface {
+	Image(ref regname.Reference) (regv1.Image, error)
+}
 
 type Bundle struct {
 	URL   string
@@ -27,16 +33,12 @@ func IsBundle(img regv1.Image) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, present := cfg.Config.Labels[image.BundleConfigLabel]
+
+	_, present := cfg.Config.Labels[image.BundleConfigLabel] // TODO: Move this to BundleConfigLabel to a different package
 	return present, nil
 }
 
-func GetReferencedImages(bundleRef regname.Reference, regOpts image.RegistryOpts) ([]ImageDesc, error) {
-	reg, err := image.NewRegistry(regOpts)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create a registry with the options %v: %v", regOpts, err)
-	}
-
+func GetReferencedImages(bundleRef regname.Reference, reg ImageRetriever) ([]ImageDesc, error) {
 	img, err := reg.Image(bundleRef)
 	if err != nil {
 		return nil, err
@@ -92,4 +94,81 @@ func GetReferencedImages(bundleRef regname.Reference, regOpts image.RegistryOpts
 	}
 
 	return imgLock.Spec.Images, nil
+}
+
+func CollectBundleURLs(bundleLockPath string, reg ImageRetriever) (regname.Reference, string, []regname.Reference, error) {
+	bundleLock, err := ReadBundleLockFile(bundleLockPath)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	parsedRef, img, err := getRefAndImage(bundleLock.Spec.Image.DigestRef, reg)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	ok, err := IsBundle(img)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if !ok {
+		return nil, "", nil, fmt.Errorf("expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")
+	}
+
+	imgs, err := GetReferencedImages(parsedRef, reg)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var result []regname.Reference
+	for _, img := range imgs {
+		ref, err := regname.ParseReference(img.Image)
+		if err != nil {
+			return nil, "", nil, errors.Wrapf(err, fmt.Sprintf("parsing reference for image %s", img.Image))
+		}
+		result = append(result, ref)
+	}
+
+	return parsedRef, bundleLock.Spec.Image.OriginalTag, result, nil
+}
+
+func CollectImageLockURLs(imageLockPath string, reg ImageRetriever) ([]regname.Reference, error) {
+	imgLock, err := ReadImageLockFile(imageLockPath)
+	if err != nil {
+		return nil, err
+	}
+
+	bundles, err := imgLock.CheckForBundles(reg)
+	if err != nil {
+		return nil, fmt.Errorf("checking image lock for bundles: %s", err)
+	}
+
+	if len(bundles) != 0 {
+		return nil, fmt.Errorf("expected not to contain bundle reference: '%v'", strings.Join(bundles, "', '"))
+	}
+
+	var result []regname.Reference
+	for _, img := range imgLock.Spec.Images {
+		ref, err := regname.ParseReference(img.Image)
+		if err != nil {
+			return nil, errors.Wrapf(err, fmt.Sprintf("parsing reference for image %s", img.Image))
+		}
+		result = append(result, ref)
+	}
+
+	return result, nil
+}
+
+func getRefAndImage(ref string, reg ImageRetriever) (regname.Reference, regv1.Image, error) {
+	parsedRef, err := regname.ParseReference(ref)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	img, err := reg.Image(parsedRef)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parsedRef, img, err
 }

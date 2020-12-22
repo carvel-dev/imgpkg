@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -15,9 +14,12 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
+
+var _ lf.ImageRetriever = ctlimg.Registry{}
 
 type CopyOptions struct {
 	ui ui.UI
@@ -87,7 +89,7 @@ func (o *CopyOptions) Run() error {
 
 	var importRepo regname.Repository
 	var unprocessedImageUrls *UnprocessedImageURLs
-	var bundleURL string
+	var bundleRef regname.Reference
 	var processedImages *ProcessedImages
 	switch {
 	case o.isTarSrc():
@@ -96,19 +98,28 @@ func (o *CopyOptions) Run() error {
 			return fmt.Errorf("Building import repository ref: %s", err)
 		}
 		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
+
+		//TODO: Make Import Return a Reference instead of an URL
+		var bundleURL string
 		processedImages, bundleURL, err = tarImageSet.Import(o.TarFlags.TarSrc, importRepo, registry)
+		if bundleURL != "" {
+			bundleRef, err = regname.ParseReference(bundleURL)
+			if err != nil {
+				return err
+			}
+		}
 	case o.isRepoSrc() && o.isTarDst():
 		if o.LockOutputFlags.LockFilePath != "" {
 			return fmt.Errorf("cannot output lock file with tar destination")
 		}
 
-		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
+		unprocessedImageUrls, bundleRef, err = o.GetUnprocessedImageURLs()
 		if err != nil {
 			return err
 		}
 
-		if bundleURL != "" {
-			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
+		if bundleRef != nil {
+			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleRef, registry)
 			if err != nil {
 				return err
 			}
@@ -117,13 +128,13 @@ func (o *CopyOptions) Run() error {
 		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
 		err = tarImageSet.Export(unprocessedImageUrls, o.TarFlags.TarDst, registry) // download to tar
 	case o.isRepoSrc() && o.isRepoDst():
-		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
+		unprocessedImageUrls, bundleRef, err = o.GetUnprocessedImageURLs()
 		if err != nil {
 			return err
 		}
 
-		if bundleURL != "" {
-			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
+		if bundleRef != nil {
+			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleRef, registry)
 			if err != nil {
 				return err
 			}
@@ -141,7 +152,7 @@ func (o *CopyOptions) Run() error {
 	}
 
 	if o.LockOutputFlags.LockFilePath != "" {
-		err = o.writeLockOutput(processedImages, bundleURL)
+		err = o.writeLockOutput(processedImages, bundleRef)
 	}
 
 	return err
@@ -182,108 +193,89 @@ func (o *CopyOptions) hasOneSrc() bool {
 	return seen
 }
 
-func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, error) {
+func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, regname.Reference, error) {
 	unprocessedImageURLs := NewUnprocessedImageURLs()
-	var bundleRef string
+	var bundleRef regname.Reference
 	reg, err := image.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
-		return nil, "", fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		return nil, nil, fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
 	switch {
 	case o.LockInputFlags.LockFilePath != "":
 		lock, err := lf.ReadLockFile(o.LockInputFlags.LockFilePath)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
+
+		var lockFileImages []regname.Reference
 		switch {
 		case lock.Kind == lf.BundleLockKind:
-			bundleLock, err := lf.ReadBundleLockFile(o.LockInputFlags.LockFilePath)
+			var bundleOriginalTag string
+			bundleRef, bundleOriginalTag, lockFileImages, err = lf.CollectBundleURLs(o.LockInputFlags.LockFilePath, reg)
 			if err != nil {
-				return nil, "", err
+				return nil, nil, errors.Wrapf(err, "Unable to verify OCI Image references present on Bundle Lock file")
 			}
 
-			bundleRef = bundleLock.Spec.Image.DigestRef
-			parsedRef, img, err := getRefAndImage(bundleRef, &reg)
-			if err != nil {
-				return nil, "", err
-			}
-
-			if err := checkIfBundle(img, true, fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")); err != nil {
-				return nil, "", err
-			}
-
-			images, err := lf.GetReferencedImages(parsedRef, o.RegistryFlags.AsRegistryOpts())
-			if err != nil {
-				return nil, "", err
-			}
-
-			bundle := lf.Bundle{bundleRef, bundleLock.Spec.Image.OriginalTag, img}
-			collectURLs(images, &bundle, unprocessedImageURLs)
-
+			unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef.Name(), Tag: bundleOriginalTag})
 		case lock.Kind == lf.ImagesLockKind:
-			imgLock, err := lf.ReadImageLockFile(o.LockInputFlags.LockFilePath)
+			lockFileImages, err = lf.CollectImageLockURLs(o.LockInputFlags.LockFilePath, reg)
 			if err != nil {
-				return nil, "", err
+				return nil, nil, errors.Wrapf(err, "Unable to verify OCI Image references present on Image Lock file")
 			}
-
-			bundles, err := imgLock.CheckForBundles(reg)
-			if err != nil {
-				return nil, "", fmt.Errorf("Checking image lock for bundles: %s", err)
-			}
-
-			if len(bundles) != 0 {
-				return nil, "", fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
-			}
-
-			collectURLs(imgLock.Spec.Images, nil, unprocessedImageURLs)
 		default:
-			return nil, "", fmt.Errorf("Unexpected lock kind. Expected BundleLock or ImagesLock, got: %v", lock.Kind)
+			return nil, nil, fmt.Errorf("Unexpected lock kind. Expected BundleLock or ImagesLock, got: %v", lock.Kind)
+		}
+
+		for _, ref := range lockFileImages {
+			unprocessedImageURLs.Add(UnprocessedImageURL{URL: ref.Name()})
 		}
 
 	case o.ImageFlags.Image != "":
-		parsedRef, img, err := getRefAndImage(o.ImageFlags.Image, &reg)
+		parsedRef, img, err := getRefAndImage(o.ImageFlags.Image, reg)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
 		if err := checkIfBundle(img, false, fmt.Errorf("Expected bundle flag when copying a bundle, please use -b instead of -i")); err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
 		imageTag := getTag(parsedRef)
 		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageFlags.Image, imageTag})
 
 	default:
-		bundleRef = o.BundleFlags.Bundle
-		parsedRef, img, err := getRefAndImage(bundleRef, &reg)
+		var img regv1.Image
+		bundleRef, img, err = getRefAndImage(o.BundleFlags.Bundle, reg)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
-		bundleTag := getTag(parsedRef)
-		refWithDigest, err := getRefWithDigest(parsedRef, img)
+		bundleTag := getTag(bundleRef)
+		refWithDigest, err := getRefWithDigest(bundleRef, img)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
 		if err := checkIfBundle(img, true, fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")); err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
-		images, err := lf.GetReferencedImages(refWithDigest, o.RegistryFlags.AsRegistryOpts())
+		images, err := lf.GetReferencedImages(refWithDigest, reg)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 
-		bundle := lf.Bundle{bundleRef, bundleTag, img}
-		collectURLs(images, &bundle, unprocessedImageURLs)
+		for _, img := range images {
+			unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.Image})
+		}
+		unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundleRef.Name(), Tag: bundleTag})
 	}
 
 	return unprocessedImageURLs, bundleRef, nil
 }
 
 // Get the parsed image reference and associated image struct from a registry
-func getRefAndImage(ref string, reg *image.Registry) (regname.Reference, regv1.Image, error) {
+func getRefAndImage(ref string, reg image.Registry) (regname.Reference, regv1.Image, error) {
 	parsedRef, err := regname.ParseReference(ref)
 	if err != nil {
 		return nil, nil, err
@@ -337,23 +329,12 @@ func checkIfBundle(img regv1.Image, expectsBundle bool, errMsg error) error {
 	return nil
 }
 
-// And images and bundle reference to unprocessedImageURLs.
-// Exclude passing Bundle reference by passing nil.
-func collectURLs(images []lf.ImageDesc, bundle *lf.Bundle, unprocessedImageURLs *UnprocessedImageURLs) {
-	for _, img := range images {
-		unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.Image})
-	}
-	if bundle != nil {
-		unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundle.URL, Tag: bundle.Tag})
-	}
-}
-
-func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleURL string) error {
+func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleURL regname.Reference) error {
 	var outBytes []byte
 	var err error
 
 	switch bundleURL {
-	case "":
+	case nil:
 		iLock := lf.ImageLock{ApiVersion: lf.ImagesLockAPIVersion, Kind: lf.ImagesLockKind}
 		for _, img := range processedImages.All() {
 			iLock.Spec.Images = append(
@@ -371,7 +352,7 @@ func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleUR
 	default:
 		var originalTag, url string
 		for _, img := range processedImages.All() {
-			if img.UnprocessedImageURL.URL == bundleURL {
+			if img.UnprocessedImageURL.URL == bundleURL.Name() {
 				originalTag = img.UnprocessedImageURL.Tag
 				url = img.Image.URL
 			}
@@ -396,16 +377,12 @@ func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleUR
 	return ioutil.WriteFile(o.LockOutputFlags.LockFilePath, outBytes, 0700)
 }
 
-func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*UnprocessedImageURLs, error) {
+func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundleRef regname.Reference, registry ctlimg.Registry) (*UnprocessedImageURLs, error) {
 	checkedURLs := NewUnprocessedImageURLs()
-	bundleRef, err := regname.ParseReference(bundleURL)
-	if err != nil {
-		return nil, err
-	}
 	bundleRepo := bundleRef.Context().Name()
 
 	for _, img := range foundImages.All() {
-		if img.URL == bundleURL {
+		if img.URL == bundleRef.Name() {
 			checkedURLs.Add(img)
 			continue
 		}
