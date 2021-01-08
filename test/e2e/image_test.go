@@ -31,7 +31,7 @@ func TestPushPull(t *testing.T) {
 	}
 
 	for _, file := range expectedFiles {
-		compareFiles(filepath.Join(assetsPath, file), filepath.Join(path, file), t)
+		compareFiles(t, filepath.Join(assetsPath, file), filepath.Join(path, file))
 	}
 }
 
@@ -63,6 +63,6 @@ func TestPushMultipleFiles(t *testing.T) {
 	}
 
 	for assetFile, downloadedFile := range expectedFiles {
-		compareFiles(filepath.Join(assetsPath, assetFile), filepath.Join(path, downloadedFile), t)
+		compareFiles(t, filepath.Join(assetsPath, assetFile), filepath.Join(path, downloadedFile))
 	}
 }

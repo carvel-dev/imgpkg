@@ -25,7 +25,7 @@ func TestPushBundleInImageLockErr(t *testing.T) {
 	}
 
 	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
-	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
+	bundleDigest := fmt.Sprintf("@%s", extractDigest(t, out))
 	bundleDigestRef := env.Image + bundleDigest
 
 	imagesLockYAML := fmt.Sprintf(`---

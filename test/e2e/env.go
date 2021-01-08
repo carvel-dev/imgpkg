@@ -13,6 +13,10 @@ type Env struct {
 	Image          string
 	ImgpkgPath     string
 	RelocationRepo string
+	BundleFactory  bundleFactory
+	Assets         *assets
+	Assert         assertions
+	ImageFactory   imageFactory
 }
 
 func BuildEnv(t *testing.T) Env {
@@ -22,10 +26,18 @@ func BuildEnv(t *testing.T) Env {
 		imgpkgPath = "imgpkg"
 	}
 
+	assets := &assets{t: t}
 	env := Env{
 		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
 		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
 		ImgpkgPath:     imgpkgPath,
+		BundleFactory:  newBundleDir(t, assets),
+		Assets:         assets,
+		Assert:         assertions{t: t},
+		ImageFactory: imageFactory{
+			assets: assets,
+			t:      t,
+		},
 	}
 	env.Validate(t)
 	return env

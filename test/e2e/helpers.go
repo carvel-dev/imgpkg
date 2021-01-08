@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/k14s/difflib"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,7 +15,31 @@ import (
 	"testing"
 )
 
-func compareFiles(path1, path2 string, t *testing.T) {
+type assertions struct {
+	t *testing.T
+}
+
+func (a assertions) isBundleLockFile(path, bundleImgRef string) {
+	bundleBs, err := ioutil.ReadFile(path)
+	if err != nil {
+		a.t.Fatalf("Could not read bundle lock file: %s", err)
+	}
+
+	// Keys are written in alphabetical order
+	expectedYml := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+bundle:
+  image: %s@sha256:[A-Fa-f0-9]{64}
+  tag: latest
+kind: BundleLock
+`, bundleImgRef)
+
+	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
+		a.t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
+	}
+}
+
+func compareFiles(t *testing.T, path1, path2 string) {
 	t.Helper()
 	path1Bs, err := ioutil.ReadFile(path1)
 	if err != nil {
@@ -93,11 +118,21 @@ func createBundleDir(dir, bYml, iYml string) (string, error) {
 	return imgpkgDir, nil
 }
 
-func extractDigest(out string, t *testing.T) string {
+func extractDigest(t *testing.T, out string) string {
 	t.Helper()
 	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
 	if len(match) != 2 {
 		t.Fatalf("Expected to find digest in output '%s'", out)
 	}
 	return match[1]
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func randStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }

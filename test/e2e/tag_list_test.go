@@ -16,10 +16,10 @@ func TestTagList(t *testing.T) {
 	assetsPath := "assets/simple-app"
 
 	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", assetsPath})
-	tag1Digest := extractDigest(out, t)
+	tag1Digest := extractDigest(t, out)
 
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
-	tag2Digest := extractDigest(out, t)
+	tag2Digest := extractDigest(t, out)
 
 	out = imgpkg.Run([]string{"tag", "list", "-i", env.Image, "--json"})
 	resp := uitest.JSONUIFromBytes(t, []byte(out))
