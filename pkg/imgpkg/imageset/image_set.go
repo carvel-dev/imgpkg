@@ -1,15 +1,15 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package imageset
 
 import (
 	"fmt"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
@@ -18,7 +18,11 @@ type ImageSet struct {
 	logger      *ctlimg.LoggerPrefixWriter
 }
 
-func (o ImageSet) Relocate(foundImages *UnprocessedImageURLs,
+func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
+	return ImageSet{concurrency, logger}
+}
+
+func (o ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, error) {
 
 	ids, err := o.Export(foundImages, registry)
@@ -29,7 +33,7 @@ func (o ImageSet) Relocate(foundImages *UnprocessedImageURLs,
 	return o.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
 }
 
-func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
+func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
 	registry ctlimg.Registry) (*imagedesc.ImageRefDescriptors, error) {
 
 	o.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
@@ -38,14 +42,12 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 	var refs []imagedesc.Metadata
 
 	for _, img := range foundImages.All() {
-		// Validate strictly as these refs were already resolved
-
-		ref, err := regname.ParseReference(img.URL)
+		ref, err := regname.NewDigest(img.DigestRef)
 		if err != nil {
 			return nil, err
 		}
 
-		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.URL)))
+		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.DigestRef)))
 		refs = append(refs, imagedesc.Metadata{ref, img.Tag})
 	}
 
@@ -75,7 +77,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			existingRef, err := regname.ParseReference(item.Ref())
+			existingRef, err := regname.NewDigest(item.Ref())
 			if err != nil {
 				errCh <- err
 				return
@@ -87,7 +89,20 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 				return
 			}
 
-			importedImages.Add(UnprocessedImageURL{existingRef.Name(), item.Tag()}, Image{URL: importDigestRef.Name()})
+			var regImage regv1.Image
+			if item.Image != nil {
+				regImage = *item.Image
+			}
+			var regImageIndex regv1.ImageIndex
+			if item.Index != nil {
+				regImageIndex = *item.Index
+			}
+			importedImages.Add(ProcessedImage{
+				UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
+				DigestRef:           importDigestRef.Name(),
+				Image:               regImage,
+				ImageIndex:          regImageIndex,
+			})
 			errCh <- nil
 		}()
 	}
@@ -117,16 +132,6 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	}
 
 	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
-	if item.Image != nil {
-		isBundle, err := lf.IsBundle(*item.Image)
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("determining import tag: %v", err)
-		}
-
-		if isBundle {
-			tag = item.Tag()
-		}
-	}
 
 	// Seems like AWS ECR doesnt like using digests for manifest uploads
 	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
@@ -160,6 +165,30 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	err = o.verifyTagDigest(uploadTagRef, importDigestRef, registry)
 	if err != nil {
 		return regname.Digest{}, err
+	}
+
+	if item.Tag() != "" {
+		uploadOriginalTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), item.Tag()))
+		if err != nil {
+			return regname.Digest{}, fmt.Errorf("Building upload tag image ref: %s", err)
+		}
+
+		switch {
+		case item.Image != nil:
+			err = registry.WriteTag(uploadOriginalTagRef, *item.Image)
+			if err != nil {
+				return regname.Digest{}, fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
+			}
+
+		case item.Index != nil:
+			err = registry.WriteTag(uploadOriginalTagRef, *item.Index)
+			if err != nil {
+				return regname.Digest{}, fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
+			}
+
+		default:
+			panic("Unknown item")
+		}
 	}
 
 	return importDigestRef, nil

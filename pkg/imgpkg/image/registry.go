@@ -130,6 +130,22 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 	return nil
 }
 
+func (i Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
+	overriddenRef, err := regname.NewTag(ref.String(), i.refOpts...)
+	if err != nil {
+		return err
+	}
+
+	err = i.retry(func() error {
+		return regremote.Tag(overriddenRef, taggagle, i.opts...)
+	})
+	if err != nil {
+		return fmt.Errorf("Tagging image: %s", err)
+	}
+
+	return nil
+}
+
 func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 	overriddenRepo, err := regname.NewRepository(repo.Name(), i.refOpts...)
 	if err != nil {

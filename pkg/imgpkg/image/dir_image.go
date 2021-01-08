@@ -27,6 +27,16 @@ func NewDirImage(dirPath string, img regv1.Image, logger Logger) *DirImage {
 }
 
 func (i *DirImage) AsDirectory() error {
+	err := os.RemoveAll(i.dirPath)
+	if err != nil {
+		return fmt.Errorf("Removing output directory: %s", err)
+	}
+
+	err = os.MkdirAll(i.dirPath, 0700)
+	if err != nil {
+		return fmt.Errorf("Creating output directory: %s", err)
+	}
+
 	layers, err := i.img.Layers()
 	if err != nil {
 		return err

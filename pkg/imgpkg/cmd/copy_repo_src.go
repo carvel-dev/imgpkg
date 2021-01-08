@@ -1,0 +1,138 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+package cmd
+
+import (
+	"fmt"
+
+	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+)
+
+type CopyRepoSrc struct {
+	ImageFlags     ImageFlags
+	BundleFlags    BundleFlags
+	LockInputFlags LockInputFlags
+
+	imageSet    ctlimgset.ImageSet
+	tarImageSet ctlimgset.TarImageSet
+	registry    ctlimg.Registry
+}
+
+func (o CopyRepoSrc) CopyToTar(dstPath string) error {
+	unprocessedImageRefs, err := o.getSourceImages()
+	if err != nil {
+		return err
+	}
+
+	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry)
+}
+
+func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
+	unprocessedImageRefs, err := o.getSourceImages()
+	if err != nil {
+		return nil, err
+	}
+
+	importRepo, err := regname.NewRepository(repo)
+	if err != nil {
+		return nil, fmt.Errorf("Building import repository ref: %s", err)
+	}
+
+	processedImages, err := o.imageSet.Relocate(unprocessedImageRefs, importRepo, o.registry)
+	if err != nil {
+		return nil, err
+	}
+
+	return processedImages, nil
+}
+
+func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
+	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
+
+	switch {
+	case o.LockInputFlags.LockFilePath != "":
+		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(o.LockInputFlags.LockFilePath)
+		if err != nil {
+			return nil, err
+		}
+
+		switch {
+		case bundleLock != nil:
+			bundle := bundle.NewBundle(bundleLock.Bundle.Image, o.registry)
+
+			imagesLock, err := bundle.ImagesLockLocalized()
+			if err != nil {
+				return nil, err
+			}
+
+			for _, img := range imagesLock.Images {
+				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.Image})
+			}
+
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
+				DigestRef: bundleLock.Bundle.Image,
+				Tag:       bundleLock.Bundle.Tag,
+			})
+
+			return unprocessedImageRefs, nil
+
+		case imagesLock != nil:
+			for _, img := range imagesLock.Images {
+				plainImg := plainimage.NewPlainImage(img.Image, o.registry)
+
+				ok, err := bundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					return nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+				}
+				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef()})
+			}
+			return unprocessedImageRefs, nil
+
+		default:
+			panic("Unreachable")
+		}
+
+	case o.ImageFlags.Image != "":
+		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, o.registry)
+
+		ok, err := bundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+		}
+
+		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef()})
+		return unprocessedImageRefs, nil
+
+	default:
+		bundle := bundle.NewBundle(o.BundleFlags.Bundle, o.registry)
+
+		// TODO switch to using fallback URLs for each image
+		// instead of trying to use localized bundle URLs here
+		imagesLock, err := bundle.ImagesLockLocalized()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, img := range imagesLock.Images {
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.Image})
+		}
+
+		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: bundle.DigestRef(), Tag: bundle.Tag()})
+
+		return unprocessedImageRefs, nil
+	}
+
+	panic("Unreachable")
+}

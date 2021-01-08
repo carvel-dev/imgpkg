@@ -42,6 +42,10 @@ func (o *Bundle) IsBundle() (bool, error) {
 		return false, err
 	}
 
+	if img == nil {
+		return false, nil
+	}
+
 	cfg, err := img.ConfigFile()
 	if err != nil {
 		return false, err
@@ -80,7 +84,12 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		// TODO wrong abstraction level for err msg hint
 		return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	}
-	return o.plainImg.Fetch()
+
+	img, err := o.plainImg.Fetch()
+	if err == nil && img == nil {
+		panic("Unreachable")
+	}
+	return img, err
 }
 
 func (o *Bundle) rewriteImagesLockFile(outputPath string, ui ui.UI) error {

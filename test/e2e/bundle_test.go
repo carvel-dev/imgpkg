@@ -181,13 +181,13 @@ func TestBundleLockFile(t *testing.T) {
 		t.Fatalf("Could not read bundle lock file: %s", err)
 	}
 
+	// Keys are written in alphabetical order
 	expectedYml := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
+bundle:
+  image: %s@sha256:[A-Fa-f0-9]{64}
+  tag: latest
 kind: BundleLock
-spec:
-  image:
-    url: %s@sha256:[A-Fa-f0-9]{64}
-    tag: latest
 `, env.Image)
 
 	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
@@ -237,7 +237,7 @@ func TestImagePullOnBundleError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected incorrect flag error")
 	}
-	if !strings.Contains(errOut, "Expected bundle flag when pulling a bundle, please use -b instead of --image") {
+	if !strings.Contains(errOut, "Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)") {
 		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
 	}
 }
@@ -265,7 +265,7 @@ func TestBundlePullOnImageError(t *testing.T) {
 
 	errOut := stderrBs.String()
 
-	if !strings.Contains(errOut, "Expected image flag when pulling an image or index, please use --image instead of -b") {
+	if !strings.Contains(errOut, "Expected bundle image but found plain image (hint: Did you use -i instead of -b?)") {
 		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
 	}
 }

@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 func TestPushBundleInImageLockErr(t *testing.T) {
@@ -30,14 +28,13 @@ func TestPushBundleInImageLockErr(t *testing.T) {
 	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
 	bundleDigestRef := env.Image + bundleDigest
 
-	imgsYml := fmt.Sprintf(`---
+	imagesLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
-spec:
-  images:
-  - image: %s
+images:
+- image: %s
 `, bundleDigestRef)
-	err = ioutil.WriteFile(filepath.Join(assetsPath, lf.BundleDir, imageFile), []byte(imgsYml), 0600)
+	err = ioutil.WriteFile(filepath.Join(assetsPath, ".imgpkg", "images.yml"), []byte(imagesLockYAML), 0600)
 	if err != nil {
 		t.Fatalf("failed to create image lock file: %v", err)
 	}

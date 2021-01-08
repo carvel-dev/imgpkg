@@ -18,14 +18,18 @@ type PlainImage struct {
 
 	parsedRef    regname.Reference
 	parsedDigest string
+
 	fetchedImage regv1.Image
+	fetchedIndex regv1.ImageIndex
 }
 
 func NewPlainImage(ref string, registry ctlimg.Registry) *PlainImage {
 	return &PlainImage{ref: ref, registry: registry}
 }
 
-func NewFetchPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
+func NewFetchedPlainImageWithTag(digestRef string, tag string,
+	fetchedImage regv1.Image, fetchedIndex regv1.ImageIndex) *PlainImage {
+
 	parsedDigestRef, err := regname.NewDigest(digestRef)
 	if err != nil {
 		panic(fmt.Sprintf("Expected valid Digest Ref: %s", err))
@@ -41,7 +45,12 @@ func NewFetchPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.
 		}
 	}
 
-	return &PlainImage{parsedRef: parsedRef, parsedDigest: parsedDigestRef.DigestStr(), fetchedImage: fetchedImage}
+	return &PlainImage{
+		parsedRef:    parsedRef,
+		parsedDigest: parsedDigestRef.DigestStr(),
+		fetchedImage: fetchedImage,
+		fetchedIndex: fetchedIndex,
+	}
 }
 
 func (o *PlainImage) Repo() string {
@@ -77,6 +86,12 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return i.fetchedImage, nil
 	}
 
+	// Decide to return nil here because in our use case we know that prefetched indexes are not used
+	// by imgpkg(eg: for determining if an image is a bundle or not)
+	if i.fetchedIndex != nil {
+		return nil, nil
+	}
+
 	i.parsedRef, err = regname.ParseReference(i.ref, regname.WeakValidation)
 	if err != nil {
 		return nil, err
@@ -107,6 +122,10 @@ func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
 	img, err := i.Fetch()
 	if err != nil {
 		return err
+	}
+
+	if img == nil {
+		panic("Not supported Pull on pre fetched PlainImage")
 	}
 
 	ui.BeginLinef("Pulling image '%s'\n", i.DigestRef())
