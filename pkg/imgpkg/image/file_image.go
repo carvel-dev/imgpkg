@@ -18,14 +18,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-const BundleConfigLabel = "dev.carvel.imgpkg.bundle"
-
 type FileImage struct {
 	v1.Image
 	path string
 }
 
-func NewFileImage(path string, bundle bool) (*FileImage, error) {
+func NewFileImage(path string, labels map[string]string) (*FileImage, error) {
 	sha256, err := sha256Path(path)
 	if err != nil {
 		return nil, err
@@ -51,17 +49,13 @@ func NewFileImage(path string, bundle bool) (*FileImage, error) {
 		return nil, err
 	}
 
-	if bundle {
+	if len(labels) > 0 {
 		cfg, err := img.ConfigFile()
 		if err != nil {
-			return nil, fmt.Errorf("Could not add bundle label: %s", err)
+			return nil, fmt.Errorf("Fetching image config: %s", err)
 		}
 
-		if cfg.Config.Labels == nil {
-			cfg.Config.Labels = make(map[string]string)
-		}
-
-		cfg.Config.Labels[BundleConfigLabel] = "true"
+		cfg.Config.Labels = labels
 
 		img, err = mutate.ConfigFile(img, cfg)
 		if err != nil {

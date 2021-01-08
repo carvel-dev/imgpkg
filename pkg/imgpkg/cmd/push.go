@@ -5,17 +5,14 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 type PushOptions struct {
@@ -53,248 +50,93 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (o *PushOptions) Run() error {
-	var inputRef string
-	var registry ctlimg.Registry
-	var err error
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	if err != nil {
+		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
+	}
+
+	var imageURL string
+
+	isBundle := o.BundleFlags.Bundle != ""
+	isImage := o.ImageFlags.Image != ""
 
 	switch {
-	case o.isBundle() && o.isImage():
+	case isBundle && isImage:
 		return fmt.Errorf("Expected only one of image or bundle")
 
-	case !o.isBundle() && !o.isImage():
+	case !isBundle && !isImage:
 		return fmt.Errorf("Expected either image or bundle")
 
-	case o.isBundle():
-		registry, err = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
-		if err != nil {
-			return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
-		}
-		err = o.validateBundle(registry)
+	case isBundle:
+		imageURL, err = o.pushBundle(registry)
 		if err != nil {
 			return err
 		}
 
-		inputRef = o.BundleFlags.Bundle
-
-	case o.isImage():
-		if o.LockOutputFlags.LockFilePath != "" {
-			return fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
-		}
-
-		bundleDirPaths, err := o.findBundleDirs()
+	case isImage:
+		imageURL, err = o.pushImage(registry)
 		if err != nil {
 			return err
 		}
 
-		if len(bundleDirPaths) > 0 {
-			return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle", lf.BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ","))
-		}
-		registry, err = ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
-		if err != nil {
-			return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
-		}
-		inputRef = o.ImageFlags.Image
+	default:
+		panic("Unreachable code")
 	}
-
-	err = o.checkRepeatedPaths()
-	if err != nil {
-		return err
-	}
-
-	uploadRef, err := regname.NewTag(inputRef, regname.WeakValidation)
-	if err != nil {
-		return fmt.Errorf("Parsing '%s': %s", inputRef, err)
-	}
-
-	var img *ctlimg.FileImage
-	tarImg := ctlimg.NewTarImage(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths, InfoLog{o.ui})
-	if o.isBundle() {
-		img, err = tarImg.AsFileBundle()
-	} else {
-		img, err = tarImg.AsFileImage()
-	}
-
-	if err != nil {
-		return err
-	}
-
-	defer img.Remove()
-
-	err = registry.WriteImage(uploadRef, img)
-	if err != nil {
-		return fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
-	}
-
-	digest, err := img.Digest()
-	if err != nil {
-		return err
-	}
-
-	imageURL := fmt.Sprintf("%s@%s", uploadRef.Context(), digest)
 
 	o.ui.BeginLinef("Pushed '%s'", imageURL)
 
+	return nil
+}
+
+func (o *PushOptions) pushBundle(registry ctlimg.Registry) (string, error) {
+	uploadRef, err := regname.NewTag(o.BundleFlags.Bundle, regname.WeakValidation)
+	if err != nil {
+		return "", fmt.Errorf("Parsing '%s': %s", o.BundleFlags.Bundle, err)
+	}
+
+	imageURL, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, o.ui)
+	if err != nil {
+		return "", err
+	}
+
 	if o.LockOutputFlags.LockFilePath != "" {
-		bundleLock := lf.BundleLock{
-			ApiVersion: lf.BundleLockAPIVersion,
-			Kind:       lf.BundleLockKind,
-			Spec: lf.BundleSpec{
-				Image: lf.ImageLocation{
-					DigestRef:   imageURL,
-					OriginalTag: uploadRef.TagStr(),
-				},
+		bundleLock := lockconfig.BundleLock{
+			LockVersion: lockconfig.LockVersion{
+				APIVersion: lockconfig.BundleLockAPIVersion,
+				Kind:       lockconfig.BundleLockKind,
+			},
+			Bundle: lockconfig.BundleRef{
+				Image: imageURL,
+				Tag:   uploadRef.TagStr(),
 			},
 		}
 
-		manifestBs, err := yaml.Marshal(bundleLock)
+		err := bundleLock.WriteToPath(o.LockOutputFlags.LockFilePath)
 		if err != nil {
-			return err
-		}
-
-		err = ioutil.WriteFile(o.LockOutputFlags.LockFilePath, append([]byte("---\n"), manifestBs...), 0700)
-		if err != nil {
-			return fmt.Errorf("Writing lock file: %s", err)
+			return "", err
 		}
 	}
 
-	return nil
+	return imageURL, nil
 }
 
-func (o *PushOptions) validateBundleDirs(bundleDirPaths []string) error {
-	if len(bundleDirPaths) != 1 {
-		return fmt.Errorf("Expected one '%s' dir, got %d: %s", lf.BundleDir, len(bundleDirPaths), strings.Join(bundleDirPaths, ", "))
+func (o *PushOptions) pushImage(registry ctlimg.Registry) (string, error) {
+	if o.LockOutputFlags.LockFilePath != "" {
+		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
 	}
 
-	path := bundleDirPaths[0]
-
-	// make sure it is a child of one input dir
-	for _, flagPath := range o.FileFlags.Files {
-		flagPath, err := filepath.Abs(flagPath)
-		if err != nil {
-			return err
-		}
-
-		if filepath.Dir(path) == flagPath {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Expected '%s' directory, to be a direct child of one of: %s; was %s", lf.BundleDir, strings.Join(o.FileFlags.Files, ", "), path)
-}
-
-func (o *PushOptions) findBundleDirs() ([]string, error) {
-	var bundlePaths []string
-	for _, flagPath := range o.FileFlags.Files {
-		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if filepath.Base(currPath) != lf.BundleDir {
-				return nil
-			}
-
-			currPath, err = filepath.Abs(currPath)
-			if err != nil {
-				return err
-			}
-
-			bundlePaths = append(bundlePaths, currPath)
-
-			return nil
-		})
-
-		if err != nil {
-			return []string{}, err
-		}
-	}
-
-	return bundlePaths, nil
-}
-
-func (o *PushOptions) validateBundle(registry ctlimg.Registry) error {
-	bundlePaths, err := o.findBundleDirs()
+	uploadRef, err := regname.NewTag(o.ImageFlags.Image, regname.WeakValidation)
 	if err != nil {
-		return nil
+		return "", fmt.Errorf("Parsing '%s': %s", o.ImageFlags.Image, err)
 	}
 
-	err = o.validateBundleDirs(bundlePaths)
+	isBundle, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).PresentsAsBundle()
 	if err != nil {
-		return err
+		return "", err
+	}
+	if isBundle {
+		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
 
-	imagesBytes, err := ioutil.ReadFile(filepath.Join(bundlePaths[0], lf.ImageLockFile))
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = fmt.Errorf("Must have images.yml in '%s' directory", lf.BundleDir)
-		}
-		return err
-	}
-
-	var imgLock lf.ImageLock
-	err = yaml.Unmarshal(imagesBytes, &imgLock)
-	if err != nil {
-		return fmt.Errorf("Unmarshalling image lock: %s", err)
-	}
-	if imgLock.Kind != lf.ImagesLockKind {
-		return fmt.Errorf("Invalid `kind` in lockfile at %s. Expected: %s, got: %s", filepath.Join(bundlePaths[0], lf.ImageLockFile), lf.ImagesLockKind, imgLock.Kind)
-	}
-
-	bundles, err := imgLock.CheckForBundles(registry)
-	if err != nil {
-		return fmt.Errorf("Checking image lock for bundles: %s", err)
-	}
-
-	if len(bundles) != 0 {
-		return fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
-	}
-	return nil
-}
-
-func (o *PushOptions) checkRepeatedPaths() error {
-	imageRootPaths := make(map[string][]string)
-	for _, flagPath := range o.FileFlags.Files {
-		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			imageRootPath, err := filepath.Rel(flagPath, currPath)
-			if err != nil {
-				return err
-			}
-
-			if imageRootPath == "." {
-				if info.IsDir() {
-					return nil
-				}
-				imageRootPath = filepath.Base(flagPath)
-			}
-			imageRootPaths[imageRootPath] = append(imageRootPaths[imageRootPath], currPath)
-			return nil
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	var repeatedPaths []string
-	for _, v := range imageRootPaths {
-		if len(v) > 1 {
-			repeatedPaths = append(repeatedPaths, v...)
-		}
-	}
-	if len(repeatedPaths) > 0 {
-		return fmt.Errorf("Found duplicate paths: %s", strings.Join(repeatedPaths, ", "))
-	}
-	return nil
-}
-
-func (o *PushOptions) isBundle() bool {
-	return o.BundleFlags.Bundle != ""
-}
-
-func (o *PushOptions) isImage() bool {
-	return o.ImageFlags.Image != ""
+	return plainimage.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, o.ui)
 }
