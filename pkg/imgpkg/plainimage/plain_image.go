@@ -1,0 +1,120 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+package plainimage
+
+import (
+	"fmt"
+
+	"github.com/cppforlife/go-cli-ui/ui"
+	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+)
+
+type PlainImage struct {
+	ref      string
+	registry ctlimg.Registry
+
+	parsedRef    regname.Reference
+	parsedDigest string
+	fetchedImage regv1.Image
+}
+
+func NewPlainImage(ref string, registry ctlimg.Registry) *PlainImage {
+	return &PlainImage{ref: ref, registry: registry}
+}
+
+func NewFetchPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
+	parsedDigestRef, err := regname.NewDigest(digestRef)
+	if err != nil {
+		panic(fmt.Sprintf("Expected valid Digest Ref: %s", err))
+	}
+
+	var parsedRef regname.Reference
+	if tag == "" {
+		parsedRef = parsedDigestRef
+	} else {
+		parsedRef, err = regname.NewTag(parsedDigestRef.Context().Name() + ":" + tag)
+		if err != nil {
+			panic(fmt.Sprintf("Expected valid Tag Ref: %s", err))
+		}
+	}
+
+	return &PlainImage{parsedRef: parsedRef, parsedDigest: parsedDigestRef.DigestStr(), fetchedImage: fetchedImage}
+}
+
+func (o *PlainImage) Repo() string {
+	if o.parsedRef == nil {
+		panic("Unexpected usage of Repo(); call Fetch before")
+	}
+	return o.parsedRef.Context().Name()
+}
+
+func (o *PlainImage) DigestRef() string {
+	if o.parsedRef == nil {
+		panic("Unexpected usage of DigestRef(); call Fetch before")
+	}
+	if len(o.parsedDigest) == 0 {
+		panic("Unexpected usage of DigestRef(); call Fetch before")
+	}
+	return o.parsedRef.Context().Name() + "@" + o.parsedDigest
+}
+
+func (o *PlainImage) Tag() string {
+	if o.parsedRef == nil {
+		panic("Unexpected usage of Tag(); call Fetch before")
+	}
+	if tagRef, ok := o.parsedRef.(regname.Tag); ok {
+		return tagRef.TagStr()
+	}
+	return "" // was a digest ref, so no tag
+}
+
+func (i *PlainImage) Fetch() (regv1.Image, error) {
+	var err error
+	if i.fetchedImage != nil {
+		return i.fetchedImage, nil
+	}
+
+	i.parsedRef, err = regname.ParseReference(i.ref, regname.WeakValidation)
+	if err != nil {
+		return nil, err
+	}
+
+	imgs, err := ctlimg.NewImages(i.parsedRef, i.registry).Images()
+	if err != nil {
+		return nil, fmt.Errorf("Collecting images: %s", err)
+	}
+
+	if len(imgs) == 0 {
+		return nil, fmt.Errorf("Expected to find at least one image, but found none")
+	}
+
+	i.fetchedImage = imgs[0]
+
+	digest, err := i.fetchedImage.Digest()
+	if err != nil {
+		return nil, fmt.Errorf("Getting image digest: %s", err)
+	}
+
+	i.parsedDigest = digest.String()
+
+	return i.fetchedImage, nil
+}
+
+func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
+	img, err := i.Fetch()
+	if err != nil {
+		return err
+	}
+
+	ui.BeginLinef("Pulling image '%s'\n", i.DigestRef())
+
+	err = ctlimg.NewDirImage(outputPath, img, ui).AsDirectory()
+	if err != nil {
+		return fmt.Errorf("Extracting image into directory: %s", err)
+	}
+
+	return nil
+}

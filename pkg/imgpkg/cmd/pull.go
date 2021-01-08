@@ -5,16 +5,13 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"github.com/cppforlife/go-cli-ui/ui"
-	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 type PullOptions struct {
@@ -56,176 +53,66 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 }
 
 func (o *PullOptions) Run() error {
+	err := o.validate()
+	if err != nil {
+		return err
+	}
+
 	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
 
-	inputRef, err := o.getRefFromFlags()
-	if err != nil {
-		return err
-	}
+	switch {
+	case len(o.LockInputFlags.LockFilePath) > 0 || len(o.BundleFlags.Bundle) > 0:
+		bundleRef := o.BundleFlags.Bundle
 
-	ref, err := regname.ParseReference(inputRef, regname.WeakValidation)
-	if err != nil {
-		return err
-	}
-
-	imgs, err := ctlimg.NewImages(ref, registry).Images()
-	if err != nil {
-		return fmt.Errorf("Collecting images: %s", err)
-	}
-
-	if len(imgs) == 0 {
-		return fmt.Errorf("Expected to find at least one image, but found none")
-	}
-
-	if len(imgs) > 1 {
-		o.ui.BeginLinef("Found multiple images, extracting first\n")
-	}
-
-	img := imgs[0]
-	isBundle, err := lf.IsBundle(img)
-	if err != nil {
-		return fmt.Errorf("checking if image is bundle: %v", err)
-	}
-
-	if o.ImageFlags.Image != "" {
-		if isBundle {
-			return fmt.Errorf("Expected bundle flag when pulling a bundle, please use -b instead of --image")
+		if len(o.LockInputFlags.LockFilePath) > 0 {
+			bundleLock, err := lockconfig.NewBundleLockFromPath(o.LockInputFlags.LockFilePath)
+			if err != nil {
+				return err
+			}
+			bundleRef = bundleLock.Bundle.Image
 		}
-		// expect annotation not to be set
-	} else if !isBundle {
-		return fmt.Errorf("Expected image flag when pulling an image or index, please use --image instead of -b")
-	}
 
-	digest, err := img.Digest()
-	if err != nil {
-		return fmt.Errorf("Getting image digest: %s", err)
-	}
+		return bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui)
 
-	o.ui.BeginLinef("Pulling image '%s@%s'\n", ref.Context(), digest)
+	case len(o.ImageFlags.Image) > 0:
+		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, registry)
+		ok, err := bundle.NewBundleFromPlainImage(plainImg, registry).IsBundle()
+		if err != nil {
+			return err
+		}
+		if ok {
+			return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
+		}
+		return plainImg.Pull(o.OutputPath, o.ui)
+
+	default:
+		panic("Unreachable code")
+	}
+}
+
+func (o *PullOptions) validate() error {
+	if o.OutputPath == "" {
+		return fmt.Errorf("Expected --output to be none empty")
+	}
 
 	if o.OutputPath == "/" || o.OutputPath == "." || o.OutputPath == ".." {
 		return fmt.Errorf("Disallowed output directory (trying to avoid accidental deletion)")
 	}
 
-	// TODO protection for destination
-	err = os.RemoveAll(o.OutputPath)
-	if err != nil {
-		return fmt.Errorf("Removing output directory: %s", err)
-	}
-
-	err = os.MkdirAll(o.OutputPath, 0700)
-	if err != nil {
-		return fmt.Errorf("Creating output directory: %s", err)
-	}
-
-	err = ctlimg.NewDirImage(o.OutputPath, img, o.ui).AsDirectory()
-	if err != nil {
-		return fmt.Errorf("Extracting image into directory: %s", err)
-	}
-
-	if o.BundleFlags.Bundle != "" {
-		err = o.rewriteImageLock(ref, registry)
-		if err != nil {
-			return fmt.Errorf("Rewriting image lock file: %s", err)
+	presentInputParams := 0
+	for _, inputParam := range []string{o.LockInputFlags.LockFilePath, o.BundleFlags.Bundle, o.ImageFlags.Image} {
+		if len(inputParam) > 0 {
+			presentInputParams += 1
 		}
+	}
+	if presentInputParams > 1 {
+		return fmt.Errorf("Expected only one of image, bundle, or lock")
+	}
+	if presentInputParams == 0 {
+		return fmt.Errorf("Expected either image or bundle reference")
 	}
 	return nil
-}
-
-func (o *PullOptions) getRefFromFlags() (string, error) {
-	var ref string
-	for _, s := range []string{o.LockInputFlags.LockFilePath, o.ImageFlags.Image, o.BundleFlags.Bundle} {
-		if s == "" {
-			continue
-		}
-		if ref != "" {
-			return "", fmt.Errorf("Expected only one of image, bundle, or lock")
-		}
-		ref = s
-	}
-	if ref == "" {
-		return "", fmt.Errorf("Expected either image, bundle, or lock")
-	}
-	//ref is not empty
-	if o.LockInputFlags.LockFilePath == "" {
-		return ref, nil
-	}
-	lockBytes, err := ioutil.ReadFile(ref)
-	if err != nil {
-		return "", err
-	}
-	var bundleLock lf.BundleLock
-	err = yaml.Unmarshal(lockBytes, &bundleLock)
-	if err != nil {
-		return "", err
-	}
-	if bundleLock.Kind != lf.BundleLockKind {
-		return "", fmt.Errorf("Invalid `kind` in lockfile at %s. Expected: %s, got: %s", ref, lf.BundleLockKind, bundleLock.Kind)
-	}
-	return bundleLock.Spec.Image.DigestRef, nil
-}
-
-func (o *PullOptions) rewriteImageLock(ref regname.Reference, registry ctlimg.Registry) error {
-	imageLockDir := filepath.Join(o.OutputPath, lf.BundleDir, lf.ImageLockFile)
-	lockFile, err := lf.ReadImageLockFile(imageLockDir)
-	if err != nil {
-		return fmt.Errorf("Reading image lock file: %s", err)
-	}
-	if len(lockFile.Spec.Images) == 0 {
-		return nil
-	}
-	o.ui.BeginLinef("Locating image lock file images...\n")
-
-	bundleRepo := ref.Context().Name()
-	inBundleRepo := 0
-	var newImgDescs []lf.ImageDesc
-	for _, img := range lockFile.Spec.Images {
-		bundleRepoImgRef, err := ImageWithRepository(img.Image, bundleRepo)
-		if err != nil {
-			return err
-		}
-		if img.Image == bundleRepoImgRef {
-			inBundleRepo = inBundleRepo + 1
-		}
-		foundImg, err := checkImageExists([]string{bundleRepoImgRef, img.Image}, registry)
-		if err != nil {
-			return err
-		}
-		if foundImg != bundleRepoImgRef {
-			o.ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
-			return nil
-		}
-		newImgDescs = append(newImgDescs, lf.ImageDesc{
-			Image:       foundImg,
-			Annotations: img.Annotations,
-		})
-	}
-	if inBundleRepo == len(lockFile.Spec.Images) {
-		return nil
-	}
-	lockFile.Spec.Images = newImgDescs
-	imgLockBytes, err := yaml.Marshal(lockFile)
-	if err != nil {
-		return fmt.Errorf("Marshalling image lock file: %s", err)
-	}
-	o.ui.BeginLinef("All images found in bundle repo; updating lock file: %s\n", imageLockDir)
-	return ioutil.WriteFile(imageLockDir, imgLockBytes, 600)
-}
-
-func checkImageExists(urls []string, registry ctlimg.Registry) (string, error) {
-	var err error
-	for _, img := range urls {
-		ref, parseErr := regname.NewDigest(img)
-		if parseErr != nil {
-			return "", parseErr
-		}
-		_, err = registry.Generic(ref)
-		if err == nil {
-			return img, nil
-		}
-	}
-	return "", fmt.Errorf("Checking image existance: %s", err)
 }
