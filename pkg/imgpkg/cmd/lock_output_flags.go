@@ -13,5 +13,5 @@ type LockOutputFlags struct {
 
 func (s *LockOutputFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&s.LockFilePath, "lock-output", "",
-		"Location to output lockfile. lockfile type (BundleLock or ImagesLock) is determined from contents moved.")
+		"Location to output the generated lockfile. Option only available when using --bundle or --lock flags")
 }
