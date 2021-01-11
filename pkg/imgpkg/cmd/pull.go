@@ -75,7 +75,15 @@ func (o *PullOptions) Run() error {
 			bundleRef = bundleLock.Bundle.Image
 		}
 
-		return bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui)
+		err := bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui)
+		if err == nil {
+			return nil
+		}
+
+		if bundle.IsNotBundleError(err) {
+			return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		}
+		return err
 
 	case len(o.ImageFlags.Image) > 0:
 		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, registry)

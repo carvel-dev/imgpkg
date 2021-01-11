@@ -36,24 +36,6 @@ func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, registry ctlimg.Regi
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) IsBundle() (bool, error) {
-	img, err := o.plainImg.Fetch()
-	if err != nil {
-		return false, err
-	}
-
-	if img == nil {
-		return false, nil
-	}
-
-	cfg, err := img.ConfigFile()
-	if err != nil {
-		return false, err
-	}
-	_, present := cfg.Config.Labels[BundleConfigLabel]
-	return present, nil
-}
-
 func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
 	img, err := o.checkedImage()
 	if err != nil {
@@ -81,8 +63,7 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		return nil, fmt.Errorf("Checking if image is bundle: %s", err)
 	}
 	if !isBundle {
-		// TODO wrong abstraction level for err msg hint
-		return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		return nil, notABundleError{}
 	}
 
 	img, err := o.plainImg.Fetch()
