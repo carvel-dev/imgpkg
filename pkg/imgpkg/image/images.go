@@ -37,7 +37,7 @@ func (tds Images) Images() ([]regv1.Image, error) {
 	var result []regv1.Image
 
 	if tds.isImageIndex(desc) {
-		imgs, err := tds.buildImageIndex(tds.ref, desc)
+		imgs, err := tds.buildImageIndex(tds.ref)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +53,7 @@ func (tds Images) Images() ([]regv1.Image, error) {
 	return result, nil
 }
 
-func (tds Images) buildImageIndex(ref regname.Reference, desc regv1.Descriptor) ([]regv1.Image, error) {
+func (tds Images) buildImageIndex(ref regname.Reference) ([]regv1.Image, error) {
 	imgIndex, err := tds.metadata.Index(ref)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (tds Images) buildImageIndex(ref regname.Reference, desc regv1.Descriptor) 
 
 	for _, manDesc := range imgIndexManifest.Manifests {
 		if tds.isImageIndex(manDesc) {
-			imgs, err := tds.buildImageIndex(tds.buildRef(ref, manDesc.Digest.String()), manDesc)
+			imgs, err := tds.buildImageIndex(tds.buildRef(ref, manDesc.Digest.String()))
 			if err != nil {
 				return nil, err
 			}

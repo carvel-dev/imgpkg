@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package bundle
 
 import (
 	"github.com/cppforlife/go-cli-ui/ui"

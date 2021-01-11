@@ -5,13 +5,11 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
-	"gopkg.in/yaml.v2"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
 func TestPullImageLockRewrite(t *testing.T) {
@@ -28,15 +26,14 @@ func TestPullImageLockRewrite(t *testing.T) {
 		t.Fatalf("failed to create push directory: %v", err)
 	}
 	imageDigestRef := "@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"
-	imgsYml := fmt.Sprintf(`---
+	imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
-spec:
-  images:
-  - image: hello-world%s
+images:
+- image: hello-world%s
 `, imageDigestRef)
 
-	_, err = createBundleDir(pushDir, bundleYAML, imgsYml)
+	_, err = createBundleDir(pushDir, bundleYAML, imageLockYAML)
 	if err != nil {
 		t.Fatalf("failed to create image lock file: %v", err)
 	}
@@ -45,17 +42,12 @@ spec:
 	imgpkg.Run([]string{"copy", "-b", env.Image, "--to-repo", env.Image})
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", pullDir})
 
-	iLockBytes, err := ioutil.ReadFile(filepath.Join(pullDir, lf.BundleDir, imageFile))
+	imgLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(pullDir, ".imgpkg", "images.yml"))
 	if err != nil {
 		t.Fatalf("could not read images lock: %v", err)
 	}
-	var iLock lf.ImageLock
-	err = yaml.Unmarshal(iLockBytes, &iLock)
-	if err != nil {
-		t.Fatalf("could not unmarshal images lock: %v", err)
-	}
 
-	actualImageRef := iLock.Spec.Images[0].Image
+	actualImageRef := imgLock.Images[0].Image
 	expectedImageRef := env.Image + imageDigestRef
 	if actualImageRef != expectedImageRef {
 		t.Fatalf("Expected images lock to be updated with bundle repository; diff expected...actual:\n%v\n", diffText(expectedImageRef, actualImageRef))

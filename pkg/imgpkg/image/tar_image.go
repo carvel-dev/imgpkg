@@ -23,15 +23,7 @@ func NewTarImage(files []string, excludePaths []string, infoLog io.Writer) *TarI
 	return &TarImage{files, excludePaths, infoLog}
 }
 
-func (i *TarImage) AsFileBundle() (*FileImage, error) {
-	return i.asFileImage(true)
-}
-
-func (i *TarImage) AsFileImage() (*FileImage, error) {
-	return i.asFileImage(false)
-}
-
-func (i *TarImage) asFileImage(bundle bool) (*FileImage, error) {
+func (i *TarImage) AsFileImage(labels map[string]string) (*FileImage, error) {
 	tmpFile, err := ioutil.TempFile("", "imgpkg-tar-image")
 	if err != nil {
 		return nil, err
@@ -45,7 +37,7 @@ func (i *TarImage) asFileImage(bundle bool) (*FileImage, error) {
 		return nil, err
 	}
 
-	fileImg, err := NewFileImage(tmpFile.Name(), bundle)
+	fileImg, err := NewFileImage(tmpFile.Name(), labels)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
 		return nil, err

@@ -16,6 +16,7 @@ type Env struct {
 }
 
 func BuildEnv(t *testing.T) Env {
+	t.Helper()
 	imgpkgPath := os.Getenv("IMGPKG_BINARY")
 	if imgpkgPath == "" {
 		imgpkgPath = "imgpkg"
@@ -31,6 +32,7 @@ func BuildEnv(t *testing.T) Env {
 }
 
 func (e Env) Validate(t *testing.T) {
+	t.Helper()
 	var errStrs []string
 
 	if len(e.Image) == 0 {

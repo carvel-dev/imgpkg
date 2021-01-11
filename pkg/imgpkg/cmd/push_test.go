@@ -7,17 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
-
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
-spec:
-  images: []`
+`
 
 func TestMultiImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
@@ -62,44 +58,6 @@ func TestMultiImgpkgDirError(t *testing.T) {
 	}
 }
 
-func TestInvalidLockKindError(t *testing.T) {
-	tempDir := os.TempDir()
-
-	pushDir := filepath.Join(tempDir, "imgpkg-push-units-invalid-kind")
-	defer Cleanup(pushDir)
-
-	// cleaned up via pushDir
-	bundleDir := filepath.Join(pushDir, "bundle-dir")
-	err := os.MkdirAll(bundleDir, 0700)
-	if err != nil {
-		t.Fatalf("Failed to setup test: %s", err)
-	}
-
-	// This images.yml file came from kbld resolving nginx
-	err = createBundleDir(bundleDir, `apiVersion: kbld.k14s.io/v1alpha1
-kind: Config
-minimumRequiredVersion: 0.27.0
-overrides:
-  - image: nginx
-newImage: index.docker.io/library/nginx@sha256:6b1daa9462046581ac15be20277a7c75476283f969cb3a61c8725ec38d3b01c3
-preresolved: true
-`)
-	if err != nil {
-		t.Fatalf("Failed to setup test: %s", err)
-	}
-
-	push := PushOptions{FileFlags: FileFlags{Files: []string{bundleDir}}, BundleFlags: BundleFlags{Bundle: "org/repo"}}
-	err = push.Run()
-	if err == nil {
-		t.Fatalf("Expected validations to err, but did not")
-	}
-
-	reg := regexp.MustCompile("Invalid `kind` in lockfile at .*bundle-dir/\\.imgpkg/images\\.yml. Expected: ImagesLock, got: Config")
-	if !reg.MatchString(err.Error()) {
-		t.Fatalf("Expected error to contain message about invalid images.yml kind, got: %s", err)
-	}
-}
-
 func TestImageWithImgpkgDirError(t *testing.T) {
 	tempDir := os.TempDir()
 
@@ -124,8 +82,8 @@ func TestImageWithImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	reg := regexp.MustCompile("Images cannot be pushed with '.imgpkg' directories.*, consider using a bundle")
-	if !reg.MatchString(err.Error()) {
+	expected := "Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option"
+	if err.Error() != expected {
 		t.Fatalf("Expected error to contain message about image with bundle dir, got: %s", err)
 	}
 }
@@ -259,48 +217,16 @@ func Cleanup(dirs ...string) {
 	}
 }
 
-func TestUnresolvedImageRefError(t *testing.T) {
-	testDir := filepath.Join(os.TempDir(), "imgpkg-unresolved-ref-test")
-	defer Cleanup(testDir)
-
-	err := os.MkdirAll(testDir, 0700)
-	if err != nil {
-		t.Fatalf("Failed to setup test: %s", err)
-	}
-
-	imagesYml := `apiVersion: imgpkg.carvel.dev/v1alpha1
-kind: ImagesLock
-spec:
-  images:
-  - image: index.docker.io/library/nginx@sha256:36b74457bccb56fbf8b05f79c85569501b721d4db813b684391d63e02287c0b2
-  - image: docker.io/another-app:v1.0`
-
-	err = createBundleDir(testDir, imagesYml)
-	if err != nil {
-		t.Fatalf("Failed to setup test: %s", err)
-	}
-
-	push := PushOptions{FileFlags: FileFlags{Files: []string{testDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
-	err = push.Run()
-	if err == nil {
-		t.Fatalf("Expected validations to err, but did not")
-	}
-
-	if !strings.Contains(err.Error(), "Expected ref to be in digest form, got") {
-		t.Fatalf("Expected error to contain message about an image reference not being in digest form, got: %s", err)
-	}
-}
-
 func createBundleDir(loc, imagesYaml string) error {
 	if imagesYaml == "" {
 		imagesYaml = emptyImagesYaml
 	}
 
-	bundleDir := filepath.Join(loc, lf.BundleDir)
+	bundleDir := filepath.Join(loc, ".imgpkg")
 	err := os.Mkdir(bundleDir, 0700)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(bundleDir, lf.ImageLockFile), []byte(imagesYaml), 0600)
+	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
 }

@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package imageset
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 type TarImageSet struct {
@@ -20,7 +19,11 @@ type TarImageSet struct {
 	logger      *ctlimg.LoggerPrefixWriter
 }
 
-func (o TarImageSet) Export(foundImages *UnprocessedImageURLs,
+func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPrefixWriter) TarImageSet {
+	return TarImageSet{imageSet, concurrency, logger}
+}
+
+func (o TarImageSet) Export(foundImages *UnprocessedImageRefs,
 	outputPath string, registry ctlimg.Registry) error {
 
 	ids, err := o.imageSet.Export(foundImages, registry)
@@ -50,27 +53,13 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageURLs,
 }
 
 func (o *TarImageSet) Import(path string,
-	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, string, error) {
-	//return img or indexes and call image set import later
+	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, error) {
+
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	bundleRef := ""
-	for _, imgOrIndex := range imgOrIndexes {
-		if imgOrIndex.Index != nil {
-			continue
-		}
-
-		hasBundle, err := lf.IsBundle(*imgOrIndex.Image)
-		if err != nil {
-			return nil, "", err
-		}
-		if hasBundle {
-			bundleRef = (*imgOrIndex.Image).Ref()
-		}
-	}
 	processedImages, err := o.imageSet.Import(imgOrIndexes, importRepo, registry)
-	return processedImages, bundleRef, err
+	return processedImages, err
 }

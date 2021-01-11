@@ -30,11 +30,13 @@ type RunOpts struct {
 }
 
 func (k Imgpkg) Run(args []string) string {
+	k.t.Helper()
 	out, _ := k.RunWithOpts(args, RunOpts{})
 	return out
 }
 
 func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
+	k.t.Helper()
 	args = append(args, "--yes")
 
 	k.l.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))

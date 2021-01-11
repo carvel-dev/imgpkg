@@ -15,6 +15,7 @@ import (
 )
 
 func compareFiles(path1, path2 string, t *testing.T) {
+	t.Helper()
 	path1Bs, err := ioutil.ReadFile(path1)
 	if err != nil {
 		t.Fatalf("reading path1: %s", err)
@@ -26,7 +27,7 @@ func compareFiles(path1, path2 string, t *testing.T) {
 	}
 
 	if string(path1Bs) != string(path2Bs) {
-		t.Fatalf("Expected contents to match for %s vs %s", path1, path2)
+		t.Fatalf("Expected contents to match for %s vs %s\nDiff: %s", path1, path2, diffText(string(path1Bs), string(path2Bs)))
 	}
 }
 
@@ -68,8 +69,6 @@ websites:
 const imagesYAML = `---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
-spec:
-  images: []
 `
 const imageFile = "images.yml"
 const bundleFile = "bundle.yml"
@@ -95,6 +94,7 @@ func createBundleDir(dir, bYml, iYml string) (string, error) {
 }
 
 func extractDigest(out string, t *testing.T) string {
+	t.Helper()
 	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
 	if len(match) != 2 {
 		t.Fatalf("Expected to find digest in output '%s'", out)

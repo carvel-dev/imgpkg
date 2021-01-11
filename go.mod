@@ -10,6 +10,5 @@ require (
 	github.com/onsi/gomega v1.10.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	gopkg.in/yaml.v2 v2.3.0
 	sigs.k8s.io/yaml v1.2.0
 )
