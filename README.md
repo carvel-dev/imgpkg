@@ -1,13 +1,13 @@
 # imgpkg
 
+- Website: [https://carvel.dev/imgpkg](https://carvel.dev/imgpkg)
 - Slack: [#carvel in Kubernetes slack](https://kubernetes.slack.com/archives/CH8KCCKA5)
-- [Docs](docs/README.md) with example workflow and other details
+- [Docs](https://carvel.dev/imgpkg/docs/latest/) with example workflow and other details
 - Install: Grab prebuilt binaries from the [Releases page](https://github.com/vmware-tanzu/carvel-imgpkg/releases) or [Homebrew Carvel tap](https://github.com/vmware-tanzu/homebrew-carvel)
 
-`imgpkg` (pronounced: "image package") allows you to store and distribute sets of files (e.g. application configuration)
- as images in Docker (OCI) registries. Combine your configuration files, and a list of references to images on
- which they depend into an image that `imgpkg` calls a Bundle. Original primary use case for this CLI was to store
- application configuration (i.e. templates) as an image.
+`imgpkg` (pronounced: "image package") is a tool that allows users to store a set of arbitrary files as an OCI image. One of the driving use cases is to store Kubernetes configuration (plain YAML, ytt templates, Helm templates, etc.) in OCI registry as an image.
+
+imgpkg's primary concept is a [bundle](https://carvel.dev/imgpkg/docs/latest/resources/#bundle), which is an OCI image that holds 0+ arbitrary files and 0+ references to dependent OCI images. With this concept, imgpkg is able to copy bundles and their dependent images across registries (both online and offline).
 
 ```bash
 $ imgpkg push -b your-user/app1-config:0.1.1 -f config/
@@ -15,8 +15,6 @@ $ imgpkg copy -b your-user/app1-config:0.1.1 --to-repo other-user/app1
 $ imgpkg pull -b your-user/app1-config:0.1.1 -o /tmp/app1-config
 $ imgpkg tag ls -i your-user/app1-config
 ```
-
-See [detailed command usage](docs/commands.md).
 
 Features:
 
