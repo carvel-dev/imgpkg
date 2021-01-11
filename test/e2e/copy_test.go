@@ -534,7 +534,7 @@ images:
 	defer os.Remove(lockFilePath)
 
 	// copy from tar to repo
-	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
 
 	relocatedBundleLock, err := lockconfig.NewBundleLockFromPath(lockFilePath)
 	if err != nil {
@@ -624,7 +624,7 @@ images:
 	defer os.Remove(lockOutputPath)
 
 	// copy from tar to repo
-	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
 	imgLock, err := lockconfig.NewImagesLockFromPath(lockOutputPath)
 	if err != nil {
@@ -701,7 +701,7 @@ images:
 	defer os.Remove(lockFilePath)
 
 	// copy from tar to repo
-	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
 
 	bundleLock, err := lockconfig.NewBundleLockFromPath(lockFilePath)
 	if err != nil {
@@ -766,7 +766,7 @@ func TestCopyImageInputToTarFileAndToADifferentRepoCheckImageLockIsGenerated(t *
 	defer os.Remove(lockOutputPath)
 
 	// copy from tar to repo
-	imgpkg.Run([]string{"copy", "--from-tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
 	imgLock, err := lockconfig.NewImagesLockFromPath(lockOutputPath)
 	if err != nil {
