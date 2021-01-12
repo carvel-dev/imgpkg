@@ -14,7 +14,7 @@ import (
 
 type PlainImage struct {
 	ref      string
-	registry ctlimg.Registry
+	registry ctlimg.ImagesMetadata
 
 	parsedRef    regname.Reference
 	parsedDigest string
@@ -23,7 +23,7 @@ type PlainImage struct {
 	fetchedIndex regv1.ImageIndex
 }
 
-func NewPlainImage(ref string, registry ctlimg.Registry) *PlainImage {
+func NewPlainImage(ref string, registry ctlimg.ImagesMetadata) *PlainImage {
 	return &PlainImage{ref: ref, registry: registry}
 }
 

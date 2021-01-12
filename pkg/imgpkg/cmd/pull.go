@@ -76,14 +76,13 @@ func (o *PullOptions) Run() error {
 		}
 
 		err := bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui)
-		if err == nil {
-			return nil
+		if err != nil {
+			if bundle.IsNotBundleError(err) {
+				return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+			}
+			return err
 		}
-
-		if bundle.IsNotBundleError(err) {
-			return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-		}
-		return err
+		return nil
 
 	case len(o.ImageFlags.Image) > 0:
 		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, registry)
