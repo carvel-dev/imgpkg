@@ -1,3 +1,5 @@
+![logo](docs/CarvelLogo.png)
+
 # imgpkg
 
 - Website: [https://carvel.dev/imgpkg](https://carvel.dev/imgpkg)
@@ -25,6 +27,14 @@ Features:
 - Allows to list pushed image tags
 - Uses Docker layer media type to work with existing registries
 - Uses deterministic file permissions and timestamps to make images reproducable (same digest if nothing changed)
+
+### Join the Community and Make Carvel Better
+Carvel is better because of our contributors and maintainers. It is because of you that we can bring great software to the community.
+Please join us during our online community meetings ([Zoom link](http://community.klt.rip/)) every other Wednesday at 12PM ET / 9AM PT and catch up with past meetings on the [VMware YouTube Channel](https://www.youtube.com/playlist?list=PL7bmigfV0EqQ_cDNKVTIcZt-dAM-hpClS).
+Join [Google Group](https://groups.google.com/g/carvel-dev) to get updates on the project and invites to community meetings.
+You can chat with us on Kubernetes Slack in the #carvel channel and follow us on Twitter at @carvel_dev.
+
+Check out which organizations are using and contributing to Carvel: [Adopter's list](https://github.com/vmware-tanzu/carvel/blob/master/ADOPTERS.md)
 
 ## Development
 
