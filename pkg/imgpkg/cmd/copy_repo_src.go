@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -64,10 +64,13 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 
 		switch {
 		case bundleLock != nil:
-			bundle := bundle.NewBundle(bundleLock.Bundle.Image, o.registry)
+			bundle := ctlbundle.NewBundle(bundleLock.Bundle.Image, o.registry)
 
 			imagesLock, err := bundle.ImagesLockLocalized()
 			if err != nil {
+				if ctlbundle.IsNotBundleError(err) {
+					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+				}
 				return nil, err
 			}
 
@@ -86,7 +89,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 			for _, img := range imagesLock.Images {
 				plainImg := plainimage.NewPlainImage(img.Image, o.registry)
 
-				ok, err := bundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
 				if err != nil {
 					return nil, err
 				}
@@ -104,7 +107,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	case o.ImageFlags.Image != "":
 		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, o.registry)
 
-		ok, err := bundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
 		if err != nil {
 			return nil, err
 		}
@@ -116,12 +119,15 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		return unprocessedImageRefs, nil
 
 	default:
-		bundle := bundle.NewBundle(o.BundleFlags.Bundle, o.registry)
+		bundle := ctlbundle.NewBundle(o.BundleFlags.Bundle, o.registry)
 
 		// TODO switch to using fallback URLs for each image
 		// instead of trying to use localized bundle URLs here
 		imagesLock, err := bundle.ImagesLockLocalized()
 		if err != nil {
+			if ctlbundle.IsNotBundleError(err) {
+				return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+			}
 			return nil, err
 		}
 

@@ -28,7 +28,7 @@ func (o *Bundle) ImagesLockLocalized() (lockconfig.ImagesLock, error) {
 		return lockconfig.ImagesLock{}, err
 	}
 
-	_, err = o.localizeImagesLock(&imagesLock)
+	_, _, err = NewImagesLock(&imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
 	return imagesLock, err
 }
 

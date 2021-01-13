@@ -13,6 +13,7 @@ import (
 	regtypes "github.com/google/go-containerregistry/pkg/v1/types"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadata
 type ImagesMetadata interface {
 	Generic(regname.Reference) (regv1.Descriptor, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
