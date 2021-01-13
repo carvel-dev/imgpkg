@@ -15,7 +15,7 @@ import (
 
 type imageFactory struct {
 	assets *assets
-	t *testing.T
+	t      *testing.T
 }
 
 func (i *imageFactory) pushSimpleAppImageWithRandomFile(imgpkg Imgpkg, imgRef string) string {
@@ -41,7 +41,7 @@ func (i imageFactory) assertImagesLock(path string, images []lockconfig.ImageRef
 	for i, image := range images {
 		got := imagesLock.Images[i]
 		if image.Image != got.Image {
-			errors = append(errors, fmt.Sprintf("Image %d: expected image URL to be '%s' but got '%s'",i, image.Image, got.Image))
+			errors = append(errors, fmt.Sprintf("Image %d: expected image URL to be '%s' but got '%s'", i, image.Image, got.Image))
 		}
 		if !reflect.DeepEqual(image.Annotations, got.Annotations) {
 			errors = append(errors, fmt.Sprintf("Image %d: expected image annotations to be '%v' but got '%v'", i, image.Annotations, got.Annotations))

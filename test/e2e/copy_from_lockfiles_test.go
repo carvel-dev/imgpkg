@@ -152,7 +152,6 @@ images:
 	}
 }
 
-
 func TestCopyWithBundleLockInputToRepoDestinationAndOutputNewBundleLockFile(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
