@@ -13,22 +13,44 @@ type Env struct {
 	Image          string
 	ImgpkgPath     string
 	RelocationRepo string
+	BundleFactory  bundleFactory
+	Assets         *assets
+	Assert         assertion
+	ImageFactory   imageFactory
+	cleanupFuncs   []func()
 }
 
-func BuildEnv(t *testing.T) Env {
+func BuildEnv(t *testing.T) *Env {
 	t.Helper()
 	imgpkgPath := os.Getenv("IMGPKG_BINARY")
 	if imgpkgPath == "" {
 		imgpkgPath = "imgpkg"
 	}
 
+	assets := &assets{t: t}
 	env := Env{
 		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
 		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
 		ImgpkgPath:     imgpkgPath,
+		BundleFactory:  newBundleDir(t, assets),
+		Assets:         assets,
+		Assert:         assertion{t: t},
+		ImageFactory: imageFactory{
+			assets: assets,
+			t:      t,
+		},
 	}
 	env.Validate(t)
-	return env
+	return &env
+}
+func (e *Env) AddCleanup(f func()) {
+	e.cleanupFuncs = append(e.cleanupFuncs, f)
+}
+func (e *Env) Cleanup() {
+	e.Assets.cleanCreatedFolders()
+	for i := len(e.cleanupFuncs) - 1; i >= 0; i-- {
+		e.cleanupFuncs[i]()
+	}
 }
 
 func (e Env) Validate(t *testing.T) {

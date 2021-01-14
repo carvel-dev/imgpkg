@@ -5,6 +5,8 @@ package e2e
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 )
 
 type Logger struct{}
@@ -16,4 +18,8 @@ func (l Logger) Section(msg string, f func()) {
 
 func (l Logger) Debugf(msg string, args ...interface{}) {
 	fmt.Printf(msg, args...)
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }

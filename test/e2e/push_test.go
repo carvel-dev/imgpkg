@@ -6,8 +6,6 @@ package e2e
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,16 +14,11 @@ import (
 func TestPushBundleInImageLockErr(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
 
-	assetsPath := filepath.Join("assets", "simple-app")
-
-	bundleDir, err := createBundleDir(assetsPath, bundleYAML, imagesYAML)
-	if err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
-	}
-
-	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", assetsPath})
-	bundleDigest := fmt.Sprintf("@%s", extractDigest(out, t))
+	bundleDir := env.BundleFactory.createBundleDir(bundleYAML, imagesYAML)
+	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
+	bundleDigest := fmt.Sprintf("@%s", extractDigest(t, out))
 	bundleDigestRef := env.Image + bundleDigest
 
 	imagesLockYAML := fmt.Sprintf(`---
@@ -34,14 +27,10 @@ kind: ImagesLock
 images:
 - image: %s
 `, bundleDigestRef)
-	err = ioutil.WriteFile(filepath.Join(assetsPath, ".imgpkg", "images.yml"), []byte(imagesLockYAML), 0600)
-	if err != nil {
-		t.Fatalf("failed to create image lock file: %v", err)
-	}
-	defer os.RemoveAll(bundleDir)
+	env.BundleFactory.addFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
 	var stderrBs bytes.Buffer
-	_, err = imgpkg.RunWithOpts([]string{"push", "-b", env.Image, "-f", assetsPath},
+	_, err := imgpkg.RunWithOpts([]string{"push", "-b", env.Image, "-f", bundleDir},
 		RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 	if err == nil {
