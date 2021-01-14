@@ -5,16 +5,16 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/k14s/difflib"
 	"io/ioutil"
-	"os"
-	"path/filepath"
+	"math/rand"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/k14s/difflib"
 )
 
-func compareFiles(path1, path2 string, t *testing.T) {
+func compareFiles(t *testing.T, path1, path2 string) {
 	t.Helper()
 	path1Bs, err := ioutil.ReadFile(path1)
 	if err != nil {
@@ -73,31 +73,21 @@ kind: ImagesLock
 const imageFile = "images.yml"
 const bundleFile = "bundle.yml"
 
-func createBundleDir(dir, bYml, iYml string) (string, error) {
-	imgpkgDir := filepath.Join(dir, ".imgpkg")
-	err := os.Mkdir(imgpkgDir, 0700)
-	if err != nil {
-		return "", err
-	}
-
-	fileContents := map[string]string{
-		bundleFile: bYml,
-		imageFile:  iYml,
-	}
-	for filename, contents := range fileContents {
-		err = ioutil.WriteFile(filepath.Join(imgpkgDir, filename), []byte(contents), 0600)
-		if err != nil {
-			return imgpkgDir, err
-		}
-	}
-	return imgpkgDir, nil
-}
-
-func extractDigest(out string, t *testing.T) string {
+func extractDigest(t *testing.T, out string) string {
 	t.Helper()
 	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
 	if len(match) != 2 {
 		t.Fatalf("Expected to find digest in output '%s'", out)
 	}
 	return match[1]
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func randString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
