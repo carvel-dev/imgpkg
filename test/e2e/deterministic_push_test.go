@@ -10,14 +10,15 @@ import (
 func TestDeterministicPush(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
 
 	assetsPath := "assets/simple-app"
 
 	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", assetsPath})
-	tag1Digest := extractDigest(out, t)
+	tag1Digest := extractDigest(t, out)
 
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
-	tag2Digest := extractDigest(out, t)
+	tag2Digest := extractDigest(t, out)
 
 	if tag1Digest != tag2Digest {
 		t.Fatalf("Digests do not match, hence non-deterministic")

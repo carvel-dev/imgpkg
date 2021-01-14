@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -21,14 +20,10 @@ import (
 func TestBundlePushPullAnnotation(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
-	assetsDir := filepath.Join("assets", "simple-app")
-	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
-	defer os.RemoveAll(bundleDir)
-	if err != nil {
-		t.Fatalf("Creating bundle directory: %s", err.Error())
-	}
+	defer env.Cleanup()
 
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir})
+	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
 	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
@@ -42,139 +37,51 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 	}
 
 	if _, found := config.Config.Labels["dev.carvel.imgpkg.bundle"]; !found {
-		t.Fatalf("Expected config to contain bundle label, instead had: %v", config.Config.Labels)
+		t.Fatalf("Expected to find bundle but didn't")
 	}
 
-	outDir := filepath.Join(os.TempDir(), "bundle-pull")
-	if err := os.Mkdir(outDir, 0600); err != nil {
-		t.Fatalf("Error creating temp dir: %s", err)
-	}
-	defer os.RemoveAll(outDir)
-
+	outDir := env.Assets.CreateTempFolder("bundle-annotation")
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
 
-	expectedFiles := []string{
-		".imgpkg/bundle.yml",
-		".imgpkg/images.yml",
-		"README.md",
-		"LICENSE",
-		"config/config.yml",
-		"config/inner-dir/README.txt",
-	}
-
-	for _, file := range expectedFiles {
-		compareFiles(filepath.Join(assetsDir, file), filepath.Join(outDir, file), t)
-	}
+	env.Assets.ValidateFilesAreEqual(bundleDir, outDir, env.Assets.FilesInFolder())
 }
 
 func TestPushWithFileExclusion(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
 
-	assetsDir := filepath.Join("assets", "simple-app")
-	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
-	defer os.RemoveAll(bundleDir)
-	if err != nil {
-		t.Fatalf("Creating bundle directory: %s", err.Error())
-	}
+	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
 
-	excludedFileName := "excluded-file.txt"
-	err = ioutil.WriteFile(filepath.Join(assetsDir, excludedFileName), []byte("excluded"), 0600)
-	defer os.RemoveAll(filepath.Join(assetsDir, excludedFileName))
-	if err != nil {
-		t.Fatalf("Error creating excluded file: %s", err)
-	}
+	env.BundleFactory.AddFileToBundle("excluded-file.txt", "I will not be present in the bundle")
+	env.BundleFactory.AddFileToBundle(
+		filepath.Join("nested-dir", "excluded-file.txt"),
+		"this file will not be excluded because it is nested",
+	)
 
-	nestedDir := filepath.Join(assetsDir, "nested-dir")
-	err = os.Mkdir(nestedDir, 0700)
-	defer os.RemoveAll(nestedDir)
-	if err != nil {
-		t.Fatalf("Error creating nested directory: %s", err)
-	}
-	includedFilePath := filepath.Join(nestedDir, excludedFileName)
-	err = ioutil.WriteFile(includedFilePath, []byte("included"), 0600)
-	if err != nil {
-		t.Fatalf("Error creating nested included file: %s", err)
-	}
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--file-exclusion", "excluded-file.txt"})
 
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--file-exclusion", excludedFileName})
-
-	ref, _ := name.NewTag(env.Image, name.WeakValidation)
-	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		t.Fatalf("Error getting remote image: %s", err)
-	}
-
-	config, err := image.ConfigFile()
-	if err != nil {
-		t.Fatalf("Error getting manifest: %s", err)
-	}
-
-	if _, found := config.Config.Labels["dev.carvel.imgpkg.bundle"]; !found {
-		t.Fatalf("Expected config to contain bundle label, instead had: %v", config.Config.Labels)
-	}
-
-	outDir := filepath.Join(os.TempDir(), "bundle-pull")
-	if err = os.Mkdir(outDir, 0600); err != nil {
-		t.Fatalf("Error creating temp dir: %s", err)
-	}
-	defer os.RemoveAll(outDir)
-
+	outDir := env.Assets.CreateTempFolder("bundle-exclusion")
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
 
-	var pulledFileNames []string
-	err = filepath.Walk(outDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			t.Fatalf("Could not access path during walk %q: %v\n", path, err)
-		}
-		if !info.IsDir() {
-			relPath, relErr := filepath.Rel(outDir, path)
-			if relErr != nil {
-				t.Fatalf("Could not get relative path from %q: %v\n", path, relErr)
-			}
-			pulledFileNames = append(pulledFileNames, relPath)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("error walking the pulled directory %q: %v\n", outDir, err)
-		return
-	}
-
 	expectedFiles := []string{
-		".imgpkg/bundle.yml",
-		".imgpkg/images.yml",
-		"README.md",
-		"LICENSE",
-		"config/config.yml",
-		"config/inner-dir/README.txt",
 		"nested-dir/excluded-file.txt",
 	}
-
-	if len(pulledFileNames) != len(expectedFiles) {
-		t.Fatalf("Number of pulled files did not match expected.\nPulled: %v\nExpected: %v", pulledFileNames, expectedFiles)
-	}
-
-	for _, file := range expectedFiles {
-		compareFiles(filepath.Join(assetsDir, file), filepath.Join(outDir, file), t)
-	}
+	expectedFiles = append(expectedFiles, env.Assets.FilesInFolder()...)
+	env.Assets.ValidateFilesAreEqual(bundleDir, outDir, expectedFiles)
 }
 
 func TestBundleLockFile(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
-	assetsDir := filepath.Join("assets", "simple-app")
-	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
-	defer os.RemoveAll(bundleDir)
-	if err != nil {
-		t.Fatalf("Creating bundle directory: %s", err.Error())
-	}
+	defer env.Cleanup()
 
-	bundleLockFilepath := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-test.yml")
-	defer os.RemoveAll(bundleLockFilepath)
+	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+
+	bundleLockFilepath := filepath.Join(env.Assets.CreateTempFolder("bundle-lock"), "imgpkg-bundle-lock-test.yml")
 
 	// push the bundle in the assets dir
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir, "--lock-output", bundleLockFilepath})
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", bundleLockFilepath})
 
 	bundleBs, err := ioutil.ReadFile(bundleLockFilepath)
 	if err != nil {
@@ -194,43 +101,24 @@ kind: BundleLock
 		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
 	}
 
-	outputDir := filepath.Join(os.TempDir(), "imgpkg-bundle-lock-pull")
-	defer os.RemoveAll(outputDir)
+	outputDir := env.Assets.CreateTempFolder("bundle-pull")
 	imgpkg.Run([]string{"pull", "--lock", bundleLockFilepath, "-o", outputDir})
 
-	expectedFiles := []string{
-		"README.md",
-		"LICENSE",
-		"config/config.yml",
-		"config/inner-dir/README.txt",
-		".imgpkg/bundle.yml",
-		".imgpkg/images.yml",
-	}
-
-	for _, file := range expectedFiles {
-		compareFiles(filepath.Join(assetsDir, file), filepath.Join(outputDir, file), t)
-	}
-
+	env.Assets.ValidateFilesAreEqual(bundleDir, outputDir, env.Assets.FilesInFolder())
 }
 
 func TestImagePullOnBundleError(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
-	assetsDir := filepath.Join("assets", "simple-app")
+	defer env.Cleanup()
 
-	bundleDir, err := createBundleDir(assetsDir, bundleYAML, imagesYAML)
-	defer os.RemoveAll(bundleDir)
-	if err != nil {
-		t.Fatalf("Creating bundle directory: %s", err.Error())
-	}
-
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", assetsDir})
+	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 
 	var stderrBs bytes.Buffer
 
-	path := "/tmp/imgpkg-test-pull-bundle-error"
-	defer os.RemoveAll(path)
-	_, err = imgpkg.RunWithOpts([]string{"pull", "-i", env.Image, "-o", path},
+	path := env.Assets.CreateTempFolder("not-used")
+	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", env.Image, "-o", path},
 		RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 
@@ -245,17 +133,13 @@ func TestImagePullOnBundleError(t *testing.T) {
 func TestBundlePullOnImageError(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
 
-	assetsPath := filepath.Join("assets", "simple-app")
-	path := filepath.Join("tmp", "imgpkg-test-pull-image-error")
+	imageDir := env.Assets.CreateAndCopySimpleApp("image-folder")
+	imgpkg.Run([]string{"push", "-i", env.Image, "-f", imageDir})
 
-	cleanUp := func() { os.RemoveAll(path) }
-	cleanUp()
-	defer cleanUp()
-
+	path := env.Assets.CreateTempFolder("not-used")
 	var stderrBs bytes.Buffer
-
-	imgpkg.Run([]string{"push", "-i", env.Image, "-f", assetsPath})
 	_, err := imgpkg.RunWithOpts([]string{"pull", "-b", env.Image, "-o", path},
 		RunOpts{AllowError: true, StderrWriter: &stderrBs})
 
