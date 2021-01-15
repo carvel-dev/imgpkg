@@ -44,9 +44,8 @@ func TestImagesLock_WriteToPath_WhenAnImageIsNotInBundleRepo_DoesNotUpdateTheIma
 		if reference.Identifier() != "sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632" &&
 			reference.Context().Name() == "some.place/repo" {
 			return regv1.Descriptor{}, fmt.Errorf("failed")
-		} else {
-			return regv1.Descriptor{}, nil
 		}
+		return regv1.Descriptor{}, nil
 	}
 	uiOutput, err := runWriteToPath(imageLock, fakeDescriptorRetrieval, bundleFolder)
 	if err != nil {
@@ -98,9 +97,8 @@ func TestImagesLock_WriteToPath_WhenAllImagesAreInBundleRepo_UpdatesTheImagesInI
 	fakeDescriptorRetrieval := func(reference regname.Reference) (regv1.Descriptor, error) {
 		if reference.Context().Name() == "some.place/repo" {
 			return regv1.Descriptor{}, nil
-		} else {
-			return regv1.Descriptor{}, fmt.Errorf("not found")
 		}
+		return regv1.Descriptor{}, fmt.Errorf("not found")
 	}
 	uiOutput, err := runWriteToPath(imageLock, fakeDescriptorRetrieval, bundleFolder)
 	if err != nil {

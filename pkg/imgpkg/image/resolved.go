@@ -48,10 +48,10 @@ func (i ResolvedImage) URL() (string, error) {
 		return "", fmt.Errorf("Expected digest resolution to be consistent over two separate requests")
 	}
 
-	digestUrl, err := regname.NewDigest(tag.Repository.String() + "@" + imgDescriptor.Digest.String())
+	digestURL, err := regname.NewDigest(tag.Repository.String() + "@" + imgDescriptor.Digest.String())
 	if err != nil {
 		return "", err
 	}
 
-	return digestUrl.Name(), nil
+	return digestURL.Name(), nil
 }

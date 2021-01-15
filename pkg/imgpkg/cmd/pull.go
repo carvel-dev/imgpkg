@@ -112,7 +112,7 @@ func (o *PullOptions) validate() error {
 	presentInputParams := 0
 	for _, inputParam := range []string{o.LockInputFlags.LockFilePath, o.BundleFlags.Bundle, o.ImageFlags.Image} {
 		if len(inputParam) > 0 {
-			presentInputParams += 1
+			presentInputParams++
 		}
 	}
 	if presentInputParams > 1 {

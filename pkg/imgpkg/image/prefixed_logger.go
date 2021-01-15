@@ -10,16 +10,16 @@ import (
 	"sync"
 )
 
-type kbldLogger struct {
+type KbldLogger struct {
 	writer     io.Writer
 	writerLock *sync.Mutex
 }
 
-func NewLogger(writer io.Writer) kbldLogger {
-	return kbldLogger{writer: writer, writerLock: &sync.Mutex{}}
+func NewLogger(writer io.Writer) KbldLogger {
+	return KbldLogger{writer: writer, writerLock: &sync.Mutex{}}
 }
 
-func (l kbldLogger) NewPrefixedWriter(prefix string) *LoggerPrefixWriter {
+func (l KbldLogger) NewPrefixedWriter(prefix string) *LoggerPrefixWriter {
 	return &LoggerPrefixWriter{prefix, l.writer, l.writerLock}
 }
 
