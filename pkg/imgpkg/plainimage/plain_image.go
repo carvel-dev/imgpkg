@@ -53,28 +53,28 @@ func NewFetchedPlainImageWithTag(digestRef string, tag string,
 	}
 }
 
-func (o *PlainImage) Repo() string {
-	if o.parsedRef == nil {
+func (i *PlainImage) Repo() string {
+	if i.parsedRef == nil {
 		panic("Unexpected usage of Repo(); call Fetch before")
 	}
-	return o.parsedRef.Context().Name()
+	return i.parsedRef.Context().Name()
 }
 
-func (o *PlainImage) DigestRef() string {
-	if o.parsedRef == nil {
+func (i *PlainImage) DigestRef() string {
+	if i.parsedRef == nil {
 		panic("Unexpected usage of DigestRef(); call Fetch before")
 	}
-	if len(o.parsedDigest) == 0 {
+	if len(i.parsedDigest) == 0 {
 		panic("Unexpected usage of DigestRef(); call Fetch before")
 	}
-	return o.parsedRef.Context().Name() + "@" + o.parsedDigest
+	return i.parsedRef.Context().Name() + "@" + i.parsedDigest
 }
 
-func (o *PlainImage) Tag() string {
-	if o.parsedRef == nil {
+func (i *PlainImage) Tag() string {
+	if i.parsedRef == nil {
 		panic("Unexpected usage of Tag(); call Fetch before")
 	}
-	if tagRef, ok := o.parsedRef.(regname.Tag); ok {
+	if tagRef, ok := i.parsedRef.(regname.Tag); ok {
 		return tagRef.TagStr()
 	}
 	return "" // was a digest ref, so no tag

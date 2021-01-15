@@ -226,7 +226,7 @@ images:
 		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", bundleTag, relocatedBundleLock.Bundle.Tag)
 	}
 
-	if err := validateBundleLockApiVersionAndKind(relocatedBundleLock); err != nil {
+	if err := validateBundleLockAPIVersionAndKind(relocatedBundleLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -292,7 +292,7 @@ images:
 		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, relocateImgLock.Images[0].Image)
 	}
 
-	if err := validateImageLockApiVersionAndKind(relocateImgLock); err != nil {
+	if err := validateImageLockAPIVersionAndKind(relocateImgLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -361,7 +361,7 @@ images:
 		t.Fatalf("expected lock output to contain tag '%s', got '%s'", trimmedTag, relocatedBundleLock.Bundle.Tag)
 	}
 
-	if err := validateBundleLockApiVersionAndKind(relocatedBundleLock); err != nil {
+	if err := validateBundleLockAPIVersionAndKind(relocatedBundleLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -450,7 +450,7 @@ func TestCopyImageToRepoDestinationAndOutputImageLockFile(t *testing.T) {
 			expectedRef, imgLock.Images[0].Image)
 	}
 
-	if err := validateImageLockApiVersionAndKind(imgLock); err != nil {
+	if err := validateImageLockAPIVersionAndKind(imgLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -551,7 +551,7 @@ images:
 			origBundleLock.Bundle.Tag, relocatedBundleLock.Bundle.Tag)
 	}
 
-	if err := validateBundleLockApiVersionAndKind(relocatedBundleLock); err != nil {
+	if err := validateBundleLockAPIVersionAndKind(relocatedBundleLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -636,7 +636,7 @@ images:
 		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", expectedRef, imgLock.Images[0].Image)
 	}
 
-	if err := validateImageLockApiVersionAndKind(imgLock); err != nil {
+	if err := validateImageLockAPIVersionAndKind(imgLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -717,7 +717,7 @@ images:
 		t.Fatalf("expected bundle tag to have tag '%v', was '%s'", tag, bundleLock.Bundle.Tag)
 	}
 
-	if err := validateBundleLockApiVersionAndKind(bundleLock); err != nil {
+	if err := validateBundleLockAPIVersionAndKind(bundleLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -778,7 +778,7 @@ func TestCopyImageInputToTarFileAndToADifferentRepoCheckImageLockIsGenerated(t *
 		t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'", imgLock.Images[0].Image, expectedRef)
 	}
 
-	if err := validateImageLockApiVersionAndKind(imgLock); err != nil {
+	if err := validateImageLockAPIVersionAndKind(imgLock); err != nil {
 		t.Fatal(err.Error())
 	}
 
@@ -970,7 +970,7 @@ func validateImagesPresenceInRegistry(refs []string) error {
 	return nil
 }
 
-func validateBundleLockApiVersionAndKind(bLock lockconfig.BundleLock) error {
+func validateBundleLockAPIVersionAndKind(bLock lockconfig.BundleLock) error {
 	// Do not replace bundleLockKind or bundleLockAPIVersion with consts
 	// BundleLockKind or BundleLockAPIVersion.
 	// This is done to prevent updating the const.
@@ -986,7 +986,7 @@ func validateBundleLockApiVersionAndKind(bLock lockconfig.BundleLock) error {
 	return nil
 }
 
-func validateImageLockApiVersionAndKind(iLock lockconfig.ImagesLock) error {
+func validateImageLockAPIVersionAndKind(iLock lockconfig.ImagesLock) error {
 	// Do not replace imageLockKind or imagesLockAPIVersion with consts
 	// ImagesLockKind or ImagesLockAPIVersion.
 	// This is done to prevent updating the const.

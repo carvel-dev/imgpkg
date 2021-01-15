@@ -1,17 +1,9 @@
-
-# all available settings of specific linters
-linters-settings:
-  goheader:
-    values:
-      const:
-        COMPANY: Copyright 2020 VMware, Inc.
-      # regexp:
-      
-        # AUTHOR: .*@mycompany\.com
-    template: |
-     {{ COMPANY }}
-     SPDX-License-Identifier: Apache-2.0
 linters:
   enable:
     - goheader
+    - golint
   disable-all: true
+# all available settings of specific linters
+linters-settings:
+  goheader:
+    template-path: code-header-template.txt
