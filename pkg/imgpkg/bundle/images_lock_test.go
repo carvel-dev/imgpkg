@@ -13,7 +13,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	"github.com/k14s/imgpkg/pkg/imgpkg/cmd/cmdfakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
@@ -128,7 +128,7 @@ func runWriteToPath(imagesLock lockconfig.ImagesLock, a func(reference regname.R
 	fakeRegistry := &imagefakes.FakeImagesMetadata{}
 	fakeRegistry.GenericCalls(a)
 	uiOutput := ""
-	uiFake := &cmdfakes.FakeUI{}
+	uiFake := &bundlefakes.FakeUI{}
 	uiFake.BeginLinefCalls(func(s string, i ...interface{}) {
 		uiOutput = fmt.Sprintf("%s%s", uiOutput, fmt.Sprintf(s, i...))
 	})
