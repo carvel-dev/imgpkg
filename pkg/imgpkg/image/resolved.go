@@ -12,7 +12,7 @@ import (
 // ResolvedImage respresents an image that will be resolved into url+digest
 type ResolvedImage struct {
 	url      string
-	registry Registry
+	registry ImagesMetadata
 }
 
 type ResolvedImageSourceURL struct {
@@ -21,7 +21,7 @@ type ResolvedImageSourceURL struct {
 	Tag  string
 }
 
-func NewResolvedImage(url string, registry Registry) ResolvedImage {
+func NewResolvedImage(url string, registry ImagesMetadata) ResolvedImage {
 	return ResolvedImage{url, registry}
 }
 

@@ -21,7 +21,7 @@ type CopyRepoSrc struct {
 
 	imageSet    ctlimgset.ImageSet
 	tarImageSet ctlimgset.TarImageSet
-	registry    ctlimg.Registry
+	registry    ctlimg.ImagesReaderWriter
 }
 
 func (o CopyRepoSrc) CopyToTar(dstPath string) error {
