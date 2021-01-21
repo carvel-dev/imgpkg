@@ -18,10 +18,11 @@ type CopyRepoSrc struct {
 	ImageFlags     ImageFlags
 	BundleFlags    BundleFlags
 	LockInputFlags LockInputFlags
+	NonDistributableFlag NonDistributableFlag
 
-	imageSet    ctlimgset.ImageSet
-	tarImageSet ctlimgset.TarImageSet
-	registry    ctlimg.ImagesReaderWriter
+	imageSet             ctlimgset.ImageSet
+	tarImageSet          ctlimgset.TarImageSet
+	registry             ctlimg.ImagesReaderWriter
 }
 
 func (o CopyRepoSrc) CopyToTar(dstPath string) error {
