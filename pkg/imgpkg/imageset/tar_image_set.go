@@ -23,9 +23,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPre
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (o TarImageSet) Export(foundImages *UnprocessedImageRefs,
-	outputPath string, registry ctlimg.ImagesMetadata) error {
-
+func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ctlimg.ImagesMetadata, distributable bool) error {
 	ids, err := o.imageSet.Export(foundImages, registry)
 	if err != nil {
 		return err
@@ -49,7 +47,7 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageRefs,
 
 	opts := imagetar.TarWriterOpts{Concurrency: o.concurrency}
 
-	return imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger).Write()
+	return imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, distributable).Write()
 }
 
 func (o *TarImageSet) Import(path string,

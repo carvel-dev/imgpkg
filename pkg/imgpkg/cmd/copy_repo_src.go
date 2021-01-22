@@ -31,7 +31,7 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry)
+	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, o.NonDistributableFlag.IncludeNonDistributable)
 }
 
 func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
