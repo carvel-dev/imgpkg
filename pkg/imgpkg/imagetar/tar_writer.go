@@ -33,13 +33,13 @@ type TarWriter struct {
 	tf            *tar.Writer
 	layersToWrite []imagedesc.ImageLayerDescriptor
 
-	opts   TarWriterOpts
-	logger Logger
+	opts          TarWriterOpts
+	logger        Logger
+	distributable bool
 }
 
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error),
-	opts TarWriterOpts, logger Logger) *TarWriter {
-	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger}
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, distributable bool) *TarWriter {
+	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, distributable: distributable}
 }
 
 func (w *TarWriter) Write() error {
@@ -74,6 +74,8 @@ func (w *TarWriter) Write() error {
 			}
 
 		case td.ImageIndex != nil:
+
+			//TODO what about writeImageIndex with the foreign flag
 			err := w.writeImageIndex(*td.ImageIndex)
 			if err != nil {
 				return err
@@ -107,10 +109,7 @@ func (w *TarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
 
 func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	for _, imgLayer := range td.Layers {
-		// TODO anything else we can do to deal with this?
-		// Do not include foreign layers since we cannot
-		// import without changing image digest.
-		if imgLayer.IsDistributable() {
+		if imgLayer.IsDistributable() || w.distributable {
 			w.layersToWrite = append(w.layersToWrite, imgLayer)
 		}
 	}
