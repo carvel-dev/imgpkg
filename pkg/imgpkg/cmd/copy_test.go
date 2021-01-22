@@ -65,6 +65,3 @@ func TestTarSrcWithTarDst(t *testing.T) {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 }
-
-
-//TODO: TDD the --include non- distr flag
