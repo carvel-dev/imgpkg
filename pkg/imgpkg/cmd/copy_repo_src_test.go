@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"bytes"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -63,7 +65,7 @@ func TestCopyRepoToTarWhenNonDistributableFlagIsProvided(t *testing.T) {
 
 	imageSet := imageset.NewImageSet(1, image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset"))
 	src := CopyRepoSrc{
-		NonDistributableFlag: NonDistributableFlag{
+		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: true,
 		},
 		ImageFlags: ImageFlags{
@@ -115,7 +117,7 @@ func TestCopyRepoToTarWithoutNonDistributableFlagButImageHasANonDistributableLay
 
 	imageSet := imageset.NewImageSet(1, image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset"))
 	src := CopyRepoSrc{
-		NonDistributableFlag: NonDistributableFlag{
+		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: false,
 		},
 		ImageFlags: ImageFlags{
@@ -159,6 +161,78 @@ func TestCopyRepoToTarWithoutNonDistributableFlagButImageHasANonDistributableLay
 		if doesLayerExistInTarball(imageTarPath, digest, t) && !mediaType.IsDistributable() {
 			t.Fatalf("Expected to fail. The foreign layer was found in the tarball when we expected it not to")
 		}
+	}
+}
+
+func TestCopyRepoToTarWithNonDistributableFlagButEachLayersIsCompressedLayerWarningMessage(t *testing.T) {
+	imageName := "index.docker.io/library/image"
+
+	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config")
+
+	defer fakeRegistry.CleanUp()
+
+	output := bytes.NewBufferString("")
+	imageSet := imageset.NewImageSet(1, image.NewLogger(output).NewPrefixedWriter("test-imageset"))
+	src := CopyRepoSrc{
+		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
+			IncludeNonDistributable: true,
+		},
+		ImageFlags: ImageFlags{
+			imageName,
+		},
+		imageSet:    imageSet,
+		tarImageSet: imageset.NewTarImageSet(imageSet, 1, image.NewLogger(output).NewPrefixedWriter("test-tarImageSet")),
+		registry:    fakeRegistry.Build(),
+	}
+
+	imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+	defer os.Remove(imageTarPath)
+
+	err := src.CopyToTar(imageTarPath)
+	if err != nil {
+		t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+	}
+
+	if !strings.HasSuffix(output.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n") {
+		t.Fatalf("Expected command to give warning message, but got: %s", output.String())
+	}
+}
+
+func TestCopyRepoToTarWithNonDistributableFlagButOneLayerIsNonDistributableNoWarningMessage(t *testing.T) {
+	bundleName := "index.docker.io/library/bundle"
+
+	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images")
+	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_config", "test_assets/image_with_config")
+	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_non_distributable_layer", "test_assets/image_with_config").WithNonDistributableLayer()
+	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_a_smile", "test_assets/image_with_config")
+	defer fakeRegistry.CleanUp()
+
+	output := bytes.NewBufferString("")
+	imageSet := imageset.NewImageSet(1, image.NewLogger(output).NewPrefixedWriter("test-imageset"))
+	src := CopyRepoSrc{
+		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
+			IncludeNonDistributable: true,
+		},
+		BundleFlags: BundleFlags{
+			bundleName,
+		},
+		imageSet:    imageSet,
+		tarImageSet: imageset.NewTarImageSet(imageSet, 1, image.NewLogger(output).NewPrefixedWriter("test-tarImageSet")),
+		registry:    fakeRegistry.Build(),
+	}
+
+	imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+	defer os.Remove(imageTarPath)
+
+	err := src.CopyToTar(imageTarPath)
+	if err != nil {
+		t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+	}
+
+	if strings.Contains(output.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.") {
+		t.Fatalf("Expected command to not give warning message, but got: %s", output.String())
 	}
 }
 

@@ -20,12 +20,13 @@ import (
 type CopyOptions struct {
 	ui ui.UI
 
-	ImageFlags      ImageFlags
-	BundleFlags     BundleFlags
-	LockInputFlags  LockInputFlags
-	LockOutputFlags LockOutputFlags
-	TarFlags        TarFlags
-	RegistryFlags   RegistryFlags
+	ImageFlags                  ImageFlags
+	BundleFlags                 BundleFlags
+	LockInputFlags              LockInputFlags
+	LockOutputFlags             LockOutputFlags
+	TarFlags                    TarFlags
+	RegistryFlags               RegistryFlags
+	IncludeNonDistributableFlag IncludeNonDistributableFlag
 
 	RepoDst     string
 	Concurrency int
@@ -57,6 +58,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.LockOutputFlags.Set(cmd)
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	o.IncludeNonDistributableFlag.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	return cmd
@@ -103,9 +105,10 @@ func (o *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
 
 		repoSrc := CopyRepoSrc{
-			ImageFlags:     o.ImageFlags,
-			BundleFlags:    o.BundleFlags,
-			LockInputFlags: o.LockInputFlags,
+			ImageFlags:                  o.ImageFlags,
+			BundleFlags:                 o.BundleFlags,
+			LockInputFlags:              o.LockInputFlags,
+			IncludeNonDistributableFlag: o.IncludeNonDistributableFlag,
 
 			registry:    registry,
 			imageSet:    imageSet,

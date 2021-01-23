@@ -15,10 +15,10 @@ import (
 )
 
 type CopyRepoSrc struct {
-	ImageFlags           ImageFlags
-	BundleFlags          BundleFlags
-	LockInputFlags       LockInputFlags
-	NonDistributableFlag NonDistributableFlag
+	ImageFlags                  ImageFlags
+	BundleFlags                 BundleFlags
+	LockInputFlags              LockInputFlags
+	IncludeNonDistributableFlag IncludeNonDistributableFlag
 
 	imageSet    ctlimgset.ImageSet
 	tarImageSet ctlimgset.TarImageSet
@@ -31,7 +31,7 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, o.NonDistributableFlag.IncludeNonDistributable)
+	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, o.IncludeNonDistributableFlag.IncludeNonDistributable)
 }
 
 func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
