@@ -1,3 +1,6 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package cmd
 
 import (
@@ -19,12 +22,12 @@ import (
 )
 
 type FakeRegistry struct {
-	state map[string]*imageWithTarPath
+	state map[string]*ImageWithTarPath
 	t     *testing.T
 }
 
 func NewFakeRegistry(t *testing.T) *FakeRegistry {
-	return &FakeRegistry{state: map[string]*imageWithTarPath{}, t: t}
+	return &FakeRegistry{state: map[string]*ImageWithTarPath{}, t: t}
 }
 
 func (r *FakeRegistry) Build() *imagefakes.FakeImagesReaderWriter {
@@ -50,17 +53,17 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) {
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	r.state[bundleName] = &imageWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
+	r.state[bundleName] = &ImageWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
 }
 
-func (r *FakeRegistry) WithImageFromPath(name string, path string) *imageWithTarPath {
+func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
 	}
 
 	image, err := image.NewFileImage(tarballLayer.Name(), nil)
-	tarPath := &imageWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
+	tarPath := &ImageWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
 	r.state[name] = tarPath
 	return tarPath
 }
@@ -71,13 +74,13 @@ func (r *FakeRegistry) CleanUp() {
 	}
 }
 
-type imageWithTarPath struct {
+type ImageWithTarPath struct {
 	image v1.Image
 	path  string
 	t     *testing.T
 }
 
-func (r *imageWithTarPath) WithNonDistributableLayer() {
+func (r *ImageWithTarPath) WithNonDistributableLayer() {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	if err != nil {
 		r.t.Fatalf("unable to create a layer %s", err)

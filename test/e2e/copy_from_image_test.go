@@ -77,6 +77,26 @@ func TestCopyImageInputToTarFileAndToADifferentRepoCheckImageLockIsGenerated(t *
 	}
 }
 
+func TestCopyImageInputToTarWithNonDistributableLayersFlagButNoForeignLayer(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
+
+	// general setup
+	testDir := env.Assets.CreateTempFolder("image-to-tar")
+	tarFilePath := filepath.Join(testDir, "image.tar")
+
+	// create generic image
+	tag := fmt.Sprintf("%d", time.Now().UnixNano())
+	tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
+	out := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, tagRef)
+	imageDigest := fmt.Sprintf("@%s", extractDigest(t, out))
+
+	// copy to tar
+	imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath, "--include-non-distributable"})
+	fmt.Println(imageDigest)
+}
+
 func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
