@@ -25,8 +25,10 @@ func TestCopyRepoToTar(t *testing.T) {
 	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_config", "test_assets/image_with_config")
 	defer fakeRegistry.CleanUp()
 
-	imageSet := imageset.NewImageSet(1, image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset"))
+	logger := image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset")
+	imageSet := imageset.NewImageSet(1, logger)
 	src := CopyRepoSrc{
+		logger: logger,
 		BundleFlags: BundleFlags{
 			bundleName,
 		},
@@ -63,8 +65,10 @@ func TestCopyRepoToTarWhenNonDistributableFlagIsProvided(t *testing.T) {
 
 	defer fakeRegistry.CleanUp()
 
-	imageSet := imageset.NewImageSet(1, image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset"))
+	logger := image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset")
+	imageSet := imageset.NewImageSet(1, logger)
 	src := CopyRepoSrc{
+		logger: logger,
 		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: true,
 		},
@@ -115,8 +119,10 @@ func TestCopyRepoToTarWithoutNonDistributableFlagButImageHasANonDistributableLay
 
 	defer fakeRegistry.CleanUp()
 
-	imageSet := imageset.NewImageSet(1, image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset"))
+	logger := image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset")
+	imageSet := imageset.NewImageSet(1, logger)
 	src := CopyRepoSrc{
+		logger: logger,
 		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: false,
 		},
@@ -173,8 +179,10 @@ func TestCopyRepoToTarWithNonDistributableFlagButEachLayersIsCompressedLayerWarn
 	defer fakeRegistry.CleanUp()
 
 	output := bytes.NewBufferString("")
-	imageSet := imageset.NewImageSet(1, image.NewLogger(output).NewPrefixedWriter("test-imageset"))
+	logger := image.NewLogger(output).NewPrefixedWriter("test-imageset")
+	imageSet := imageset.NewImageSet(1, logger)
 	src := CopyRepoSrc{
+		logger: logger,
 		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: true,
 		},
@@ -182,7 +190,7 @@ func TestCopyRepoToTarWithNonDistributableFlagButEachLayersIsCompressedLayerWarn
 			imageName,
 		},
 		imageSet:    imageSet,
-		tarImageSet: imageset.NewTarImageSet(imageSet, 1, image.NewLogger(output).NewPrefixedWriter("test-tarImageSet")),
+		tarImageSet: imageset.NewTarImageSet(imageSet, 1, logger),
 		registry:    fakeRegistry.Build(),
 	}
 
@@ -210,8 +218,10 @@ func TestCopyRepoToTarWithNonDistributableFlagButOneLayerIsNonDistributableNoWar
 	defer fakeRegistry.CleanUp()
 
 	output := bytes.NewBufferString("")
-	imageSet := imageset.NewImageSet(1, image.NewLogger(output).NewPrefixedWriter("test-imageset"))
+	logger := image.NewLogger(output).NewPrefixedWriter("test-imageset")
+	imageSet := imageset.NewImageSet(1, logger)
 	src := CopyRepoSrc{
+		logger: logger,
 		IncludeNonDistributableFlag: IncludeNonDistributableFlag{
 			IncludeNonDistributable: true,
 		},

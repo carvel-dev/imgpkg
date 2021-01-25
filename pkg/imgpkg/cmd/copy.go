@@ -105,6 +105,7 @@ func (o *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
 
 		repoSrc := CopyRepoSrc{
+			logger:                      prefixedLogger,
 			ImageFlags:                  o.ImageFlags,
 			BundleFlags:                 o.BundleFlags,
 			LockInputFlags:              o.LockInputFlags,

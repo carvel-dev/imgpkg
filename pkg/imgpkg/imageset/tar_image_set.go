@@ -5,6 +5,8 @@ package imageset
 
 import (
 	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io"
 	"os"
 
@@ -23,12 +25,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPre
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ctlimg.ImagesMetadata, distributable bool) error {
-	ids, err := o.imageSet.Export(foundImages, registry)
-	if err != nil {
-		return err
-	}
-
+func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath string, imageLayerWriterCheck imagelayers.ImageLayerWriterChecker) error {
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("Creating file '%s': %s", outputPath, err)
@@ -47,7 +44,7 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 
 	opts := imagetar.TarWriterOpts{Concurrency: o.concurrency}
 
-	return imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, distributable).Write()
+	return imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, imageLayerWriterCheck).Write()
 }
 
 func (o *TarImageSet) Import(path string,

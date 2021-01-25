@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -19,10 +21,10 @@ type CopyRepoSrc struct {
 	BundleFlags                 BundleFlags
 	LockInputFlags              LockInputFlags
 	IncludeNonDistributableFlag IncludeNonDistributableFlag
-
-	imageSet    ctlimgset.ImageSet
-	tarImageSet ctlimgset.TarImageSet
-	registry    ctlimg.ImagesReaderWriter
+	logger                      *ctlimg.LoggerPrefixWriter
+	imageSet                    ctlimgset.ImageSet
+	tarImageSet                 ctlimgset.TarImageSet
+	registry                    ctlimg.ImagesReaderWriter
 }
 
 func (o CopyRepoSrc) CopyToTar(dstPath string) error {
@@ -31,7 +33,16 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	return o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, o.IncludeNonDistributableFlag.IncludeNonDistributable)
+	ids, err := o.imageSet.Export(unprocessedImageRefs, o.registry)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		warnIfIncludeNonDistributableFlagWasProvidedButNoneOfTheLayersWereNonDistributable(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
+	}()
+
+	return o.tarImageSet.Export(ids, dstPath, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
 }
 
 func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
@@ -142,4 +153,23 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	}
 
 	panic("Unreachable")
+}
+
+func warnIfIncludeNonDistributableFlagWasProvidedButNoneOfTheLayersWereNonDistributable(logger *ctlimg.LoggerPrefixWriter, includeNonDistributable bool, descriptors []imagedesc.ImageOrImageIndexDescriptor) {
+	if !includeNonDistributable {
+		return
+	}
+
+	noNonDistributableLayers := true
+	for _, td := range descriptors {
+		for _, layer := range td.Image.Layers {
+			if !layer.IsDistributable() {
+				noNonDistributableLayers = false
+			}
+		}
+	}
+
+	if noNonDistributableLayers {
+		logger.WriteStr("Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
+	}
 }
