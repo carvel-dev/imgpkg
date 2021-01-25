@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io"
 	"os"
 	"sort"
@@ -33,13 +34,13 @@ type TarWriter struct {
 	tf            *tar.Writer
 	layersToWrite []imagedesc.ImageLayerDescriptor
 
-	opts          TarWriterOpts
-	logger        Logger
-	distributable bool
+	opts                  TarWriterOpts
+	logger                Logger
+	imageLayerWriterCheck imagelayers.ImageLayerWriterChecker
 }
 
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, distributable bool) *TarWriter {
-	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, distributable: distributable}
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck imagelayers.ImageLayerWriterChecker) *TarWriter {
+	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, imageLayerWriterCheck: imageLayerWriterCheck}
 }
 
 func (w *TarWriter) Write() error {
@@ -84,10 +85,6 @@ func (w *TarWriter) Write() error {
 		}
 	}
 
-	defer func() {
-		warnIfNoNonDistributableLayersFoundButFlagProvided(w.logger, w.ids.Descriptors(), w.distributable)
-	}()
-
 	return w.writeLayers()
 }
 
@@ -111,7 +108,7 @@ func (w *TarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
 
 func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	for _, imgLayer := range td.Layers {
-		if imgLayer.IsDistributable() || w.distributable {
+		if w.imageLayerWriterCheck.ShouldLayerBeIncluded(imgLayer) {
 			w.layersToWrite = append(w.layersToWrite, imgLayer)
 		}
 	}
@@ -327,18 +324,4 @@ func (r zeroReader) Read(p []byte) (n int, err error) {
 		p[i] = 0
 	}
 	return len(p), nil
-}
-
-func warnIfNoNonDistributableLayersFoundButFlagProvided(logger Logger, descriptors []imagedesc.ImageOrImageIndexDescriptor, isDistributable bool) {
-	noNonDistributableLayers := true
-	for _, td := range descriptors {
-		for _, layer := range td.Image.Layers {
-			if !layer.IsDistributable() {
-				noNonDistributableLayers = false
-			}
-		}
-	}
-	if noNonDistributableLayers && isDistributable {
-		logger.WriteStr("Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
-	}
 }
