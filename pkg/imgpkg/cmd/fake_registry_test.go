@@ -11,6 +11,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"strings"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
@@ -45,7 +47,7 @@ func (r *FakeRegistry) Build() *imagefakes.FakeImagesReaderWriter {
 	return fakeRegistry
 }
 
-func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) {
+func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -54,6 +56,8 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) {
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
 	r.state[bundleName] = &ImageWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
+	return BundleInfo{r, path}
+
 }
 
 func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageWithTarPath {
@@ -66,6 +70,38 @@ func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageWithTar
 	tarPath := &ImageWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
 	r.state[name] = tarPath
 	return tarPath
+}
+
+type BundleInfo struct {
+	r          *FakeRegistry
+	BundlePath string
+}
+
+func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
+	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml")
+	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
+	if err != nil {
+		b.r.t.Fatalf("Got error: %s", err.Error())
+	}
+
+	for _, img := range imgLock.Images {
+		imageName := strings.Split(img.Image, "@")[0]
+		b.r.WithImageFromPath(imageName, path)
+	}
+	return b.r
+}
+
+func (r *FakeRegistry) WithNonDistributableLayerInImage(imageNames ...string) {
+	for _, imageName := range imageNames {
+		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
+		if err != nil {
+			r.t.Fatalf("unable to create a layer %s", err)
+		}
+		r.state[imageName].image, err = mutate.AppendLayers(r.state[imageName].image, layer)
+		if err != nil {
+			r.t.Fatalf("unable to append a layer %s", err)
+		}
+	}
 }
 
 func (r *FakeRegistry) CleanUp() {
