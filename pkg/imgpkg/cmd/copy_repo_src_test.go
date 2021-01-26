@@ -21,8 +21,7 @@ func TestCopyRepoToTar(t *testing.T) {
 	bundleName := "index.docker.io/library/bundle"
 
 	fakeRegistry := NewFakeRegistry(t)
-	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle")
-	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_config", "test_assets/image_with_config")
+	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config")
 	defer fakeRegistry.CleanUp()
 
 	logger := image.NewLogger(os.Stdout).NewPrefixedWriter("test-imageset")
@@ -211,10 +210,10 @@ func TestCopyRepoToTarWithNonDistributableFlagButOneLayerIsNonDistributableNoWar
 	bundleName := "index.docker.io/library/bundle"
 
 	fakeRegistry := NewFakeRegistry(t)
-	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images")
-	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_config", "test_assets/image_with_config")
-	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_non_distributable_layer", "test_assets/image_with_config").WithNonDistributableLayer()
-	fakeRegistry.WithImageFromPath("index.docker.io/library/image_with_a_smile", "test_assets/image_with_config")
+	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
+		WithEveryImageFrom("test_assets/image_with_config").
+		WithNonDistributableLayerInImage("index.docker.io/library/image_with_non_distributable_layer")
+
 	defer fakeRegistry.CleanUp()
 
 	output := bytes.NewBufferString("")
