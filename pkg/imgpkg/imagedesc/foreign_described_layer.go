@@ -4,6 +4,9 @@
 package imagedesc
 
 import (
+	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageutils/gzip"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageutils/verify"
 	"io"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -11,24 +14,40 @@ import (
 )
 
 type ForeignDescribedLayer struct {
-	desc ImageLayerDescriptor
+	desc     ImageLayerDescriptor
+	contents LayerContents
 }
 
 var _ regv1.Layer = ForeignDescribedLayer{}
 
-func NewForeignDescribedLayer(desc ImageLayerDescriptor) ForeignDescribedLayer {
-	return ForeignDescribedLayer{desc}
+func NewForeignDescribedLayer(desc ImageLayerDescriptor, contents LayerContents) ForeignDescribedLayer {
+	return ForeignDescribedLayer{desc, contents}
 }
 
 func (l ForeignDescribedLayer) Digest() (regv1.Hash, error) { return regv1.NewHash(l.desc.Digest) }
 func (l ForeignDescribedLayer) DiffID() (regv1.Hash, error) { return regv1.NewHash(l.desc.DiffID) }
 
 func (l ForeignDescribedLayer) Compressed() (io.ReadCloser, error) {
-	panic("ForeignDescribedLayer.Compressed: not implemented")
+	return l.contents.Open()
 }
 
 func (l ForeignDescribedLayer) Uncompressed() (io.ReadCloser, error) {
-	panic("ForeignDescribedLayer.Uncompressed: not implemented")
+	rc, err := l.contents.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := l.Digest()
+	if err != nil {
+		return nil, fmt.Errorf("Computing digest: %v", err)
+	}
+
+	rc, err = verify.ReadCloser(rc, h)
+	if err != nil {
+		return nil, fmt.Errorf("Creating verified reader: %v", err)
+	}
+
+	return gzip.ReadCloser(rc), nil
 }
 
 func (l ForeignDescribedLayer) Size() (int64, error) { return l.desc.Size, nil }

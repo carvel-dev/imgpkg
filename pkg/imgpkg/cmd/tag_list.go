@@ -9,6 +9,7 @@ import (
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +41,7 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (o *TagListOptions) Run() error {
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{})
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

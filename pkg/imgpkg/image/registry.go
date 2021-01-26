@@ -7,6 +7,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -44,11 +46,12 @@ type RegistryOpts struct {
 }
 
 type Registry struct {
-	opts    []regremote.Option
-	refOpts []regname.Option
+	opts                    []regremote.Option
+	refOpts                 []regname.Option
+	imageLayerWriterChecker imagelayers.ImageLayerWriterChecker
 }
 
-func NewRegistry(opts RegistryOpts) (Registry, error) {
+func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterChecker) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -64,7 +67,8 @@ func NewRegistry(opts RegistryOpts) (Registry, error) {
 			regremote.WithTransport(httpTran),
 			regremote.WithAuthFromKeychain(registryKeychain(opts)),
 		},
-		refOpts: refOpts,
+		refOpts:                 refOpts,
+		imageLayerWriterChecker: imageLayerWriterChecker,
 	}, nil
 }
 
@@ -97,6 +101,29 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	}
 
 	err = i.retry(func() error {
+		layers, err := img.Layers()
+		if err != nil {
+			return err
+		}
+		for _, layer := range layers {
+			layerMediaType, err := layer.MediaType()
+			if err != nil {
+				return err
+			}
+			layerDescriptor := imagedesc.ImageLayerDescriptor{
+				MediaType: string(layerMediaType),
+			}
+
+			if i.imageLayerWriterChecker.ShouldLayerBeIncluded(layerDescriptor) {
+				err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
+				if err != nil {
+					return err
+				}
+			} else {
+				println(fmt.Sprintf("Skipping layer! :%+v", layer))
+			}
+
+		}
 		return regremote.Write(overriddenRef, img, i.opts...)
 	})
 	if err != nil {
