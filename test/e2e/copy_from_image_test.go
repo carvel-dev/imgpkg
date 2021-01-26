@@ -6,6 +6,9 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,7 +80,7 @@ func TestCopyImageInputToTarFileAndToADifferentRepoCheckImageLockIsGenerated(t *
 	}
 }
 
-func TestCopyImageInputToTarWithNonDistributableLayersFlagButNoForeignLayer(t *testing.T) {
+func TestCopyImageInputToTarWithNonDistributableLayersFlagButContainsANonDistributableLayer(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
@@ -86,15 +89,61 @@ func TestCopyImageInputToTarWithNonDistributableLayersFlagButNoForeignLayer(t *t
 	testDir := env.Assets.CreateTempFolder("image-to-tar")
 	tarFilePath := filepath.Join(testDir, "image.tar")
 
-	// create generic image
-	tag := fmt.Sprintf("%d", time.Now().UnixNano())
-	tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
-	out := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, tagRef)
-	imageDigest := fmt.Sprintf("@%s", extractDigest(t, out))
+	nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+	repoToCopyName := env.RelocationRepo + "include-non-distributable"
 
 	// copy to tar
-	imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath, "--include-non-distributable"})
-	fmt.Println(imageDigest)
+	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
+
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"})
+
+	digest, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+	if err != nil {
+		t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)
+	}
+
+	layer, err := remote.Layer(digest, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		t.Fatalf("Unable to fetch the layer of the copied image: %v", err)
+	}
+
+	_, err = layer.Compressed()
+	if err != nil {
+		t.Fatalf("Expected to find a non-distributable layer however it wasn't found. Got response code: %v", err)
+	}
+}
+
+func TestCopyImageInputToTarWithoutNonDistributableLayersFlagButContainsANonDistributableLayer(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
+
+	// general setup
+	testDir := env.Assets.CreateTempFolder("image-to-tar")
+	tarFilePath := filepath.Join(testDir, "image.tar")
+
+	nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+	repoToCopyName := env.RelocationRepo + "include-non-distributable"
+
+	// copy to tar
+	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
+
+	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName})
+
+	digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+	if err != nil {
+		t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)
+	}
+
+	layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		t.Fatalf("Unable to fetch the layer of the copied image: %v", err)
+	}
+
+	_, err = layer.Compressed()
+	if err == nil {
+		t.Fatalf("Expected non-distributable layer to NOT be copied into registry, however it was")
+	}
 }
 
 func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {

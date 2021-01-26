@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"os"
 
 	"github.com/cppforlife/go-cli-ui/ui"
@@ -75,7 +76,7 @@ func (o *CopyOptions) Run() error {
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

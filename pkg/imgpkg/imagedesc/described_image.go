@@ -6,7 +6,6 @@ package imagedesc
 import (
 	"encoding/json"
 	"fmt"
-
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
@@ -32,14 +31,14 @@ func (i DescribedImage) Layers() ([]regv1.Layer, error) {
 	var layers []regv1.Layer
 	for _, layerTD := range i.desc.Layers {
 		var layer regv1.Layer
+		layerFile, err := i.layerProvider.FindLayer(layerTD)
+		if err != nil {
+			return nil, err
+		}
 		if layerTD.IsDistributable() {
-			layerFile, err := i.layerProvider.FindLayer(layerTD)
-			if err != nil {
-				return nil, err
-			}
 			layer = NewDescribedLayer(layerTD, layerFile)
 		} else {
-			layer = NewForeignDescribedLayer(layerTD)
+			layer = NewForeignDescribedLayer(layerTD, layerFile)
 		}
 		layers = append(layers, layer)
 	}
