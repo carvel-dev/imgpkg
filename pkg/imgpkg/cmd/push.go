@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
+	"os"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -51,7 +52,10 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (o *PushOptions) Run() error {
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{})
+	logger := ctlimg.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("push | ")
+
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{}, prefixedLogger)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
 	}

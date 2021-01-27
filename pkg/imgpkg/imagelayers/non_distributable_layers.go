@@ -3,7 +3,9 @@
 
 package imagelayers
 
-import "github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+import (
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+)
 
 type ImageLayerWriterChecker struct {
 	includeNonDistributable bool
@@ -13,6 +15,10 @@ func NewImageLayerWriterCheck(includeNonDistributable bool) ImageLayerWriterChec
 	return ImageLayerWriterChecker{includeNonDistributable}
 }
 
-func (c ImageLayerWriterChecker) ShouldLayerBeIncluded(layer imagedesc.ImageLayerDescriptor) bool {
-	return layer.IsDistributable() || c.includeNonDistributable
+func (c ImageLayerWriterChecker) ShouldLayerBeIncluded(layer regv1.Layer) (bool, error) {
+	mediaType, err := layer.MediaType()
+	if err != nil {
+		return false, err
+	}
+	return mediaType.IsDistributable() || c.includeNonDistributable, nil
 }

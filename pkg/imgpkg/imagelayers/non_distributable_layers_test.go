@@ -14,7 +14,10 @@ func TestIncludesNonDistributableLayerWhenFlagIsProvided(t *testing.T) {
 	}
 
 	distributableFlag := true
-	shouldWrite := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imageLayer)
+	shouldWrite, err := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	if err != nil {
+		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
+	}
 
 	if shouldWrite != true {
 		t.Fatalf("Expected to return true, but instead returned false")
@@ -27,7 +30,10 @@ func TestDoesNotIncludeNonDistributableLayerWhenFlagIsNotProvided(t *testing.T) 
 	}
 
 	distributableFlag := false
-	shouldWrite := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imageLayer)
+	shouldWrite, err := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	if err != nil {
+		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
+	}
 
 	if shouldWrite != false {
 		t.Fatalf("Expected to return false, but instead returned true")
@@ -38,14 +44,20 @@ func TestIncludesDistributableLayer(t *testing.T) {
 	imageLayer := imagedesc.ImageLayerDescriptor{}
 
 	distributableFlag := false
-	shouldWrite := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imageLayer)
+	shouldWrite, err := ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	if err != nil {
+		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
+	}
 
 	if shouldWrite != true {
 		t.Fatalf("Expected to return true, but instead returned false")
 	}
 
 	distributableFlag = true
-	shouldWrite = ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imageLayer)
+	shouldWrite, err = ImageLayerWriterChecker{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	if err != nil {
+		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
+	}
 
 	if shouldWrite != true {
 		t.Fatalf("Expected to return true, but instead returned false")

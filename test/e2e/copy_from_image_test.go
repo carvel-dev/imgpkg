@@ -128,8 +128,15 @@ func TestCopyImageInputToTarWithoutNonDistributableLayersFlagButContainsANonDist
 	// copy to tar
 	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
 
-	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName})
+	var stdOutWriter bytes.Buffer
+	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+		StdoutWriter: &stdOutWriter,
+		StderrWriter: &stdOutWriter,
+	})
 
+	if !strings.Contains(stdOutWriter.String(), "Skipped layer") {
+		t.Fatalf("Expected warning message to user, specifying which layer was skipped. But found: %s", stdOutWriter.String())
+	}
 	digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
 	if err != nil {
 		t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)

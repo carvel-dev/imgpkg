@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -22,7 +23,7 @@ var stdOut *bytes.Buffer
 
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
-	logger := image.NewLogger(stdOut).NewPrefixedWriter("test-imageset")
+	logger := image.NewLogger(stdOut).NewPrefixedWriter("test|    ")
 	imageSet := imageset.NewImageSet(1, logger)
 
 	subject = CopyRepoSrc{
@@ -84,6 +85,22 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
 	})
+	t.Run("Warning message should be printed indicating layers have been skipped", func(t *testing.T) {
+		stdOut.Reset()
+
+		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(imageTarPath)
+
+		err := subject.CopyToTar(imageTarPath)
+		if err != nil {
+			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+		}
+
+		if !regexp.MustCompile("Skipped layer \\[sha256:.*\\]: Layer was non-distributable").Match(stdOut.Bytes()) {
+			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
+		}
+	})
+
 	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
 		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
