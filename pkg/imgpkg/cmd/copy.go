@@ -8,7 +8,6 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"os"
 
-	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
@@ -19,7 +18,6 @@ import (
 )
 
 type CopyOptions struct {
-	ui ui.UI
 
 	ImageFlags                  ImageFlags
 	BundleFlags                 BundleFlags
@@ -33,8 +31,8 @@ type CopyOptions struct {
 	Concurrency int
 }
 
-func NewCopyOptions(ui ui.UI) *CopyOptions {
-	return &CopyOptions{ui: ui}
+func NewCopyOptions() *CopyOptions {
+	return &CopyOptions{}
 }
 
 func NewCopyCmd(o *CopyOptions) *cobra.Command {
