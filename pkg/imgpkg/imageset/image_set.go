@@ -22,14 +22,15 @@ func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
 }
 
 func (o ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry ctlimg.ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry ctlimg.ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
 
 	ids, err := o.Export(foundImages, registry)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return o.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
+	images, err := o.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
+	return images, ids, err
 }
 
 func (o ImageSet) Export(foundImages *UnprocessedImageRefs,

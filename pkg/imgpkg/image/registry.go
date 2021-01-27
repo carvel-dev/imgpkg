@@ -119,8 +119,6 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 				if err != nil {
 					return err
 				}
-			} else {
-				println(fmt.Sprintf("Skipping layer! :%+v", layer))
 			}
 
 		}
