@@ -35,7 +35,12 @@ func NewFakeRegistry(t *testing.T) *FakeRegistry {
 func (r *FakeRegistry) Build() *imagefakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagefakes.FakeImagesReaderWriter{}
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
-		return v1.Descriptor{}, nil
+		return v1.Descriptor{
+			Digest: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "d8625b0248462a47992ee06b5cff5dcf9c7d26b8a37121c63e5f2da93e1af9bd",
+			},
+		}, nil
 	})
 
 	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {

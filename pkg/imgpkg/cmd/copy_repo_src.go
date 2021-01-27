@@ -38,11 +38,14 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	defer func() {
-		warnIfIncludeNonDistributableFlagWasProvidedButNoneOfTheLayersWereNonDistributable(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
-	}()
+	err = o.tarImageSet.Export(ids, dstPath, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
+	if err != nil {
+		return err
+	}
 
-	return o.tarImageSet.Export(ids, dstPath, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
+	warnIfIncludeNonDistributableFlagWasProvidedButNoneOfTheLayersWereNonDistributable(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
+
+	return nil
 }
 
 func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
@@ -56,10 +59,12 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	processedImages, err := o.imageSet.Relocate(unprocessedImageRefs, importRepo, o.registry)
+	processedImages, ids, err := o.imageSet.Relocate(unprocessedImageRefs, importRepo, o.registry)
 	if err != nil {
 		return nil, err
 	}
+
+	warnIfIncludeNonDistributableFlagWasProvidedButNoneOfTheLayersWereNonDistributable(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
 
 	return processedImages, nil
 }
