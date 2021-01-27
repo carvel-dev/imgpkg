@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io/ioutil"
 	"net"
@@ -49,9 +48,10 @@ type Registry struct {
 	opts                    []regremote.Option
 	refOpts                 []regname.Option
 	imageLayerWriterChecker imagelayers.ImageLayerWriterChecker
+	logger                  *LoggerPrefixWriter
 }
 
-func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterChecker) (Registry, error) {
+func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterChecker, logger *LoggerPrefixWriter) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -69,6 +69,7 @@ func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLay
 		},
 		refOpts:                 refOpts,
 		imageLayerWriterChecker: imageLayerWriterChecker,
+		logger:                  logger,
 	}, nil
 }
 
@@ -106,19 +107,22 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 			return err
 		}
 		for _, layer := range layers {
-			layerMediaType, err := layer.MediaType()
+			shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
 			if err != nil {
 				return err
 			}
-			layerDescriptor := imagedesc.ImageLayerDescriptor{
-				MediaType: string(layerMediaType),
-			}
 
-			if i.imageLayerWriterChecker.ShouldLayerBeIncluded(layerDescriptor) {
+			if shouldLayerBeIncluded {
 				err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
 				if err != nil {
 					return err
 				}
+			} else {
+				digest, err := layer.Digest()
+				if err != nil {
+					return err
+				}
+				i.logger.WriteStr("Skipped layer [%s]: Layer was non-distributable", digest.String())
 			}
 
 		}

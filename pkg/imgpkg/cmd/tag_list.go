@@ -11,6 +11,7 @@ import (
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 type TagListOptions struct {
@@ -41,7 +42,10 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (o *TagListOptions) Run() error {
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{})
+	logger := ctlimg.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("tag | ")
+
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{}, prefixedLogger)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

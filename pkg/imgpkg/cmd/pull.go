@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
+	"os"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -59,7 +60,10 @@ func (o *PullOptions) Run() error {
 		return err
 	}
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{})
+	logger := ctlimg.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("pull | ")
+
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{}, prefixedLogger)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
