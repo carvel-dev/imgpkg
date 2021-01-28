@@ -63,7 +63,7 @@ func (o *PullOptions) Run() error {
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("pull | ")
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{}, prefixedLogger)
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterFilter{}, prefixedLogger)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

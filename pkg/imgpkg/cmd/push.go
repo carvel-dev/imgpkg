@@ -55,7 +55,7 @@ func (o *PushOptions) Run() error {
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("push | ")
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterChecker{}, prefixedLogger)
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterFilter{}, prefixedLogger)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
 	}

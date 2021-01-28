@@ -6,21 +6,22 @@ package cmd
 import (
 	"archive/tar"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"strings"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 type FakeRegistry struct {
@@ -32,8 +33,8 @@ func NewFakeRegistry(t *testing.T) *FakeRegistry {
 	return &FakeRegistry{state: map[string]*ImageWithTarPath{}, t: t}
 }
 
-func (r *FakeRegistry) Build() *imagefakes.FakeImagesReaderWriter {
-	fakeRegistry := &imagefakes.FakeImagesReaderWriter{}
+func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
+	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
 		return v1.Descriptor{
 			Digest: v1.Hash{

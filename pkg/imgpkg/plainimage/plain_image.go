@@ -23,8 +23,8 @@ type PlainImage struct {
 	fetchedIndex regv1.ImageIndex
 }
 
-func NewPlainImage(ref string, registry ctlimg.ImagesMetadata) *PlainImage {
-	return &PlainImage{ref: ref, registry: registry}
+func NewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) *PlainImage {
+	return &PlainImage{ref: ref, registry: imagesMetadata}
 }
 
 func NewFetchedPlainImageWithTag(digestRef string, tag string,

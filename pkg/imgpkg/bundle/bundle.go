@@ -23,12 +23,12 @@ type Bundle struct {
 	imgRetriever ctlimg.ImagesMetadata
 }
 
-func NewBundle(ref string, registry ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainimg.NewPlainImage(ref, registry), registry}
+func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+	return &Bundle{plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata}
 }
 
-func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, registry ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainImg, registry}
+func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+	return &Bundle{plainImg, imagesMetadata}
 }
 
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }

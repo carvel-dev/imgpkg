@@ -5,10 +5,11 @@ package imageset
 
 import (
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io"
 	"os"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
@@ -25,7 +26,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPre
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath string, imageLayerWriterCheck imagelayers.ImageLayerWriterChecker) error {
+func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath string, imageLayerWriterCheck imagelayers.ImageLayerWriterFilter) error {
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("Creating file '%s': %s", outputPath, err)
@@ -48,7 +49,7 @@ func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath strin
 }
 
 func (o *TarImageSet) Import(path string,
-	importRepo regname.Repository, registry ctlimg.ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {

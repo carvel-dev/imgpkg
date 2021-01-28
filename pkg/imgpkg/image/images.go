@@ -5,7 +5,6 @@ package image
 
 import (
 	"fmt"
-	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"strings"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -19,14 +18,6 @@ type ImagesMetadata interface {
 	Generic(regname.Reference) (regv1.Descriptor, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
 	Image(regname.Reference) (regv1.Image, error)
-}
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
-type ImagesReaderWriter interface {
-	ImagesMetadata
-	WriteImage(regname.Reference, regv1.Image) error
-	WriteIndex(regname.Reference, regv1.ImageIndex) error
-	WriteTag(regname.Tag, regremote.Taggable) error
 }
 
 type Images struct {

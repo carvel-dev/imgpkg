@@ -5,8 +5,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"os"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -18,7 +19,6 @@ import (
 )
 
 type CopyOptions struct {
-
 	ImageFlags                  ImageFlags
 	BundleFlags                 BundleFlags
 	LockInputFlags              LockInputFlags
