@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io/ioutil"
 	"net"
@@ -112,19 +113,22 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 				return err
 			}
 
-			if shouldLayerBeIncluded {
+			mediaType, err := layer.MediaType()
+			if err != nil {
+				return err
+			}
+			if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
 				err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
 				if err != nil {
 					return err
 				}
-			} else {
+			} else if !mediaType.IsDistributable() {
 				digest, err := layer.Digest()
 				if err != nil {
 					return err
 				}
 				i.logger.WriteStr("Skipped layer [%s]: Layer was non-distributable", digest.String())
 			}
-
 		}
 		return regremote.Write(overriddenRef, img, i.opts...)
 	})
@@ -133,6 +137,10 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	}
 
 	return nil
+}
+
+func shouldEagerlyWriteLayer(shouldLayerBeIncluded bool, mediaType types.MediaType) bool {
+	return shouldLayerBeIncluded && !mediaType.IsDistributable()
 }
 
 func (i Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
