@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
@@ -24,7 +25,7 @@ type CopyRepoSrc struct {
 	logger                      *ctlimg.LoggerPrefixWriter
 	imageSet                    ctlimgset.ImageSet
 	tarImageSet                 ctlimgset.TarImageSet
-	registry                    ctlimg.ImagesReaderWriter
+	registry                    ctlimgset.ImagesReaderWriter
 }
 
 func (o CopyRepoSrc) CopyToTar(dstPath string) error {

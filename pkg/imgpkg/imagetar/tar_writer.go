@@ -37,10 +37,10 @@ type TarWriter struct {
 
 	opts                  TarWriterOpts
 	logger                Logger
-	imageLayerWriterCheck imagelayers.ImageLayerWriterChecker
+	imageLayerWriterCheck imagelayers.ImageLayerWriterFilter
 }
 
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck imagelayers.ImageLayerWriterChecker) *TarWriter {
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck imagelayers.ImageLayerWriterFilter) *TarWriter {
 	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, imageLayerWriterCheck: imageLayerWriterCheck}
 }
 

@@ -7,15 +7,15 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
-type ImageLayerWriterChecker struct {
+type ImageLayerWriterFilter struct {
 	includeNonDistributable bool
 }
 
-func NewImageLayerWriterCheck(includeNonDistributable bool) ImageLayerWriterChecker {
-	return ImageLayerWriterChecker{includeNonDistributable}
+func NewImageLayerWriterCheck(includeNonDistributable bool) ImageLayerWriterFilter {
+	return ImageLayerWriterFilter{includeNonDistributable}
 }
 
-func (c ImageLayerWriterChecker) ShouldLayerBeIncluded(layer regv1.Layer) (bool, error) {
+func (c ImageLayerWriterFilter) ShouldLayerBeIncluded(layer regv1.Layer) (bool, error) {
 	mediaType, err := layer.MediaType()
 	if err != nil {
 		return false, err

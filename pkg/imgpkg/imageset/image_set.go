@@ -5,12 +5,22 @@ package imageset
 
 import (
 	"fmt"
+
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
+type ImagesReaderWriter interface {
+	ctlimg.ImagesMetadata
+	WriteImage(regname.Reference, regv1.Image) error
+	WriteIndex(regname.Reference, regv1.ImageIndex) error
+	WriteTag(regname.Tag, regremote.Taggable) error
+}
 
 type ImageSet struct {
 	concurrency int
@@ -22,7 +32,7 @@ func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
 }
 
 func (o ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry ctlimg.ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
 
 	ids, err := o.Export(foundImages, registry)
 	if err != nil {
@@ -34,7 +44,7 @@ func (o ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 }
 
 func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
-	registry ctlimg.ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
+	imagesMetadata ctlimg.ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
 	o.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
 	defer func() { o.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
@@ -51,7 +61,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
 		refs = append(refs, imagedesc.Metadata{ref, img.Tag})
 	}
 
-	ids, err := imagedesc.NewImageRefDescriptors(refs, registry)
+	ids, err := imagedesc.NewImageRefDescriptors(refs, imagesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("Collecting packaging metadata: %s", err)
 	}
@@ -60,7 +70,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
 }
 
 func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
-	importRepo regname.Repository, registry ctlimg.ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	importedImages := NewProcessedImages()
 
@@ -119,7 +129,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 
 func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	existingRef regname.Reference, importRepo regname.Repository,
-	registry ctlimg.ImagesReaderWriter) (regname.Digest, error) {
+	registry ImagesReaderWriter) (regname.Digest, error) {
 
 	itemDigest, err := item.Digest()
 	if err != nil {
@@ -195,7 +205,7 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 }
 
 func (o *ImageSet) verifyTagDigest(
-	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry ctlimg.ImagesReaderWriter) error {
+	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry ImagesReaderWriter) error {
 
 	resultURL, err := ctlimg.NewResolvedImage(uploadTagRef.Name(), registry).URL()
 	if err != nil {
