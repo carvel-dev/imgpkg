@@ -96,7 +96,7 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
 		}
 
-		if !regexp.MustCompile("Skipped layer \\[sha256:.*\\]: Layer was non-distributable").Match(stdOut.Bytes()) {
+		if !regexp.MustCompile("Skipped layer due to it being non-distributable\\. If you would like to include non-distributable layers, use the --include-non-distributable flag").Match(stdOut.Bytes()) {
 			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
 		}
 	})
@@ -133,6 +133,10 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		}
 
 		if strings.Contains(stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.") {
+			t.Fatalf("Expected command to not give warning message, but got: %s", stdOut.String())
+		}
+
+		if strings.Contains(stdOut.String(), "Skipped layer due to it being non-distributable.") {
 			t.Fatalf("Expected command to not give warning message, but got: %s", stdOut.String())
 		}
 	})

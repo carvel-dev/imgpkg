@@ -6,14 +6,15 @@ package e2e
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
@@ -134,7 +135,7 @@ func TestCopyImageInputToTarWithoutNonDistributableLayersFlagButContainsANonDist
 		StderrWriter: &stdOutWriter,
 	})
 
-	if !strings.Contains(stdOutWriter.String(), "Skipped layer") {
+	if !strings.Contains(stdOutWriter.String(), "Skipped layer due to it being non-distributable.") {
 		t.Fatalf("Expected warning message to user, specifying which layer was skipped. But found: %s", stdOutWriter.String())
 	}
 	digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)

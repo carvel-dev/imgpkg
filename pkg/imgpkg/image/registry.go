@@ -7,13 +7,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -122,12 +123,6 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 				if err != nil {
 					return err
 				}
-			} else if !mediaType.IsDistributable() {
-				digest, err := layer.Digest()
-				if err != nil {
-					return err
-				}
-				i.logger.WriteStr("Skipped layer [%s]: Layer was non-distributable", digest.String())
 			}
 		}
 		return regremote.Write(overriddenRef, img, i.opts...)
