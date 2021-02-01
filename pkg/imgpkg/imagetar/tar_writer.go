@@ -7,12 +7,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"io"
 	"os"
 	"sort"
 	"time"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
@@ -115,8 +115,6 @@ func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 		}
 		if shouldLayerBeIncluded {
 			w.layersToWrite = append(w.layersToWrite, imgLayer)
-		} else if !types.MediaType(imgLayer.MediaType).IsDistributable() {
-			w.logger.WriteStr("Skipped layer [%s]: Layer was non-distributable", imgLayer.Digest)
 		}
 	}
 	return nil
