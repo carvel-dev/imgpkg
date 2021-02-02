@@ -19,6 +19,7 @@ import (
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 // constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
@@ -101,7 +102,7 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 		return err
 	}
 
-	err = Retry(func() error {
+	err = util.Retry(func() error {
 		layers, err := img.Layers()
 		if err != nil {
 			return err
@@ -150,7 +151,7 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 		return err
 	}
 
-	err = Retry(func() error {
+	err = util.Retry(func() error {
 		return regremote.WriteIndex(overriddenRef, idx, i.opts...)
 	})
 	if err != nil {
@@ -166,7 +167,7 @@ func (i Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 		return err
 	}
 
-	err = Retry(func() error {
+	err = util.Retry(func() error {
 		return regremote.Tag(overriddenRef, taggagle, i.opts...)
 	})
 	if err != nil {

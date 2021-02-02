@@ -226,7 +226,7 @@ func (w *TarWriter) fillInLayers(writtenLayers map[string]writtenLayer) error {
 			writeThrottle.Take()
 			defer writeThrottle.Done()
 
-			errCh <- w.retry(func() error {
+			errCh <- util.Retry(func() error {
 				return w.fillInLayer(writtenLayer)
 			})
 		}()
@@ -308,18 +308,6 @@ func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size
 	}
 
 	return nil
-}
-
-func (TarWriter) retry(fn func() error) error {
-	var err error
-	for i := 0; i < 5; i++ {
-		err = fn()
-		if err == nil {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return fmt.Errorf("Retried 5 times: %s", err)
 }
 
 type zeroReader struct{}

@@ -1,4 +1,4 @@
-package image
+package util
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
 
 func TestRetry(t *testing.T) {
@@ -39,12 +38,12 @@ func TestNonRetryableTransportErrorDoesNotRetry(t *testing.T) {
 	}
 }
 
-func TestNonRetryableTarEntryNotFoundDoesNotRetry(t *testing.T) {
+func TestNonRetryableErrorDoesNotRetry(t *testing.T) {
 	numOfRetries := 0
 
 	err := Retry(func() error {
 		numOfRetries++
-		return imagetar.TarEntryNotFoundError{
+		return NonRetryableError{
 			"An error occurred",
 		}
 	})
