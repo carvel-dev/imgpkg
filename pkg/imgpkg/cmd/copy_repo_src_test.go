@@ -202,6 +202,66 @@ func TestCopyingToTarImageContainingOnlyDistributableLayers(t *testing.T) {
 	})
 }
 
+func TestCopyingToTarImageIndexContainingOnlyDistributableLayers(t *testing.T) {
+	imageName := "index.docker.io/library/image"
+	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry.WithARandomImageIndex(imageName)
+	defer fakeRegistry.CleanUp()
+
+	subject := subject
+	subject.ImageFlags = ImageFlags{
+		imageName,
+	}
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("Tar should contain every layer", func(t *testing.T) {
+		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(imageTarPath)
+
+		err := subject.CopyToTar(imageTarPath)
+		if err != nil {
+			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+		}
+
+		assertTarballContainsEveryLayer(imageTarPath, t)
+	})
+	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
+		subject := subject
+		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
+			IncludeNonDistributable: true,
+		}
+
+		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(imageTarPath)
+
+		err := subject.CopyToTar(imageTarPath)
+		if err != nil {
+			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+		}
+
+		assertTarballContainsEveryLayer(imageTarPath, t)
+	})
+	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
+		stdOut.Reset()
+		subject := subject
+		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
+			IncludeNonDistributable: true,
+		}
+
+		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(imageTarPath)
+
+		err := subject.CopyToTar(imageTarPath)
+		if err != nil {
+			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
+		}
+
+		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n") {
+			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
+		}
+	})
+}
+
 func TestCopyingToTarImageContainingNonDistributableLayers(t *testing.T) {
 	imageName := "index.docker.io/library/image"
 	fakeRegistry := NewFakeRegistry(t)
