@@ -25,18 +25,28 @@ import (
 )
 
 type FakeRegistry struct {
-	state map[string]*ImageWithTarPath
+	state map[string]*ImageOrImageIndexWithTarPath
 	t     *testing.T
 }
 
 func NewFakeRegistry(t *testing.T) *FakeRegistry {
-	return &FakeRegistry{state: map[string]*ImageWithTarPath{}, t: t}
+	return &FakeRegistry{state: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
 }
 
 func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
+		mediaType := types.OCIManifestSchema1
+		if val, found := r.state[reference.String()]; found {
+			if val.image != nil {
+				mediaType, err = r.state[reference.String()].image.MediaType()
+			} else {
+				mediaType, err = r.state[reference.String()].imageIndex.MediaType()
+			}
+		}
+
 		return v1.Descriptor{
+			MediaType: mediaType,
 			Digest: v1.Hash{
 				Algorithm: "sha256",
 				Hex:       "d8625b0248462a47992ee06b5cff5dcf9c7d26b8a37121c63e5f2da93e1af9bd",
@@ -50,6 +60,14 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 		}
 		return nil, fmt.Errorf("Did not find bundle in fake registry: %s", reference.Context().Name())
 	}
+
+	fakeRegistry.IndexStub = func(reference name.Reference) (v1.ImageIndex, error) {
+		if imageIndexFromState, found := r.state[reference.Context().Name()]; found {
+			return imageIndexFromState.imageIndex, nil
+		}
+		return nil, fmt.Errorf("Did not find image index in fake registry: %s", reference.Context().Name())
+	}
+
 	return fakeRegistry
 }
 
@@ -61,21 +79,38 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	r.state[bundleName] = &ImageWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
+	r.state[bundleName] = &ImageOrImageIndexWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
 	return BundleInfo{r, path}
 
 }
 
-func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageWithTarPath {
+func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
 	}
 
 	image, err := image.NewFileImage(tarballLayer.Name(), nil)
-	tarPath := &ImageWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
+	tarPath := &ImageOrImageIndexWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
 	r.state[name] = tarPath
 	return tarPath
+}
+
+func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
+	index, err := random.Index(1024, 1, 1)
+	if err != nil {
+		r.t.Fatal(err.Error())
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		r.t.Fatal(err.Error())
+	}
+
+	image, err := index.Image(manifest.Manifests[0].Digest)
+	if err != nil {
+		r.t.Fatal(err.Error())
+	}
+	r.state[imageName] = &ImageOrImageIndexWithTarPath{t: r.t, imageIndex: index, image: image}
 }
 
 type BundleInfo struct {
@@ -116,13 +151,14 @@ func (r *FakeRegistry) CleanUp() {
 	}
 }
 
-type ImageWithTarPath struct {
-	image v1.Image
-	path  string
-	t     *testing.T
+type ImageOrImageIndexWithTarPath struct {
+	image      v1.Image
+	imageIndex v1.ImageIndex
+	path       string
+	t          *testing.T
 }
 
-func (r *ImageWithTarPath) WithNonDistributableLayer() {
+func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	if err != nil {
 		r.t.Fatalf("unable to create a layer %s", err)
