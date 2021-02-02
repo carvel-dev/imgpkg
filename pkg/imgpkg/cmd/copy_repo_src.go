@@ -33,13 +33,8 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 	if err != nil {
 		return err
 	}
-
-	ids, err := o.imageSet.Export(unprocessedImageRefs, o.registry)
-	if err != nil {
-		return err
-	}
-
-	err = o.tarImageSet.Export(ids, dstPath, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
+	
+	ids, err := o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}
