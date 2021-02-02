@@ -26,15 +26,20 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPre
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath string, imageLayerWriterCheck imagelayers.ImageLayerWriterFilter) error {
+func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagelayers.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
+	ids, err := o.imageSet.Export(foundImages, registry)
+	if err != nil {
+		return nil, err
+	}
+
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("Creating file '%s': %s", outputPath, err)
+		return nil, fmt.Errorf("Creating file '%s': %s", outputPath, err)
 	}
 
 	err = outputFile.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	outputFileOpener := func() (io.WriteCloser, error) {
@@ -45,7 +50,7 @@ func (o TarImageSet) Export(ids *imagedesc.ImageRefDescriptors, outputPath strin
 
 	opts := imagetar.TarWriterOpts{Concurrency: o.concurrency}
 
-	return imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, imageLayerWriterCheck).Write()
+	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, imageLayerWriterCheck).Write()
 }
 
 func (o *TarImageSet) Import(path string,
