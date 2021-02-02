@@ -1,12 +1,19 @@
-package image
+package util
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
+
+type NonRetryableError struct {
+	Message string
+}
+
+func (n NonRetryableError) Error() string {
+	return n.Message
+}
 
 func Retry(doFunc func() error) error {
 	var lastErr error
@@ -24,7 +31,7 @@ func Retry(doFunc func() error) error {
 				}
 			}
 		}
-		if nonRetryableError, ok := lastErr.(imagetar.TarEntryNotFoundError); ok {
+		if nonRetryableError, ok := lastErr.(NonRetryableError); ok {
 			return nonRetryableError
 		}
 
