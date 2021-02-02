@@ -32,9 +32,13 @@ func (i *imageFactory) PushImageWithANonDistributableLayer(imgRef string) string
 	if err != nil {
 		i.t.Fatalf(err.Error())
 	}
+	digest, err := layer.Digest()
+	if err != nil {
+		i.t.Fatalf(err.Error())
+	}
 	image, err = mutate.Append(empty.Image, mutate.Addendum{
 		Layer: layer,
-		URLs:  []string{"http://"},
+		URLs:  []string{fmt.Sprintf("%s://%s/v2/%s/blobs/%s", imageRef.Context().Registry.Scheme(), imageRef.Context().RegistryStr(), imageRef.Context().RepositoryStr(), digest)},
 	})
 	if err != nil {
 		i.t.Fatalf(err.Error())
@@ -49,10 +53,6 @@ func (i *imageFactory) PushImageWithANonDistributableLayer(imgRef string) string
 		i.t.Fatalf(err.Error())
 	}
 
-	digest, err := layer.Digest()
-	if err != nil {
-		i.t.Fatalf(err.Error())
-	}
 	return digest.String()
 }
 
