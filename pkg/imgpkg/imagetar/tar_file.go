@@ -6,11 +6,12 @@ package imagetar
 import (
 	"archive/tar"
 	"fmt"
-	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"io"
 	"os"
 	"strings"
+
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 )
 
 type tarFile struct {
@@ -25,6 +26,14 @@ type tarFileChunk struct {
 }
 
 var _ imagedesc.LayerContents = tarFileChunk{}
+
+type TarEntryNotFoundError struct {
+	Message string
+}
+
+func (t TarEntryNotFoundError) Error() string {
+	return t.Message
+}
 
 type tarFileChunkReadCloser struct {
 	DebugID string
@@ -68,7 +77,7 @@ func (f tarFile) openChunk(path string) (io.ReadCloser, error) {
 				Reader:  tf, Closer: file}, nil
 		}
 	}
-	return nil, fmt.Errorf("file %s not found in tar", path)
+	return nil, TarEntryNotFoundError{fmt.Sprintf("file %s not found in tar. hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.", path)}
 }
 
 func (f tarFileChunkReadCloser) Close() error {

@@ -44,7 +44,7 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	informUserOnUsingTheNonDistributableFlag(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
+	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return nil
 }
@@ -65,7 +65,7 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, err
 	}
 
-	informUserOnUsingTheNonDistributableFlag(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, ids.Descriptors())
+	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }
@@ -161,22 +161,15 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	panic("Unreachable")
 }
 
-func informUserOnUsingTheNonDistributableFlag(logger *ctlimg.LoggerPrefixWriter, includeNonDistributableFlag bool, descriptors []imagedesc.ImageOrImageIndexDescriptor) {
-	noNonDistributableLayers := true
-	for _, td := range descriptors {
-		if td.Image == nil {
-			continue
-		}
-		for _, layer := range td.Image.Layers {
-			if !layer.IsDistributable() {
-				noNonDistributableLayers = false
+func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {
+	mediaTypes := []string{}
+	for _, descriptor := range ids.Descriptors() {
+		if descriptor.Image != nil {
+			for _, layerDescriptor := range (*descriptor.Image).Layers {
+				mediaTypes = append(mediaTypes, layerDescriptor.MediaType)
 			}
 		}
-	}
 
-	if includeNonDistributableFlag && noNonDistributableLayers {
-		logger.WriteStr("Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
-	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable flag")
 	}
+	return mediaTypes
 }

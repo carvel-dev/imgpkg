@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -98,6 +99,7 @@ func (o *CopyOptions) Run() error {
 			return err
 		}
 
+		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, o.IncludeNonDistributableFlag.IncludeNonDistributable, processedImagesMediaType(processedImages))
 		return o.writeLockOutput(processedImages, registry)
 
 	case o.isRepoSrc():
@@ -216,4 +218,38 @@ func (o *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
 	}
 
 	return bundleLock.WriteToPath(o.LockOutputFlags.LockFilePath)
+}
+
+func processedImagesMediaType(processedImages *ctlimgset.ProcessedImages) []string {
+	everyMediaType := []string{}
+	for _, image := range processedImages.All() {
+		layers, err := image.Image.Layers()
+		if err != nil {
+			continue
+		}
+		for _, layer := range layers {
+			mediaType, err := layer.MediaType()
+			if err != nil {
+				continue
+			}
+			everyMediaType = append(everyMediaType, string(mediaType))
+		}
+	}
+	return everyMediaType
+}
+
+func informUserToUseTheNonDistributableFlagWithDescriptors(logger *ctlimg.LoggerPrefixWriter, includeNonDistributableFlag bool, everyMediaType []string) {
+	noNonDistributableLayers := true
+
+	for _, mediaType := range everyMediaType {
+		if !types.MediaType(mediaType).IsDistributable() {
+			noNonDistributableLayers = false
+		}
+	}
+
+	if includeNonDistributableFlag && noNonDistributableLayers {
+		logger.WriteStr("Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
+	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
+		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable flag")
+	}
 }

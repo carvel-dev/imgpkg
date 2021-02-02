@@ -13,14 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
-
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	regremtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 )
 
 // constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
@@ -103,7 +101,7 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 		return err
 	}
 
-	err = i.retry(func() error {
+	err = Retry(func() error {
 		layers, err := img.Layers()
 		if err != nil {
 			return err
@@ -152,7 +150,7 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 		return err
 	}
 
-	err = i.retry(func() error {
+	err = Retry(func() error {
 		return regremote.WriteIndex(overriddenRef, idx, i.opts...)
 	})
 	if err != nil {
@@ -168,7 +166,7 @@ func (i Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 		return err
 	}
 
-	err = i.retry(func() error {
+	err = Retry(func() error {
 		return regremote.Tag(overriddenRef, taggagle, i.opts...)
 	})
 	if err != nil {
@@ -227,28 +225,6 @@ func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {
 			InsecureSkipVerify: (opts.VerifyCerts == false),
 		},
 	}, nil
-}
-
-func (i Registry) retry(doFunc func() error) error {
-	var lastErr error
-
-	for i := 0; i < 5; i++ {
-		lastErr = doFunc()
-		if lastErr == nil {
-			return nil
-		}
-
-		if tranErr, ok := lastErr.(*regremtran.Error); ok {
-			if len(tranErr.Errors) > 0 {
-				if tranErr.Errors[0].Code == regremtran.UnauthorizedErrorCode {
-					return fmt.Errorf("Non-retryable error: %s", lastErr)
-				}
-			}
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-	return fmt.Errorf("Retried 5 times: %s", lastErr)
 }
 
 type customRegistryKeychain struct {

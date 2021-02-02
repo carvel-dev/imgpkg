@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -96,7 +97,10 @@ func TestCopyImageInputToTarWithNonDistributableLayersFlagButContainsANonDistrib
 	// copy to tar
 	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
 
-	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"})
+	stderr := bytes.NewBufferString("")
+	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+		StderrWriter: stderr,
+	})
 
 	digest, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
 	if err != nil {
@@ -112,9 +116,76 @@ func TestCopyImageInputToTarWithNonDistributableLayersFlagButContainsANonDistrib
 	if err != nil {
 		t.Fatalf("Expected to find a non-distributable layer however it wasn't found. Got response code: %v", err)
 	}
+
+	imageDigest := fmt.Sprintf("@%s", extractDigest(t, stderr.String()))
+	cmd := exec.Command("docker", "pull", repoToCopyName+imageDigest)
+	dockerStdout, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Expected docker pull image [%s] to succeed, instead got %s stdout: [%s]", repoToCopyName+imageDigest, err.Error(), string(dockerStdout))
+	}
 }
 
-func TestCopyImageInputToTarWithoutNonDistributableLayersFlagButContainsANonDistributableLayer(t *testing.T) {
+func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
+
+	// general setup
+	testDir := env.Assets.CreateTempFolder("image-to-tar")
+	tarFilePath := filepath.Join(testDir, "image.tar")
+
+	env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+
+	repoToCopyName := env.RelocationRepo + "include-non-distributable"
+	var stdOutWriter bytes.Buffer
+
+	// copy to tar skipping NDL
+	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath})
+
+	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+		AllowError:   true,
+		StderrWriter: &stdOutWriter,
+		StdoutWriter: &stdOutWriter,
+	})
+
+	if !strings.Contains(stdOutWriter.String(), "hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.") {
+		t.Fatalf("Expected warning message to user, specifying tarball did not contain a non-distributable layer. But got: %s", stdOutWriter.String())
+	}
+}
+
+func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
+	env := BuildEnv(t)
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
+
+	// general setup
+	testDir := env.Assets.CreateTempFolder("image-to-tar")
+	tarFilePath := filepath.Join(testDir, "image.tar")
+
+	env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+
+	repoToCopyName := env.RelocationRepo + "include-non-distributable-1"
+	var stdOutWriter bytes.Buffer
+
+	// copying an image that contains a NDL to a tarball (the tarball includes the NDL)
+	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
+
+	stderr := bytes.NewBufferString("")
+	// copy from a tarball (with a NDL) to a repo (the image in the repo does *not* include the NDL because the --include-non-dist flag was omitted)
+	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+		StderrWriter: stderr,
+	})
+	imageDigest := fmt.Sprintf("@%s", extractDigest(t, stderr.String()))
+
+	// copying from a repo (the image in the repo does *not* include the NDL) to a tarball. We expect NDL to be copied into the tarball.
+	imgpkg.Run([]string{"copy", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable"})
+
+	if strings.Contains(stdOutWriter.String(), "hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided") {
+		t.Fatalf("Expected no warning message. But got: %s", stdOutWriter.String())
+	}
+}
+
+func TestCopyToTarWithoutNonDistributableLayersFlagButContainsANonDistributableLayerShouldPrintAWarningMessage(t *testing.T) {
 	env := BuildEnv(t)
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
