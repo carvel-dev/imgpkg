@@ -37,12 +37,29 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
 		mediaType := types.OCIManifestSchema1
-		if val, found := r.state[reference.String()]; found {
+		if val, found := r.state[reference.Context().String()]; found {
 			if val.image != nil {
-				mediaType, err = r.state[reference.String()].image.MediaType()
-			} else {
-				mediaType, err = r.state[reference.String()].imageIndex.MediaType()
+				mediaType, err = r.state[reference.Context().String()].image.MediaType()
+				digest, err := val.image.Digest()
+				if err != nil {
+					r.t.Fatal(err.Error())
+				}
+				return v1.Descriptor{
+					MediaType: mediaType,
+					Digest:    digest,
+				}, nil
 			}
+
+			imageIndex := r.state[reference.Context().String()].imageIndex
+			digest, err := imageIndex.Digest()
+			if err != nil {
+				r.t.Fatal(err.Error())
+			}
+			mediaType, err = imageIndex.MediaType()
+			return v1.Descriptor{
+				MediaType: mediaType,
+				Digest:    digest,
+			}, nil
 		}
 
 		return v1.Descriptor{
@@ -53,6 +70,11 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 			},
 		}, nil
 	})
+
+	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
+		r.state[reference.Context().Name()] = &ImageOrImageIndexWithTarPath{t: r.t, image: v}
+		return nil
+	}
 
 	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
 		if bundle, found := r.state[reference.Context().Name()]; found {
