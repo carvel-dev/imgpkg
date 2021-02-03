@@ -5,13 +5,13 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 type TagListOptions struct {
@@ -42,10 +42,7 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (o *TagListOptions) Run() error {
-	logger := ctlimg.NewLogger(os.Stderr)
-	prefixedLogger := logger.NewPrefixedWriter("tag | ")
-
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterFilter{}, prefixedLogger)
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterFilter{})
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

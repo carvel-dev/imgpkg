@@ -49,10 +49,9 @@ type Registry struct {
 	opts                    []regremote.Option
 	refOpts                 []regname.Option
 	imageLayerWriterChecker imagelayers.ImageLayerWriterFilter
-	logger                  *LoggerPrefixWriter
 }
 
-func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterFilter, logger *LoggerPrefixWriter) (Registry, error) {
+func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterFilter) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -70,7 +69,6 @@ func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLay
 		},
 		refOpts:                 refOpts,
 		imageLayerWriterChecker: imageLayerWriterChecker,
-		logger:                  logger,
 	}, nil
 }
 
