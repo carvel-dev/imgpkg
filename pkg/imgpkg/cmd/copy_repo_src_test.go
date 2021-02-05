@@ -6,16 +6,17 @@ package cmd
 import (
 	"archive/tar"
 	"bytes"
-	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
 
 var subject CopyRepoSrc
@@ -65,7 +66,7 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	fakeRegistry := NewFakeRegistry(t)
 	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
 		WithEveryImageFrom("test_assets/image_with_config").
-		WithNonDistributableLayerInImage("index.docker.io/library/image_with_non_distributable_layer")
+		WithNonDistributableLayerInImage("index.docker.io/library/image_with_non_distributable_layer@sha256:555555555555fae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0")
 	defer fakeRegistry.CleanUp()
 
 	subject := subject

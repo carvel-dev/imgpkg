@@ -16,12 +16,12 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cppforlife/go-cli-ui/ui.UI
 
-func NewImagesLock(imagesLock *lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
+func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
 	return &ImagesLock{imagesLock: imagesLock, imgRetriever: imgRetriever, relativeToRepo: relativeToRepo}
 }
 
 type ImagesLock struct {
-	imagesLock     *lockconfig.ImagesLock
+	imagesLock     lockconfig.ImagesLock
 	imgRetriever   ctlimg.ImagesMetadata
 	relativeToRepo string
 }
@@ -54,19 +54,19 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	for _, imgRef := range o.imagesLock.Images {
 		imageInBundleRepo, err := o.imageRelativeToBundle(imgRef.Image)
 		if err != nil {
-			return *o.imagesLock, false, err
+			return o.imagesLock, false, err
 		}
 
 		foundImg, err := o.checkImagesExist([]string{imageInBundleRepo, imgRef.Image})
 		if err != nil {
-			return *o.imagesLock, false, err
+			return o.imagesLock, false, err
 		}
 
 		// If cannot find the image in the bundle repo, will not localize any image
 		// We assume that the bundle was not copied to the bundle location,
 		// so there we cannot localize any image
 		if foundImg != imageInBundleRepo {
-			return *o.imagesLock, true, nil
+			return o.imagesLock, true, nil
 		}
 
 		imageRefs = append(imageRefs, lockconfig.ImageRef{

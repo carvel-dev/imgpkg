@@ -5,12 +5,12 @@ package cmd
 
 import (
 	"archive/tar"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -18,10 +18,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-
-	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
 type FakeRegistry struct {
@@ -37,9 +36,9 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
 		mediaType := types.OCIManifestSchema1
-		if val, found := r.state[reference.Context().String()]; found {
+		if val, found := r.state[reference.Name()]; found {
 			if val.image != nil {
-				mediaType, err = r.state[reference.Context().String()].image.MediaType()
+				mediaType, err = val.image.MediaType()
 				digest, err := val.image.Digest()
 				if err != nil {
 					r.t.Fatal(err.Error())
@@ -50,7 +49,7 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 				}, nil
 			}
 
-			imageIndex := r.state[reference.Context().String()].imageIndex
+			imageIndex := val.imageIndex
 			digest, err := imageIndex.Digest()
 			if err != nil {
 				r.t.Fatal(err.Error())
@@ -62,13 +61,14 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 			}, nil
 		}
 
-		return v1.Descriptor{
-			MediaType: mediaType,
-			Digest: v1.Hash{
-				Algorithm: "sha256",
-				Hex:       "d8625b0248462a47992ee06b5cff5dcf9c7d26b8a37121c63e5f2da93e1af9bd",
-			},
-		}, nil
+		//return v1.Descriptor{
+		//	MediaType: mediaType,
+		//	Digest: v1.Hash{
+		//		Algorithm: "sha256",
+		//		Hex:       "d8625b0248462a47992ee06b5cff5dcf9c7d26b8a37121c63e5f2da93e1af9bd",
+		//	},
+		//}, nil
+		return v1.Descriptor{}, errors.New("not found")
 	})
 
 	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
@@ -77,7 +77,7 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	}
 
 	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
-		if bundle, found := r.state[reference.Context().Name()]; found {
+		if bundle, found := r.state[reference.Name()]; found {
 			return bundle.image, nil
 		}
 		return nil, fmt.Errorf("Did not find bundle in fake registry: %s", reference.Context().Name())
@@ -101,7 +101,16 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	r.state[bundleName] = &ImageOrImageIndexWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
+	if err != nil {
+		r.t.Fatalf("unable to create image from file: %s", err)
+	}
+
+	imgName, err := name.ParseReference(bundleName)
+	if err != nil {
+		r.t.Fatalf("unable to parse reference: %s", err)
+	}
+
+	r.state[imgName.Name()] = &ImageOrImageIndexWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
 	return BundleInfo{r, path}
 
 }
@@ -148,8 +157,7 @@ func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
 	}
 
 	for _, img := range imgLock.Images {
-		imageName := strings.Split(img.Image, "@")[0]
-		b.r.WithImageFromPath(imageName, path)
+		b.r.WithImageFromPath(img.Image, path)
 	}
 	return b.r
 }
