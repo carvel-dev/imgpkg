@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 		tarImageSet: imageset.NewTarImageSet(imageSet, 1, logger),
 	}
 
-	m.Run()
+	os.Exit(m.Run())
 }
 
 func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {

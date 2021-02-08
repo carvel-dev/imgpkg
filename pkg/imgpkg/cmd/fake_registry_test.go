@@ -61,18 +61,11 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 			}, nil
 		}
 
-		//return v1.Descriptor{
-		//	MediaType: mediaType,
-		//	Digest: v1.Hash{
-		//		Algorithm: "sha256",
-		//		Hex:       "d8625b0248462a47992ee06b5cff5dcf9c7d26b8a37121c63e5f2da93e1af9bd",
-		//	},
-		//}, nil
-		return v1.Descriptor{}, errors.New("not found")
+		return v1.Descriptor{}, errors.New("FakeRegistry: GenericCall: image not found")
 	})
 
 	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
-		r.state[reference.Context().Name()] = &ImageOrImageIndexWithTarPath{t: r.t, image: v}
+		r.state[reference.Name()] = &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: v, imageName: reference.Name()}
 		return nil
 	}
 
@@ -84,7 +77,7 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	}
 
 	fakeRegistry.IndexStub = func(reference name.Reference) (v1.ImageIndex, error) {
-		if imageIndexFromState, found := r.state[reference.Context().Name()]; found {
+		if imageIndexFromState, found := r.state[reference.Name()]; found {
 			return imageIndexFromState.imageIndex, nil
 		}
 		return nil, fmt.Errorf("Did not find image index in fake registry: %s", reference.Context().Name())
@@ -105,26 +98,47 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 		r.t.Fatalf("unable to create image from file: %s", err)
 	}
 
-	imgName, err := name.ParseReference(bundleName)
-	if err != nil {
-		r.t.Fatalf("unable to parse reference: %s", err)
-	}
-
-	r.state[imgName.Name()] = &ImageOrImageIndexWithTarPath{t: r.t, image: bundle, path: tarballLayer.Name()}
+	r.updateState(bundleName, bundle, nil, path)
 	return BundleInfo{r, path}
 
 }
 
-func (r *FakeRegistry) WithImageFromPath(name string, path string) *ImageOrImageIndexWithTarPath {
+func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) {
+	imgName, err := name.ParseReference(imageName)
+	if err != nil {
+		r.t.Fatalf("unable to parse reference: %s", err)
+	}
+
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, imageName: imageName, image: image, imageIndex: imageIndex, path: path}
+	r.state[imgName.Name()] = imageOrImageIndexWithTarPath
+
+	if image != nil {
+		digest, err := image.Digest()
+		if err != nil {
+			r.t.Fatalf("unable to parse reference: %s", err)
+		}
+		r.state[imgName.Context().Name()+"@"+digest.String()] = imageOrImageIndexWithTarPath
+	}
+}
+
+func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
 	}
 
-	image, err := image.NewFileImage(tarballLayer.Name(), nil)
-	tarPath := &ImageOrImageIndexWithTarPath{t: r.t, image: image, path: tarballLayer.Name()}
-	r.state[name] = tarPath
-	return tarPath
+	fileImage, err := image.NewFileImage(tarballLayer.Name(), nil)
+	if err != nil {
+		r.t.Fatalf("Failed trying to build a file image%s", err)
+	}
+
+	r.updateState(imageNameFromTest, fileImage, nil, path)
+	reference, err := name.ParseReference(imageNameFromTest)
+	if err != nil {
+		r.t.Fatalf("Failed trying to get image name: %s", err)
+	}
+
+	return r.state[reference.Name()]
 }
 
 func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
@@ -137,11 +151,39 @@ func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
 		r.t.Fatal(err.Error())
 	}
 
-	image, err := index.Image(manifest.Manifests[0].Digest)
+	imageUsedInIndex, err := index.Image(manifest.Manifests[0].Digest)
 	if err != nil {
 		r.t.Fatal(err.Error())
 	}
-	r.state[imageName] = &ImageOrImageIndexWithTarPath{t: r.t, imageIndex: index, image: image}
+
+	r.updateState(imageName, imageUsedInIndex, index, "")
+}
+
+func (r *FakeRegistry) WithNonDistributableLayerInImage(imageNames ...string) {
+	for _, imageName := range imageNames {
+		reference, err := name.ParseReference(imageName)
+		if err != nil {
+			r.t.Fatalf("Failed trying to parse an image name%s", err)
+		}
+
+		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
+		if err != nil {
+			r.t.Fatalf("unable to create a layer %s", err)
+		}
+
+		imageWithARestrictedLayer, err := mutate.AppendLayers(r.state[reference.Name()].image, layer)
+		if err != nil {
+			r.t.Fatalf("unable to append a layer %s", err)
+		}
+
+		r.updateState(imageName, imageWithARestrictedLayer, r.state[reference.Name()].imageIndex, r.state[reference.Name()].path)
+	}
+}
+
+func (r *FakeRegistry) CleanUp() {
+	for _, tarPath := range r.state {
+		os.Remove(tarPath.path)
+	}
 }
 
 type BundleInfo struct {
@@ -162,30 +204,13 @@ func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
 	return b.r
 }
 
-func (r *FakeRegistry) WithNonDistributableLayerInImage(imageNames ...string) {
-	for _, imageName := range imageNames {
-		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
-		if err != nil {
-			r.t.Fatalf("unable to create a layer %s", err)
-		}
-		r.state[imageName].image, err = mutate.AppendLayers(r.state[imageName].image, layer)
-		if err != nil {
-			r.t.Fatalf("unable to append a layer %s", err)
-		}
-	}
-}
-
-func (r *FakeRegistry) CleanUp() {
-	for _, tarPath := range r.state {
-		os.Remove(tarPath.path)
-	}
-}
-
 type ImageOrImageIndexWithTarPath struct {
-	image      v1.Image
-	imageIndex v1.ImageIndex
-	path       string
-	t          *testing.T
+	fakeRegistry *FakeRegistry
+	imageName    string
+	image        v1.Image
+	imageIndex   v1.ImageIndex
+	path         string
+	t            *testing.T
 }
 
 func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
@@ -197,6 +222,13 @@ func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
 	if err != nil {
 		r.t.Fatalf("unable to append a layer %s", err)
 	}
+
+	reference, err := name.ParseReference(r.imageName)
+	if err != nil {
+		r.t.Fatalf("unable to parse reference: %s", err)
+	}
+
+	r.fakeRegistry.updateState(reference.Name(), r.image, r.imageIndex, r.path)
 }
 
 func compress(src string) (*os.File, error) {
