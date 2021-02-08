@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"archive/tar"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -61,7 +60,7 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 			}, nil
 		}
 
-		return v1.Descriptor{}, errors.New("FakeRegistry: GenericCall: image not found")
+		return v1.Descriptor{}, fmt.Errorf("FakeRegistry: GenericCall: image [%s] not found", reference.Name())
 	})
 
 	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
