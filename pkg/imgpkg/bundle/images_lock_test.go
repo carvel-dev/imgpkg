@@ -4,6 +4,7 @@
 package bundle_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,10 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
+
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
+}
 
 func TestImagesLock_WriteToPath_WhenAnImageIsNotInBundleRepo_DoesNotUpdateTheImagesInImagesLockFile(t *testing.T) {
 	bundleFolder, err := createBundleFolder()
@@ -122,6 +127,83 @@ func TestImagesLock_WriteToPath_WhenAllImagesAreInBundleRepo_UpdatesTheImagesInI
 	}
 }
 
+func TestImagesLock_LocalizeImagesLock(t *testing.T) {
+	t.Run("When All images can be found in the bundle repository, it returns the new image location and skipped == false", func(t *testing.T) {
+		imagesLock := lockconfig.ImagesLock{
+			Images: []lockconfig.ImageRef{
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+				},
+				{
+					Image: "some.repo.io/img2@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a",
+				},
+			},
+		}
+		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+
+		fakeImagesMetadata.GenericReturnsOnCall(0, regv1.Descriptor{}, nil)
+		fakeImagesMetadata.GenericReturnsOnCall(1, regv1.Descriptor{}, nil)
+
+		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+
+		if skipped {
+			t.Fatalf("not expecting the localization to be skipped")
+		}
+
+		if len(newImagesLock.Images) != 2 {
+			t.Fatalf("unexpected number of images\nExpected: 2\nGot:%d", len(newImagesLock.Images))
+		}
+		if newImagesLock.Images[0].Image != "some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80" {
+			t.Fatalf("unexpected image\nExpected: %s\nGot:%s", "some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[0].Image)
+		}
+		if newImagesLock.Images[1].Image != "some.repo.io/bundle@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a" {
+			t.Fatalf("unexpected image\nExpected: %s\nGot:%s", "some.repo.io/bundle@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a", newImagesLock.Images[1].Image)
+		}
+	})
+
+	t.Run("When one image cannot be found in the bundle repository, it returns the old image location and skipped == true", func(t *testing.T) {
+		imagesLock := lockconfig.ImagesLock{
+			Images: []lockconfig.ImageRef{
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+				},
+				{
+					Image: "some.repo.io/img2@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a",
+				},
+			},
+		}
+		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+
+		fakeImagesMetadata.GenericReturnsOnCall(0, regv1.Descriptor{}, nil)
+		fakeImagesMetadata.GenericReturnsOnCall(1, regv1.Descriptor{}, errors.New("not found"))
+		fakeImagesMetadata.GenericReturnsOnCall(2, regv1.Descriptor{}, nil)
+
+		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+
+		if !skipped {
+			t.Fatalf("expecting the localization to be skipped, but it was not")
+		}
+
+		if len(newImagesLock.Images) != 2 {
+			t.Fatalf("unexpected number of images\nExpected: 2\nGot:%d", len(newImagesLock.Images))
+		}
+		if newImagesLock.Images[0].Image != "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80" {
+			t.Fatalf("unexpected image\nExpected: %s\nGot:%s", "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[0].Image)
+		}
+		if newImagesLock.Images[1].Image != "some.repo.io/img2@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a" {
+			t.Fatalf("unexpected image\nExpected: %s\nGot:%s", "some.repo.io/img2@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a", newImagesLock.Images[1].Image)
+		}
+	})
+}
+
 func runWriteToPath(imagesLock lockconfig.ImagesLock, a func(reference regname.Reference) (regv1.Descriptor, error), bundleFolder string) (string, error) {
 	fakeRegistry := &imagefakes.FakeImagesMetadata{}
 	fakeRegistry.GenericCalls(a)
@@ -130,7 +212,7 @@ func runWriteToPath(imagesLock lockconfig.ImagesLock, a func(reference regname.R
 	uiFake.BeginLinefCalls(func(s string, i ...interface{}) {
 		uiOutput = fmt.Sprintf("%s%s", uiOutput, fmt.Sprintf(s, i...))
 	})
-	subject := ctlbundle.NewImagesLock(&imagesLock, fakeRegistry, "some.place/repo")
+	subject := ctlbundle.NewImagesLock(imagesLock, fakeRegistry, "some.place/repo")
 	return uiOutput, subject.WriteToPath(bundleFolder, uiFake)
 }
 

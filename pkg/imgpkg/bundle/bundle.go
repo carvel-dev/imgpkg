@@ -53,7 +53,7 @@ func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
 		return err
 	}
 
-	err = NewImagesLock(&imagesLock, o.imgRetriever, o.Repo()).WriteToPath(outputPath, ui)
+	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(outputPath, ui)
 	if err != nil {
 		return fmt.Errorf("Rewriting image lock file: %s", err)
 	}
