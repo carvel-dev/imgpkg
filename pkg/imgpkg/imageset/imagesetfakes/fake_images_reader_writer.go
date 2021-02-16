@@ -11,6 +11,19 @@ import (
 )
 
 type FakeImagesReaderWriter struct {
+	DigestStub        func(name.Reference) (v1.Hash, error)
+	digestMutex       sync.RWMutex
+	digestArgsForCall []struct {
+		arg1 name.Reference
+	}
+	digestReturns struct {
+		result1 v1.Hash
+		result2 error
+	}
+	digestReturnsOnCall map[int]struct {
+		result1 v1.Hash
+		result2 error
+	}
 	GenericStub        func(name.Reference) (v1.Descriptor, error)
 	genericMutex       sync.RWMutex
 	genericArgsForCall []struct {
@@ -88,6 +101,69 @@ type FakeImagesReaderWriter struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeImagesReaderWriter) Digest(arg1 name.Reference) (v1.Hash, error) {
+	fake.digestMutex.Lock()
+	ret, specificReturn := fake.digestReturnsOnCall[len(fake.digestArgsForCall)]
+	fake.digestArgsForCall = append(fake.digestArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	fake.recordInvocation("Digest", []interface{}{arg1})
+	fake.digestMutex.Unlock()
+	if fake.DigestStub != nil {
+		return fake.DigestStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.digestReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesReaderWriter) DigestCallCount() int {
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
+	return len(fake.digestArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) DigestCalls(stub func(name.Reference) (v1.Hash, error)) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) DigestArgsForCall(i int) name.Reference {
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
+	argsForCall := fake.digestArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) DigestReturns(result1 v1.Hash, result2 error) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = nil
+	fake.digestReturns = struct {
+		result1 v1.Hash
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) DigestReturnsOnCall(i int, result1 v1.Hash, result2 error) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = nil
+	if fake.digestReturnsOnCall == nil {
+		fake.digestReturnsOnCall = make(map[int]struct {
+			result1 v1.Hash
+			result2 error
+		})
+	}
+	fake.digestReturnsOnCall[i] = struct {
+		result1 v1.Hash
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeImagesReaderWriter) Generic(arg1 name.Reference) (v1.Descriptor, error) {
@@ -465,6 +541,8 @@ func (fake *FakeImagesReaderWriter) WriteTagReturnsOnCall(i int, result1 error) 
 func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
 	fake.genericMutex.RLock()
 	defer fake.genericMutex.RUnlock()
 	fake.imageMutex.RLock()

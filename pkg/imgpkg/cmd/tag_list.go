@@ -80,12 +80,12 @@ func (o *TagListOptions) Run() error {
 				return err
 			}
 
-			desc, err := registry.Generic(tagRef)
+			hash, err := registry.Digest(tagRef)
 			if err != nil {
 				return err
 			}
 
-			digest = desc.Digest.String()
+			digest = hash.String()
 		}
 
 		table.Rows = append(table.Rows, []uitable.Value{

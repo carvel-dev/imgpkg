@@ -44,15 +44,15 @@ func TestImagesLock_WriteToPath_WhenAnImageIsNotInBundleRepo_DoesNotUpdateTheIma
 			},
 		},
 	}
-	fakeDescriptorRetrieval := func(reference regname.Reference) (regv1.Descriptor, error) {
+	fakeDigestRetrieval := func(reference regname.Reference) (regv1.Hash, error) {
 		// Error out when checking for nginx image in the same repository as the bundle
 		if reference.Identifier() != "sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632" &&
 			reference.Context().Name() == "some.place/repo" {
-			return regv1.Descriptor{}, fmt.Errorf("failed")
+			return regv1.Hash{}, fmt.Errorf("failed")
 		}
-		return regv1.Descriptor{}, nil
+		return regv1.Hash{}, nil
 	}
-	uiOutput, err := runWriteToPath(imageLock, fakeDescriptorRetrieval, bundleFolder)
+	uiOutput, err := runWriteToPath(imageLock, fakeDigestRetrieval, bundleFolder)
 	if err != nil {
 		t.Fatalf("writing the localized images.yml: %s", err)
 	}
@@ -70,12 +70,12 @@ func TestImagesLock_WriteToPath_WhenAnImageIsNotInBundleRepo_DoesNotUpdateTheIma
 		)
 	}
 	if imageLock.Images[0].Image != resultImagesLock.Images[0].Image {
-		t.Fatalf("expected first image to do not change but was changed to: %s",
+		t.Fatalf("expected first image not to change but was changed to: %s",
 			resultImagesLock.Images[0].Image,
 		)
 	}
 	if imageLock.Images[1].Image != resultImagesLock.Images[1].Image {
-		t.Fatalf("expected second image to do not change but was changed to: %s",
+		t.Fatalf("expected second image not to change but was changed to: %s",
 			resultImagesLock.Images[1].Image,
 		)
 	}
@@ -99,13 +99,13 @@ func TestImagesLock_WriteToPath_WhenAllImagesAreInBundleRepo_UpdatesTheImagesInI
 			},
 		},
 	}
-	fakeDescriptorRetrieval := func(reference regname.Reference) (regv1.Descriptor, error) {
-		if reference.Context().Name() == "some.place/repo" {
-			return regv1.Descriptor{}, nil
+	fakeDigestRetrieval := func(reference regname.Reference) (regv1.Hash, error) {
+		if reference.Context().Name() != "some.place/repo" {
+			return regv1.Hash{}, fmt.Errorf("not found")
 		}
-		return regv1.Descriptor{}, fmt.Errorf("not found")
+		return regv1.Hash{}, nil
 	}
-	uiOutput, err := runWriteToPath(imageLock, fakeDescriptorRetrieval, bundleFolder)
+	uiOutput, err := runWriteToPath(imageLock, fakeDigestRetrieval, bundleFolder)
 	if err != nil {
 		t.Fatalf("writing the localized images.yml: %s", err)
 	}
@@ -142,9 +142,6 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
-		fakeImagesMetadata.GenericReturnsOnCall(0, regv1.Descriptor{}, nil)
-		fakeImagesMetadata.GenericReturnsOnCall(1, regv1.Descriptor{}, nil)
-
 		newImagesLock, skipped, err := subject.LocalizeImagesLock()
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
@@ -179,9 +176,8 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
-		fakeImagesMetadata.GenericReturnsOnCall(0, regv1.Descriptor{}, nil)
-		fakeImagesMetadata.GenericReturnsOnCall(1, regv1.Descriptor{}, errors.New("not found"))
-		fakeImagesMetadata.GenericReturnsOnCall(2, regv1.Descriptor{}, nil)
+		// Other calls will return the default empty Hash and nil error
+		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
 
 		newImagesLock, skipped, err := subject.LocalizeImagesLock()
 		if err != nil {
@@ -204,9 +200,9 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 	})
 }
 
-func runWriteToPath(imagesLock lockconfig.ImagesLock, a func(reference regname.Reference) (regv1.Descriptor, error), bundleFolder string) (string, error) {
+func runWriteToPath(imagesLock lockconfig.ImagesLock, fakeDigestHandler func(reference regname.Reference) (regv1.Hash, error), bundleFolder string) (string, error) {
 	fakeRegistry := &imagefakes.FakeImagesMetadata{}
-	fakeRegistry.GenericCalls(a)
+	fakeRegistry.DigestCalls(fakeDigestHandler)
 	uiOutput := ""
 	uiFake := &bundlefakes.FakeUI{}
 	uiFake.BeginLinefCalls(func(s string, i ...interface{}) {

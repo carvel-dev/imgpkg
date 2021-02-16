@@ -63,6 +63,18 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 		return v1.Descriptor{}, fmt.Errorf("FakeRegistry: GenericCall: image [%s] not found", reference.Name())
 	})
 
+	fakeRegistry.DigestCalls(func(reference name.Reference) (v1.Hash, error) {
+		if val, found := r.state[reference.Name()]; found {
+			if val.image != nil {
+				return val.image.Digest()
+			}
+			return val.imageIndex.Digest()
+		}
+
+		return v1.Hash{}, fmt.Errorf("FakeRegistry: DigestCall: image [%s] not found", reference.Name())
+
+	})
+
 	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
 		r.state[reference.Name()] = &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: v, imageName: reference.Name()}
 		return nil

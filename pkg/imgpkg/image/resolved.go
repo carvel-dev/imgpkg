@@ -29,15 +29,15 @@ func (i ResolvedImage) URL() (string, error) {
 		return "", err
 	}
 
-	imgDescriptor, err := i.imagesMetadata.Generic(tag)
+	hash, err := i.imagesMetadata.Digest(tag)
 	if err != nil {
 		return "", err
 	}
 
-	digestURL, err := regname.NewDigest(tag.Repository.String() + "@" + imgDescriptor.Digest.String())
+	digest, err := regname.NewDigest(tag.Repository.String() + "@" + hash.String())
 	if err != nil {
 		return "", err
 	}
 
-	return digestURL.Name(), nil
+	return digest.Name(), nil
 }

@@ -20,6 +20,7 @@ import (
 
 type Registry interface {
 	Generic(regname.Reference) (regv1.Descriptor, error)
+	Digest(regname.Reference) (regv1.Hash, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
 	Image(regname.Reference) (regv1.Image, error)
 }
@@ -296,6 +297,11 @@ type errRegistry struct {
 
 func (m errRegistry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 	regDesc, err := m.delegate.Generic(ref)
+	return regDesc, m.betterErr(ref, err)
+}
+
+func (m errRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
+	regDesc, err := m.delegate.Digest(ref)
 	return regDesc, m.betterErr(ref, err)
 }
 
