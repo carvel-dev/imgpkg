@@ -4,8 +4,6 @@
 package image
 
 import (
-	"fmt"
-
 	regname "github.com/google/go-containerregistry/pkg/name"
 )
 
@@ -34,18 +32,6 @@ func (i ResolvedImage) URL() (string, error) {
 	imgDescriptor, err := i.imagesMetadata.Generic(tag)
 	if err != nil {
 		return "", err
-	}
-
-	// Resolve image second time because some older registry can
-	// return "random" digests that change for every request.
-	// See https://github.com/k14s/imgpkg/issues/21 for details.
-	imgDescriptor2, err := i.imagesMetadata.Generic(tag)
-	if err != nil {
-		return "", err
-	}
-
-	if imgDescriptor.Digest.String() != imgDescriptor2.Digest.String() {
-		return "", fmt.Errorf("Expected digest resolution to be consistent over two separate requests")
 	}
 
 	digestURL, err := regname.NewDigest(tag.Repository.String() + "@" + imgDescriptor.Digest.String())
