@@ -2,8 +2,10 @@
 github.com/containerd/stargz-snapshotter/estargz
 github.com/containerd/stargz-snapshotter/estargz/errorutil
 # github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72
+## explicit
 github.com/cppforlife/cobrautil
 # github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
+## explicit
 github.com/cppforlife/go-cli-ui/ui
 github.com/cppforlife/go-cli-ui/ui/table
 github.com/cppforlife/go-cli-ui/ui/test
@@ -22,6 +24,7 @@ github.com/docker/docker-credential-helpers/credentials
 # github.com/fatih/color v1.7.0
 github.com/fatih/color
 # github.com/google/go-containerregistry v0.4.0
+## explicit
 github.com/google/go-containerregistry/pkg/authn
 github.com/google/go-containerregistry/pkg/internal/redact
 github.com/google/go-containerregistry/pkg/internal/retry
@@ -46,11 +49,14 @@ github.com/google/go-containerregistry/pkg/v1/types
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/k14s/difflib v0.0.0-20201103203400-90558b9d63e4
+## explicit
 github.com/k14s/difflib
 # github.com/mattn/go-colorable v0.0.9
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.3
 github.com/mattn/go-isatty
+# github.com/onsi/gomega v1.10.0
+## explicit
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.1
@@ -59,6 +65,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/spf13/cobra v1.0.0
+## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
@@ -68,6 +75,7 @@ github.com/vito/go-interact/interact/terminal
 # golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+## explicit
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 golang.org/x/sys/internal/unsafeheader
@@ -76,4 +84,5 @@ golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
 # sigs.k8s.io/yaml v1.2.0
+## explicit
 sigs.k8s.io/yaml
