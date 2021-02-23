@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -127,28 +128,36 @@ func TestCopyImageInputToTarWithNonDistributableLayersFlagButContainsANonDistrib
 
 func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
 	env := BuildEnv(t)
+	airgappedRepo := startRegistryForAirgapTesting(t, env)
+
 	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+
 	defer env.Cleanup()
 
-	// general setup
 	testDir := env.Assets.CreateTempFolder("image-to-tar")
 	tarFilePath := filepath.Join(testDir, "image.tar")
 
-	env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+	env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo)
 
 	repoToCopyName := env.RelocationRepo + "include-non-distributable"
 	var stdOutWriter bytes.Buffer
 
 	// copy to tar skipping NDL
-	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath})
+	imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath})
 
-	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+	stopRegistryForAirgapTesting(t, env)
+
+	_, err := imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
 		AllowError:   true,
 		StderrWriter: &stdOutWriter,
 		StdoutWriter: &stdOutWriter,
 	})
 
-	if !strings.Contains(stdOutWriter.String(), "hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.") {
+	if err == nil {
+		t.Fatalf("Expected copy command to fail but it did not")
+	}
+
+	if !regexp.MustCompile("Writing image: file sha256\\-.*\\.tar\\.gz not found in tar\\. hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.").MatchString(stdOutWriter.String()) {
 		t.Fatalf("Expected warning message to user, specifying tarball did not contain a non-distributable layer. But got: %s", stdOutWriter.String())
 	}
 }
@@ -186,43 +195,89 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 }
 
 func TestCopyToTarWithoutNonDistributableLayersFlagButContainsANonDistributableLayerShouldPrintAWarningMessage(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
-	defer env.Cleanup()
+	t.Run("environment with internet", func(t *testing.T) {
+		env := BuildEnv(t)
+		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		defer env.Cleanup()
 
-	// general setup
-	testDir := env.Assets.CreateTempFolder("image-to-tar")
-	tarFilePath := filepath.Join(testDir, "image.tar")
+		// general setup
+		testDir := env.Assets.CreateTempFolder("image-to-tar")
+		tarFilePath := filepath.Join(testDir, "image.tar")
 
-	nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
-	repoToCopyName := env.RelocationRepo + "include-non-distributable"
+		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+		repoToCopyName := env.RelocationRepo + "include-non-distributable"
 
-	// copy to tar
-	imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
+		// copy to tar
+		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
 
-	var stdOutWriter bytes.Buffer
-	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
-		StdoutWriter: &stdOutWriter,
-		StderrWriter: &stdOutWriter,
+		var stdOutWriter bytes.Buffer
+		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+			StdoutWriter: &stdOutWriter,
+			StderrWriter: &stdOutWriter,
+		})
+
+		if !strings.Contains(stdOutWriter.String(), "Skipped layer due to it being non-distributable.") {
+			t.Fatalf("Expected warning message to user, specifying which layer was skipped. But found: %s", stdOutWriter.String())
+		}
+		digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+		if err != nil {
+			t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)
+		}
+
+		layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		if err != nil {
+			t.Fatalf("Unable to fetch the layer of the copied image: %v", err)
+		}
+
+		_, err = layer.Compressed()
+		if err == nil {
+			t.Fatalf("Expected non-distributable layer to NOT be copied into registry, however it was")
+		}
 	})
 
-	if !strings.Contains(stdOutWriter.String(), "Skipped layer due to it being non-distributable.") {
-		t.Fatalf("Expected warning message to user, specifying which layer was skipped. But found: %s", stdOutWriter.String())
-	}
-	digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
-	if err != nil {
-		t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)
-	}
+	t.Run("airgapped environment", func(t *testing.T) {
+		env := BuildEnv(t)
+		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-	layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		t.Fatalf("Unable to fetch the layer of the copied image: %v", err)
-	}
+		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		defer env.Cleanup()
 
-	_, err = layer.Compressed()
-	if err == nil {
-		t.Fatalf("Expected non-distributable layer to NOT be copied into registry, however it was")
-	}
+		// general setup
+		testDir := env.Assets.CreateTempFolder("image-to-tar")
+		tarFilePath := filepath.Join(testDir, "image.tar")
+
+		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo)
+		repoToCopyName := env.RelocationRepo + "include-non-distributable"
+
+		// copy to tar
+		imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
+
+		stopRegistryForAirgapTesting(t, env)
+
+		var stdOutWriter bytes.Buffer
+		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+			StdoutWriter: &stdOutWriter,
+			StderrWriter: &stdOutWriter,
+		})
+
+		if !strings.Contains(stdOutWriter.String(), "Skipped layer due to it being non-distributable.") {
+			t.Fatalf("Expected warning message to user, specifying which layer was skipped. But found: %s", stdOutWriter.String())
+		}
+		digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+		if err != nil {
+			t.Fatalf("Unable to determine the digest of the non-distributable layer. Got: %v", err)
+		}
+
+		layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		if err != nil {
+			t.Fatalf("Unable to fetch the layer of the copied image: %v", err)
+		}
+
+		_, err = layer.Compressed()
+		if err == nil {
+			t.Fatalf("Expected non-distributable layer to NOT be copied into registry, however it was")
+		}
+	})
 }
 
 func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
@@ -260,4 +315,37 @@ func TestCopyErrorsWhenCopyToTarAndGenerateOutputLockFile(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "output lock file with tar destination") {
 		t.Fatalf("expected copy to fail when --lock-output is provided with a tar destination, got %v", err)
 	}
+}
+
+func stopRegistryForAirgapTesting(t *testing.T, env *Env) {
+	err := exec.Command("docker", "stop", "registry-for-airgapped-testing").Run()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	env.AddCleanup(func() {
+		exec.Command("docker", "start", "registry-for-airgapped-testing").Run()
+	})
+}
+
+func startRegistryForAirgapTesting(t *testing.T, env *Env) string {
+	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-airgapped-testing", "registry:2")
+	output, err := dockerRunCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("output: %s, %s", output, err)
+	}
+
+	env.AddCleanup(func() {
+		exec.Command("docker", "stop", "registry-for-airgapped-testing").Run()
+		exec.Command("docker", "rm", "registry-for-airgapped-testing").Run()
+	})
+
+	inspectCmd := exec.Command("docker", "inspect", `--format='{{(index (index .NetworkSettings.Ports "5000/tcp") 0).HostPort}}'`, "registry-for-airgapped-testing")
+	output, err = inspectCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("output: %s, %s", output, err)
+	}
+
+	hostPort := strings.ReplaceAll(string(output), "'", "")
+	return fmt.Sprintf("localhost:%s/repo/airgapped-image", strings.ReplaceAll(hostPort, "\n", ""))
 }

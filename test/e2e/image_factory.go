@@ -23,6 +23,9 @@ type imageFactory struct {
 
 func (i *imageFactory) PushImageWithANonDistributableLayer(imgRef string) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
+	if err != nil {
+		i.t.Fatalf(err.Error())
+	}
 
 	image, err := random.Image(1024, 1)
 	if err != nil {
