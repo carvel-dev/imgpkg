@@ -85,6 +85,10 @@ func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 	return desc.Descriptor, nil
 }
 
+func (i Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+	return regremote.Get(ref)
+}
+
 func (i Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
 	if err != nil {

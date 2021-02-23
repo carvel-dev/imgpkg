@@ -37,6 +37,19 @@ type FakeImagesReaderWriter struct {
 		result1 v1.Descriptor
 		result2 error
 	}
+	GetStub        func(name.Reference) (*remote.Descriptor, error)
+	getMutex       sync.RWMutex
+	getArgsForCall []struct {
+		arg1 name.Reference
+	}
+	getReturns struct {
+		result1 *remote.Descriptor
+		result2 error
+	}
+	getReturnsOnCall map[int]struct {
+		result1 *remote.Descriptor
+		result2 error
+	}
 	ImageStub        func(name.Reference) (v1.Image, error)
 	imageMutex       sync.RWMutex
 	imageArgsForCall []struct {
@@ -225,6 +238,69 @@ func (fake *FakeImagesReaderWriter) GenericReturnsOnCall(i int, result1 v1.Descr
 	}
 	fake.genericReturnsOnCall[i] = struct {
 		result1 v1.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) Get(arg1 name.Reference) (*remote.Descriptor, error) {
+	fake.getMutex.Lock()
+	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
+	fake.getArgsForCall = append(fake.getArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	fake.recordInvocation("Get", []interface{}{arg1})
+	fake.getMutex.Unlock()
+	if fake.GetStub != nil {
+		return fake.GetStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.getReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesReaderWriter) GetCallCount() int {
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
+	return len(fake.getArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) GetCalls(stub func(name.Reference) (*remote.Descriptor, error)) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) GetArgsForCall(i int) name.Reference {
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
+	argsForCall := fake.getArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) GetReturns(result1 *remote.Descriptor, result2 error) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = nil
+	fake.getReturns = struct {
+		result1 *remote.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) GetReturnsOnCall(i int, result1 *remote.Descriptor, result2 error) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = nil
+	if fake.getReturnsOnCall == nil {
+		fake.getReturnsOnCall = make(map[int]struct {
+			result1 *remote.Descriptor
+			result2 error
+		})
+	}
+	fake.getReturnsOnCall[i] = struct {
+		result1 *remote.Descriptor
 		result2 error
 	}{result1, result2}
 }
@@ -545,6 +621,8 @@ func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	defer fake.digestMutex.RUnlock()
 	fake.genericMutex.RLock()
 	defer fake.genericMutex.RUnlock()
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
 	fake.imageMutex.RLock()
 	defer fake.imageMutex.RUnlock()
 	fake.indexMutex.RLock()

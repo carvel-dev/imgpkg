@@ -9,6 +9,7 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	regtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	regtypes "github.com/google/go-containerregistry/pkg/v1/types"
 )
@@ -16,6 +17,7 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadata
 type ImagesMetadata interface {
 	Generic(regname.Reference) (regv1.Descriptor, error)
+	Get(regname.Reference) (*regremote.Descriptor, error)
 	Digest(regname.Reference) (regv1.Hash, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
 	Image(regname.Reference) (regv1.Image, error)
@@ -113,6 +115,11 @@ type errImagesMetadata struct {
 
 func (m errImagesMetadata) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 	desc, err := m.delegate.Generic(ref)
+	return desc, m.betterErr(ref, err)
+}
+
+func (m errImagesMetadata) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+	desc, err := m.delegate.Get(ref)
 	return desc, m.betterErr(ref, err)
 }
 

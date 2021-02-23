@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
@@ -33,11 +34,11 @@ func NewFakeRegistry(t *testing.T) *FakeRegistry {
 
 func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
-	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
+	getDescriptor := func(reference name.Reference, r *FakeRegistry) (v1.Descriptor, error) {
 		mediaType := types.OCIManifestSchema1
 		if val, found := r.state[reference.Name()]; found {
 			if val.image != nil {
-				mediaType, err = val.image.MediaType()
+				mediaType, err := val.image.MediaType()
 				digest, err := val.image.Digest()
 				if err != nil {
 					r.t.Fatal(err.Error())
@@ -61,6 +62,10 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 		}
 
 		return v1.Descriptor{}, fmt.Errorf("FakeRegistry: GenericCall: image [%s] not found", reference.Name())
+	}
+
+	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
+		return getDescriptor(reference, r)
 	})
 
 	fakeRegistry.DigestCalls(func(reference name.Reference) (v1.Hash, error) {
@@ -72,7 +77,36 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 		}
 
 		return v1.Hash{}, fmt.Errorf("FakeRegistry: DigestCall: image [%s] not found", reference.Name())
+	})
 
+	fakeRegistry.GetCalls(func(reference name.Reference) (*regremote.Descriptor, error) {
+		if val, found := r.state[reference.Name()]; found {
+			descriptor, err := getDescriptor(reference, r)
+			if err != nil {
+				r.t.Fatal(err.Error())
+			}
+			if val.image != nil {
+				manifest, err := val.image.RawManifest()
+				if err != nil {
+					r.t.Fatal(err.Error())
+				}
+				return &regremote.Descriptor{
+					Descriptor: descriptor,
+					Manifest:   manifest,
+				}, nil
+			}
+
+			manifest, err := val.imageIndex.RawManifest()
+			if err != nil {
+				r.t.Fatal(err.Error())
+			}
+			return &regremote.Descriptor{
+				Descriptor: descriptor,
+				Manifest:   manifest,
+			}, nil
+		}
+
+		return &regremote.Descriptor{}, fmt.Errorf("FakeRegistry: GetCall: image [%s] not found", reference.Name())
 	})
 
 	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {

@@ -153,7 +153,25 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 
 	switch {
 	case item.Image != nil:
-		err = registry.WriteImage(uploadTagRef, *item.Image)
+		itemRef, err := regname.ParseReference(item.Ref())
+		if err != nil {
+			return regname.Digest{}, fmt.Errorf("Unable to parse reference: %s: %s", item.Ref(), err)
+		}
+
+		imageToWrite := regv1.Image(*item.Image)
+
+		if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
+			descriptor, err := registry.Get(itemRef)
+			if err != nil {
+				return regname.Digest{}, fmt.Errorf("Getting mountable image failed: %s: %s", importDigestRef.Name(), err)
+			}
+			imageToWrite, err = descriptor.Image()
+			if err != nil {
+				return regname.Digest{}, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", importDigestRef.Name(), err)
+			}
+		}
+
+		err = registry.WriteImage(uploadTagRef, imageToWrite)
 		if err != nil {
 			return regname.Digest{}, fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
 		}
@@ -223,4 +241,8 @@ func (o *ImageSet) verifyTagDigest(
 	}
 
 	return nil
+}
+
+func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag) bool {
+	return ref.Context().RegistryStr() == uploadTagRef.Context().RegistryStr()
 }
