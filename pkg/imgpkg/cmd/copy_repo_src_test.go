@@ -401,13 +401,22 @@ func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 			t.Fatalf("Failed to convert the descriptor to a mountableImage: %v", err)
 		}
 
+		digest, err := mountableImage.Digest()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		referenceNameOfCopiedImage, err := name.ParseReference("index.docker.io/other-repo/image:imgpkg-sha256-" + digest.Hex)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
 		_, err = subject.CopyToRepo("index.docker.io/other-repo/image")
 		if err != nil {
 			t.Fatalf("Failed to copy to repo: %v", err)
 		}
-		_, descriptorImage := fakeReg.WriteImageArgsForCall(0)
-		if !reflect.DeepEqual(descriptorImage, mountableImage) {
-			t.Fatalf("Called WriteImage with unexpected value %v", descriptorImage)
+		multiWriteArgsForCall, _ := fakeReg.MultiWriteArgsForCall(0)
+		if !reflect.DeepEqual(multiWriteArgsForCall[referenceNameOfCopiedImage], mountableImage) {
+			t.Fatalf("Called MultiWrite with key %s unexpected value %v", referenceNameOfCopiedImage, multiWriteArgsForCall)
 		}
 	})
 }

@@ -4,11 +4,18 @@
 package imagedesc
 
 import (
+	"fmt"
 	"io"
 
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	regv1types "github.com/google/go-containerregistry/pkg/v1/types"
 )
+
+type RegistryRemoteImage interface {
+	Get(reference regname.Reference) (*remote.Descriptor, error)
+}
 
 type ImageOrIndex struct {
 	Image *ImageWithRef
@@ -132,4 +139,24 @@ func (t ImageOrIndex) Tag() string {
 	default:
 		panic("Unknown item")
 	}
+}
+
+func (t ImageOrIndex) MountableImage(registry RegistryRemoteImage) (regv1.Image, error) {
+	if t.Image == nil {
+		return nil, fmt.Errorf("Unable to retrieve a mountable image on an imageindex")
+	}
+
+	reference, err := regname.ParseReference((*t.Image).Ref())
+	if err != nil {
+		return nil, err
+	}
+	descriptor, err := registry.Get(reference)
+	if err != nil {
+		return nil, fmt.Errorf("Getting mountable image failed: %s: %s", reference, err)
+	}
+	imageToWrite, err := descriptor.Image()
+	if err != nil {
+		return nil, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", reference, err)
+	}
+	return imageToWrite, nil
 }

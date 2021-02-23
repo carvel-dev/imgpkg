@@ -5,6 +5,7 @@ package imageset
 
 import (
 	"fmt"
+	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -17,6 +18,7 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
 	ctlimg.ImagesMetadata
+	MultiWrite(map[regname.Reference]regremote.Taggable, int) error
 	WriteImage(regname.Reference, regv1.Image) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
@@ -77,9 +79,32 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	o.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
 	defer func() { o.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
 
-	errCh := make(chan error, len(imgOrIndexes))
 	importThrottle := util.NewThrottle(o.concurrency)
 
+	imageOrIndexesToWrite := map[regname.Reference]regremote.Taggable{}
+	var imageOrIndexesToWriteLock = &sync.Mutex{}
+	errCh := make(chan error, len(imgOrIndexes))
+	for _, item := range imgOrIndexes {
+		item := item // copy
+
+		go func() {
+			importThrottle.Take()
+			defer importThrottle.Done()
+			addImageOrImageIndexToTaggableMapForMultiWrite(item, errCh, importRepo, registry, imageOrIndexesToWrite, imageOrIndexesToWriteLock)
+		}()
+	}
+
+	err := checkForAnyAsyncErrors(imgOrIndexes, errCh)
+	if err != nil {
+		return nil, err
+	}
+
+	err = registry.MultiWrite(imageOrIndexesToWrite, o.concurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	errChVerifyImages := make(chan error, len(imgOrIndexes))
 	for _, item := range imgOrIndexes {
 		item := item // copy
 
@@ -87,47 +112,102 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			existingRef, err := regname.NewDigest(item.Ref())
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			importDigestRef, err := o.importImage(item, existingRef, importRepo, registry)
-			if err != nil {
-				errCh <- fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
-				return
-			}
-
-			var regImage regv1.Image
-			if item.Image != nil {
-				regImage = *item.Image
-			}
-			var regImageIndex regv1.ImageIndex
-			if item.Index != nil {
-				regImageIndex = *item.Index
-			}
-			importedImages.Add(ProcessedImage{
-				UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
-				DigestRef:           importDigestRef.Name(),
-				Image:               regImage,
-				ImageIndex:          regImageIndex,
-			})
-			errCh <- nil
+			verifyProcessedImages(item, errChVerifyImages, o, importRepo, registry, importedImages)
 		}()
 	}
 
-	for i := 0; i < len(imgOrIndexes); i++ {
-		err := <-errCh
-		if err != nil {
-			return nil, err
-		}
+	err = checkForAnyAsyncErrors(imgOrIndexes, errChVerifyImages)
+	if err != nil {
+		return nil, err
 	}
 
 	return importedImages, nil
 }
 
-func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
+func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan error) error {
+	for i := 0; i < len(imgOrIndexes); i++ {
+		err := <-errCh
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addImageOrImageIndexToTaggableMapForMultiWrite(item imagedesc.ImageOrIndex, errCh chan error, importRepo regname.Repository, registry ImagesReaderWriter, imageOrIndexesToWrite map[regname.Reference]regremote.Taggable, lock *sync.Mutex) {
+	itemDigest, err := item.Digest()
+	if err != nil {
+		errCh <- err
+		return
+	}
+
+	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
+	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
+	if err != nil {
+		errCh <- fmt.Errorf("Building upload tag image ref: %s", err)
+		return
+	}
+
+	switch {
+	case item.Image != nil:
+		itemRef, err := regname.ParseReference(item.Ref())
+		if err != nil {
+			errCh <- fmt.Errorf("Unable to parse reference: %s: %s", item.Ref(), err)
+			return
+		}
+
+		imageToWrite := regv1.Image(*item.Image)
+
+		if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
+			imageToWrite, err = item.MountableImage(registry)
+			if err != nil {
+				imageToWrite = regv1.Image(*item.Image)
+			}
+		}
+
+		lock.Lock()
+		defer lock.Unlock()
+		imageOrIndexesToWrite[uploadTagRef] = imageToWrite
+	case item.Index != nil:
+		lock.Lock()
+		defer lock.Unlock()
+		imageOrIndexesToWrite[uploadTagRef] = *item.Index
+	}
+
+	errCh <- nil
+}
+
+func verifyProcessedImages(item imagedesc.ImageOrIndex, errCh chan error, o *ImageSet, importRepo regname.Repository, registry ImagesReaderWriter, importedImages *ProcessedImages) {
+	existingRef, err := regname.NewDigest(item.Ref())
+	if err != nil {
+		errCh <- err
+		return
+	}
+
+	importDigestRef, err := o.tagAndVerifyImage(item, existingRef, importRepo, registry)
+	if err != nil {
+		errCh <- fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
+		return
+	}
+
+	var regImage regv1.Image
+	if item.Image != nil {
+		regImage = *item.Image
+	}
+	var regImageIndex regv1.ImageIndex
+	if item.Index != nil {
+		regImageIndex = *item.Index
+	}
+	importedImages.Add(ProcessedImage{
+		UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
+		DigestRef:           importDigestRef.Name(),
+		Image:               regImage,
+		ImageIndex:          regImageIndex,
+	})
+	errCh <- nil
+}
+
+func (o *ImageSet) tagAndVerifyImage(item imagedesc.ImageOrIndex,
 	existingRef regname.Reference, importRepo regname.Repository,
 	registry ImagesReaderWriter) (regname.Digest, error) {
 
@@ -150,41 +230,6 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	}
 
 	o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", existingRef.Name(), importDigestRef.Name())))
-
-	switch {
-	case item.Image != nil:
-		itemRef, err := regname.ParseReference(item.Ref())
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Unable to parse reference: %s: %s", item.Ref(), err)
-		}
-
-		imageToWrite := regv1.Image(*item.Image)
-
-		if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
-			descriptor, err := registry.Get(itemRef)
-			if err != nil {
-				return regname.Digest{}, fmt.Errorf("Getting mountable image failed: %s: %s", importDigestRef.Name(), err)
-			}
-			imageToWrite, err = descriptor.Image()
-			if err != nil {
-				return regname.Digest{}, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", importDigestRef.Name(), err)
-			}
-		}
-
-		err = registry.WriteImage(uploadTagRef, imageToWrite)
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
-		}
-
-	case item.Index != nil:
-		err = registry.WriteIndex(uploadTagRef, *item.Index)
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
-		}
-
-	default:
-		panic("Unknown item")
-	}
 
 	// Verify that imported image still has the same digest as we expect.
 	// Being a little bit paranoid here because tag ref is used for import

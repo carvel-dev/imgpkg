@@ -114,6 +114,13 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 		return nil
 	}
 
+	fakeRegistry.MultiWriteStub = func(reference map[name.Reference]regremote.Taggable, _ int) error {
+		for ref, taggable := range reference {
+			r.state[ref.Name()] = &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: taggable.(v1.Image), imageName: ref.Name()}
+		}
+		return nil
+	}
+
 	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
 		if bundle, found := r.state[reference.Name()]; found {
 			return bundle.image, nil

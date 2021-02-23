@@ -76,6 +76,18 @@ type FakeImagesReaderWriter struct {
 		result1 v1.ImageIndex
 		result2 error
 	}
+	MultiWriteStub        func(map[name.Reference]remote.Taggable, int) error
+	multiWriteMutex       sync.RWMutex
+	multiWriteArgsForCall []struct {
+		arg1 map[name.Reference]remote.Taggable
+		arg2 int
+	}
+	multiWriteReturns struct {
+		result1 error
+	}
+	multiWriteReturnsOnCall map[int]struct {
+		result1 error
+	}
 	WriteImageStub        func(name.Reference, v1.Image) error
 	writeImageMutex       sync.RWMutex
 	writeImageArgsForCall []struct {
@@ -431,6 +443,67 @@ func (fake *FakeImagesReaderWriter) IndexReturnsOnCall(i int, result1 v1.ImageIn
 	}{result1, result2}
 }
 
+func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Taggable, arg2 int) error {
+	fake.multiWriteMutex.Lock()
+	ret, specificReturn := fake.multiWriteReturnsOnCall[len(fake.multiWriteArgsForCall)]
+	fake.multiWriteArgsForCall = append(fake.multiWriteArgsForCall, struct {
+		arg1 map[name.Reference]remote.Taggable
+		arg2 int
+	}{arg1, arg2})
+	fake.recordInvocation("MultiWrite", []interface{}{arg1, arg2})
+	fake.multiWriteMutex.Unlock()
+	if fake.MultiWriteStub != nil {
+		return fake.MultiWriteStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.multiWriteReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeImagesReaderWriter) MultiWriteCallCount() int {
+	fake.multiWriteMutex.RLock()
+	defer fake.multiWriteMutex.RUnlock()
+	return len(fake.multiWriteArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) MultiWriteCalls(stub func(map[name.Reference]remote.Taggable, int) error) {
+	fake.multiWriteMutex.Lock()
+	defer fake.multiWriteMutex.Unlock()
+	fake.MultiWriteStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) MultiWriteArgsForCall(i int) (map[name.Reference]remote.Taggable, int) {
+	fake.multiWriteMutex.RLock()
+	defer fake.multiWriteMutex.RUnlock()
+	argsForCall := fake.multiWriteArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeImagesReaderWriter) MultiWriteReturns(result1 error) {
+	fake.multiWriteMutex.Lock()
+	defer fake.multiWriteMutex.Unlock()
+	fake.MultiWriteStub = nil
+	fake.multiWriteReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeImagesReaderWriter) MultiWriteReturnsOnCall(i int, result1 error) {
+	fake.multiWriteMutex.Lock()
+	defer fake.multiWriteMutex.Unlock()
+	fake.MultiWriteStub = nil
+	if fake.multiWriteReturnsOnCall == nil {
+		fake.multiWriteReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.multiWriteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Image) error {
 	fake.writeImageMutex.Lock()
 	ret, specificReturn := fake.writeImageReturnsOnCall[len(fake.writeImageArgsForCall)]
@@ -627,6 +700,8 @@ func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	defer fake.imageMutex.RUnlock()
 	fake.indexMutex.RLock()
 	defer fake.indexMutex.RUnlock()
+	fake.multiWriteMutex.RLock()
+	defer fake.multiWriteMutex.RUnlock()
 	fake.writeImageMutex.RLock()
 	defer fake.writeImageMutex.RUnlock()
 	fake.writeIndexMutex.RLock()

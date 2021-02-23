@@ -197,7 +197,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 			t.Fatalf("Expected copy command to fail but it did not")
 		}
 
-		if !regexp.MustCompile("Writing image: file sha256\\-.*\\.tar\\.gz not found in tar\\. hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.").MatchString(stdOutWriter.String()) {
+		if !regexp.MustCompile("Error: file sha256\\-.*\\.tar\\.gz not found in tar\\. hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.").MatchString(stdOutWriter.String()) {
 			t.Fatalf("Expected warning message to user, specifying tarball did not contain a non-distributable layer. But got: %s", stdOutWriter.String())
 		}
 	})

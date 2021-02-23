@@ -86,7 +86,7 @@ func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 }
 
 func (i Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
-	return regremote.Get(ref)
+	return regremote.Get(ref, i.opts...)
 }
 
 func (i Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
@@ -109,6 +109,48 @@ func (i Registry) Image(ref regname.Reference) (regv1.Image, error) {
 	}
 
 	return regremote.Image(overriddenRef, i.opts...)
+}
+
+func (i Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
+	for ref, img := range imageOrIndexesToUpload {
+		if _, isImage := img.(regv1.Image); !isImage {
+			continue
+		}
+		overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+		if err != nil {
+			return err
+		}
+
+		err = util.Retry(func() error {
+			layers, err := img.(regv1.Image).Layers()
+			if err != nil {
+				return err
+			}
+			for _, layer := range layers {
+				shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
+				if err != nil {
+					return err
+				}
+
+				mediaType, err := layer.MediaType()
+				if err != nil {
+					return err
+				}
+				if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
+					err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return regremote.MultiWrite(imageOrIndexesToUpload, append(i.opts, regremote.WithJobs(concurrency))...)
 }
 
 func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
