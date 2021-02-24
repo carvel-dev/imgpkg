@@ -40,3 +40,29 @@ images:
 		t.Fatalf("Expected pushing to fail because of bundle ref in image lock file got: %s", errOut)
 	}
 }
+
+func TestPushBundleOfBundles(t *testing.T) {
+	env := BuildEnv(t)
+	logger := Logger{}
+	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	defer env.Cleanup()
+
+	bundleDigestRef := ""
+	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	logger.Section("create inner bundle", func() {
+		out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
+		bundleDigestRef = fmt.Sprintf("%s@%s", env.Image, extractDigest(t, out))
+	})
+
+	logger.Section("create new bundle with bundles", func() {
+		imagesLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, bundleDigestRef)
+		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
+
+		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--experimental-recursive-bundle"})
+	})
+}
