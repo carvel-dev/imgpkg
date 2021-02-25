@@ -121,36 +121,34 @@ func (i Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 			return err
 		}
 
-		err = util.Retry(func() error {
-			layers, err := img.(regv1.Image).Layers()
-			if err != nil {
-				return err
-			}
-			for _, layer := range layers {
-				shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
-				if err != nil {
-					return err
-				}
-
-				mediaType, err := layer.MediaType()
-				if err != nil {
-					return err
-				}
-				if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
-					err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		})
+		layers, err := img.(regv1.Image).Layers()
 		if err != nil {
 			return err
 		}
+		for _, layer := range layers {
+			shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
+			if err != nil {
+				return err
+			}
+
+			mediaType, err := layer.MediaType()
+			if err != nil {
+				return err
+			}
+			if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
+				err = util.Retry(func() error {
+					return regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
+				})
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 
-	return regremote.MultiWrite(imageOrIndexesToUpload, append(i.opts, regremote.WithJobs(concurrency))...)
+	return util.Retry(func() error {
+		return regremote.MultiWrite(imageOrIndexesToUpload, append(i.opts, regremote.WithJobs(concurrency))...)
+	})
 }
 
 func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {

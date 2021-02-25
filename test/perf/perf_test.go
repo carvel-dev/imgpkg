@@ -22,6 +22,7 @@ const (
 )
 
 func TestBenchmarkCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
+	logger := Logger{}
 	env := BuildEnv(t)
 	defer env.Cleanup()
 	perfTestingRepo := startRegistryForPerfTesting(t, env)
@@ -31,13 +32,13 @@ func TestBenchmarkCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) 
 	})
 
 	benchmarkResultCopyInSameRegistry := testing.Benchmark(func(b *testing.B) {
-		imgpkg := Imgpkg{b, Logger{}, env.ImgpkgPath}
+		imgpkg := Imgpkg{b, logger, env.ImgpkgPath}
 
 		imgpkg.Run([]string{"copy", "-i", perfTestingRepo, "--to-repo", perfTestingRepo + strconv.Itoa(b.N)})
 	})
 
-	fmt.Println(fmt.Sprintf("initial push took: %v", benchmarkResultInitialPush.T))
-	fmt.Println(fmt.Sprintf("imgpkg copy took: %v", benchmarkResultCopyInSameRegistry.T))
+	logger.Debugf("initial push took: %v\n", benchmarkResultInitialPush.T)
+	logger.Debugf("imgpkg copy took: %v\n", benchmarkResultCopyInSameRegistry.T)
 
 	expectedMaxTimeToTake := benchmarkResultInitialPush.T.Nanoseconds() / 15
 	actualTimeTaken := benchmarkResultCopyInSameRegistry.T.Nanoseconds()

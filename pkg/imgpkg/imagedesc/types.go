@@ -4,7 +4,6 @@
 package imagedesc
 
 import (
-	"fmt"
 	"io"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -139,24 +138,4 @@ func (t ImageOrIndex) Tag() string {
 	default:
 		panic("Unknown item")
 	}
-}
-
-func (t ImageOrIndex) MountableImage(registry RegistryRemoteImage) (regv1.Image, error) {
-	if t.Image == nil {
-		return nil, fmt.Errorf("Unable to retrieve a mountable image on an imageindex")
-	}
-
-	reference, err := regname.ParseReference((*t.Image).Ref())
-	if err != nil {
-		return nil, err
-	}
-	descriptor, err := registry.Get(reference)
-	if err != nil {
-		return nil, fmt.Errorf("Getting mountable image failed: %s: %s", reference, err)
-	}
-	imageToWrite, err := descriptor.Image()
-	if err != nil {
-		return nil, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", reference, err)
-	}
-	return imageToWrite, nil
 }
