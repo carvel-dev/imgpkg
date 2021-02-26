@@ -155,7 +155,7 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 
 }
 
-func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) {
+func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
 	imgName, err := name.ParseReference(imageName)
 	if err != nil {
 		r.t.Fatalf("unable to parse reference: %s", err)
@@ -169,8 +169,10 @@ func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex 
 		if err != nil {
 			r.t.Fatalf("unable to parse reference: %s", err)
 		}
-		r.state[imgName.Context().Name()+"@"+digest.String()] = imageOrImageIndexWithTarPath
+		imageOrImageIndexWithTarPath.RefDigest = imgName.Context().Name()+"@"+digest.String()
+		r.state[imageOrImageIndexWithTarPath.RefDigest] = imageOrImageIndexWithTarPath
 	}
+	return imageOrImageIndexWithTarPath
 }
 
 func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
@@ -184,13 +186,7 @@ func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) 
 		r.t.Fatalf("Failed trying to build a file image%s", err)
 	}
 
-	r.updateState(imageNameFromTest, fileImage, nil, path)
-	reference, err := name.ParseReference(imageNameFromTest)
-	if err != nil {
-		r.t.Fatalf("Failed trying to get image name: %s", err)
-	}
-
-	return r.state[reference.Name()]
+	return r.updateState(imageNameFromTest, fileImage, nil, path)
 }
 
 func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
@@ -263,6 +259,7 @@ type ImageOrImageIndexWithTarPath struct {
 	imageIndex   v1.ImageIndex
 	path         string
 	t            *testing.T
+	RefDigest    string
 }
 
 func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {

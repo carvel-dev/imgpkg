@@ -196,10 +196,25 @@ func (o *CopyOptions) writeImagesLockOutput(processedImages *ctlimgset.Processed
 		},
 	}
 
-	for _, img := range processedImages.All() {
-		imagesLock.Images = append(imagesLock.Images, lockconfig.ImageRef{
-			Image: img.DigestRef,
-		})
+	if o.LockInputFlags.LockFilePath != "" {
+		var err error
+		imagesLock, err = lockconfig.NewImagesLockFromPath(o.LockInputFlags.LockFilePath)
+		if err != nil {
+			return err
+		}
+		for i, image := range imagesLock.Images {
+			img, found := processedImages.FindByURL(ctlimgset.UnprocessedImageRef{DigestRef: image.Image})
+			if !found {
+				return fmt.Errorf("Expected image '%s' to have been copied but was not", image.Image)
+			}
+			imagesLock.Images[i].Image = img.DigestRef
+		}
+	} else {
+		for _, img := range processedImages.All() {
+			imagesLock.Images = append(imagesLock.Images, lockconfig.ImageRef{
+				Image: img.DigestRef,
+			})
+		}
 	}
 
 	return imagesLock.WriteToPath(o.LockOutputFlags.LockFilePath)

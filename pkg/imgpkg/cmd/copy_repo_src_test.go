@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -80,6 +81,64 @@ func TestCopyingBundleToRepoWithMultipleRegistries(t *testing.T) {
 			if !strings.HasPrefix(processedImage.UnprocessedImageRef.DigestRef, sourceBundleName) {
 				t.Fatalf("Expected every image to be processed from %s, instead got %s", sourceBundleName, processedImage.UnprocessedImageRef.DigestRef)
 			}
+		}
+	})
+}
+
+func TestCopyingFromImageLockFile(t *testing.T) {
+	fakeRegistry := NewFakeRegistry(t)
+	defer fakeRegistry.CleanUp()
+
+	destinationImageName := "localregistry.io/library/copied-img"
+	imageLockYAML := `apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: some.registry.io/image-1@sha256:9c758bb5cd8a130fc25de0544473ea7e2978ca23dcd78d14d53d30e7b4eef423
+  annotations:
+    my-annotation: first-image
+- image: some.registry.io/image-2@sha256:08075264ab954309ef1382a00157820922599687f99dccd8d8e36d78dc3573d7
+  annotations:
+    my-annotation: second-image
+`
+	lockFile, err := ioutil.TempFile("", "images.lock.yml")
+	if err != nil {
+		t.Fatalf("unable to create images.lock.yml file: %s", err)
+	}
+	err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+	if err != nil {
+		t.Fatalf("unable to write to images.lock.yml file: %s", err)
+	}
+
+	allImages := []string{
+		"some.registry.io/image-1@sha256:9c758bb5cd8a130fc25de0544473ea7e2978ca23dcd78d14d53d30e7b4eef423",
+		"some.registry.io/image-2@sha256:08075264ab954309ef1382a00157820922599687f99dccd8d8e36d78dc3573d7",
+	}
+
+	expectedImg1 := fakeRegistry.WithImageFromPath(allImages[0], "test_assets/bundle")
+	expectedImg2 := fakeRegistry.WithImageFromPath(allImages[1], "test_assets/bundle_with_mult_images")
+
+	subject := subject
+	subject.LockInputFlags.LockFilePath = lockFile.Name()
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("Copies both images", func(t *testing.T) {
+		processedImages, err := subject.CopyToRepo(destinationImageName)
+		if err != nil {
+			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
+		}
+
+		numOfImagesProcessed := len(processedImages.All())
+		if numOfImagesProcessed != 2 {
+			t.Fatalf("Expected 2 images to be processed, Got %d images processed", numOfImagesProcessed)
+		}
+
+		img1 := processedImages.All()[0]
+		img2 := processedImages.All()[1]
+		if expectedImg1.RefDigest != img1.UnprocessedImageRef.DigestRef {
+			t.Fatalf("Expected every image to be processed from %s, instead got %s", expectedImg1.imageName, img1.UnprocessedImageRef.DigestRef)
+		}
+		if expectedImg2.RefDigest != img2.UnprocessedImageRef.DigestRef {
+			t.Fatalf("Expected every image to be processed from %s, instead got %s", expectedImg2.imageName, img2.UnprocessedImageRef.DigestRef)
 		}
 	})
 }

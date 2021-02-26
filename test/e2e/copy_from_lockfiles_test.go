@@ -108,6 +108,8 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
+  annotations:
+    some-annotation: some-value
 `, imageDigestRef)
 
 	testDir := env.Assets.CreateTempFolder("copy-image-to-repo-with-lock-file")
@@ -121,8 +123,11 @@ images:
 	lockOutputPath := filepath.Join(testDir, "image-relocate-lock.yml")
 	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
-	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
+	imageRefs := []lockconfig.ImageRef{{
+		Image:       fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest),
+		Annotations: map[string]string{"some-annotation": "some-value"},
+	}}
+	env.Assert.AssertImagesLock(lockOutputPath, imageRefs)
 
 	// check if image is present in dst repo
 	refs := []string{env.RelocationRepo + imageDigest}
