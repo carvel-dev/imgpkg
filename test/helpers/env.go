@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package perf
+package helpers
 
 import (
 	"os"
@@ -12,8 +12,11 @@ import (
 type Env struct {
 	Image          string
 	ImgpkgPath     string
-	ImageFactory   imageFactory
 	RelocationRepo string
+	BundleFactory  BundleFactory
+	Assets         *Assets
+	Assert         Assertion
+	ImageFactory   ImageFactory
 	cleanupFuncs   []func()
 }
 
@@ -24,11 +27,18 @@ func BuildEnv(t *testing.T) *Env {
 		imgpkgPath = "imgpkg"
 	}
 
+	assets := &Assets{T: t}
 	env := Env{
 		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
 		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
 		ImgpkgPath:     imgpkgPath,
-		ImageFactory:   imageFactory{t: t},
+		BundleFactory:  NewBundleDir(t, assets),
+		Assets:         assets,
+		Assert:         Assertion{T: t},
+		ImageFactory: ImageFactory{
+			Assets: assets,
+			T:      t,
+		},
 	}
 	env.Validate(t)
 	return &env
@@ -37,6 +47,7 @@ func (e *Env) AddCleanup(f func()) {
 	e.cleanupFuncs = append(e.cleanupFuncs, f)
 }
 func (e *Env) Cleanup() {
+	e.Assets.CleanCreatedFolders()
 	for i := len(e.cleanupFuncs) - 1; i >= 0; i-- {
 		e.cleanupFuncs[i]()
 	}

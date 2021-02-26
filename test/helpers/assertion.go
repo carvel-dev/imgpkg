@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package e2e
+package helpers
 
 import (
 	"fmt"
@@ -16,15 +16,15 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
-type assertion struct {
-	t *testing.T
+type Assertion struct {
+	T *testing.T
 }
 
-func (a *assertion) ImagesDigestIsOnTar(tarFilePath string, imagesDigestRef ...string) {
-	a.t.Helper()
+func (a *Assertion) ImagesDigestIsOnTar(tarFilePath string, imagesDigestRef ...string) {
+	a.T.Helper()
 	imagesOrIndexes, err := imagetar.NewTarReader(tarFilePath).Read()
 	if err != nil {
-		a.t.Fatalf("failed to read tar: %v", err)
+		a.T.Fatalf("failed to read tar: %v", err)
 	}
 
 	for _, imageOrIndex := range imagesOrIndexes {
@@ -37,25 +37,25 @@ func (a *assertion) ImagesDigestIsOnTar(tarFilePath string, imagesDigestRef ...s
 		}
 
 		if !found {
-			a.t.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
+			a.T.Fatalf("unexpected image ref (%s) referenced in manifest.json", imageRefFromTar)
 		}
 	}
 }
 
-func (a *assertion) AssertBundleLock(path, expectedBundleRef, expectedTag string) {
-	a.t.Helper()
+func (a *Assertion) AssertBundleLock(path, expectedBundleRef, expectedTag string) {
+	a.T.Helper()
 	bLock, err := lockconfig.NewBundleLockFromPath(path)
 	if err != nil {
-		a.t.Fatalf("unable to read bundle lock file: %s", err)
+		a.T.Fatalf("unable to read bundle lock file: %s", err)
 	}
 
 	if bLock.Bundle.Image != expectedBundleRef {
-		a.t.Fatalf("expected lock output to contain relocated ref '%s', got '%s'",
+		a.T.Fatalf("expected lock output to contain relocated ref '%s', got '%s'",
 			expectedBundleRef, bLock.Bundle.Image)
 	}
 
 	if bLock.Bundle.Tag != expectedTag {
-		a.t.Fatalf("expected lock output to contain tag '%s', got '%s'",
+		a.T.Fatalf("expected lock output to contain tag '%s', got '%s'",
 			expectedBundleRef, bLock.Bundle.Tag)
 	}
 
@@ -65,24 +65,24 @@ func (a *assertion) AssertBundleLock(path, expectedBundleRef, expectedTag string
 	bundleLockKind := "BundleLock"
 	bundleLockAPIVersion := "imgpkg.carvel.dev/v1alpha1"
 	if bLock.APIVersion != bundleLockAPIVersion {
-		a.t.Fatalf("expected apiVersion to equal: %s, but got: %s",
+		a.T.Fatalf("expected apiVersion to equal: %s, but got: %s",
 			bundleLockAPIVersion, bLock.APIVersion)
 	}
 
 	if bLock.Kind != bundleLockKind {
-		a.t.Fatalf("expected Kind to equal: %s, but got: %s", bundleLockKind, bLock.Kind)
+		a.T.Fatalf("expected Kind to equal: %s, but got: %s", bundleLockKind, bLock.Kind)
 	}
 }
 
-func (a *assertion) AssertImagesLock(path string, images []lockconfig.ImageRef) {
-	a.t.Helper()
+func (a *Assertion) AssertImagesLock(path string, images []lockconfig.ImageRef) {
+	a.T.Helper()
 	imagesLock, err := lockconfig.NewImagesLockFromPath(path)
 	if err != nil {
-		a.t.Fatalf("unable to read bundle lock file: %s", err)
+		a.T.Fatalf("unable to read bundle lock file: %s", err)
 	}
 
 	if len(images) != len(imagesLock.Images) {
-		a.t.Fatalf("expected number of images is different from the received\nExpected:\n %d\n Got:%d\n", len(images), len(imagesLock.Images))
+		a.T.Fatalf("expected number of images is different from the received\nExpected:\n %d\n Got:%d\n", len(images), len(imagesLock.Images))
 	}
 
 	var errors []string
@@ -97,7 +97,7 @@ func (a *assertion) AssertImagesLock(path string, images []lockconfig.ImageRef) 
 	}
 
 	if len(errors) > 0 {
-		a.t.Fatalf("Images in the lock file do not match expected: %s", strings.Join(errors, "\n\t"))
+		a.T.Fatalf("Images in the lock file do not match expected: %s", strings.Join(errors, "\n\t"))
 	}
 
 	// Do not replace imagesLockKind or imagesLockAPIVersion with consts
@@ -106,17 +106,17 @@ func (a *assertion) AssertImagesLock(path string, images []lockconfig.ImageRef) 
 	imagesLockKind := "ImagesLock"
 	imagesLockAPIVersion := "imgpkg.carvel.dev/v1alpha1"
 	if imagesLock.APIVersion != imagesLockAPIVersion {
-		a.t.Fatalf("expected apiVersion to equal: %s, but got: %s",
+		a.T.Fatalf("expected apiVersion to equal: %s, but got: %s",
 			imagesLockAPIVersion, imagesLock.APIVersion)
 	}
 
 	if imagesLock.Kind != imagesLockKind {
-		a.t.Fatalf("expected Kind to equal: %s, but got: %s", imagesLockKind, imagesLock.Kind)
+		a.T.Fatalf("expected Kind to equal: %s, but got: %s", imagesLockKind, imagesLock.Kind)
 	}
 }
 
-func (a *assertion) ValidateImagesPresenceInRegistry(refs []string) error {
-	a.t.Helper()
+func (a *Assertion) ValidateImagesPresenceInRegistry(refs []string) error {
+	a.T.Helper()
 	for _, refString := range refs {
 		ref, _ := name.ParseReference(refString)
 		if _, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {

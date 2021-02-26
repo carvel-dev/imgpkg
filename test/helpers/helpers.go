@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package e2e
+package helpers
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"github.com/k14s/difflib"
 )
 
-func compareFiles(t *testing.T, path1, path2 string) {
+func CompareFiles(t *testing.T, path1, path2 string) {
 	t.Helper()
 	path1Bs, err := ioutil.ReadFile(path1)
 	if err != nil {
@@ -27,11 +27,11 @@ func compareFiles(t *testing.T, path1, path2 string) {
 	}
 
 	if string(path1Bs) != string(path2Bs) {
-		t.Fatalf("Expected contents to match for %s vs %s\nDiff: %s", path1, path2, diffText(string(path1Bs), string(path2Bs)))
+		t.Fatalf("Expected contents to match for %s vs %s\nDiff: %s", path1, path2, DiffText(string(path1Bs), string(path2Bs)))
 	}
 }
 
-func diffText(left, right string) string {
+func DiffText(left, right string) string {
 	var sb strings.Builder
 
 	recs := difflib.Diff(strings.Split(right, "\n"), strings.Split(left, "\n"))
@@ -55,7 +55,7 @@ func diffText(left, right string) string {
 	return sb.String()
 }
 
-const bundleYAML = `---
+const BundleYAML = `---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: Bundle
 metadata:
@@ -66,14 +66,14 @@ authors:
 websites:
 - url: blah.com
 `
-const imagesYAML = `---
+const ImagesYAML = `---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 `
-const imageFile = "images.yml"
-const bundleFile = "bundle.yml"
+const ImageFile = "images.yml"
+const BundleFile = "bundle.yml"
 
-func extractDigest(t *testing.T, out string) string {
+func ExtractDigest(t *testing.T, out string) string {
 	t.Helper()
 	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
 	if len(match) != 2 {

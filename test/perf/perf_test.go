@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 type ByteSize int64
@@ -21,18 +23,18 @@ const (
 	GB
 )
 
-func TestBenchmarkCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
-	logger := Logger{}
-	env := BuildEnv(t)
+func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
+	logger := helpers.Logger{}
+	env := helpers.BuildEnv(t)
 	defer env.Cleanup()
 	perfTestingRepo := startRegistryForPerfTesting(t, env)
 
 	benchmarkResultInitialPush := testing.Benchmark(func(b *testing.B) {
-		env.ImageFactory.PushImage(perfTestingRepo, int64(GB))
+		env.ImageFactory.PushImageWithLayerSize(perfTestingRepo, int64(GB))
 	})
 
 	benchmarkResultCopyInSameRegistry := testing.Benchmark(func(b *testing.B) {
-		imgpkg := Imgpkg{b, logger, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{t, logger, env.ImgpkgPath}
 
 		imgpkg.Run([]string{"copy", "-i", perfTestingRepo, "--to-repo", perfTestingRepo + strconv.Itoa(b.N)})
 	})
@@ -49,7 +51,7 @@ func TestBenchmarkCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) 
 
 }
 
-func startRegistryForPerfTesting(t *testing.T, env *Env) string {
+func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
 	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-perf-testing", "registry:2")
 	output, err := dockerRunCmd.CombinedOutput()
 	if err != nil {

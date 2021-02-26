@@ -9,16 +9,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestPushBundleInImageLockErr(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
-	bundleDigest := fmt.Sprintf("@%s", extractDigest(t, out))
+	bundleDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 	bundleDigestRef := env.Image + bundleDigest
 
 	imagesLockYAML := fmt.Sprintf(`---
@@ -31,7 +33,7 @@ images:
 
 	var stderrBs bytes.Buffer
 	_, err := imgpkg.RunWithOpts([]string{"push", "-b", env.Image, "-f", bundleDir},
-		RunOpts{AllowError: true, StderrWriter: &stderrBs})
+		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 	if err == nil {
 		t.Fatalf("Expected pushing to fail because of bundle ref in image lock file, but got success")

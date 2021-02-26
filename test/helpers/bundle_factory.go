@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package e2e
+package helpers
 
 import (
 	"io/ioutil"
@@ -10,17 +10,17 @@ import (
 	"testing"
 )
 
-type bundleFactory struct {
-	assets       *assets
+type BundleFactory struct {
+	assets       *Assets
 	t            *testing.T
 	bundleFolder string
 }
 
-func newBundleDir(t *testing.T, assets *assets) bundleFactory {
-	return bundleFactory{assets: assets, t: t}
+func NewBundleDir(t *testing.T, assets *Assets) BundleFactory {
+	return BundleFactory{assets: assets, t: t}
 }
 
-func (b *bundleFactory) CreateBundleDir(bYml, iYml string) string {
+func (b *BundleFactory) CreateBundleDir(bYml, iYml string) string {
 	b.t.Helper()
 	outDir := b.assets.CreateAndCopySimpleApp("main-bundle")
 	imgpkgDir := filepath.Join(outDir, ".imgpkg")
@@ -30,12 +30,12 @@ func (b *bundleFactory) CreateBundleDir(bYml, iYml string) string {
 		b.t.Fatalf("unable to create .imgpkg folder: %s", err)
 	}
 
-	err = ioutil.WriteFile(filepath.Join(imgpkgDir, bundleFile), []byte(bYml), 0600)
+	err = ioutil.WriteFile(filepath.Join(imgpkgDir, BundleFile), []byte(bYml), 0600)
 	if err != nil {
 		b.t.Fatalf("unable to create bundle lock file: %s", err)
 	}
 
-	err = ioutil.WriteFile(filepath.Join(imgpkgDir, imageFile), []byte(iYml), 0600)
+	err = ioutil.WriteFile(filepath.Join(imgpkgDir, ImageFile), []byte(iYml), 0600)
 	if err != nil {
 		b.t.Fatalf("unable to create images lock file: %s", err)
 	}
@@ -44,7 +44,7 @@ func (b *bundleFactory) CreateBundleDir(bYml, iYml string) string {
 	return outDir
 }
 
-func (b *bundleFactory) AddFileToBundle(path, content string) {
+func (b *BundleFactory) AddFileToBundle(path, content string) {
 	b.t.Helper()
 	subfolders, _ := filepath.Split(path)
 	if subfolders != "" {

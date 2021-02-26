@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package perf
+package helpers
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 )
 
 type Imgpkg struct {
-	b          *testing.B
-	l          Logger
-	imgpkgPath string
+	T          *testing.T
+	L          Logger
+	ImgpkgPath string
 }
 
 type RunOpts struct {
@@ -30,18 +30,18 @@ type RunOpts struct {
 }
 
 func (k Imgpkg) Run(args []string) string {
-	k.b.Helper()
+	k.T.Helper()
 	out, _ := k.RunWithOpts(args, RunOpts{})
 	return out
 }
 
 func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
-	k.b.Helper()
+	k.T.Helper()
 	args = append(args, "--yes")
 
-	k.l.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))
+	k.L.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))
 
-	cmd := exec.Command(k.imgpkgPath, args...)
+	cmd := exec.Command(k.ImgpkgPath, args...)
 	if len(opts.EnvVars) != 0 {
 		cmd.Env = os.Environ()
 		for _, env := range opts.EnvVars {
@@ -81,7 +81,7 @@ func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
 		err = fmt.Errorf("Execution error: stdout: '%s' stderr: '%s' error: '%s'", stdoutStr, stderr.String(), err)
 
 		if !opts.AllowError {
-			k.b.Fatalf("Failed to successfully execute '%s': %v", k.cmdDesc(args, opts), err)
+			k.T.Fatalf("Failed to successfully execute '%s': %v", k.cmdDesc(args, opts), err)
 		}
 	}
 

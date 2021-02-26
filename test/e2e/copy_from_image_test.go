@@ -17,13 +17,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/test/helpers"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
 func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserverImageTag(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -51,9 +52,9 @@ func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserverImageTag(t 
 
 func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
 	t.Run("environment with internet", func(t *testing.T) {
-		env := BuildEnv(t)
+		env := helpers.BuildEnv(t)
 
-		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
 		defer env.Cleanup()
 
@@ -68,7 +69,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		// copy to tar skipping NDL
 		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath})
 
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, helpers.RunOpts{
 			StderrWriter: &stdOutWriter,
 			StdoutWriter: &stdOutWriter,
 		})
@@ -90,10 +91,10 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 	})
 
 	t.Run("airgapped environment", func(t *testing.T) {
-		env := BuildEnv(t)
+		env := helpers.BuildEnv(t)
 		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
 		defer env.Cleanup()
 
@@ -110,7 +111,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 
 		stopRegistryForAirgapTesting(t, env)
 
-		_, err := imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+		_, err := imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, helpers.RunOpts{
 			AllowError:   true,
 			StderrWriter: &stdOutWriter,
 			StdoutWriter: &stdOutWriter,
@@ -127,8 +128,8 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 }
 
 func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// general setup
@@ -145,10 +146,10 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 
 	stderr := bytes.NewBufferString("")
 	// copy from a tarball (with a NDL) to a repo (the image in the repo does *not* include the NDL because the --include-non-dist flag was omitted)
-	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
 		StderrWriter: stderr,
 	})
-	imageDigest := fmt.Sprintf("@%s", extractDigest(t, stderr.String()))
+	imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, stderr.String()))
 
 	// copying from a repo (the image in the repo does *not* include the NDL) to a tarball. We expect NDL to be copied into the tarball.
 	imgpkg.Run([]string{"copy", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable"})
@@ -160,8 +161,8 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 
 func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 	t.Run("With --include-non-distributable flag and image contains a non-distributable layer should copy every layer", func(t *testing.T) {
-		env := BuildEnv(t)
-		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -175,7 +176,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable"})
 
 		stderr := bytes.NewBufferString("")
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, RunOpts{
+		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable"}, helpers.RunOpts{
 			StderrWriter: stderr,
 		})
 
@@ -194,16 +195,16 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			t.Fatalf("Expected to find a non-distributable layer however it wasn't found. Got response code: %v", err)
 		}
 
-		imageDigest := fmt.Sprintf("@%s", extractDigest(t, stderr.String()))
+		imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, stderr.String()))
 
 		imgpkg.Run([]string{"pull", "-i", repoToCopyName + imageDigest, "--output", env.Assets.CreateTempFolder("pulled-image")})
 	})
 
 	t.Run("Without --include-non-distributable flag and image contains a non-distributable layer should only copy distributable layers and print a warning message", func(t *testing.T) {
-		env := BuildEnv(t)
+		env := helpers.BuildEnv(t)
 		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -219,7 +220,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 		stopRegistryForAirgapTesting(t, env)
 
 		var stdOutWriter bytes.Buffer
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, RunOpts{
+		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
 			StdoutWriter: &stdOutWriter,
 			StderrWriter: &stdOutWriter,
 		})
@@ -244,8 +245,8 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 	})
 
 	t.Run("With --lock-output flag should generate a valid ImageLock file", func(t *testing.T) {
-		env := BuildEnv(t)
-		imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -256,7 +257,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 		tag := fmt.Sprintf("%d", time.Now().UnixNano())
 		tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
 		out := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, tagRef)
-		imageDigest := fmt.Sprintf("@%s", extractDigest(t, out))
+		imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 
 		// copy to tar
 		imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath})
@@ -279,18 +280,18 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 }
 
 func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
 	out := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
-	imageDigest := fmt.Sprintf("@%s", extractDigest(t, out))
+	imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 	imageDigestRef := env.Image + imageDigest
 
 	var stderrBs bytes.Buffer
 	_, err := imgpkg.RunWithOpts([]string{"copy", "-b", imageDigestRef, "--to-tar", "fake_path"},
-		RunOpts{AllowError: true, StderrWriter: &stderrBs})
+		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 
 	if err == nil {
@@ -303,11 +304,11 @@ func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
 }
 
 func TestCopyErrorsWhenCopyToTarAndGenerateOutputLockFile(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	_, err := imgpkg.RunWithOpts(
 		[]string{"copy", "--tty", "-i", env.Image, "--to-tar", "file", "--lock-output", "bogus"},
-		RunOpts{AllowError: true},
+		helpers.RunOpts{AllowError: true},
 	)
 
 	if err == nil || !strings.Contains(err.Error(), "output lock file with tar destination") {
@@ -315,7 +316,7 @@ func TestCopyErrorsWhenCopyToTarAndGenerateOutputLockFile(t *testing.T) {
 	}
 }
 
-func stopRegistryForAirgapTesting(t *testing.T, env *Env) {
+func stopRegistryForAirgapTesting(t *testing.T, env *helpers.Env) {
 	err := exec.Command("docker", "stop", "registry-for-airgapped-testing").Run()
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -326,7 +327,7 @@ func stopRegistryForAirgapTesting(t *testing.T, env *Env) {
 	})
 }
 
-func startRegistryForAirgapTesting(t *testing.T, env *Env) string {
+func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) string {
 	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-airgapped-testing", "registry:2")
 	output, err := dockerRunCmd.CombinedOutput()
 	if err != nil {

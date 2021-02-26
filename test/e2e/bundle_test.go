@@ -15,14 +15,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestBundlePushPullAnnotation(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
@@ -47,11 +48,11 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 }
 
 func TestPushWithFileExclusion(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 
 	env.BundleFactory.AddFileToBundle("excluded-file.txt", "I will not be present in the bundle")
 	env.BundleFactory.AddFileToBundle(
@@ -72,11 +73,11 @@ func TestPushWithFileExclusion(t *testing.T) {
 }
 
 func TestBundleLockFile(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 
 	bundleLockFilepath := filepath.Join(env.Assets.CreateTempFolder("bundle-lock"), "imgpkg-bundle-lock-test.yml")
 
@@ -98,7 +99,7 @@ kind: BundleLock
 `, env.Image)
 
 	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
-		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", diffText(expectedYml, string(bundleBs)))
+		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", helpers.DiffText(expectedYml, string(bundleBs)))
 	}
 
 	outputDir := env.Assets.CreateTempFolder("bundle-pull")
@@ -108,18 +109,18 @@ kind: BundleLock
 }
 
 func TestImagePullOnBundleError(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 
 	var stderrBs bytes.Buffer
 
 	path := env.Assets.CreateTempFolder("not-used")
 	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", env.Image, "-o", path},
-		RunOpts{AllowError: true, StderrWriter: &stderrBs})
+		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 
 	if err == nil {
@@ -131,8 +132,8 @@ func TestImagePullOnBundleError(t *testing.T) {
 }
 
 func TestBundlePullOnImageError(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imageDir := env.Assets.CreateAndCopySimpleApp("image-folder")
@@ -141,7 +142,7 @@ func TestBundlePullOnImageError(t *testing.T) {
 	path := env.Assets.CreateTempFolder("not-used")
 	var stderrBs bytes.Buffer
 	_, err := imgpkg.RunWithOpts([]string{"pull", "-b", env.Image, "-o", path},
-		RunOpts{AllowError: true, StderrWriter: &stderrBs})
+		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 
 	if err == nil {
 		t.Fatal("Expected incorrect flag error")

@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestAuthErr(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
 	var stderrBs bytes.Buffer
 
@@ -19,7 +21,7 @@ func TestAuthErr(t *testing.T) {
 		"pull", "-i", "index.docker.io/k8slt/imgpkg-test", "-o", "/tmp/unused",
 		"--registry-username", "incorrect-user",
 		"--registry-password", "incorrect-password",
-	}, RunOpts{AllowError: true, StderrWriter: &stderrBs})
+	}, helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 
 	errOut := stderrBs.String()
 

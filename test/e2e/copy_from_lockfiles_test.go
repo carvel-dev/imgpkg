@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestCopyWithBundleLockInputWithIndexesToRepoDestinationAndOutputNewBundleLockFile(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -29,7 +30,7 @@ images:
 `
 
 	// create a bundle with ref to generic
-	testDir := env.BundleFactory.CreateBundleDir(bundleYAML, imageLockYAML)
+	testDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
 	// create bundle that refs image with --lock-output and a random tag based on time
 	lockFile := filepath.Join(testDir, "bundle.lock.yml")
@@ -49,8 +50,8 @@ images:
 }
 
 func TestCopyWithBundleLockInputToRepoDestinationAndOutputNewBundleLockFile(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -66,7 +67,7 @@ images:
 `, imageDigestRef)
 
 	// create a bundle with ref to generic
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imgLockYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imgLockYAML)
 
 	// create bundle that refs image with --lock-ouput and a random tag based on time
 	testDir := env.Assets.CreateTempFolder("copy-with-lock-file")
@@ -76,7 +77,7 @@ images:
 	if err != nil {
 		t.Fatalf("failed to read bundlelock file: %v", err)
 	}
-	bundleDigest := fmt.Sprintf("@%s", extractDigest(t, bundleLock.Bundle.Image))
+	bundleDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, bundleLock.Bundle.Image))
 	bundleTag := bundleLock.Bundle.Tag
 
 	// copy via output file
@@ -94,8 +95,8 @@ images:
 }
 
 func TestCopyWithImageLockInputToRepoDestinationAndOutputNewImageLockFile(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -131,8 +132,8 @@ images:
 }
 
 func TestCopyWithBundleLockInputToTarFileAndToADifferentRepoCheckTagIsKeptAndBundleLockFileIsGenerated(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -149,7 +150,7 @@ images:
 	// create bundle that refs image with --lock-ouput
 	testDir := env.Assets.CreateTempFolder("copy-bundle-via-tar-keep-tag")
 	lockFile := filepath.Join(testDir, "bundle.lock.yml")
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imageLockYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", lockFile})
 
 	origBundleLock, err := lockconfig.NewBundleLockFromPath(lockFile)
@@ -157,7 +158,7 @@ images:
 		t.Fatalf("unable to read original bundle lock: %s", err)
 	}
 
-	bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, extractDigest(t, origBundleLock.Bundle.Image))
+	bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, origBundleLock.Bundle.Image))
 
 	// copy via output file
 	tarFilePath := filepath.Join(testDir, "bundle.tar")
@@ -169,7 +170,7 @@ images:
 	lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
 	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
 
-	expectedRelocatedRef := fmt.Sprintf("%s@%s", env.RelocationRepo, extractDigest(t, bundleDigestRef))
+	expectedRelocatedRef := fmt.Sprintf("%s@%s", env.RelocationRepo, helpers.ExtractDigest(t, bundleDigestRef))
 	env.Assert.AssertBundleLock(lockFilePath, expectedRelocatedRef, origBundleLock.Bundle.Tag)
 
 	// validate bundle and image were relocated
@@ -183,8 +184,8 @@ images:
 }
 
 func TestCopyWithImageLockInputToTarFileAndToADifferentRepoCheckTagIsKeptAndImageLockFileIsGenerated(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
