@@ -11,6 +11,7 @@ import (
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
@@ -22,15 +23,22 @@ const (
 )
 
 type Contents struct {
-	paths         []string
-	excludedPaths []string
+	paths             []string
+	excludedPaths     []string
+	allowInnerBundles bool
 }
 
-func NewContents(paths []string, excludedPaths []string) Contents {
-	return Contents{paths: paths, excludedPaths: excludedPaths}
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadataWriter
+type ImagesMetadataWriter interface {
+	ctlimg.ImagesMetadata
+	WriteImage(regname.Reference, regv1.Image) error
 }
 
-func (b Contents) Push(uploadRef regname.Tag, registry ctlimg.Registry, ui ui.UI) (string, error) {
+func NewContents(paths []string, excludedPaths []string, allowInnerBundles bool) Contents {
+	return Contents{paths: paths, excludedPaths: excludedPaths, allowInnerBundles: allowInnerBundles}
+}
+
+func (b Contents) Push(uploadRef regname.Tag, registry ImagesMetadataWriter, ui ui.UI) (string, error) {
 	err := b.validate(registry)
 	if err != nil {
 		return "", err
@@ -57,7 +65,7 @@ func (b Contents) PresentsAsBundle() (bool, error) {
 	return true, nil
 }
 
-func (b Contents) validate(registry ctlimg.Registry) error {
+func (b Contents) validate(registry ctlimg.ImagesMetadata) error {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
 		return err
@@ -73,6 +81,10 @@ func (b Contents) validate(registry ctlimg.Registry) error {
 		return err
 	}
 
+	if b.allowInnerBundles {
+		return nil
+	}
+
 	bundles, err := b.checkForBundles(registry, imagesLock.Images)
 	if err != nil {
 		return fmt.Errorf("Checking image lock for bundles: %s", err)
@@ -85,7 +97,7 @@ func (b Contents) validate(registry ctlimg.Registry) error {
 	return nil
 }
 
-func (b Contents) checkForBundles(reg ctlimg.Registry, imageRefs []lockconfig.ImageRef) ([]string, error) {
+func (b Contents) checkForBundles(reg ctlimg.ImagesMetadata, imageRefs []lockconfig.ImageRef) ([]string, error) {
 	var bundles []string
 	for _, img := range imageRefs {
 		isBundle, err := NewBundle(img.Image, reg).IsBundle()

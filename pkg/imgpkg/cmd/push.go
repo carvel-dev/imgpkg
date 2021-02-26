@@ -19,11 +19,12 @@ import (
 type PushOptions struct {
 	ui ui.UI
 
-	ImageFlags      ImageFlags
-	BundleFlags     BundleFlags
-	LockOutputFlags LockOutputFlags
-	FileFlags       FileFlags
-	RegistryFlags   RegistryFlags
+	ImageFlags        ImageFlags
+	BundleFlags       BundleFlags
+	LockOutputFlags   LockOutputFlags
+	FileFlags         FileFlags
+	RegistryFlags     RegistryFlags
+	ExperimentalFlags ExperimentalFlags
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -47,6 +48,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	o.LockOutputFlags.Set(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	o.ExperimentalFlags.Set(cmd)
 	return cmd
 }
 
@@ -95,7 +97,7 @@ func (o *PushOptions) pushBundle(registry ctlimg.Registry) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", o.BundleFlags.Bundle, err)
 	}
 
-	imageURL, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, o.ui)
+	imageURL, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths, o.ExperimentalFlags.RecursiveBundles).Push(uploadRef, registry, o.ui)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +133,7 @@ func (o *PushOptions) pushImage(registry ctlimg.Registry) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", o.ImageFlags.Image, err)
 	}
 
-	isBundle, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).PresentsAsBundle()
+	isBundle, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths, false).PresentsAsBundle()
 	if err != nil {
 		return "", err
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
@@ -19,11 +20,15 @@ type Contents struct {
 	excludedPaths []string
 }
 
+type ImagesWriter interface {
+	WriteImage(regname.Reference, regv1.Image) error
+}
+
 func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
-func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry ctlimg.Registry, ui ui.UI) (string, error) {
+func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, ui ui.UI) (string, error) {
 	err := b.validate()
 	if err != nil {
 		return "", err
@@ -38,7 +43,7 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 
 	defer img.Remove()
 
-	err = registry.WriteImage(uploadRef, img)
+	err = writer.WriteImage(uploadRef, img)
 	if err != nil {
 		return "", fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
 	}
