@@ -10,6 +10,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/onsi/gomega v1.10.4 // indirect
 	github.com/spf13/cobra v1.0.0
+	github.com/stretchr/testify v1.6.1
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	sigs.k8s.io/yaml v1.2.0
 )

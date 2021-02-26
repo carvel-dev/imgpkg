@@ -21,6 +21,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/stretchr/testify/require"
 )
 
 type FakeRegistry struct {
@@ -32,6 +33,32 @@ func NewFakeRegistry(t *testing.T) *FakeRegistry {
 	return &FakeRegistry{state: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
 }
 
+type ImageOrImageIndexWithTarPath struct {
+	fakeRegistry *FakeRegistry
+	imageName    string
+	image        v1.Image
+	imageIndex   v1.ImageIndex
+	path         string
+	t            *testing.T
+	RefDigest    string
+}
+
+type BundleInfo struct {
+	r          *FakeRegistry
+	BundlePath string
+}
+
+func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
+	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml")
+	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
+	require.NoError(b.r.t, err)
+
+	for _, img := range imgLock.Images {
+		b.r.WithImageFromPath(img.Image, path)
+	}
+	return b.r
+}
+
 func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
 	getDescriptor := func(reference name.Reference, r *FakeRegistry) (v1.Descriptor, error) {
@@ -40,9 +67,8 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 			if val.image != nil {
 				mediaType, err := val.image.MediaType()
 				digest, err := val.image.Digest()
-				if err != nil {
-					r.t.Fatal(err.Error())
-				}
+				require.NoError(r.t, err)
+
 				return v1.Descriptor{
 					MediaType: mediaType,
 					Digest:    digest,
@@ -51,9 +77,8 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 
 			imageIndex := val.imageIndex
 			digest, err := imageIndex.Digest()
-			if err != nil {
-				r.t.Fatal(err.Error())
-			}
+			require.NoError(r.t, err)
+
 			mediaType, err = imageIndex.MediaType()
 			return v1.Descriptor{
 				MediaType: mediaType,
@@ -140,69 +165,36 @@ func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
 
 func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
-	if err != nil {
-		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
-	}
+	require.NoError(r.t, err, "compressing the bundle")
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	if err != nil {
-		r.t.Fatalf("unable to create image from file: %s", err)
-	}
+	require.NoError(r.t, err, "create image from tar")
 
 	r.updateState(bundleName, bundle, nil, path)
 	return BundleInfo{r, path}
 
 }
 
-func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
-	imgName, err := name.ParseReference(imageName)
-	if err != nil {
-		r.t.Fatalf("unable to parse reference: %s", err)
-	}
-
-	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, imageName: imageName, image: image, imageIndex: imageIndex, path: path}
-	r.state[imgName.Name()] = imageOrImageIndexWithTarPath
-
-	if image != nil {
-		digest, err := image.Digest()
-		if err != nil {
-			r.t.Fatalf("unable to parse reference: %s", err)
-		}
-		imageOrImageIndexWithTarPath.RefDigest = imgName.Context().Name()+"@"+digest.String()
-		r.state[imageOrImageIndexWithTarPath.RefDigest] = imageOrImageIndexWithTarPath
-	}
-	return imageOrImageIndexWithTarPath
-}
-
 func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
-	if err != nil {
-		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
-	}
+	require.NoError(r.t, err, "compressing the path")
 
 	fileImage, err := image.NewFileImage(tarballLayer.Name(), nil)
-	if err != nil {
-		r.t.Fatalf("Failed trying to build a file image%s", err)
-	}
+	require.NoError(r.t, err, "create image from tar")
 
 	return r.updateState(imageNameFromTest, fileImage, nil, path)
 }
 
 func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
 	index, err := random.Index(1024, 1, 1)
-	if err != nil {
-		r.t.Fatal(err.Error())
-	}
+	require.NoError(r.t, err)
+
 	manifest, err := index.IndexManifest()
-	if err != nil {
-		r.t.Fatal(err.Error())
-	}
+	require.NoError(r.t, err)
 
 	imageUsedInIndex, err := index.Image(manifest.Manifests[0].Digest)
-	if err != nil {
-		r.t.Fatal(err.Error())
-	}
+	require.NoError(r.t, err)
 
 	r.updateState(imageName, imageUsedInIndex, index, "")
 }
@@ -210,22 +202,33 @@ func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
 func (r *FakeRegistry) WithNonDistributableLayerInImage(imageNames ...string) {
 	for _, imageName := range imageNames {
 		reference, err := name.ParseReference(imageName)
-		if err != nil {
-			r.t.Fatalf("Failed trying to parse an image name%s", err)
-		}
+		require.NoErrorf(r.t, err, "parse reference: %s", imageName)
 
 		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
-		if err != nil {
-			r.t.Fatalf("unable to create a layer %s", err)
-		}
+		require.NoErrorf(r.t, err, "create layer: %s", imageName)
 
 		imageWithARestrictedLayer, err := mutate.AppendLayers(r.state[reference.Name()].image, layer)
-		if err != nil {
-			r.t.Fatalf("unable to append a layer %s", err)
-		}
+		require.NoErrorf(r.t, err, "add layer: %s", imageName)
 
 		r.updateState(imageName, imageWithARestrictedLayer, r.state[reference.Name()].imageIndex, r.state[reference.Name()].path)
 	}
+}
+
+func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
+	imgName, err := name.ParseReference(imageName)
+	require.NoError(r.t, err)
+
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, imageName: imageName, image: image, imageIndex: imageIndex, path: path}
+	r.state[imgName.Name()] = imageOrImageIndexWithTarPath
+
+	if image != nil {
+		digest, err := image.Digest()
+		require.NoError(r.t, err)
+
+		imageOrImageIndexWithTarPath.RefDigest = imgName.Context().Name() + "@" + digest.String()
+		r.state[imageOrImageIndexWithTarPath.RefDigest] = imageOrImageIndexWithTarPath
+	}
+	return imageOrImageIndexWithTarPath
 }
 
 func (r *FakeRegistry) CleanUp() {
@@ -234,48 +237,15 @@ func (r *FakeRegistry) CleanUp() {
 	}
 }
 
-type BundleInfo struct {
-	r          *FakeRegistry
-	BundlePath string
-}
-
-func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
-	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml")
-	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
-	if err != nil {
-		b.r.t.Fatalf("Got error: %s", err.Error())
-	}
-
-	for _, img := range imgLock.Images {
-		b.r.WithImageFromPath(img.Image, path)
-	}
-	return b.r
-}
-
-type ImageOrImageIndexWithTarPath struct {
-	fakeRegistry *FakeRegistry
-	imageName    string
-	image        v1.Image
-	imageIndex   v1.ImageIndex
-	path         string
-	t            *testing.T
-	RefDigest    string
-}
-
 func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
-	if err != nil {
-		r.t.Fatalf("unable to create a layer %s", err)
-	}
+	require.NoError(r.t, err)
+
 	r.image, err = mutate.AppendLayers(r.image, layer)
-	if err != nil {
-		r.t.Fatalf("unable to append a layer %s", err)
-	}
+	require.NoError(r.t, err)
 
 	reference, err := name.ParseReference(r.imageName)
-	if err != nil {
-		r.t.Fatalf("unable to parse reference: %s", err)
-	}
+	require.NoError(r.t, err)
 
 	r.fakeRegistry.updateState(reference.Name(), r.image, r.imageIndex, r.path)
 }

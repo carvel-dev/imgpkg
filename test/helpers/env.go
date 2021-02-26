@@ -43,9 +43,18 @@ func BuildEnv(t *testing.T) *Env {
 	env.Validate(t)
 	return &env
 }
+
+func (e *Env) UpdateT(t *testing.T) {
+	e.BundleFactory.t = t
+	e.Assert.T = t
+	e.Assets.T = t
+	e.ImageFactory.T = t
+}
+
 func (e *Env) AddCleanup(f func()) {
 	e.cleanupFuncs = append(e.cleanupFuncs, f)
 }
+
 func (e *Env) Cleanup() {
 	e.Assets.CleanCreatedFolders()
 	for i := len(e.cleanupFuncs) - 1; i >= 0; i-- {
