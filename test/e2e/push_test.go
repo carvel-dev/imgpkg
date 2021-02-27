@@ -44,16 +44,16 @@ images:
 }
 
 func TestPushBundleOfBundles(t *testing.T) {
-	env := BuildEnv(t)
-	logger := Logger{}
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	logger := helpers.Logger{}
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDigestRef := ""
-	bundleDir := env.BundleFactory.CreateBundleDir(bundleYAML, imagesYAML)
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	logger.Section("create inner bundle", func() {
 		out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
-		bundleDigestRef = fmt.Sprintf("%s@%s", env.Image, extractDigest(t, out))
+		bundleDigestRef = fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, out))
 	})
 
 	logger.Section("create new bundle with bundles", func() {

@@ -86,15 +86,16 @@ func (fake *FakeImagesMetadata) Digest(arg1 name.Reference) (v1.Hash, error) {
 	fake.digestArgsForCall = append(fake.digestArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.DigestStub
+	fakeReturns := fake.digestReturns
 	fake.recordInvocation("Digest", []interface{}{arg1})
 	fake.digestMutex.Unlock()
-	if fake.DigestStub != nil {
-		return fake.DigestStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.digestReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -149,15 +150,16 @@ func (fake *FakeImagesMetadata) Generic(arg1 name.Reference) (v1.Descriptor, err
 	fake.genericArgsForCall = append(fake.genericArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.GenericStub
+	fakeReturns := fake.genericReturns
 	fake.recordInvocation("Generic", []interface{}{arg1})
 	fake.genericMutex.Unlock()
-	if fake.GenericStub != nil {
-		return fake.GenericStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.genericReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -212,15 +214,16 @@ func (fake *FakeImagesMetadata) Get(arg1 name.Reference) (*remote.Descriptor, er
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.GetStub
+	fakeReturns := fake.getReturns
 	fake.recordInvocation("Get", []interface{}{arg1})
 	fake.getMutex.Unlock()
-	if fake.GetStub != nil {
-		return fake.GetStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.getReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -275,15 +278,16 @@ func (fake *FakeImagesMetadata) Image(arg1 name.Reference) (v1.Image, error) {
 	fake.imageArgsForCall = append(fake.imageArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.ImageStub
+	fakeReturns := fake.imageReturns
 	fake.recordInvocation("Image", []interface{}{arg1})
 	fake.imageMutex.Unlock()
-	if fake.ImageStub != nil {
-		return fake.ImageStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.imageReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -338,15 +342,16 @@ func (fake *FakeImagesMetadata) Index(arg1 name.Reference) (v1.ImageIndex, error
 	fake.indexArgsForCall = append(fake.indexArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.IndexStub
+	fakeReturns := fake.indexReturns
 	fake.recordInvocation("Index", []interface{}{arg1})
 	fake.indexMutex.Unlock()
-	if fake.IndexStub != nil {
-		return fake.IndexStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.indexReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 

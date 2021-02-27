@@ -128,15 +128,16 @@ func (fake *FakeUI) AskForChoice(arg1 string, arg2 []string) (int, error) {
 		arg1 string
 		arg2 []string
 	}{arg1, arg2Copy})
+	stub := fake.AskForChoiceStub
+	fakeReturns := fake.askForChoiceReturns
 	fake.recordInvocation("AskForChoice", []interface{}{arg1, arg2Copy})
 	fake.askForChoiceMutex.Unlock()
-	if fake.AskForChoiceStub != nil {
-		return fake.AskForChoiceStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.askForChoiceReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -190,15 +191,16 @@ func (fake *FakeUI) AskForConfirmation() error {
 	ret, specificReturn := fake.askForConfirmationReturnsOnCall[len(fake.askForConfirmationArgsForCall)]
 	fake.askForConfirmationArgsForCall = append(fake.askForConfirmationArgsForCall, struct {
 	}{})
+	stub := fake.AskForConfirmationStub
+	fakeReturns := fake.askForConfirmationReturns
 	fake.recordInvocation("AskForConfirmation", []interface{}{})
 	fake.askForConfirmationMutex.Unlock()
-	if fake.AskForConfirmationStub != nil {
-		return fake.AskForConfirmationStub()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.askForConfirmationReturns
 	return fakeReturns.result1
 }
 
@@ -243,15 +245,16 @@ func (fake *FakeUI) AskForPassword(arg1 string) (string, error) {
 	fake.askForPasswordArgsForCall = append(fake.askForPasswordArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.AskForPasswordStub
+	fakeReturns := fake.askForPasswordReturns
 	fake.recordInvocation("AskForPassword", []interface{}{arg1})
 	fake.askForPasswordMutex.Unlock()
-	if fake.AskForPasswordStub != nil {
-		return fake.AskForPasswordStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.askForPasswordReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -306,15 +309,16 @@ func (fake *FakeUI) AskForText(arg1 string) (string, error) {
 	fake.askForTextArgsForCall = append(fake.askForTextArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.AskForTextStub
+	fakeReturns := fake.askForTextReturns
 	fake.recordInvocation("AskForText", []interface{}{arg1})
 	fake.askForTextMutex.Unlock()
-	if fake.AskForTextStub != nil {
-		return fake.AskForTextStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.askForTextReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -369,9 +373,10 @@ func (fake *FakeUI) BeginLinef(arg1 string, arg2 ...interface{}) {
 		arg1 string
 		arg2 []interface{}
 	}{arg1, arg2})
+	stub := fake.BeginLinefStub
 	fake.recordInvocation("BeginLinef", []interface{}{arg1, arg2})
 	fake.beginLinefMutex.Unlock()
-	if fake.BeginLinefStub != nil {
+	if stub != nil {
 		fake.BeginLinefStub(arg1, arg2...)
 	}
 }
@@ -401,9 +406,10 @@ func (fake *FakeUI) EndLinef(arg1 string, arg2 ...interface{}) {
 		arg1 string
 		arg2 []interface{}
 	}{arg1, arg2})
+	stub := fake.EndLinefStub
 	fake.recordInvocation("EndLinef", []interface{}{arg1, arg2})
 	fake.endLinefMutex.Unlock()
-	if fake.EndLinefStub != nil {
+	if stub != nil {
 		fake.EndLinefStub(arg1, arg2...)
 	}
 }
@@ -433,9 +439,10 @@ func (fake *FakeUI) ErrorLinef(arg1 string, arg2 ...interface{}) {
 		arg1 string
 		arg2 []interface{}
 	}{arg1, arg2})
+	stub := fake.ErrorLinefStub
 	fake.recordInvocation("ErrorLinef", []interface{}{arg1, arg2})
 	fake.errorLinefMutex.Unlock()
-	if fake.ErrorLinefStub != nil {
+	if stub != nil {
 		fake.ErrorLinefStub(arg1, arg2...)
 	}
 }
@@ -463,9 +470,10 @@ func (fake *FakeUI) Flush() {
 	fake.flushMutex.Lock()
 	fake.flushArgsForCall = append(fake.flushArgsForCall, struct {
 	}{})
+	stub := fake.FlushStub
 	fake.recordInvocation("Flush", []interface{}{})
 	fake.flushMutex.Unlock()
-	if fake.FlushStub != nil {
+	if stub != nil {
 		fake.FlushStub()
 	}
 }
@@ -487,15 +495,16 @@ func (fake *FakeUI) IsInteractive() bool {
 	ret, specificReturn := fake.isInteractiveReturnsOnCall[len(fake.isInteractiveArgsForCall)]
 	fake.isInteractiveArgsForCall = append(fake.isInteractiveArgsForCall, struct {
 	}{})
+	stub := fake.IsInteractiveStub
+	fakeReturns := fake.isInteractiveReturns
 	fake.recordInvocation("IsInteractive", []interface{}{})
 	fake.isInteractiveMutex.Unlock()
-	if fake.IsInteractiveStub != nil {
-		return fake.IsInteractiveStub()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.isInteractiveReturns
 	return fakeReturns.result1
 }
 
@@ -544,9 +553,10 @@ func (fake *FakeUI) PrintBlock(arg1 []byte) {
 	fake.printBlockArgsForCall = append(fake.printBlockArgsForCall, struct {
 		arg1 []byte
 	}{arg1Copy})
+	stub := fake.PrintBlockStub
 	fake.recordInvocation("PrintBlock", []interface{}{arg1Copy})
 	fake.printBlockMutex.Unlock()
-	if fake.PrintBlockStub != nil {
+	if stub != nil {
 		fake.PrintBlockStub(arg1)
 	}
 }
@@ -575,9 +585,10 @@ func (fake *FakeUI) PrintErrorBlock(arg1 string) {
 	fake.printErrorBlockArgsForCall = append(fake.printErrorBlockArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.PrintErrorBlockStub
 	fake.recordInvocation("PrintErrorBlock", []interface{}{arg1})
 	fake.printErrorBlockMutex.Unlock()
-	if fake.PrintErrorBlockStub != nil {
+	if stub != nil {
 		fake.PrintErrorBlockStub(arg1)
 	}
 }
@@ -607,9 +618,10 @@ func (fake *FakeUI) PrintLinef(arg1 string, arg2 ...interface{}) {
 		arg1 string
 		arg2 []interface{}
 	}{arg1, arg2})
+	stub := fake.PrintLinefStub
 	fake.recordInvocation("PrintLinef", []interface{}{arg1, arg2})
 	fake.printLinefMutex.Unlock()
-	if fake.PrintLinefStub != nil {
+	if stub != nil {
 		fake.PrintLinefStub(arg1, arg2...)
 	}
 }
@@ -638,9 +650,10 @@ func (fake *FakeUI) PrintTable(arg1 table.Table) {
 	fake.printTableArgsForCall = append(fake.printTableArgsForCall, struct {
 		arg1 table.Table
 	}{arg1})
+	stub := fake.PrintTableStub
 	fake.recordInvocation("PrintTable", []interface{}{arg1})
 	fake.printTableMutex.Unlock()
-	if fake.PrintTableStub != nil {
+	if stub != nil {
 		fake.PrintTableStub(arg1)
 	}
 }
