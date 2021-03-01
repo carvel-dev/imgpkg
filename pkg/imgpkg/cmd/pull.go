@@ -37,11 +37,11 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 		Short: "Pull files from bundle, image, or bundle lock file",
 		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
 		Example: `
-  # Pull bundle dkalinin/app1-bundle and extract into /tmp/app1-bundle
-  imgpkg pull -b dkalinin/app1-bundle -o /tmp/app1-bundle
+  # Pull bundle repo/app1-bundle and extract into /tmp/app1-bundle
+  imgpkg pull -b repo/app1-bundle -o /tmp/app1-bundle
 
-  # Pull image dkalinin/app1-image and extract into /tmp/app1-image
-  imgpkg pull -i dkalinin/app1-image -o /tmp/app1-image`,
+  # Pull image repo/app1-image and extract into /tmp/app1-image
+  imgpkg pull -i repo/app1-image -o /tmp/app1-image`,
 	}
 	o.ImageFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)

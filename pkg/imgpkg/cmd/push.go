@@ -37,11 +37,11 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 		Short: "Push files as image",
 		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
 		Example: `
-  # Push bundle dkalinin/app1-config with contents of config/ directory
-  imgpkg push -b dkalinin/app1-config -f config/
+  # Push bundle repo/app1-config with contents of config/ directory
+  imgpkg push -b repo/app1-config -f config/
 
-  # Push image dkalinin/app1-config with contents from multiple locations
-  imgpkg push -i dkalinin/app1-config -f config/ -f additional-config.yml`,
+  # Push image repo/app1-config with contents from multiple locations
+  imgpkg push -i repo/app1-config -f config/ -f additional-config.yml`,
 	}
 	o.ImageFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
