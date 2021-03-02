@@ -161,13 +161,13 @@ func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex 
 	}
 }
 
-func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
+func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
 	}
 
-	fileImage, err := image.NewFileImage(tarballLayer.Name(), nil)
+	fileImage, err := image.NewFileImage(tarballLayer.Name(), labels)
 	if err != nil {
 		r.t.Fatalf("Failed trying to build a file image%s", err)
 	}
@@ -231,7 +231,7 @@ type BundleInfo struct {
 	BundlePath string
 }
 
-func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
+func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *FakeRegistry {
 	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml")
 	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
 	if err != nil {
@@ -239,7 +239,7 @@ func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
 	}
 
 	for _, img := range imgLock.Images {
-		b.r.WithImageFromPath(img.Image, path)
+		b.r.WithImageFromPath(img.Image, path, labels)
 	}
 	return b.r
 }

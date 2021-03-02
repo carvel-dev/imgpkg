@@ -63,6 +63,32 @@ func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
 		return err
 	}
 
+	for _, image := range imagesLock.Images {
+		//TODO: run in a go routine?
+
+		subBundle := NewBundle(image.Image, o.imgRetriever)
+		bundle, err := subBundle.IsBundle()
+		if err != nil {
+			return err
+		}
+		if !bundle {
+			continue
+		}
+		subBundleImage, err := subBundle.checkedImage()
+		if err != nil {
+			return err
+		}
+
+		digest, err := subBundleImage.Digest()
+		if err != nil {
+			return err
+		}
+		err = ctlimg.NewDirImage(filepath.Join(outputPath, ".imgpkg", "bundles", digest.String()), subBundleImage, ui).AsDirectory()
+		if err != nil {
+			return fmt.Errorf("Extracting bundle into directory: %s", err)
+		}
+	}
+
 	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(outputPath, ui)
 	if err != nil {
 		return fmt.Errorf("Rewriting image lock file: %s", err)
