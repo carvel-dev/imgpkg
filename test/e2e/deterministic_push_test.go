@@ -5,20 +5,22 @@ package e2e
 
 import (
 	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestDeterministicPush(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	assetsPath := "assets/simple-app"
 
 	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", assetsPath})
-	tag1Digest := extractDigest(t, out)
+	tag1Digest := helpers.ExtractDigest(t, out)
 
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
-	tag2Digest := extractDigest(t, out)
+	tag2Digest := helpers.ExtractDigest(t, out)
 
 	if tag1Digest != tag2Digest {
 		t.Fatalf("Digests do not match, hence non-deterministic")

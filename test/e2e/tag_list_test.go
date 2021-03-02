@@ -7,18 +7,19 @@ import (
 	"testing"
 
 	uitest "github.com/cppforlife/go-cli-ui/ui/test"
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestTagList(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", env.Assets.SimpleAppDir()})
-	tag1Digest := extractDigest(t, out)
+	tag1Digest := helpers.ExtractDigest(t, out)
 
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", env.Assets.SimpleAppDir()})
-	tag2Digest := extractDigest(t, out)
+	tag2Digest := helpers.ExtractDigest(t, out)
 
 	out = imgpkg.Run([]string{"tag", "list", "-i", env.Image, "--json"})
 	resp := uitest.JSONUIFromBytes(t, []byte(out))

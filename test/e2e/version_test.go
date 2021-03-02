@@ -6,11 +6,13 @@ package e2e
 import (
 	"strings"
 	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestVersion(t *testing.T) {
-	env := BuildEnv(t)
-	out := Imgpkg{t, Logger{}, env.ImgpkgPath}.Run([]string{"version"})
+	env := helpers.BuildEnv(t)
+	out := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}.Run([]string{"version"})
 
 	if !strings.Contains(out, "imgpkg version") {
 		t.Fatalf("Expected to find client version")

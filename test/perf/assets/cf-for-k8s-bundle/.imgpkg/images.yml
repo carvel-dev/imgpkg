@@ -1,0 +1,74 @@
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/capi-nginx@sha256:67ad232b390a100a3c9e9b36ee1c6443843185e6df78f3fba57f9a708808b6da
+  image: index.docker.io/cloudfoundry/capi-nginx@sha256:67ad232b390a100a3c9e9b36ee1c6443843185e6df78f3fba57f9a708808b6da
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/cf-api-backup-metadata-generator@sha256:0f3098d99b35bfb9608b580323e0cc454bd254afaf08cd02acec58af770fea4f
+  image: index.docker.io/cloudfoundry/cf-api-backup-metadata-generator@sha256:0f3098d99b35bfb9608b580323e0cc454bd254afaf08cd02acec58af770fea4f
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/cf-api-controllers@sha256:0ab80efb123dd18bde968b894fb948d8ef4f2df4346160da7dc87daf4b262221
+  image: index.docker.io/cloudfoundry/cf-api-controllers@sha256:0ab80efb123dd18bde968b894fb948d8ef4f2df4346160da7dc87daf4b262221
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/cf-api-package-registry-buddy@sha256:38c2d64ff26c4577881b9c2eb7c5b034437f8068ef82a6b32aac55396e485e6d
+  image: index.docker.io/cloudfoundry/cf-api-package-registry-buddy@sha256:38c2d64ff26c4577881b9c2eb7c5b034437f8068ef82a6b32aac55396e485e6d
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/cf-k8s-logging@sha256:c1c8fd251fd9ffbda26da394fc43e4859361e8d9810269093559749345c51bdc
+  image: index.docker.io/cloudfoundry/cf-k8s-logging@sha256:c1c8fd251fd9ffbda26da394fc43e4859361e8d9810269093559749345c51bdc
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/cloud-controller-ng@sha256:c781af98eb3091bbbf9708d8c507f299a8d22ef28a5ccaa74eb68e87ad6bcb3a
+  image: index.docker.io/cloudfoundry/cloud-controller-ng@sha256:c781af98eb3091bbbf9708d8c507f299a8d22ef28a5ccaa74eb68e87ad6bcb3a
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/log-cache-cf-auth-proxy@sha256:c4cd637f31ef97958f0d521597c670ef476675af7f469e73b071a419ce79c2ac
+  image: index.docker.io/cloudfoundry/log-cache-cf-auth-proxy@sha256:c4cd637f31ef97958f0d521597c670ef476675af7f469e73b071a419ce79c2ac
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/log-cache-gateway@sha256:de52fdff79318a3dd1cbf5f564ad9321c150042c8075a9a8da483df86ca5f92a
+  image: index.docker.io/cloudfoundry/log-cache-gateway@sha256:de52fdff79318a3dd1cbf5f564ad9321c150042c8075a9a8da483df86ca5f92a
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/log-cache@sha256:b247b0658053bd416d18ab7e87d5b3df8d5637ad397ea71b613ab23c48b76130
+  image: index.docker.io/cloudfoundry/log-cache@sha256:b247b0658053bd416d18ab7e87d5b3df8d5637ad397ea71b613ab23c48b76130
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/metric-proxy@sha256:9747c46e7adf7e6ee393c52111187112e4b7d7927fa68e231cf4dd6aa9fc8f34
+  image: index.docker.io/cloudfoundry/metric-proxy@sha256:9747c46e7adf7e6ee393c52111187112e4b7d7927fa68e231cf4dd6aa9fc8f34
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/minio-cf-for-k8s@sha256:5cb64001e21d6e3adb05717ca49aca34d52f576cf8365af28860d4afad383ea4
+  image: index.docker.io/cloudfoundry/minio-cf-for-k8s@sha256:5cb64001e21d6e3adb05717ca49aca34d52f576cf8365af28860d4afad383ea4
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/statsd_exporter-cf-for-k8s@sha256:6678b114a38c219d4349a928faa4d36f60b42e70846a86166540aa2e72fdc546
+  image: index.docker.io/cloudfoundry/statsd_exporter-cf-for-k8s@sha256:6678b114a38c219d4349a928faa4d36f60b42e70846a86166540aa2e72fdc546
+- annotations:
+    kbld.carvel.dev/id: cloudfoundry/syslog-server@sha256:bb1aa0d603eff716245f25c832ad9b9bca569059f48bd2b5a9a792486f453427
+  image: index.docker.io/cloudfoundry/syslog-server@sha256:bb1aa0d603eff716245f25c832ad9b9bca569059f48bd2b5a9a792486f453427
+- annotations:
+    kbld.carvel.dev/id: gcr.io/paketo-community/python@sha256:5fc81b8f38f326f0247468c14b4eb66b36e5f925db12f9ea8df1ec57f9e61d94
+  image: gcr.io/paketo-community/python@sha256:5fc81b8f38f326f0247468c14b4eb66b36e5f925db12f9ea8df1ec57f9e61d94
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/bitnami/postgresql@sha256:0f76a419cfd9996036e3a53672f50cf69ed7699f1241cbf8e20af17bbbdf0683
+  image: index.docker.io/bitnami/postgresql@sha256:0f76a419cfd9996036e3a53672f50cf69ed7699f1241cbf8e20af17bbbdf0683
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/eirini-eirini-controller-cf-for-k8s@sha256:8651c21931d6a13a0ec2f74c11402086b1cd30cb2e8c2c6fba400abe493c33a8
+  image: index.docker.io/cloudfoundry/eirini-eirini-controller-cf-for-k8s@sha256:8651c21931d6a13a0ec2f74c11402086b1cd30cb2e8c2c6fba400abe493c33a8
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/eirini-event-reporter-cf-for-k8s@sha256:1798ea550cfb7b1457698dc9a9766ad5333da05c1e0cd29e748b7db34e648e1b
+  image: index.docker.io/cloudfoundry/eirini-event-reporter-cf-for-k8s@sha256:1798ea550cfb7b1457698dc9a9766ad5333da05c1e0cd29e748b7db34e648e1b
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/eirini-instance-index-env-injector-cf-for-k8s@sha256:42ab156d08756e46e7ebfa280e55c51305648aa133587d262e19fcd30ea0ae64
+  image: index.docker.io/cloudfoundry/eirini-instance-index-env-injector-cf-for-k8s@sha256:42ab156d08756e46e7ebfa280e55c51305648aa133587d262e19fcd30ea0ae64
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/eirini-opi-cf-for-k8s@sha256:1ad949284c2c1f182bbd56bd1eae8202030fdef3afced39a4105a8403ebf0beb
+  image: index.docker.io/cloudfoundry/eirini-opi-cf-for-k8s@sha256:1ad949284c2c1f182bbd56bd1eae8202030fdef3afced39a4105a8403ebf0beb
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/eirini-task-reporter-cf-for-k8s@sha256:2715ac192d671788f2512cf116ac9b483402e477af3d9481724cc40134363d61
+  image: index.docker.io/cloudfoundry/eirini-task-reporter-cf-for-k8s@sha256:2715ac192d671788f2512cf116ac9b483402e477af3d9481724cc40134363d61
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/cloudfoundry/uaa@sha256:07acf322ca4d5247709c47ebd181e90185e9f8f029302139aaab99e6a421788e
+  image: index.docker.io/cloudfoundry/uaa@sha256:07acf322ca4d5247709c47ebd181e90185e9f8f029302139aaab99e6a421788e
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/paketobuildpacks/build@sha256:0e3b7ccfe4511d4479daa91969116b9da3398c467ca9627fc3774ec42b077bbf
+  image: index.docker.io/paketobuildpacks/build@sha256:0e3b7ccfe4511d4479daa91969116b9da3398c467ca9627fc3774ec42b077bbf
+- annotations:
+    kbld.carvel.dev/id: index.docker.io/paketobuildpacks/run@sha256:166e40934c461ecf15c11ff9fb581323fe5e94abc02e6a044f09f60a61bbb85f
+  image: index.docker.io/paketobuildpacks/run@sha256:166e40934c461ecf15c11ff9fb581323fe5e94abc02e6a044f09f60a61bbb85f
+kind: ImagesLock
+

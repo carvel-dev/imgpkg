@@ -86,7 +86,7 @@ func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {
 		if parseErr != nil {
 			return "", parseErr
 		}
-		_, err = o.imgRetriever.Generic(ref)
+		_, err = o.imgRetriever.Digest(ref)
 		if err == nil {
 			return img, nil
 		}

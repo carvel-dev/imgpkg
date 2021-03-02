@@ -9,10 +9,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
@@ -358,11 +360,11 @@ func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 	subject.ImageFlags = ImageFlags{
 		imageName,
 	}
-	subject.registry = fakeRegistry.Build()
 
 	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
+		subject.registry = fakeRegistry.Build()
 		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
 			IncludeNonDistributable: true,
 		}
@@ -374,6 +376,47 @@ func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 
 		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n") {
 			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
+		}
+	})
+
+	t.Run("Every layer in the image is mounted", func(t *testing.T) {
+		fakeRegistry := NewFakeRegistry(t)
+		fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config")
+		defer fakeRegistry.CleanUp()
+
+		subject := subject
+		fakeReg := fakeRegistry.Build()
+		subject.registry = fakeReg
+
+		reference, err := name.ParseReference(imageName)
+		if err != nil {
+			t.Fatalf("Failed to parse %s as a reference: %v", imageName, err)
+		}
+		descriptor, err := fakeReg.Get(reference)
+		if err != nil {
+			t.Fatalf("Failed to fakeReg.Get the given reference: %v", err)
+		}
+		mountableImage, err := descriptor.Image()
+		if err != nil {
+			t.Fatalf("Failed to convert the descriptor to a mountableImage: %v", err)
+		}
+
+		digest, err := mountableImage.Digest()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		referenceNameOfCopiedImage, err := name.ParseReference("index.docker.io/other-repo/image:imgpkg-sha256-" + digest.Hex)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
+		_, err = subject.CopyToRepo("index.docker.io/other-repo/image")
+		if err != nil {
+			t.Fatalf("Failed to copy to repo: %v", err)
+		}
+		multiWriteArgsForCall, _ := fakeReg.MultiWriteArgsForCall(0)
+		if !reflect.DeepEqual(multiWriteArgsForCall[referenceNameOfCopiedImage], mountableImage) {
+			t.Fatalf("Called MultiWrite with key %s unexpected value %v", referenceNameOfCopiedImage, multiWriteArgsForCall)
 		}
 	})
 }

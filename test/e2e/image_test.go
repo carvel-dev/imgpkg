@@ -6,11 +6,13 @@ package e2e
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestPushPull(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	testDir := env.Assets.CreateTempFolder("imgpkg-test-basic")
@@ -27,8 +29,8 @@ func TestPushPull(t *testing.T) {
 }
 
 func TestPushMultipleFiles(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imgpkg.Run([]string{
@@ -49,6 +51,6 @@ func TestPushMultipleFiles(t *testing.T) {
 	}
 
 	for assetFile, downloadedFile := range expectedFiles {
-		compareFiles(t, filepath.Join(env.Assets.SimpleAppDir(), assetFile), filepath.Join(testDir, downloadedFile))
+		helpers.CompareFiles(t, filepath.Join(env.Assets.SimpleAppDir(), assetFile), filepath.Join(testDir, downloadedFile))
 	}
 }

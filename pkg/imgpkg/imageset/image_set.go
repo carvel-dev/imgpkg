@@ -5,6 +5,7 @@ package imageset
 
 import (
 	"fmt"
+	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -17,6 +18,7 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
 	ctlimg.ImagesMetadata
+	MultiWrite(map[regname.Reference]regremote.Taggable, int) error
 	WriteImage(regname.Reference, regv1.Image) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
@@ -77,9 +79,40 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	o.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
 	defer func() { o.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
 
-	errCh := make(chan error, len(imgOrIndexes))
 	importThrottle := util.NewThrottle(o.concurrency)
 
+	imageOrIndexesToWrite := map[regname.Reference]regremote.Taggable{}
+	var imageOrIndexesToWriteLock = &sync.Mutex{}
+	errCh := make(chan error, len(imgOrIndexes))
+	for _, item := range imgOrIndexes {
+		item := item // copy
+
+		go func() {
+			importThrottle.Take()
+			defer importThrottle.Done()
+			tag, taggable, err := o.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			imageOrIndexesToWriteLock.Lock()
+			defer imageOrIndexesToWriteLock.Unlock()
+			imageOrIndexesToWrite[tag] = taggable
+			errCh <- nil
+		}()
+	}
+
+	err := checkForAnyAsyncErrors(imgOrIndexes, errCh)
+	if err != nil {
+		return nil, err
+	}
+
+	err = registry.MultiWrite(imageOrIndexesToWrite, o.concurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	errChVerifyImages := make(chan error, len(imgOrIndexes))
 	for _, item := range imgOrIndexes {
 		item := item // copy
 
@@ -87,50 +120,149 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			existingRef, err := regname.NewDigest(item.Ref())
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			importDigestRef, err := o.importImage(item, existingRef, importRepo, registry)
-			if err != nil {
-				errCh <- fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
-				return
-			}
-
-			var regImage regv1.Image
-			if item.Image != nil {
-				regImage = *item.Image
-			}
-			var regImageIndex regv1.ImageIndex
-			if item.Index != nil {
-				regImageIndex = *item.Index
-			}
-			importedImages.Add(ProcessedImage{
-				UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
-				DigestRef:           importDigestRef.Name(),
-				Image:               regImage,
-				ImageIndex:          regImageIndex,
-			})
-			errCh <- nil
+			processedImage, err := o.tagAndVerifyItem(item, importRepo, registry)
+			importedImages.Add(processedImage)
+			errChVerifyImages <- err
 		}()
 	}
 
-	for i := 0; i < len(imgOrIndexes); i++ {
-		err := <-errCh
-		if err != nil {
-			return nil, err
-		}
+	err = checkForAnyAsyncErrors(imgOrIndexes, errChVerifyImages)
+	if err != nil {
+		return nil, err
 	}
 
 	return importedImages, nil
 }
 
-func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
-	existingRef regname.Reference, importRepo regname.Repository,
-	registry ImagesReaderWriter) (regname.Digest, error) {
+func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan error) error {
+	for i := 0; i < len(imgOrIndexes); i++ {
+		err := <-errCh
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func (o ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
+	uploadTagRef, err := buildUploadTagRef(item, importRepo)
+	if err != nil {
+		return regname.Tag{}, nil, err
+	}
+
+	var artifactToWrite regremote.Taggable
+	switch {
+	case item.Image != nil:
+		artifactToWrite, err = o.mountableImage(*item.Image, uploadTagRef, registry)
+		if err != nil {
+			return regname.Tag{}, nil, err
+		}
+
+	case item.Index != nil:
+		artifactToWrite = *item.Index
+	default:
+		panic("Unknown item")
+	}
+
+	return uploadTagRef, artifactToWrite, nil
+}
+
+func (ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry ImagesReaderWriter) (regremote.Taggable, error) {
+	itemRef, err := regname.NewDigest(imageWithRef.Ref())
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse reference: %s: %s", imageWithRef.Ref(), err)
+	}
+
+	if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
+		descriptor, err := registry.Get(itemRef)
+		if err != nil {
+			return nil, fmt.Errorf("Getting mountable image failed: %s: %s", itemRef, err)
+		}
+		artifactToWrite, err := descriptor.Image()
+		if err != nil {
+			return nil, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", itemRef, err)
+		}
+		return artifactToWrite, nil
+	}
+	return regv1.Image(imageWithRef), nil
+}
+
+func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repository) (regname.Tag, error) {
+	itemDigest, err := item.Digest()
+	if err != nil {
+		return regname.Tag{}, err
+	}
+
+	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
+	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
+	if err != nil {
+		return regname.Tag{}, fmt.Errorf("Building upload tag image ref: %s", err)
+	}
+	return uploadTagRef, nil
+}
+
+func (o *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
+	existingRef, err := regname.NewDigest(item.Ref())
+	if err != nil {
+		return ProcessedImage{}, err
+	}
+
+	importDigestRef, err := o.verifyItemCopied(item, importRepo, registry)
+	if err != nil {
+		return ProcessedImage{}, err
+	}
+
+	o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", existingRef.Name(), importDigestRef.Name())))
+
+	err = o.tagItemCopied(item, importRepo, registry, importDigestRef)
+	if err != nil {
+		return ProcessedImage{}, fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
+	}
+
+	var regImage regv1.Image
+	if item.Image != nil {
+		regImage = *item.Image
+	}
+	var regImageIndex regv1.ImageIndex
+	if item.Index != nil {
+		regImageIndex = *item.Index
+	}
+	return ProcessedImage{
+		UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
+		DigestRef:           importDigestRef.Name(),
+		Image:               regImage,
+		ImageIndex:          regImageIndex,
+	}, nil
+}
+
+func (o *ImageSet) tagItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter, importDigestRef regname.Digest) error {
+	if item.Tag() != "" {
+		uploadOriginalTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), item.Tag()))
+		if err != nil {
+			return fmt.Errorf("Building upload tag image ref: %s", err)
+		}
+
+		switch {
+		case item.Image != nil:
+			err = registry.WriteTag(uploadOriginalTagRef, *item.Image)
+			if err != nil {
+				return fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
+			}
+
+		case item.Index != nil:
+			err = registry.WriteTag(uploadOriginalTagRef, *item.Index)
+			if err != nil {
+				return fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
+			}
+
+		default:
+			panic("Unknown item")
+		}
+	}
+	return nil
+}
+
+func (o *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Digest, error) {
 	itemDigest, err := item.Digest()
 	if err != nil {
 		return regname.Digest{}, err
@@ -141,31 +273,10 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 		return regname.Digest{}, fmt.Errorf("Building new digest image ref: %s", err)
 	}
 
-	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
-
-	// Seems like AWS ECR doesnt like using digests for manifest uploads
-	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
+	// AWS ECR doesnt like using digests for manifest uploads
+	uploadTagRef, err := buildUploadTagRef(item, importRepo)
 	if err != nil {
-		return regname.Digest{}, fmt.Errorf("Building upload tag image ref: %s", err)
-	}
-
-	o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", existingRef.Name(), importDigestRef.Name())))
-
-	switch {
-	case item.Image != nil:
-		err = registry.WriteImage(uploadTagRef, *item.Image)
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
-		}
-
-	case item.Index != nil:
-		err = registry.WriteIndex(uploadTagRef, *item.Index)
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
-		}
-
-	default:
-		panic("Unknown item")
+		return regname.Digest{}, err
 	}
 
 	// Verify that imported image still has the same digest as we expect.
@@ -176,38 +287,13 @@ func (o *ImageSet) importImage(item imagedesc.ImageOrIndex,
 	if err != nil {
 		return regname.Digest{}, err
 	}
-
-	if item.Tag() != "" {
-		uploadOriginalTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), item.Tag()))
-		if err != nil {
-			return regname.Digest{}, fmt.Errorf("Building upload tag image ref: %s", err)
-		}
-
-		switch {
-		case item.Image != nil:
-			err = registry.WriteTag(uploadOriginalTagRef, *item.Image)
-			if err != nil {
-				return regname.Digest{}, fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
-			}
-
-		case item.Index != nil:
-			err = registry.WriteTag(uploadOriginalTagRef, *item.Index)
-			if err != nil {
-				return regname.Digest{}, fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
-			}
-
-		default:
-			panic("Unknown item")
-		}
-	}
-
 	return importDigestRef, nil
 }
 
 func (o *ImageSet) verifyTagDigest(
 	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry ImagesReaderWriter) error {
 
-	resultURL, err := ctlimg.NewResolvedImage(uploadTagRef.Name(), registry).URL()
+	resultURL, err := getResolvedImageURL(uploadTagRef.Name(), registry)
 	if err != nil {
 		return fmt.Errorf("Verifying imported image %s: %s", uploadTagRef.Name(), err)
 	}
@@ -223,4 +309,30 @@ func (o *ImageSet) verifyTagDigest(
 	}
 
 	return nil
+}
+
+func getResolvedImageURL(tagRef string, registry ctlimg.ImagesMetadata) (string, error) {
+	tag, err := regname.NewTag(tagRef, regname.WeakValidation)
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := registry.Digest(tag)
+	if err != nil {
+		return "", err
+	}
+
+	digest, err := regname.NewDigest(tag.Repository.String() + "@" + hash.String())
+	if err != nil {
+		return "", err
+	}
+
+	return digest.Name(), nil
+}
+
+// This is a constraint on how registries are able to mount 'objects' across repos.
+// When mounting an object from repo A to repo B, the object in repo A needs to live in the same registry as repo B.
+// To read more about mounting across a repo: https://github.com/opencontainers/distribution-spec/blob/master/spec.md#mounting-a-blob-from-another-repository
+func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag) bool {
+	return ref.Context().RegistryStr() == uploadTagRef.Context().RegistryStr()
 }

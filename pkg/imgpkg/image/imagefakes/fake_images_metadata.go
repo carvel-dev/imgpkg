@@ -6,10 +6,24 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
 type FakeImagesMetadata struct {
+	DigestStub        func(name.Reference) (v1.Hash, error)
+	digestMutex       sync.RWMutex
+	digestArgsForCall []struct {
+		arg1 name.Reference
+	}
+	digestReturns struct {
+		result1 v1.Hash
+		result2 error
+	}
+	digestReturnsOnCall map[int]struct {
+		result1 v1.Hash
+		result2 error
+	}
 	GenericStub        func(name.Reference) (v1.Descriptor, error)
 	genericMutex       sync.RWMutex
 	genericArgsForCall []struct {
@@ -21,6 +35,19 @@ type FakeImagesMetadata struct {
 	}
 	genericReturnsOnCall map[int]struct {
 		result1 v1.Descriptor
+		result2 error
+	}
+	GetStub        func(name.Reference) (*remote.Descriptor, error)
+	getMutex       sync.RWMutex
+	getArgsForCall []struct {
+		arg1 name.Reference
+	}
+	getReturns struct {
+		result1 *remote.Descriptor
+		result2 error
+	}
+	getReturnsOnCall map[int]struct {
+		result1 *remote.Descriptor
 		result2 error
 	}
 	ImageStub        func(name.Reference) (v1.Image, error)
@@ -53,21 +80,86 @@ type FakeImagesMetadata struct {
 	invocationsMutex sync.RWMutex
 }
 
+func (fake *FakeImagesMetadata) Digest(arg1 name.Reference) (v1.Hash, error) {
+	fake.digestMutex.Lock()
+	ret, specificReturn := fake.digestReturnsOnCall[len(fake.digestArgsForCall)]
+	fake.digestArgsForCall = append(fake.digestArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	stub := fake.DigestStub
+	fakeReturns := fake.digestReturns
+	fake.recordInvocation("Digest", []interface{}{arg1})
+	fake.digestMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesMetadata) DigestCallCount() int {
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
+	return len(fake.digestArgsForCall)
+}
+
+func (fake *FakeImagesMetadata) DigestCalls(stub func(name.Reference) (v1.Hash, error)) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = stub
+}
+
+func (fake *FakeImagesMetadata) DigestArgsForCall(i int) name.Reference {
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
+	argsForCall := fake.digestArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesMetadata) DigestReturns(result1 v1.Hash, result2 error) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = nil
+	fake.digestReturns = struct {
+		result1 v1.Hash
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadata) DigestReturnsOnCall(i int, result1 v1.Hash, result2 error) {
+	fake.digestMutex.Lock()
+	defer fake.digestMutex.Unlock()
+	fake.DigestStub = nil
+	if fake.digestReturnsOnCall == nil {
+		fake.digestReturnsOnCall = make(map[int]struct {
+			result1 v1.Hash
+			result2 error
+		})
+	}
+	fake.digestReturnsOnCall[i] = struct {
+		result1 v1.Hash
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeImagesMetadata) Generic(arg1 name.Reference) (v1.Descriptor, error) {
 	fake.genericMutex.Lock()
 	ret, specificReturn := fake.genericReturnsOnCall[len(fake.genericArgsForCall)]
 	fake.genericArgsForCall = append(fake.genericArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.GenericStub
+	fakeReturns := fake.genericReturns
 	fake.recordInvocation("Generic", []interface{}{arg1})
 	fake.genericMutex.Unlock()
-	if fake.GenericStub != nil {
-		return fake.GenericStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.genericReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -116,21 +208,86 @@ func (fake *FakeImagesMetadata) GenericReturnsOnCall(i int, result1 v1.Descripto
 	}{result1, result2}
 }
 
+func (fake *FakeImagesMetadata) Get(arg1 name.Reference) (*remote.Descriptor, error) {
+	fake.getMutex.Lock()
+	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
+	fake.getArgsForCall = append(fake.getArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	stub := fake.GetStub
+	fakeReturns := fake.getReturns
+	fake.recordInvocation("Get", []interface{}{arg1})
+	fake.getMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesMetadata) GetCallCount() int {
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
+	return len(fake.getArgsForCall)
+}
+
+func (fake *FakeImagesMetadata) GetCalls(stub func(name.Reference) (*remote.Descriptor, error)) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = stub
+}
+
+func (fake *FakeImagesMetadata) GetArgsForCall(i int) name.Reference {
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
+	argsForCall := fake.getArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesMetadata) GetReturns(result1 *remote.Descriptor, result2 error) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = nil
+	fake.getReturns = struct {
+		result1 *remote.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadata) GetReturnsOnCall(i int, result1 *remote.Descriptor, result2 error) {
+	fake.getMutex.Lock()
+	defer fake.getMutex.Unlock()
+	fake.GetStub = nil
+	if fake.getReturnsOnCall == nil {
+		fake.getReturnsOnCall = make(map[int]struct {
+			result1 *remote.Descriptor
+			result2 error
+		})
+	}
+	fake.getReturnsOnCall[i] = struct {
+		result1 *remote.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeImagesMetadata) Image(arg1 name.Reference) (v1.Image, error) {
 	fake.imageMutex.Lock()
 	ret, specificReturn := fake.imageReturnsOnCall[len(fake.imageArgsForCall)]
 	fake.imageArgsForCall = append(fake.imageArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.ImageStub
+	fakeReturns := fake.imageReturns
 	fake.recordInvocation("Image", []interface{}{arg1})
 	fake.imageMutex.Unlock()
-	if fake.ImageStub != nil {
-		return fake.ImageStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.imageReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -185,15 +342,16 @@ func (fake *FakeImagesMetadata) Index(arg1 name.Reference) (v1.ImageIndex, error
 	fake.indexArgsForCall = append(fake.indexArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.IndexStub
+	fakeReturns := fake.indexReturns
 	fake.recordInvocation("Index", []interface{}{arg1})
 	fake.indexMutex.Unlock()
-	if fake.IndexStub != nil {
-		return fake.IndexStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.indexReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -245,8 +403,12 @@ func (fake *FakeImagesMetadata) IndexReturnsOnCall(i int, result1 v1.ImageIndex,
 func (fake *FakeImagesMetadata) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.digestMutex.RLock()
+	defer fake.digestMutex.RUnlock()
 	fake.genericMutex.RLock()
 	defer fake.genericMutex.RUnlock()
+	fake.getMutex.RLock()
+	defer fake.getMutex.RUnlock()
 	fake.imageMutex.RLock()
 	defer fake.imageMutex.RUnlock()
 	fake.indexMutex.RLock()

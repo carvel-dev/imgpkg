@@ -12,11 +12,13 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t *testing.T) {
-	env := BuildEnv(t)
-	imgpkg := Imgpkg{t, Logger{}, env.ImgpkgPath}
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -36,7 +38,7 @@ images:
 `
 
 	// create a bundle with ref to generic
-	testDir := env.BundleFactory.CreateBundleDir(bundleYAML, imageLockYAML)
+	testDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
 	// create bundle that refs image with --lock-ouput and a random tag based on time
 	lockFile := filepath.Join(testDir, "bundle.lock.yml")
@@ -51,7 +53,7 @@ images:
 
 	// copy via output file
 	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
-	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, RunOpts{
+	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, helpers.RunOpts{
 		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
 	})
 	if err != nil {
@@ -59,7 +61,7 @@ images:
 	}
 }
 
-func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *Env) error {
+func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) error {
 	// Read docker config that will be temporarily replaced
 	homeDir, _ := os.UserHomeDir()
 	dockerConfigPath := filepath.Join(homeDir, ".docker/config.json")
