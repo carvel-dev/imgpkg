@@ -1,7 +1,7 @@
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: Bundle
 metadata:
-  name: basic
+  name: bundle_icecream_with_single_bundle
 authors:
 - name: Carvel Team
   email: carvel@vmware.com

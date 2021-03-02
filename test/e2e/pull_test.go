@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestPullBundleOfBundles(t *testing.T) {
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	logger.Section("create inner bundle", func() {
 		out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
-		bundleDigestRef = fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, out))
+		bundleDigestRef = helpers.ExtractDigest(t, out)
 	})
 
 	logger.Section("create new bundle with bundles", func() {
@@ -57,7 +58,7 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, bundleDigestRef)
+`, fmt.Sprintf("%s@%s", env.Image, bundleDigestRef))
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
 		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--experimental-recursive-bundle"})
@@ -66,6 +67,12 @@ images:
 
 		//TODO: add recursive flag to pull
 		imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
-		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", "sha256-"))
+		assert.DirExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef))
+		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "images.yml"))
+		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "bundle.yml"))
+
+		innerBundleImagesYmlContent, err := os.ReadFile(filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "images.yml"))
+		assert.NoError(t, err)
+		assert.Equal(t, string(innerBundleImagesYmlContent), helpers.ImagesYAML)
 	})
 }

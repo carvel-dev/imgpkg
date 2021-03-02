@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -46,6 +47,10 @@ func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
 func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
+	return o.pull(outputPath, "", map[string]interface{}{}, ui)
+}
+
+func (o *Bundle) pull(baseOutputPath string, bundlePath string, bundlesProcessed map[string]interface{}, ui ui.UI) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -53,43 +58,41 @@ func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
 
 	ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
 
-	err = ctlimg.NewDirImage(outputPath, img, ui).AsDirectory()
+	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, ui).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting bundle into directory: %s", err)
 	}
 
-	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(outputPath, ImgpkgDir, ImagesLockFile))
+	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 	if err != nil {
 		return err
 	}
 
 	for _, image := range imagesLock.Images {
 		//TODO: run in a go routine?
+		//TODO: handle cyclic bundle references
 
 		subBundle := NewBundle(image.Image, o.imgRetriever)
-		bundle, err := subBundle.IsBundle()
+		isBundle, err := subBundle.IsBundle()
 		if err != nil {
 			return err
 		}
-		if !bundle {
+		if _, alreadyProcessedBundle := bundlesProcessed[image.Image]; alreadyProcessedBundle || !isBundle {
 			continue
 		}
-		subBundleImage, err := subBundle.checkedImage()
-		if err != nil {
-			return err
-		}
+		bundlesProcessed[image.Image] = nil
 
-		digest, err := subBundleImage.Digest()
+		reference, err := name.NewDigest(image.Image)
 		if err != nil {
 			return err
 		}
-		err = ctlimg.NewDirImage(filepath.Join(outputPath, ".imgpkg", "bundles", digest.String()), subBundleImage, ui).AsDirectory()
+		err = subBundle.pull(baseOutputPath, filepath.Join(".imgpkg", "bundles", reference.DigestStr()), bundlesProcessed, ui)
 		if err != nil {
-			return fmt.Errorf("Extracting bundle into directory: %s", err)
+			return err
 		}
 	}
 
-	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(outputPath, ui)
+	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(filepath.Join(baseOutputPath, bundlePath), ui)
 	if err != nil {
 		return fmt.Errorf("Rewriting image lock file: %s", err)
 	}
