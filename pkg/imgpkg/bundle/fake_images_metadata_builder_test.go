@@ -21,18 +21,18 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
-type FakeRegistry struct {
+type FakeImagesMetadataBuilder struct {
 	state map[string]*ImageWithTarPath
 	t     *testing.T
 }
 
-func NewFakeRegistry(t *testing.T) *FakeRegistry {
-	return &FakeRegistry{state: map[string]*ImageWithTarPath{}, t: t}
+func NewFakeRegistry(t *testing.T) *FakeImagesMetadataBuilder {
+	return &FakeImagesMetadataBuilder{state: map[string]*ImageWithTarPath{}, t: t}
 }
 
-func (r *FakeRegistry) Build() *imagefakes.FakeImagesMetadata {
+func (r *FakeImagesMetadataBuilder) Build() *imagefakes.FakeImagesMetadata {
 	fakeRegistry := &imagefakes.FakeImagesMetadata{}
-	getDescriptor := func(reference name.Reference, r *FakeRegistry) (v1.Descriptor, error) {
+	getDescriptor := func(reference name.Reference, r *FakeImagesMetadataBuilder) (v1.Descriptor, error) {
 		if val, found := r.state[reference.Name()]; found {
 			if val.image != nil {
 				mediaType, err := val.image.MediaType()
@@ -47,7 +47,7 @@ func (r *FakeRegistry) Build() *imagefakes.FakeImagesMetadata {
 			}
 		}
 
-		return v1.Descriptor{}, fmt.Errorf("FakeRegistry: GenericCall: image [%s] not found", reference.Name())
+		return v1.Descriptor{}, fmt.Errorf("FakeImagesMetadataBuilder: GenericCall: image [%s] not found", reference.Name())
 	}
 
 	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
@@ -61,7 +61,7 @@ func (r *FakeRegistry) Build() *imagefakes.FakeImagesMetadata {
 			}
 		}
 
-		return v1.Hash{}, fmt.Errorf("FakeRegistry: DigestCall: image [%s] not found", reference.Name())
+		return v1.Hash{}, fmt.Errorf("FakeImagesMetadataBuilder: DigestCall: image [%s] not found", reference.Name())
 	})
 
 	fakeRegistry.GetCalls(func(reference name.Reference) (*regremote.Descriptor, error) {
@@ -82,7 +82,7 @@ func (r *FakeRegistry) Build() *imagefakes.FakeImagesMetadata {
 			}
 		}
 
-		return &regremote.Descriptor{}, fmt.Errorf("FakeRegistry: GetCall: image [%s] not found", reference.Name())
+		return &regremote.Descriptor{}, fmt.Errorf("FakeImagesMetadataBuilder: GetCall: image [%s] not found", reference.Name())
 	})
 
 	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
@@ -95,7 +95,7 @@ func (r *FakeRegistry) Build() *imagefakes.FakeImagesMetadata {
 	return fakeRegistry
 }
 
-func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) BundleInfo {
+func (r *FakeImagesMetadataBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -111,7 +111,7 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 	return BundleInfo{r, bundleName, path}
 }
 
-func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
+func (r *FakeImagesMetadataBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -131,13 +131,13 @@ func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string, 
 	return r.state[reference.Name()]
 }
 
-func (r *FakeRegistry) CleanUp() {
+func (r *FakeImagesMetadataBuilder) CleanUp() {
 	for _, tarPath := range r.state {
 		os.Remove(filepath.Join(tarPath.path, ".imgpkg", "images.yml"))
 	}
 }
 
-func (r *FakeRegistry) updateState(imageName string, image v1.Image, path string) {
+func (r *FakeImagesMetadataBuilder) updateState(imageName string, image v1.Image, path string) {
 	imgName, err := name.ParseReference(imageName)
 	if err != nil {
 		r.t.Fatalf("unable to parse reference: %s", err)
@@ -156,12 +156,12 @@ func (r *FakeRegistry) updateState(imageName string, image v1.Image, path string
 }
 
 type BundleInfo struct {
-	r          *FakeRegistry
+	r          *FakeImagesMetadataBuilder
 	BundleName string
 	BundlePath string
 }
 
-func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *FakeRegistry {
+func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *FakeImagesMetadataBuilder {
 	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml.template")
 	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
 	if err != nil {
@@ -203,7 +203,7 @@ func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *F
 }
 
 type ImageWithTarPath struct {
-	fakeRegistry *FakeRegistry
+	fakeRegistry *FakeImagesMetadataBuilder
 	imageName    string
 	image        v1.Image
 	path         string

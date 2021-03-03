@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -66,12 +67,16 @@ images:
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 
 		//TODO: add recursive flag to pull
-		imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
-		assert.DirExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef))
-		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "images.yml"))
-		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "bundle.yml"))
+		// imgpkg pull --experimental bundle-with-bundle -o /tmp/lol <- should work and normal behavior
 
-		innerBundleImagesYmlContent, err := os.ReadFile(filepath.Join(outDir, ".imgpkg", "bundles", bundleDigestRef, ".imgpkg", "images.yml"))
+		imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
+
+		subBundleDirectoryPath := strings.ReplaceAll(bundleDigestRef, "sha256:", "sha256-")
+		assert.DirExists(t, filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath))
+		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath, ".imgpkg", "images.yml"))
+		assert.FileExists(t, filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath, ".imgpkg", "bundle.yml"))
+
+		innerBundleImagesYmlContent, err := os.ReadFile(filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath, ".imgpkg", "images.yml"))
 		assert.NoError(t, err)
 		assert.Equal(t, string(innerBundleImagesYmlContent), helpers.ImagesYAML)
 	})

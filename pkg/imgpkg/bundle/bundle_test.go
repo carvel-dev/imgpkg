@@ -1,9 +1,13 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package bundle_test
 
 import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
@@ -58,7 +62,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		digest, err := fakeRegistry.state["index.docker.io/icecream/bundle:latest"].image.Digest()
 		assert.NoError(t, err)
 
-		outputDirConfigFile := filepath.Join(outputPath, ".imgpkg", "bundles", digest.String(), "config.yml")
+		outputDirConfigFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(digest.String(), "sha256:", "sha256-"), "config.yml")
 		assert.FileExists(t, outputDirConfigFile)
 		actualConfigFile, err := os.ReadFile(outputDirConfigFile)
 		assert.NoError(t, err)
@@ -91,7 +95,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		digest, err := fakeRegistry.state["index.docker.io/icecream/bundle:latest"].image.Digest()
 		assert.NoError(t, err)
 
-		outputDirConfigFile := filepath.Join(outputPath, ".imgpkg", "bundles", digest.String(), "config.yml")
+		outputDirConfigFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(digest.String(), "sha256:", "sha256-"), "config.yml")
 		assert.FileExists(t, outputDirConfigFile)
 		actualConfigFile, err := os.ReadFile(outputDirConfigFile)
 		assert.NoError(t, err)
@@ -103,7 +107,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		digest, err = fakeRegistry.state["index.docker.io/apples/bundle:latest"].image.Digest()
 		assert.NoError(t, err)
 
-		outputDirConfigFile = filepath.Join(outputPath, ".imgpkg", "bundles", digest.String(), "config.yml")
+		outputDirConfigFile = filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(digest.String(), "sha256:", "sha256-"), "config.yml")
 		assert.FileExists(t, outputDirConfigFile)
 		actualConfigFile, err = os.ReadFile(outputDirConfigFile)
 		assert.NoError(t, err)
@@ -113,7 +117,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 	})
 }
 
-func TestPullOutput(t *testing.T) {
+func TestPullOutputToUser(t *testing.T) {
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
@@ -133,34 +137,49 @@ func TestPullOutput(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Regexp(t,
-`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
-Extracting layer 'sha256:.*' \(1/1\)
+			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+Bundle Layers
+  Extracting layer 'sha256:.*' \(1/1\)
 Nested bundles
   Pulling Nested bundle 'index.docker.io/icecream/bundle@sha256:.*'
-  Extracting layer 'sha256:.*' \(1/1\)
+    Extracting layer 'sha256:.*' \(1/1\)
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update
+One or more images not found in bundle repo; skipping lock file update`, output.String())
+	})
+
+	t.Run("bundle referencing another bundle that references another bundle", func(t *testing.T) {
+		// setup
+		output := bytes.NewBufferString("")
+		writerUI := ui.NewWriterUI(output, output, nil)
+
+		fakeRegistry := NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+
+		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
+		fakeRegistry.WithBundleFromPath("apples/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
+		fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+
+		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		// test subject
+		err = subject.Pull(outputPath, writerUI)
+		assert.NoError(t, err)
+
+		//assert log message
+		assert.Regexp(t,
+			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+Bundle Layers
+  Extracting layer 'sha256:.*' \(1/1\)
+Nested bundles
+  Pulling Nested bundle 'index.docker.io/icecream/bundle@sha256:.*'
+    Extracting layer 'sha256:.*' \(1/1\)
+    Pulling Nested bundle 'index.docker.io/apples/bundle@sha256:.*'
+      Extracting layer 'sha256:.*' \(1/1\)
 Locating image lock file images...
 One or more images not found in bundle repo; skipping lock file update`, output.String())
 	})
 }
-
-/*
-Pulling bundle 'my.registry.io/r-bundle@sha256:ccccccccccfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0'
-Bundle Layers
-  Extracting layer 'sha256:87bf2c587b3315143cd05df7bd24d4e608ddb59f8c62110fe1b579fb817a2917' (1/1)
-
-Nested bundles
-  Pulling Bundle 'my.registry.io/bundle-1@sha256:aaaaaaaaaafdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (1/2)
-  Extracting layer 'sha256:81fc6f37c9774541136e6113d899c215151496f4cf91c89c056783d2feb5ae0d' (1/1)
-    Found 1 Bundle packaged
-
-    Pulling Nested Bundle 'my.registry.io/bundle-2@sha256:ddddddddddfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (1/1)
-    Extracting layer 'sha256:9abb11371e7e53b5c33da086ea50dabb5d4cdd280be7d489169374b0188feab1' (1/1)
-
-  Pulling Nested Bundle 'my.registry.io/bundle-2@sha256:ddddddddddfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (2/2)
-  Skipped, already downloaded
-
-Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update
-*/

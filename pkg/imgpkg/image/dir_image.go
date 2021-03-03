@@ -42,17 +42,17 @@ func (i *DirImage) AsDirectory() error {
 		return err
 	}
 
+	if !strings.Contains(i.dirPath, ".imgpkg/bundles") {
+		i.logger.BeginLinef("Bundle Layers\n")
+	}
+
 	for idx, imgLayer := range layers {
 		digest, err := imgLayer.Digest()
 		if err != nil {
 			return err
 		}
 
-		if strings.Contains(i.dirPath, ".imgpkg/bundles") {
-			i.logger.BeginLinef("  Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
-		} else {
-			i.logger.BeginLinef("Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
-		}
+		i.logger.BeginLinef("  Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
 
 		layerStream, err := imgLayer.Uncompressed()
 		if err != nil {
