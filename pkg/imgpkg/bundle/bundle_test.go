@@ -1,6 +1,7 @@
 package bundle_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPull(t *testing.T) {
+func TestPullWritingContentsToDisk(t *testing.T) {
 	fakeUI := &bundlefakes.FakeUI{}
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
@@ -82,9 +83,7 @@ func TestPull(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		confUI := ui.NewConfUI(ui.NewNoopLogger())
-
-		err = subject.Pull(outputPath, confUI)
+		err = subject.Pull(outputPath, fakeUI)
 		assert.NoError(t, err)
 
 		// assert icecream bundle was recursively pulled onto disk
@@ -113,3 +112,55 @@ func TestPull(t *testing.T) {
 		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
 	})
 }
+
+func TestPullOutput(t *testing.T) {
+	t.Run("bundle referencing another bundle", func(t *testing.T) {
+		output := bytes.NewBufferString("")
+		writerUI := ui.NewWriterUI(output, output, nil)
+		fakeRegistry := NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+
+		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
+		fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
+		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+
+		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, writerUI)
+		assert.NoError(t, err)
+
+		assert.Regexp(t,
+`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+Extracting layer 'sha256:.*' \(1/1\)
+Nested bundles
+  Pulling Nested bundle 'index.docker.io/icecream/bundle@sha256:.*'
+  Extracting layer 'sha256:.*' \(1/1\)
+Locating image lock file images...
+One or more images not found in bundle repo; skipping lock file update
+Locating image lock file images...
+One or more images not found in bundle repo; skipping lock file update`, output.String())
+	})
+}
+
+/*
+Pulling bundle 'my.registry.io/r-bundle@sha256:ccccccccccfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0'
+Bundle Layers
+  Extracting layer 'sha256:87bf2c587b3315143cd05df7bd24d4e608ddb59f8c62110fe1b579fb817a2917' (1/1)
+
+Nested bundles
+  Pulling Bundle 'my.registry.io/bundle-1@sha256:aaaaaaaaaafdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (1/2)
+  Extracting layer 'sha256:81fc6f37c9774541136e6113d899c215151496f4cf91c89c056783d2feb5ae0d' (1/1)
+    Found 1 Bundle packaged
+
+    Pulling Nested Bundle 'my.registry.io/bundle-2@sha256:ddddddddddfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (1/1)
+    Extracting layer 'sha256:9abb11371e7e53b5c33da086ea50dabb5d4cdd280be7d489169374b0188feab1' (1/1)
+
+  Pulling Nested Bundle 'my.registry.io/bundle-2@sha256:ddddddddddfdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0' (2/2)
+  Skipped, already downloaded
+
+Locating image lock file images...
+One or more images not found in bundle repo; skipping lock file update
+*/

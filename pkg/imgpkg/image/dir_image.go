@@ -48,7 +48,11 @@ func (i *DirImage) AsDirectory() error {
 			return err
 		}
 
-		i.logger.BeginLinef("Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
+		if strings.Contains(i.dirPath, ".imgpkg/bundles") {
+			i.logger.BeginLinef("  Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
+		} else {
+			i.logger.BeginLinef("Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
+		}
 
 		layerStream, err := imgLayer.Uncompressed()
 		if err != nil {

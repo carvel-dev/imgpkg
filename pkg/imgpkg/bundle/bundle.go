@@ -56,7 +56,14 @@ func (o *Bundle) pull(baseOutputPath string, bundlePath string, bundlesProcessed
 		return err
 	}
 
-	ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+	if parentBundle(bundlePath) {
+		ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+	} else {
+		if len(bundlesProcessed) == 1 {
+			ui.BeginLinef("Nested bundles\n")
+		}
+		ui.BeginLinef("  Pulling Nested bundle '%s'\n", o.DigestRef())
+	}
 
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, ui).AsDirectory()
 	if err != nil {
@@ -70,6 +77,7 @@ func (o *Bundle) pull(baseOutputPath string, bundlePath string, bundlesProcessed
 
 	for _, image := range imagesLock.Images {
 		//TODO: run in a go routine?
+		//TODO: the output path should be sha256- *not* sha256:
 		//TODO: handle cyclic bundle references
 
 		subBundle := NewBundle(image.Image, o.imgRetriever)
@@ -98,6 +106,10 @@ func (o *Bundle) pull(baseOutputPath string, bundlePath string, bundlesProcessed
 	}
 
 	return nil
+}
+
+func parentBundle(bundlePath string) bool {
+	return bundlePath == ""
 }
 
 func (o *Bundle) checkedImage() (regv1.Image, error) {
