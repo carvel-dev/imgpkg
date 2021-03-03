@@ -12,15 +12,27 @@ import (
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCopyWithBundleLockInputWithIndexesToRepoDestinationAndOutputNewBundleLockFile(t *testing.T) {
+func TestCopyFromBundleLock(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+	logger := helpers.Logger{}
 	defer env.Cleanup()
 
-	// create generic image
-	imageLockYAML := `---
+	randomImageDigest := ""
+	randomImageDigestRef := ""
+	logger.Section("create random image for tests", func() {
+		randomImageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+		randomImageDigestRef = env.Image + randomImageDigest
+	})
+
+	t.Run("when copying index to repo, it is successful and generates a BundleLock file", func(t *testing.T) {
+		testDir := ""
+		lockFile := ""
+		logger.Section("create bundle from index", func() {
+			imageLockYAML := `---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
@@ -28,200 +40,180 @@ images:
      kbld.carvel.dev/id: index.docker.io/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
    image: index.docker.io/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
 `
+			testDir = env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
-	// create a bundle with ref to generic
-	testDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			lockFile = filepath.Join(testDir, "bundle.lock.yml")
+			imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
+		})
 
-	// create bundle that refs image with --lock-output and a random tag based on time
-	lockFile := filepath.Join(testDir, "bundle.lock.yml")
-	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
+		logger.Section("copy using the BundleLock to a repository", func() {
+			lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
+			imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		})
 
-	// copy via output file
-	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		logger.Section("validate the index is present in the destination", func() {
+			refs := []string{
+				env.RelocationRepo + "@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9",
+			}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs), "validating image presence")
+		})
+	})
 
-	// check if nginx Index image is present in the repository
-	refs := []string{
-		env.RelocationRepo + "@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9",
-	}
-	if err := env.Assert.ValidateImagesPresenceInRegistry(refs); err != nil {
-		t.Fatalf("could not validate image presence: %v", err)
-	}
-}
-
-func TestCopyWithBundleLockInputToRepoDestinationAndOutputNewBundleLockFile(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
-	defer env.Cleanup()
-
-	// create generic image
-
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
-	imageDigestRef := env.Image + imageDigest
-
-	imgLockYAML := fmt.Sprintf(`---
+	t.Run("when Copying images to Repo, it is successful and generates a BundleLock file", func(t *testing.T) {
+		lockFile := ""
+		testDir := ""
+		logger.Section("create bundle", func() {
+			imgLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, imageDigestRef)
+`, randomImageDigestRef)
 
-	// create a bundle with ref to generic
-	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imgLockYAML)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imgLockYAML)
 
-	// create bundle that refs image with --lock-ouput and a random tag based on time
-	testDir := env.Assets.CreateTempFolder("copy-with-lock-file")
-	lockFile := filepath.Join(testDir, "bundle.lock.yml")
-	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", bundleDir, "--lock-output", lockFile})
-	bundleLock, err := lockconfig.NewBundleLockFromPath(lockFile)
-	if err != nil {
-		t.Fatalf("failed to read bundlelock file: %v", err)
-	}
-	bundleDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, bundleLock.Bundle.Image))
-	bundleTag := bundleLock.Bundle.Tag
+			testDir = env.Assets.CreateTempFolder("copy-with-lock-file")
+			lockFile = filepath.Join(testDir, "bundle.lock.yml")
+			imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", bundleDir, "--lock-output", lockFile})
+		})
 
-	// copy via output file
-	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		bundleLock, err := lockconfig.NewBundleLockFromPath(lockFile)
+		require.NoError(t, err)
 
-	relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest)
-	env.Assert.AssertBundleLock(lockOutputPath, relocatedRef, bundleTag)
+		bundleDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, bundleLock.Bundle.Image))
+		bundleTag := bundleLock.Bundle.Tag
 
-	// check if bundle and referenced images are present in dst repo
-	refs := []string{env.RelocationRepo + imageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + ":" + bundleTag}
-	if err := env.Assert.ValidateImagesPresenceInRegistry(refs); err != nil {
-		t.Fatalf("could not validate image presence: %v", err)
-	}
-}
+		lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
+		logger.Section("copy bundle using the lock file", func() {
+			imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		})
 
-func TestCopyWithImageLockInputToRepoDestinationAndOutputNewImageLockFile(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
-	defer env.Cleanup()
+		relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest)
+		env.Assert.AssertBundleLock(lockOutputPath, relocatedRef, bundleTag)
 
-	// create generic image
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
-	imageDigestRef := env.Image + imageDigest
+		refs := []string{env.RelocationRepo + randomImageDigest, env.RelocationRepo + bundleDigest, env.RelocationRepo + ":" + bundleTag}
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs), "validating image presence")
+	})
 
-	imageLockYAML := fmt.Sprintf(`---
+	t.Run("when Copying images to Tar file and after importing to a new Repo, it keeps the bundle tag and generates a BundleLock file", func(t *testing.T) {
+		testDir := env.Assets.CreateTempFolder("copy-bundle-via-tar-keep-tag")
+		lockFile := filepath.Join(testDir, "bundle.lock.yml")
+
+		logger.Section("create bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, imageDigestRef)
+`, randomImageDigestRef)
 
-	testDir := env.Assets.CreateTempFolder("copy-image-to-repo-with-lock-file")
-	lockFile := filepath.Join(testDir, "images.lock.yml")
-	err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
-	if err != nil {
-		t.Fatalf("failed to create images.lock file: %v", err)
-	}
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", lockFile})
+		})
 
-	// copy via output file
-	lockOutputPath := filepath.Join(testDir, "image-relocate-lock.yml")
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		origBundleLock, err := lockconfig.NewBundleLockFromPath(lockFile)
+		require.NoError(t, err)
 
-	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
+		bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, origBundleLock.Bundle.Image))
 
-	// check if image is present in dst repo
-	refs := []string{env.RelocationRepo + imageDigest}
-	if err := env.Assert.ValidateImagesPresenceInRegistry(refs); err != nil {
-		t.Fatalf("could not validate image presence: %v", err)
-	}
+		tarFilePath := filepath.Join(testDir, "bundle.tar")
+		logger.Section("copy bundle to tar", func() {
+			imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-tar", tarFilePath})
+
+			env.Assert.ImagesDigestIsOnTar(tarFilePath, randomImageDigestRef, bundleDigestRef)
+		})
+
+		logger.Section("import tar to a new repository", func() {
+			lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
+
+			expectedRelocatedRef := fmt.Sprintf("%s@%s", env.RelocationRepo, helpers.ExtractDigest(t, bundleDigestRef))
+			env.Assert.AssertBundleLock(lockFilePath, expectedRelocatedRef, origBundleLock.Bundle.Tag)
+
+			relocatedBundleRef := expectedRelocatedRef
+			relocatedImageRef := env.RelocationRepo + randomImageDigest
+			relocatedBundleTagRef := fmt.Sprintf("%s:%v", env.RelocationRepo, origBundleLock.Bundle.Tag)
+
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{relocatedBundleRef, relocatedImageRef, relocatedBundleTagRef}))
+		})
+	})
 }
 
-func TestCopyWithBundleLockInputToTarFileAndToADifferentRepoCheckTagIsKeptAndBundleLockFileIsGenerated(t *testing.T) {
+func TestCopyFromImageLock(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	logger := helpers.Logger{}
 	defer env.Cleanup()
 
-	// create generic image
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
-	imageDigestRef := env.Image + imageDigest
+	randomImageDigest := ""
+	randomImageDigestRef := ""
+	logger.Section("create random image for tests", func() {
+		randomImageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+		randomImageDigestRef = env.Image + randomImageDigest
+	})
 
-	imageLockYAML := fmt.Sprintf(`---
+	t.Run("when copying to repo, it is successful and generates an ImageLock file", func(t *testing.T) {
+		env.UpdateT(t)
+		imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, imageDigestRef)
+  annotations:
+    some-annotation: some-value
+`, randomImageDigestRef)
 
-	// create bundle that refs image with --lock-ouput
-	testDir := env.Assets.CreateTempFolder("copy-bundle-via-tar-keep-tag")
-	lockFile := filepath.Join(testDir, "bundle.lock.yml")
-	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", lockFile})
+		testDir := env.Assets.CreateTempFolder("copy-image-to-repo-with-lock-file")
+		lockFile := filepath.Join(testDir, "images.lock.yml")
+		err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
+		require.NoError(t, err)
 
-	origBundleLock, err := lockconfig.NewBundleLockFromPath(lockFile)
-	if err != nil {
-		t.Fatalf("unable to read original bundle lock: %s", err)
-	}
+		logger.Section("copy from lock file", func() {
+			lockOutputPath := filepath.Join(testDir, "image-relocate-lock.yml")
+			imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
-	bundleDigestRef := fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, origBundleLock.Bundle.Image))
+			imageRefs := []lockconfig.ImageRef{{
+				Image:       fmt.Sprintf("%s%s", env.RelocationRepo, randomImageDigest),
+				Annotations: map[string]string{"some-annotation": "some-value"},
+			}}
+			env.Assert.AssertImagesLock(lockOutputPath, imageRefs)
 
-	// copy via output file
-	tarFilePath := filepath.Join(testDir, "bundle.tar")
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-tar", tarFilePath})
+			refs := []string{env.RelocationRepo + randomImageDigest}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+		})
+	})
 
-	env.Assert.ImagesDigestIsOnTar(tarFilePath, imageDigestRef, bundleDigestRef)
-
-	// copy from tar to repo
-	lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
-	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
-
-	expectedRelocatedRef := fmt.Sprintf("%s@%s", env.RelocationRepo, helpers.ExtractDigest(t, bundleDigestRef))
-	env.Assert.AssertBundleLock(lockFilePath, expectedRelocatedRef, origBundleLock.Bundle.Tag)
-
-	// validate bundle and image were relocated
-	relocatedBundleRef := expectedRelocatedRef
-	relocatedImageRef := env.RelocationRepo + imageDigest
-	relocatedBundleTagRef := fmt.Sprintf("%s:%v", env.RelocationRepo, origBundleLock.Bundle.Tag)
-
-	if err := env.Assert.ValidateImagesPresenceInRegistry([]string{relocatedBundleRef, relocatedImageRef, relocatedBundleTagRef}); err != nil {
-		t.Fatalf("Failed to locate digest in relocationRepo: %v", err)
-	}
-}
-
-func TestCopyWithImageLockInputToTarFileAndToADifferentRepoCheckTagIsKeptAndImageLockFileIsGenerated(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
-	defer env.Cleanup()
-
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
-	imageDigestRef := env.Image + imageDigest
-
-	imageLockYAML := fmt.Sprintf(`---
+	t.Run("when Copying images to Tar file and after importing to a new Repo, it keeps the tags and generates a ImageLock file", func(t *testing.T) {
+		env.UpdateT(t)
+		imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, imageDigestRef)
+`, randomImageDigestRef)
 
-	testDir := env.Assets.CreateTempFolder("copy--image-lock-via-tar-keep-tag")
-	lockFile := filepath.Join(testDir, "images.lock.yml")
+		testDir := env.Assets.CreateTempFolder("copy--image-lock-via-tar-keep-tag")
+		lockFile := filepath.Join(testDir, "images.lock.yml")
 
-	err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
-	if err != nil {
-		t.Fatalf("failed to create images.lock file: %v", err)
-	}
+		err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
+		require.NoError(t, err)
 
-	// copy via output file
-	tarFilePath := filepath.Join(testDir, "image.tar")
-	imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-tar", tarFilePath})
+		tarFilePath := filepath.Join(testDir, "image.tar")
+		logger.Section("copy image to tar file", func() {
+			imgpkg.Run([]string{"copy", "--lock", lockFile, "--to-tar", tarFilePath})
 
-	env.Assert.ImagesDigestIsOnTar(tarFilePath, imageDigestRef)
+			env.Assert.ImagesDigestIsOnTar(tarFilePath, randomImageDigestRef)
+		})
 
-	// copy from tar to repo
-	lockOutputPath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
-	imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+		lockOutputPath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
+		logger.Section("import tar to new repository", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
 
-	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
+			expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, randomImageDigest)
+			env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
 
-	// check if image is present in dst repo
-	refs := []string{env.RelocationRepo + imageDigest}
-	if err := env.Assert.ValidateImagesPresenceInRegistry(refs); err != nil {
-		t.Fatalf("could not validate image presence: %v", err)
-	}
+			refs := []string{env.RelocationRepo + randomImageDigest}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+		})
+	})
 }
