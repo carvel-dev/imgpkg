@@ -22,6 +22,7 @@ type CopyRepoSrc struct {
 	BundleFlags                 BundleFlags
 	LockInputFlags              LockInputFlags
 	IncludeNonDistributableFlag IncludeNonDistributableFlag
+	ExperimentalFlags           ExperimentalFlags
 	logger                      *ctlimg.LoggerPrefixWriter
 	imageSet                    ctlimgset.ImageSet
 	tarImageSet                 ctlimgset.TarImageSet
@@ -135,18 +136,35 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	default:
 		bundle := ctlbundle.NewBundle(o.BundleFlags.Bundle, o.registry)
 
-		// TODO switch to using fallback URLs for each image
-		// instead of trying to use localized bundle URLs here
-		imagesLock, err := bundle.ImagesLockLocalized()
-		if err != nil {
-			if ctlbundle.IsNotBundleError(err) {
-				return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		var imageRefs []lockconfig.ImageRef
+		if !o.ExperimentalFlags.RecursiveBundles {
+			// TODO switch to using fallback URLs for each image
+			// instead of trying to use localized bundle URLs here
+			imagesLock, err := bundle.ImagesLockLocalized()
+			if err != nil {
+				if ctlbundle.IsNotBundleError(err) {
+					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+				}
+				return nil, err
 			}
-			return nil, err
+			imageRefs = imagesLock.Images
+		} else {
+			imgLock, err := bundle.AllImagesLock()
+			if err != nil {
+				if ctlbundle.IsNotBundleError(err) {
+					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+				}
+				return nil, err
+			}
+
+			imageRefs, err = imgLock.LocationPrunedImageRefs()
+			if err != nil {
+				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
+			}
 		}
 
-		for _, img := range imagesLock.Images {
-			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.Image})
+		for _, img := range imageRefs {
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: bundle.DigestRef(), Tag: bundle.Tag()})

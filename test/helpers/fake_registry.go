@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package helpers
 
 import (
 	"archive/tar"
@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -46,6 +47,7 @@ type ImageOrImageIndexWithTarPath struct {
 type BundleInfo struct {
 	r          *FakeRegistry
 	BundlePath string
+	RefDigest  string
 }
 
 func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
@@ -171,9 +173,21 @@ func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) Bundle
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
 	require.NoError(r.t, err, "create image from tar")
 
-	r.updateState(bundleName, bundle, nil, path)
-	return BundleInfo{r, path}
+	b := r.updateState(bundleName, bundle, nil, path)
+	return BundleInfo{r, path, b.RefDigest}
+}
 
+func (r *FakeRegistry) WithRandomBundle(bundleName string) BundleInfo {
+	bundle, err := random.Image(500, 5)
+	bundle, err = mutate.ConfigFile(bundle, &v1.ConfigFile{
+		Config: v1.Config{
+			Labels: map[string]string{"dev.carvel.imgpkg.bundle": "true"},
+		},
+	})
+	require.NoError(r.t, err, "create image from tar")
+
+	b := r.updateState(bundleName, bundle, nil, "")
+	return BundleInfo{r, "", b.RefDigest}
 }
 
 func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
@@ -184,6 +198,31 @@ func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) 
 	require.NoError(r.t, err, "create image from tar")
 
 	return r.updateState(imageNameFromTest, fileImage, nil, path)
+}
+
+func (r *FakeRegistry) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
+	img, err := random.Image(500, 3)
+	require.NoError(r.t, err, "create image from tar")
+
+	return r.updateState(imageNameFromTest, img, nil, "")
+}
+
+func (r *FakeRegistry) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
+	newImg := img
+
+	digest, err := newImg.image.Digest()
+	require.NoError(r.t, err)
+	newImg.RefDigest = to + "@" + digest.String()
+	r.state[newImg.RefDigest] = &newImg
+	return &newImg
+}
+
+func (r *FakeRegistry) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
+	digest := strings.Split(bundleInfo.RefDigest, "@")[1]
+	newBundle := *r.state[bundleInfo.RefDigest]
+	newBundle.RefDigest = to + "@" + digest
+	r.state[newBundle.RefDigest] = &newBundle
+	return BundleInfo{r, "", newBundle.RefDigest}
 }
 
 func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
@@ -233,7 +272,9 @@ func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex 
 
 func (r *FakeRegistry) CleanUp() {
 	for _, tarPath := range r.state {
-		os.Remove(tarPath.path)
+		if tarPath.path != "" {
+			os.Remove(tarPath.path)
+		}
 	}
 }
 

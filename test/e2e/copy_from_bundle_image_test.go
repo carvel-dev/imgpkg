@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCopyBundleWithCollocatedReferencedImagesToRepoDestinationAndOutputBundleLockFile(t *testing.T) {
@@ -211,4 +213,81 @@ images:
 	if greeting != "hello world" {
 		t.Fatalf("Expected images lock to have annotation saying 'hello world', got: %s", greeting)
 	}
+}
+
+func TestCopyUsingTar(t *testing.T) {
+	logger := helpers.Logger{}
+	t.Run("when a bundle contains other bundles it copies all images from all bundles", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		defer env.Cleanup()
+
+		testDir := env.Assets.CreateTempFolder("nested-bundles-tar-test")
+		tarFilePath := filepath.Join(testDir, "bundle.tar")
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = imgRef.Context().RegistryStr() + "/img1"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+
+			img2DigestRef = imgRef.Context().RegistryStr() + "/img2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+		})
+
+		nestedBundle := imgRef.Context().RegistryStr() + "/bundle-nested"
+		nestedBundleDigest := ""
+		logger.Section("create nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		outerBundle := imgRef.Context().RegistryStr() + "/bundle-outer"
+		outerBundleDigest := ""
+		logger.Section("create outer bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, nestedBundle+nestedBundleDigest, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("export full bundle to tar", func() {
+			imgpkg.Run([]string{"copy", "-b", outerBundle + outerBundleDigest, "--to-tar", tarFilePath, "--experimental-recursive-bundle"})
+		})
+
+		lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
+		logger.Section("import bundle to new repository", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath, "--experimental-recursive-bundle"})
+			relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest)
+			env.Assert.AssertBundleLock(lockFilePath, relocatedRef, "")
+		})
+
+		imagesToCheck := []string{
+			env.RelocationRepo + outerBundleDigest,
+			env.RelocationRepo + nestedBundleDigest,
+			env.RelocationRepo + img1Digest,
+			env.RelocationRepo + img2Digest,
+		}
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(imagesToCheck))
+	})
 }
