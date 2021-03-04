@@ -48,10 +48,10 @@ func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, recursive bool) error {
-	return o.pull(outputPath, recursive, "", map[string]interface{}{}, ui)
+	return o.pull(recursive, outputPath, "", map[string]interface{}{}, ui)
 }
 
-func (o *Bundle) pull(baseOutputPath string, recursive bool, bundlePath string, imagesProcessed map[string]interface{}, ui goui.UI) error {
+func (o *Bundle) pull(recursive bool, baseOutputPath string, bundlePath string, imagesProcessed map[string]interface{}, ui goui.UI) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -73,31 +73,33 @@ func (o *Bundle) pull(baseOutputPath string, recursive bool, bundlePath string, 
 		return err
 	}
 
-	for _, image := range imagesLock.Images {
-		if _, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
-			continue
-		}
-		imagesProcessed[image.Image] = nil
+	if recursive {
+		for _, image := range imagesLock.Images {
+			if _, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+				continue
+			}
+			imagesProcessed[image.Image] = nil
 
-		subBundle := NewBundle(image.Image, o.imgRetriever)
-		isBundle, err := subBundle.IsBundle()
-		if err != nil {
-			return err
-		}
-		if !isBundle {
-			continue
-		}
-		if o.shouldPrintNestedBundlesHeader(imagesProcessed) {
-			ui.BeginLinef("Nested bundles\n")
-		}
-		bundleDigest, err := name.NewDigest(image.Image)
-		if err != nil {
-			return err
-		}
+			subBundle := NewBundle(image.Image, o.imgRetriever)
+			isBundle, err := subBundle.IsBundle()
+			if err != nil {
+				return err
+			}
+			if !isBundle {
+				continue
+			}
+			if o.shouldPrintNestedBundlesHeader(imagesProcessed) {
+				ui.BeginLinef("Nested bundles\n")
+			}
+			bundleDigest, err := name.NewDigest(image.Image)
+			if err != nil {
+				return err
+			}
 
-		err = subBundle.pull(baseOutputPath, false, filepath.Join(ImgpkgDir, SubBundlesDir, digestFriendlyDirectoryPath(bundleDigest)), imagesProcessed, goui.NewIndentingUI(ui))
-		if err != nil {
-			return err
+			err = subBundle.pull(recursive, baseOutputPath, filepath.Join(ImgpkgDir, SubBundlesDir, digestFriendlyDirectoryPath(bundleDigest)), imagesProcessed, goui.NewIndentingUI(ui))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
