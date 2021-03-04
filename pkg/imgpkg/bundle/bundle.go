@@ -114,12 +114,6 @@ func (o *Bundle) pull(baseOutputPath string, bundlePath string, imagesProcessed 
 	return nil
 }
 
-type noopWriter struct{}
-
-func (noopWriter) Write(p []byte) (n int, err error) {
-	return 0, nil
-}
-
 func digestFriendlyDirectoryPath(digest name.Digest) string {
 	return strings.ReplaceAll(digest.DigestStr(), "sha256:", "sha256-")
 }
@@ -146,4 +140,10 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		panic("Unreachable")
 	}
 	return img, err
+}
+
+type noopWriter struct{}
+
+func (noopWriter) Write(_ []byte) (n int, err error) {
+	return 0, nil
 }
