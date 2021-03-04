@@ -188,7 +188,7 @@ func TestNoImageOrBundleError(t *testing.T) {
 }
 
 func TestImageAndBundleError(t *testing.T) {
-	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, BundleFlags: BundleFlags{"my-bundle"}}
+	push := PushOptions{ImageFlags: ImageFlags{"image@123456"}, BundleFlags: BundleFlags{"my-bundle", false}}
 	err := push.Run()
 	if err == nil {
 		t.Fatalf("Expected validations to err, but did not")

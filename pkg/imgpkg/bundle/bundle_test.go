@@ -16,8 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPullWritingContentsToDisk(t *testing.T) {
+func TestPullBundlesRecursivelyWritingContentsToDisk(t *testing.T) {
 	fakeUI := &bundlefakes.FakeUI{}
+	recursiveBundles := true
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
 		fakeRegistry := NewFakeRegistry(t)
@@ -29,7 +30,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI)
+		err = subject.Pull(outputPath, fakeUI, recursiveBundles)
 		assert.NoError(t, err)
 
 		assert.DirExists(t, outputPath)
@@ -55,7 +56,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI)
+		err = subject.Pull(outputPath, fakeUI, recursiveBundles)
 		assert.NoError(t, err)
 
 		assert.DirExists(t, outputPath)
@@ -87,7 +88,7 @@ func TestPullWritingContentsToDisk(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, fakeUI)
+		err = subject.Pull(outputPath, fakeUI, recursiveBundles)
 		assert.NoError(t, err)
 
 		// assert icecream bundle was recursively pulled onto disk
@@ -133,7 +134,7 @@ func TestPullOutputToUser(t *testing.T) {
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI)
+		err = subject.Pull(outputPath, writerUI, true)
 		assert.NoError(t, err)
 
 		assert.Regexp(t,
@@ -166,7 +167,7 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, writerUI)
+		err = subject.Pull(outputPath, writerUI, true)
 		assert.NoError(t, err)
 
 		//assert log message

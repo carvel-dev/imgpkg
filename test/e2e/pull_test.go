@@ -66,10 +66,9 @@ images:
 
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 
-		//TODO: add recursive flag to pull
-		// imgpkg pull --experimental bundle-with-bundle -o /tmp/lol <- should work and normal behavior
+		//TODO: imgpkg pull --experimental bundle-with-bundle -o /tmp/lol <- should work and normal behavior
 
-		imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
+		imgpkg.Run([]string{"pull", "--recursive", "-b", env.Image, "-o", outDir})
 
 		subBundleDirectoryPath := strings.ReplaceAll(bundleDigestRef, "sha256:", "sha256-")
 		assert.DirExists(t, filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath))

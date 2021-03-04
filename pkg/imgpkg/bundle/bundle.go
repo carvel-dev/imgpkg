@@ -47,11 +47,11 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) Pull(outputPath string, ui goui.UI) error {
-	return o.pull(outputPath, "", map[string]interface{}{}, ui)
+func (o *Bundle) Pull(outputPath string, ui goui.UI, recursive bool) error {
+	return o.pull(outputPath, recursive, "", map[string]interface{}{}, ui)
 }
 
-func (o *Bundle) pull(baseOutputPath string, bundlePath string, imagesProcessed map[string]interface{}, ui goui.UI) error {
+func (o *Bundle) pull(baseOutputPath string, recursive bool, bundlePath string, imagesProcessed map[string]interface{}, ui goui.UI) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (o *Bundle) pull(baseOutputPath string, bundlePath string, imagesProcessed 
 			return err
 		}
 
-		err = subBundle.pull(baseOutputPath, filepath.Join(ImgpkgDir, SubBundlesDir, digestFriendlyDirectoryPath(bundleDigest)), imagesProcessed, goui.NewIndentingUI(ui))
+		err = subBundle.pull(baseOutputPath, false, filepath.Join(ImgpkgDir, SubBundlesDir, digestFriendlyDirectoryPath(bundleDigest)), imagesProcessed, goui.NewIndentingUI(ui))
 		if err != nil {
 			return err
 		}
