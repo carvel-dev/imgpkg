@@ -42,10 +42,6 @@ func (i *DirImage) AsDirectory() error {
 		return err
 	}
 
-	if !strings.Contains(i.dirPath, ".imgpkg/bundles") {
-		i.logger.BeginLinef("Bundle Layers\n")
-	}
-
 	for idx, imgLayer := range layers {
 		digest, err := imgLayer.Digest()
 		if err != nil {

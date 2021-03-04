@@ -63,7 +63,7 @@ func TestCopyingBundleToRepoWithMultipleRegistries(t *testing.T) {
 	}
 
 	subject := subject
-	subject.BundleFlags = BundleFlags{sourceBundleName, false}
+	subject.BundleFlags = BundleFlags{sourceBundleName}
 	subject.registry = fakeRegistry.Build()
 
 	t.Run("Images are copied from localregistry.io and not from the bundle's ImagesLockFile registry (index.docker.io)", func(t *testing.T) {
@@ -129,10 +129,7 @@ func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
-	subject.BundleFlags = BundleFlags{
-		bundleName,
-		false,
-	}
+	subject.BundleFlags = BundleFlags{bundleName}
 	subject.registry = fakeRegistry.Build()
 
 	t.Run("Tar should contain every layer", func(t *testing.T) {
@@ -155,10 +152,7 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
-	subject.BundleFlags = BundleFlags{
-		bundleName,
-		false,
-	}
+	subject.BundleFlags = BundleFlags{bundleName}
 	subject.registry = fakeRegistry.Build()
 
 	t.Run("Tar should contain every distributable layer only", func(t *testing.T) {

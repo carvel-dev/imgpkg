@@ -1,7 +1,0 @@
----
-apiVersion: imgpkg.carvel.dev/v1alpha1
-images:
-- annotations:
-    kbld.carvel.dev/id: docker.io/library/image_with_config
-  image: index.docker.io/library/image_with_config@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-kind: ImagesLock

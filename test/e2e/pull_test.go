@@ -66,8 +66,6 @@ images:
 
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 
-		//TODO: imgpkg pull --experimental bundle-with-bundle -o /tmp/lol <- should work and normal behavior
-
 		imgpkg.Run([]string{"pull", "--recursive", "-b", env.Image, "-o", outDir})
 
 		subBundleDirectoryPath := strings.ReplaceAll(bundleDigestRef, "sha256:", "sha256-")

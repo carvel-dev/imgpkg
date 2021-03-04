@@ -63,7 +63,7 @@ func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
 		return err
 	}
 
-	ui.BeginLinef("Locating image lock file images...\n")
+	ui.BeginLinef("\nLocating image lock file images...\n")
 
 	if skipped {
 		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")

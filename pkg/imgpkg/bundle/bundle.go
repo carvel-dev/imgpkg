@@ -47,20 +47,21 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) Pull(outputPath string, ui goui.UI, recursive bool) error {
-	return o.pull(recursive, outputPath, "", map[string]interface{}{}, ui)
+func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
+	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 }
 
-func (o *Bundle) pull(recursive bool, baseOutputPath string, bundlePath string, imagesProcessed map[string]interface{}, ui goui.UI) error {
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
 	}
 
-	if o.parentBundle(bundlePath) {
+	if o.rootBundle(bundlePath) {
 		ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+		ui.BeginLinef("Bundle Layers\n")
 	} else {
-		ui.BeginLinef("Pulling Nested bundle '%s'\n", o.DigestRef())
+		ui.BeginLinef("Pulling nested bundle '%s'\n", o.DigestRef())
 	}
 
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, ui).AsDirectory()
@@ -73,30 +74,37 @@ func (o *Bundle) pull(recursive bool, baseOutputPath string, bundlePath string, 
 		return err
 	}
 
-	if recursive {
+	if pullNestedBundles {
 		for _, image := range imagesLock.Images {
-			if _, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+				if isBundle {
+					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
+					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
+				}
 				continue
 			}
-			imagesProcessed[image.Image] = nil
 
 			subBundle := NewBundle(image.Image, o.imgRetriever)
 			isBundle, err := subBundle.IsBundle()
 			if err != nil {
 				return err
 			}
+			imagesProcessed[image.Image] = isBundle
+
 			if !isBundle {
 				continue
 			}
-			if o.shouldPrintNestedBundlesHeader(imagesProcessed) {
-				ui.BeginLinef("Nested bundles\n")
+
+			numSubBundles++
+
+			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
+				ui.BeginLinef("\nNested bundles\n")
 			}
 			bundleDigest, err := name.NewDigest(image.Image)
 			if err != nil {
 				return err
 			}
-
-			err = subBundle.pull(recursive, baseOutputPath, filepath.Join(ImgpkgDir, SubBundlesDir, digestFriendlyDirectoryPath(bundleDigest)), imagesProcessed, goui.NewIndentingUI(ui))
+			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
 			if err != nil {
 				return err
 			}
@@ -104,7 +112,7 @@ func (o *Bundle) pull(recursive bool, baseOutputPath string, bundlePath string, 
 	}
 
 	imagesLockUI := ui
-	if !o.parentBundle(bundlePath) {
+	if !o.rootBundle(bundlePath) {
 		imagesLockUI = goui.NewWriterUI(noopWriter{}, noopWriter{}, goui.NoopLogger{})
 	}
 
@@ -116,15 +124,15 @@ func (o *Bundle) pull(recursive bool, baseOutputPath string, bundlePath string, 
 	return nil
 }
 
-func digestFriendlyDirectoryPath(digest name.Digest) string {
-	return strings.ReplaceAll(digest.DigestStr(), "sha256:", "sha256-")
+func subBundlePath(bundleDigest name.Digest) string {
+	return filepath.Join(ImgpkgDir, SubBundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
 }
 
-func (o *Bundle) shouldPrintNestedBundlesHeader(bundlesProcessed map[string]interface{}) bool {
-	return len(bundlesProcessed) == 1
+func (o *Bundle) shouldPrintNestedBundlesHeader(bundlePath string, bundlesProcessed int) bool {
+	return o.rootBundle(bundlePath) && bundlesProcessed == 1
 }
 
-func (o *Bundle) parentBundle(bundlePath string) bool {
+func (o *Bundle) rootBundle(bundlePath string) bool {
 	return bundlePath == ""
 }
 

@@ -26,7 +26,7 @@ type FakeImagesMetadataBuilder struct {
 	t     *testing.T
 }
 
-func NewFakeRegistry(t *testing.T) *FakeImagesMetadataBuilder {
+func NewFakeImagesMetadataBuilder(t *testing.T) *FakeImagesMetadataBuilder {
 	return &FakeImagesMetadataBuilder{state: map[string]*ImageWithTarPath{}, t: t}
 }
 
@@ -108,7 +108,12 @@ func (r *FakeImagesMetadataBuilder) WithBundleFromPath(bundleName string, path s
 	}
 
 	r.updateState(bundleName, bundle, path)
-	return BundleInfo{r, bundleName, path}
+	digest, err := bundle.Digest()
+	if err != nil {
+		r.t.Fatalf(err.Error())
+	}
+
+	return BundleInfo{r, bundleName, path, digest.String()}
 }
 
 func (r *FakeImagesMetadataBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
@@ -159,9 +164,10 @@ type BundleInfo struct {
 	r          *FakeImagesMetadataBuilder
 	BundleName string
 	BundlePath string
+	Digest     string
 }
 
-func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *FakeImagesMetadataBuilder {
+func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) BundleInfo {
 	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml.template")
 	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
 	if err != nil {
@@ -198,8 +204,7 @@ func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) *F
 		b.r.t.Fatalf("Got error: %s", err.Error())
 	}
 
-	b.r.WithBundleFromPath(b.BundleName, b.BundlePath)
-	return b.r
+	return b.r.WithBundleFromPath(b.BundleName, b.BundlePath)
 }
 
 type ImageWithTarPath struct {
