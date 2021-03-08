@@ -27,6 +27,7 @@ type CopyOptions struct {
 	TarFlags                    TarFlags
 	RegistryFlags               RegistryFlags
 	IncludeNonDistributableFlag IncludeNonDistributableFlag
+	ExperimentalFlags           ExperimentalFlags
 
 	RepoDst     string
 	Concurrency int
@@ -59,6 +60,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.IncludeNonDistributableFlag.Set(cmd)
+	o.ExperimentalFlags.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	return cmd
@@ -111,6 +113,7 @@ func (o *CopyOptions) Run() error {
 			BundleFlags:                 o.BundleFlags,
 			LockInputFlags:              o.LockInputFlags,
 			IncludeNonDistributableFlag: o.IncludeNonDistributableFlag,
+			ExperimentalFlags:           o.ExperimentalFlags,
 
 			registry:    registry,
 			imageSet:    imageSet,
@@ -138,6 +141,7 @@ func (o *CopyOptions) Run() error {
 }
 
 func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry ctlimg.Registry) error {
+	var foundBundle *bundle.Bundle
 	for _, item := range processedImages.All() {
 		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
 		bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
@@ -147,13 +151,14 @@ func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages
 			return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
 		}
 		if ok {
-			if o.LockOutputFlags.LockFilePath != "" {
-				return o.writeBundleLockOutput(bundle)
-			}
+			foundBundle = bundle
 		}
 	}
 
 	if o.LockOutputFlags.LockFilePath != "" {
+		if foundBundle != nil {
+			return o.writeBundleLockOutput(foundBundle)
+		}
 		return o.writeImagesLockOutput(processedImages)
 	}
 	return nil

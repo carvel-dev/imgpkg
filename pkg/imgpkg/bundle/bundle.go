@@ -18,17 +18,27 @@ const (
 	BundleConfigLabel = "dev.carvel.imgpkg.bundle"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockReader
+type ImagesLockReader interface {
+	Read(img regv1.Image) (lockconfig.ImagesLock, error)
+}
+
 type Bundle struct {
-	plainImg     *plainimg.PlainImage
-	imgRetriever ctlimg.ImagesMetadata
+	plainImg         *plainimg.PlainImage
+	imgRetriever     ctlimg.ImagesMetadata
+	imagesLockReader ImagesLockReader
 }
 
 func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata}
+	return NewBundleWithReader(ref, imagesMetadata, &singleLayerReader{})
 }
 
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainImg, imagesMetadata}
+	return &Bundle{plainImg, imagesMetadata, &singleLayerReader{}}
+}
+
+func NewBundleWithReader(ref string, imagesMetadata ctlimg.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+	return &Bundle{plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader}
 }
 
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }

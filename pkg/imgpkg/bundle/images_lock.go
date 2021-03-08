@@ -26,6 +26,35 @@ type ImagesLock struct {
 	relativeToRepo string
 }
 
+func (o ImagesLock) ImageRefs() []lockconfig.ImageRef {
+	return o.imagesLock.Images
+}
+
+func (o *ImagesLock) Merge(imgLock *ImagesLock) error {
+	for _, image := range imgLock.imagesLock.Images {
+		imgRef := image.DeepCopy()
+		o.imagesLock.AddImageRef(imgRef)
+	}
+
+	return nil
+}
+
+func (o *ImagesLock) GenerateImagesLocations() error {
+	for i, imgRef := range o.imagesLock.Images {
+		imageInBundleRepo, err := o.imageRelativeToBundle(imgRef.Image)
+		if err != nil {
+			return err
+		}
+
+		o.imagesLock.Images[i].AddLocation(imageInBundleRepo)
+	}
+	return nil
+}
+
+func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
+	o.imagesLock.AddImageRef(ref)
+}
+
 func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
 	imagesLockPath := filepath.Join(outputPath, ImgpkgDir, ImagesLockFile)
 	ui.BeginLinef("Locating image lock file images...\n")
@@ -77,6 +106,23 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 
 	imagesLock.Images = imageRefs
 	return imagesLock, false, nil
+}
+
+func (o ImagesLock) LocationPrunedImageRefs() ([]lockconfig.ImageRef, error) {
+	var imageRefs []lockconfig.ImageRef
+	for _, imgRef := range o.imagesLock.Images {
+		newImgRef := imgRef.DeepCopy()
+
+		foundImg, err := o.checkImagesExist(newImgRef.Locations())
+		if err != nil {
+			return nil, err
+		}
+
+		newImgRef.DiscardLocationsExcept(foundImg)
+		imageRefs = append(imageRefs, newImgRef)
+	}
+
+	return imageRefs, nil
 }
 
 func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {

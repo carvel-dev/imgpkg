@@ -20,6 +20,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,7 +43,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCopyingBundleToRepoWithMultipleRegistries(t *testing.T) {
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	defer fakeRegistry.CleanUp()
 
 	sourceBundleName := "localregistry.io/library/bundle"
@@ -77,7 +78,7 @@ func TestCopyingBundleToRepoWithMultipleRegistries(t *testing.T) {
 }
 
 func TestCopyingFromImageLockFile(t *testing.T) {
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	defer fakeRegistry.CleanUp()
 
 	destinationImageName := "localregistry.io/library/copied-img"
@@ -123,7 +124,7 @@ images:
 
 func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 	bundleName := "index.docker.io/library/bundle"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config")
 	defer fakeRegistry.CleanUp()
 
@@ -146,7 +147,7 @@ func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 
 func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	bundleName := "index.docker.io/library/bundle"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
 		WithEveryImageFrom("test_assets/image_with_config").
 		WithNonDistributableLayerInImage("index.docker.io/library/image_with_non_distributable_layer@sha256:555555555555fae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0")
@@ -215,7 +216,7 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 
 func TestCopyingToTarImageContainingOnlyDistributableLayers(t *testing.T) {
 	imageName := "index.docker.io/library/image"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config")
 	defer fakeRegistry.CleanUp()
 
@@ -269,7 +270,7 @@ func TestCopyingToTarImageContainingOnlyDistributableLayers(t *testing.T) {
 
 func TestCopyingToTarImageIndexContainingOnlyDistributableLayers(t *testing.T) {
 	imageName := "index.docker.io/library/image"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithARandomImageIndex(imageName)
 	defer fakeRegistry.CleanUp()
 
@@ -329,7 +330,7 @@ func TestCopyingToTarImageIndexContainingOnlyDistributableLayers(t *testing.T) {
 
 func TestCopyingToTarImageContainingNonDistributableLayers(t *testing.T) {
 	imageName := "index.docker.io/library/image"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config").WithNonDistributableLayer()
 	defer fakeRegistry.CleanUp()
 	subject := subject
@@ -369,7 +370,7 @@ func TestCopyingToTarImageContainingNonDistributableLayers(t *testing.T) {
 
 func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 	imageName := "index.docker.io/library/image"
-	fakeRegistry := NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config")
 	defer fakeRegistry.CleanUp()
 	subject := subject
@@ -396,7 +397,7 @@ func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 	})
 
 	t.Run("Every layer in the image is mounted", func(t *testing.T) {
-		fakeRegistry := NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t)
 		fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config")
 		defer fakeRegistry.CleanUp()
 

@@ -15,6 +15,56 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
+func (o *Bundle) AllImagesLock() (*ImagesLock, error) {
+	return  o.buildAllImagesLock(map[string]struct{}{})
+}
+
+func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesLock, error) {
+	img, err := o.checkedImage()
+	if err != nil {
+		return nil, err
+	}
+
+	imagesLock, err := o.imagesLockReader.Read(img)
+	if err != nil {
+		return nil, err
+	}
+
+	allImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+
+	for _, image := range imagesLock.Images {
+		if _, skip := processedImgs[image.Image]; skip {
+			continue
+		}
+		processedImgs[image.Image] = struct{}{}
+
+		bundle := NewBundleWithReader(image.Image, o.imgRetriever, o.imagesLockReader)
+		isBundle, err := bundle.IsBundle()
+		if err != nil {
+			return nil, fmt.Errorf("Checking if '%s' is a bundle: %s", image.Image, err)
+		}
+
+		if isBundle {
+			imgLock, err := bundle.buildAllImagesLock(processedImgs)
+			if err != nil {
+				return nil, fmt.Errorf("Retrieving images for bundle '%s': %s", image.Image, err)
+			}
+
+			err = allImagesLock.Merge(imgLock)
+			if err != nil {
+				return nil, fmt.Errorf("Merging images for bundle '%s': %s", image.Image, err)
+			}
+		}
+	}
+
+	err = allImagesLock.GenerateImagesLocations()
+	if err != nil {
+		return nil, fmt.Errorf("Generating locations list for images in bundle %s: %s", o.DigestRef(), err)
+	}
+
+	return allImagesLock, nil
+}
+
 // ImagesLockLocalized returns possibly modified images lock
 // with image URLs relative to bundle location
 func (o *Bundle) ImagesLockLocalized() (lockconfig.ImagesLock, error) {
@@ -23,7 +73,7 @@ func (o *Bundle) ImagesLockLocalized() (lockconfig.ImagesLock, error) {
 		return lockconfig.ImagesLock{}, err
 	}
 
-	imagesLock, err := o.readImagesLock(img)
+	imagesLock, err := o.imagesLockReader.Read(img)
 	if err != nil {
 		return lockconfig.ImagesLock{}, err
 	}
@@ -32,7 +82,9 @@ func (o *Bundle) ImagesLockLocalized() (lockconfig.ImagesLock, error) {
 	return imagesLock, err
 }
 
-func (o *Bundle) readImagesLock(img regv1.Image) (lockconfig.ImagesLock, error) {
+type singleLayerReader struct{}
+
+func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error) {
 	conf := lockconfig.ImagesLock{}
 
 	layers, err := img.Layers()

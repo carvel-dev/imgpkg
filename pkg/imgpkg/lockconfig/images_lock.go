@@ -24,6 +24,7 @@ type ImagesLock struct {
 type ImageRef struct {
 	Image       string            `json:"image,omitempty"`       // This generated yaml, but due to lib we need to use `json`
 	Annotations map[string]string `json:"annotations,omitempty"` // This generated yaml, but due to lib we need to use `json`
+	locations   []string
 }
 
 func NewImagesLockFromPath(path string) (ImagesLock, error) {
@@ -51,6 +52,15 @@ func NewImagesLockFromBytes(data []byte) (ImagesLock, error) {
 	return lock, nil
 }
 
+func (c *ImagesLock) AddImageRef(ref ImageRef) {
+	for _, image := range c.Images {
+		if image.Image == ref.Image {
+			return
+		}
+	}
+	c.Images = append(c.Images, ref)
+}
+
 func (c ImagesLock) Validate() error {
 	if c.APIVersion != ImagesLockAPIVersion {
 		return fmt.Errorf("Validating apiVersion: Unknown version (known: %s)", ImagesLockAPIVersion)
@@ -72,7 +82,16 @@ func (c ImagesLock) AsBytes() ([]byte, error) {
 		return nil, fmt.Errorf("Validating images lock: %s", err)
 	}
 
-	bs, err := yaml.Marshal(c)
+	// Use the first location instead of the value present in Image
+	var imgRefs []ImageRef
+	for _, image := range c.Images {
+		image.Image = image.PrimaryLocation()
+		imgRefs = append(imgRefs, image)
+	}
+	updatedImagesLock := c
+	updatedImagesLock.Images = imgRefs
+
+	bs, err := yaml.Marshal(updatedImagesLock)
 	if err != nil {
 		return nil, fmt.Errorf("Marshaling config: %s", err)
 	}
@@ -92,4 +111,53 @@ func (c ImagesLock) WriteToPath(path string) error {
 	}
 
 	return nil
+}
+
+func (i ImageRef) DeepCopy() ImageRef {
+	annotations := map[string]string{}
+	for key, val := range i.Annotations {
+		annotations[key] = val
+	}
+
+	return ImageRef{
+		Image:       i.Image,
+		locations:   append([]string{}, i.locations...),
+		Annotations: annotations,
+	}
+}
+
+func (i ImageRef) Locations() []string {
+	if i.locations == nil {
+		return []string{i.Image}
+	}
+
+	locations := append([]string{}, i.locations...)
+	locations = append(locations, i.Image)
+	return locations
+}
+
+func (i *ImageRef) AddLocation(location string) {
+	if location == i.Image {
+		return
+	}
+
+	for _, m := range i.locations {
+		if m == location {
+			return
+		}
+	}
+	i.locations = append([]string{location}, i.locations...)
+}
+
+func (i *ImageRef) PrimaryLocation() string {
+	return i.Locations()[0]
+}
+
+func (i *ImageRef) DiscardLocationsExcept(viableLocation string) {
+	if viableLocation == i.Image {
+		i.locations = []string{}
+		return
+	}
+
+	i.locations = []string{viableLocation}
 }
