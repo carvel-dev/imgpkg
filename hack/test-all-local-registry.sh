@@ -6,7 +6,7 @@ PORT=${1:-5001}
 
 function cleanup {
   docker stop registry-"$PORT"
-  docker rm registry-"$PORT"
+  docker rm -v registry-"$PORT"
 }
 trap cleanup EXIT
 

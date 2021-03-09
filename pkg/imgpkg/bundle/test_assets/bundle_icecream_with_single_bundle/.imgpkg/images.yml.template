@@ -1,0 +1,5 @@
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: icecream/bundle@sha256:1111111111111111111111111111111111111111111111111111111111111111
+kind: ImagesLock

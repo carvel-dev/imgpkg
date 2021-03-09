@@ -19,6 +19,7 @@ import (
 
 const (
 	ImgpkgDir      = ".imgpkg"
+	BundlesDir     = "bundles"
 	ImagesLockFile = "images.yml"
 )
 

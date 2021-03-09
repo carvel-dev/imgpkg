@@ -129,9 +129,7 @@ func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
-	subject.BundleFlags = BundleFlags{
-		bundleName,
-	}
+	subject.BundleFlags = BundleFlags{bundleName}
 	subject.registry = fakeRegistry.Build()
 
 	t.Run("Tar should contain every layer", func(t *testing.T) {
@@ -154,9 +152,7 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
-	subject.BundleFlags = BundleFlags{
-		bundleName,
-	}
+	subject.BundleFlags = BundleFlags{bundleName}
 	subject.registry = fakeRegistry.Build()
 
 	t.Run("Tar should contain every distributable layer only", func(t *testing.T) {

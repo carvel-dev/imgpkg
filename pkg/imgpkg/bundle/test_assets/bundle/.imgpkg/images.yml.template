@@ -1,0 +1,5 @@
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: library/image_with_config@sha256:1111111111111111111111111111111111111111111111111111111111111111
+kind: ImagesLock

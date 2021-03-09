@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: bundle_apples_with_single_bundle
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    simple-app: ""

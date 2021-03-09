@@ -6,8 +6,10 @@ package bundle
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
-	"github.com/cppforlife/go-cli-ui/ui"
+	goui "github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -45,30 +47,94 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) Pull(outputPath string, ui ui.UI) error {
+func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
+	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
+}
+
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
+	bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
 	}
 
-	ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+	if o.rootBundle(bundlePath) {
+		ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+	} else {
+		ui.BeginLinef("Pulling nested bundle '%s'\n", o.DigestRef())
+	}
 
-	err = ctlimg.NewDirImage(outputPath, img, ui).AsDirectory()
+	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting bundle into directory: %s", err)
 	}
 
-	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(outputPath, ImgpkgDir, ImagesLockFile))
+	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 	if err != nil {
 		return err
 	}
 
-	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(outputPath, ui)
+	if pullNestedBundles {
+		for _, image := range imagesLock.Images {
+			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+				if isBundle {
+					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
+					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
+				}
+				continue
+			}
+
+			subBundle := NewBundle(image.Image, o.imgRetriever)
+			isBundle, err := subBundle.IsBundle()
+			if err != nil {
+				return err
+			}
+			imagesProcessed[image.Image] = isBundle
+
+			if !isBundle {
+				continue
+			}
+
+			numSubBundles++
+
+			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
+				ui.BeginLinef("\nNested bundles\n")
+			}
+			bundleDigest, err := name.NewDigest(image.Image)
+			if err != nil {
+				return err
+			}
+			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui),
+				pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	imagesLockUI := ui
+	if !o.rootBundle(bundlePath) {
+		imagesLockUI = goui.NewNoopUI()
+	}
+
+	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(filepath.Join(baseOutputPath, bundlePath), imagesLockUI)
 	if err != nil {
 		return fmt.Errorf("Rewriting image lock file: %s", err)
 	}
 
 	return nil
+}
+
+func (*Bundle) subBundlePath(bundleDigest name.Digest) string {
+	return filepath.Join(ImgpkgDir, BundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
+}
+
+func (o *Bundle) shouldPrintNestedBundlesHeader(bundlePath string, bundlesProcessed int) bool {
+	return o.rootBundle(bundlePath) && bundlesProcessed == 1
+}
+
+func (o *Bundle) rootBundle(bundlePath string) bool {
+	return bundlePath == ""
 }
 
 func (o *Bundle) checkedImage() (regv1.Image, error) {

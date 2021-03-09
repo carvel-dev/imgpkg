@@ -57,12 +57,14 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
 
 func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
 	imagesLockPath := filepath.Join(outputPath, ImgpkgDir, ImagesLockFile)
-	ui.BeginLinef("Locating image lock file images...\n")
 
 	imagesLock, skipped, err := o.LocalizeImagesLock()
 	if err != nil {
 		return err
 	}
+
+	ui.BeginLinef("\nLocating image lock file images...\n")
+
 	if skipped {
 		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 	} else {

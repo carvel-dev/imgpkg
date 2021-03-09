@@ -18,11 +18,12 @@ import (
 type PullOptions struct {
 	ui ui.UI
 
-	ImageFlags     ImageFlags
-	RegistryFlags  RegistryFlags
-	BundleFlags    BundleFlags
-	LockInputFlags LockInputFlags
-	OutputPath     string
+	ImageFlags           ImageFlags
+	RegistryFlags        RegistryFlags
+	BundleFlags          BundleFlags
+	LockInputFlags       LockInputFlags
+	BundleRecursiveFlags BundleRecursiveFlags
+	OutputPath           string
 }
 
 var _ ctlimg.ImagesMetadata = ctlimg.Registry{}
@@ -37,15 +38,16 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 		Short: "Pull files from bundle, image, or bundle lock file",
 		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
 		Example: `
-  # Pull bundle dkalinin/app1-bundle and extract into /tmp/app1-bundle
-  imgpkg pull -b dkalinin/app1-bundle -o /tmp/app1-bundle
+  # Pull bundle repo/app1-bundle and extract into /tmp/app1-bundle
+  imgpkg pull -b repo/app1-bundle -o /tmp/app1-bundle
 
-  # Pull image dkalinin/app1-image and extract into /tmp/app1-image
-  imgpkg pull -i dkalinin/app1-image -o /tmp/app1-image`,
+  # Pull image repo/app1-image and extract into /tmp/app1-image
+  imgpkg pull -i repo/app1-image -o /tmp/app1-image`,
 	}
 	o.ImageFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
+	o.BundleRecursiveFlags.Set(cmd)
 	o.LockInputFlags.Set(cmd)
 	cmd.Flags().StringVarP(&o.OutputPath, "output", "o", "", "Output directory path")
 	cmd.MarkFlagRequired("output")
@@ -76,7 +78,7 @@ func (o *PullOptions) Run() error {
 			bundleRef = bundleLock.Bundle.Image
 		}
 
-		err := bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui)
+		err := bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui, o.BundleRecursiveFlags.Recursive)
 		if err != nil {
 			if bundle.IsNotBundleError(err) {
 				return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
