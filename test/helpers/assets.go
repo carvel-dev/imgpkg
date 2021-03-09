@@ -4,12 +4,13 @@
 package helpers
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type Assets struct {
@@ -45,9 +46,7 @@ func (a *Assets) copySimpleApp(dst string) error {
 		}
 
 		var data, err1 = ioutil.ReadFile(filepath.Join(source, relPath))
-		if err1 != nil {
-			return err1
-		}
+		require.NoError(a.T, err1)
 		return ioutil.WriteFile(filepath.Join(dst, relPath), data, 0777)
 	})
 	return err
@@ -56,9 +55,7 @@ func (a *Assets) copySimpleApp(dst string) error {
 func (a *Assets) ValidateFilesAreEqual(expected, got string, fileToCheck []string) {
 	a.T.Helper()
 	filesInGotFolder := a.getFilesInFolder(got)
-	if len(filesInGotFolder) != len(fileToCheck) {
-		a.T.Fatalf("Number of files did not match expected.\nGot: %v\nExpected: %v", filesInGotFolder, fileToCheck)
-	}
+	require.Len(a.T, filesInGotFolder, len(fileToCheck))
 
 	for _, file := range fileToCheck {
 		CompareFiles(a.T, filepath.Join(expected, file), filepath.Join(got, file))
@@ -69,22 +66,15 @@ func (a *Assets) getFilesInFolder(folder string) []string {
 	a.T.Helper()
 	var filesInGotFolder []string
 	err := filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			a.T.Fatalf("Could not access path during walk %q: %v\n", path, err)
-		}
+		require.NoError(a.T, err)
 		if !info.IsDir() {
 			relPath, relErr := filepath.Rel(folder, path)
-			if relErr != nil {
-				a.T.Fatalf("Could not get relative path from %q: %v\n", path, relErr)
-			}
+			require.NoErrorf(a.T, relErr, "unable to get relative path '%s'", path)
 			filesInGotFolder = append(filesInGotFolder, relPath)
 		}
 		return nil
 	})
-	if err != nil {
-		a.T.Fatalf("error walking the pulled directory %q: %v\n", folder, err)
-		return nil
-	}
+	require.NoError(a.T, err, "walking pulled directory")
 	return filesInGotFolder
 }
 
@@ -94,11 +84,8 @@ func (a *Assets) CreateTempFolder(prefix string) string {
 		prefix = "bundle"
 	}
 
-	rDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", prefix, randString(8)))
-	err := os.MkdirAll(rDir, 0700)
-	if err != nil {
-		a.T.Fatalf("unable to create bundle folder: %s", err)
-	}
+	rDir, err := ioutil.TempDir("", prefix)
+	require.NoError(a.T, err, "creating bundle folder")
 	a.CreatedFolders = append(a.CreatedFolders, rDir)
 	return rDir
 }
@@ -107,9 +94,7 @@ func (a *Assets) CleanCreatedFolders() {
 	a.T.Helper()
 	for _, folder := range a.CreatedFolders {
 		err := os.RemoveAll(folder)
-		if err != nil {
-			a.T.Fatalf("Unable to clean folder '%s': %s", folder, err)
-		}
+		require.NoErrorf(a.T, err, "cleaning folder: '%s'", folder)
 	}
 }
 
@@ -117,9 +102,7 @@ func (a *Assets) CreateAndCopySimpleApp(prefix string) string {
 	a.T.Helper()
 	outDir := a.CreateTempFolder(prefix)
 	err := a.copySimpleApp(outDir)
-	if err != nil {
-		a.T.Fatalf("Unable to copy Assets directory: %s", err)
-	}
+	require.NoErrorf(a.T, err, "copying Assets folder")
 	return outDir
 }
 
@@ -128,13 +111,9 @@ func (a *Assets) AddFileToFolder(path, content string) {
 	subfolders, _ := filepath.Split(path)
 	if subfolders != "" {
 		err := os.MkdirAll(subfolders, 0700)
-		if err != nil {
-			a.T.Fatalf("Unable to create path: %s", err)
-		}
+		require.NoError(a.T, err)
 	}
 
 	err := ioutil.WriteFile(path, []byte(content), 0600)
-	if err != nil {
-		a.T.Fatalf("Error creating file '%s': %s", path, err)
-	}
+	require.NoError(a.T, err)
 }
