@@ -16,7 +16,7 @@ import (
 )
 
 func (o *Bundle) AllImagesLock() (*ImagesLock, error) {
-	return  o.buildAllImagesLock(map[string]struct{}{})
+	return o.buildAllImagesLock(map[string]struct{}{})
 }
 
 func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesLock, error) {
