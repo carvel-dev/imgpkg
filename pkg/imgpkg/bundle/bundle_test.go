@@ -187,7 +187,6 @@ func TestPullBundlesOutputToUser(t *testing.T) {
 
 		assert.Regexp(t,
 			`Pulling bundle 'index.docker.io/repo/some-bundle-name@sha256:.*'
-Bundle Layers
   Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
@@ -214,7 +213,6 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 
 		assert.Regexp(t,
 			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
-Bundle Layers
   Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
@@ -245,7 +243,6 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 
 		assert.Regexp(t,
 			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
-Bundle Layers
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles
@@ -284,7 +281,6 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 
 		assert.Regexp(t,
 			`Pulling bundle 'index.docker.io/repo/bundle_with_multiple_bundle@sha256:.*'
-Bundle Layers
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles
@@ -330,7 +326,6 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		//assert log message
 		assert.Regexp(t,
 			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
-Bundle Layers
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles

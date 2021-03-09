@@ -51,7 +51,8 @@ func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) err
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 }
 
-func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
+	bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -59,12 +60,11 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	if o.rootBundle(bundlePath) {
 		ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
-		ui.BeginLinef("Bundle Layers\n")
 	} else {
 		ui.BeginLinef("Pulling nested bundle '%s'\n", o.DigestRef())
 	}
 
-	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, ui).AsDirectory()
+	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting bundle into directory: %s", err)
 	}
@@ -104,7 +104,8 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if err != nil {
 				return err
 			}
-			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui),
+				pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
 			if err != nil {
 				return err
 			}
@@ -113,7 +114,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	imagesLockUI := ui
 	if !o.rootBundle(bundlePath) {
-		imagesLockUI = goui.NewWriterUI(noopWriter{}, noopWriter{}, goui.NoopLogger{})
+		imagesLockUI = goui.NewNoopUI()
 	}
 
 	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(filepath.Join(baseOutputPath, bundlePath), imagesLockUI)
@@ -124,8 +125,8 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	return nil
 }
 
-func subBundlePath(bundleDigest name.Digest) string {
-	return filepath.Join(ImgpkgDir, SubBundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
+func (*Bundle) subBundlePath(bundleDigest name.Digest) string {
+	return filepath.Join(ImgpkgDir, BundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
 }
 
 func (o *Bundle) shouldPrintNestedBundlesHeader(bundlePath string, bundlesProcessed int) bool {
@@ -150,10 +151,4 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		panic("Unreachable")
 	}
 	return img, err
-}
-
-type noopWriter struct{}
-
-func (noopWriter) Write(_ []byte) (n int, err error) {
-	return 0, nil
 }

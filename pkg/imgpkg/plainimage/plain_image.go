@@ -129,6 +129,7 @@ func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
 	}
 
 	ui.BeginLinef("Pulling image '%s'\n", i.DigestRef())
+
 	err = ctlimg.NewDirImage(outputPath, img, ui).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting image into directory: %s", err)
