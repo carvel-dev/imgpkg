@@ -4,9 +4,6 @@
 package bundle_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -14,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/fake"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/k14s/imgpkg/test/helpers"
 )
 
 func TestNewContentsBundleWithBundles(t *testing.T) {
@@ -25,8 +23,11 @@ images:
 `
 	fakeUI := &bundlefakes.FakeUI{}
 	fakeRegistry := &bundlefakes.FakeImagesMetadataWriter{}
-	bundleDir := createBundleDir(t, "inner-bundle", imagesLockYAML)
-	defer os.RemoveAll(bundleDir)
+	assets := &helpers.Assets{T: t}
+	defer assets.CleanCreatedFolders()
+	bundleBuilder := helpers.NewBundleDir(t, assets)
+	bundleDir := bundleBuilder.CreateBundleDir(helpers.BundleYAML, imagesLockYAML)
+
 	bundleImg := &fake.FakeImage{}
 	cfgFile := &v1.ConfigFile{
 		Config: v1.Config{
@@ -76,8 +77,11 @@ images:
 `
 	fakeUI := &bundlefakes.FakeUI{}
 	fakeRegistry := &bundlefakes.FakeImagesMetadataWriter{}
-	bundleDir := createBundleDir(t, "inner-bundle", imagesLockYAML)
-	defer os.RemoveAll(bundleDir)
+	assets := &helpers.Assets{T: t}
+	defer assets.CleanCreatedFolders()
+	bundleBuilder := helpers.NewBundleDir(t, assets)
+	bundleDir := bundleBuilder.CreateBundleDir(helpers.BundleYAML, imagesLockYAML)
+
 	bundleImg := &fake.FakeImage{}
 	cfgFile := &v1.ConfigFile{
 		Config: v1.Config{},
@@ -110,25 +114,4 @@ images:
 			t.Fatalf("not expecting push to fail: %s", err)
 		}
 	})
-}
-
-func createBundleDir(t *testing.T, prefix string, imagesYAML string) string {
-	t.Helper()
-	bundleDir, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		t.Fatalf("unable to create bundle folder: %s", err)
-	}
-
-	imgpkgDir := filepath.Join(bundleDir, ".imgpkg")
-	err = os.MkdirAll(imgpkgDir, 0700)
-	if err != nil {
-		t.Fatalf("unable to create imgpkg folder: %s", err)
-	}
-
-	err = ioutil.WriteFile(filepath.Join(imgpkgDir, "images.yml"), []byte(imagesYAML), 0600)
-	if err != nil {
-		t.Fatalf("unable to create images lock file: %s", err)
-	}
-
-	return bundleDir
 }

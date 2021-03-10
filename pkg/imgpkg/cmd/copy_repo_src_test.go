@@ -6,6 +6,7 @@ package cmd
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -146,8 +147,8 @@ func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	bundleName := "index.docker.io/library/bundle"
 	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
-		WithEveryImageFrom("test_assets/image_with_config").
+	bundle := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images")
+	bundle.WithEveryImageFrom("test_assets/image_with_config").
 		WithNonDistributableLayerInImage("index.docker.io/library/image_with_non_distributable_layer@sha256:555555555555fae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0")
 	defer fakeRegistry.CleanUp()
 
@@ -207,6 +208,33 @@ func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
 
 		assert.NotContains(t, stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
 		assert.NotContains(t, stdOut.String(), "Skipped layer due to it being non-distributable.")
+	})
+
+	t.Run("When a bundle contains a bundle with non distributable layer, it copies all layers to tar", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		bundleBuilder := helpers.NewBundleDir(t, assets)
+		defer assets.CleanCreatedFolders()
+		imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, bundle.RefDigest)
+		bundleDir := bundleBuilder.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+		bundleWithNested := fakeRegistry.WithBundleFromPath("my.repo.io/with-nested-bundle", bundleDir)
+
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
+		subject.registry = fakeRegistry.Build()
+		subject.BundleFlags.Bundle = bundleWithNested.RefDigest
+
+		tarDir := assets.CreateTempFolder("tar-copy")
+		imageTarPath := filepath.Join(tarDir, "bundle.tar")
+
+		err := subject.CopyToTar(imageTarPath)
+		require.NoError(t, err)
+
+		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
 	})
 }
 
