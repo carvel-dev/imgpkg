@@ -5,6 +5,8 @@ package bundle_test
 
 import (
 	"bytes"
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +27,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
-		subject := bundle.NewBundle("repo/some-bundle-name", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/some-bundle-name"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -53,7 +55,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 		icecreamBundle := fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -80,9 +82,9 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 	t.Run("bundle referencing an image", func(t *testing.T) {
 		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
-
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
-		subject := bundle.NewBundle("repo/some-bundle-name", fakeImagesMetadataBuilder.Build())
+
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/some-bundle-name"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -108,7 +110,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		icecreamBundle := fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -136,7 +138,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		iceCreamBundle := fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -177,7 +179,9 @@ func TestPullBundlesOutputToUser(t *testing.T) {
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
-		subject := bundle.NewBundle("repo/some-bundle-name", fakeImagesMetadataBuilder.Build())
+		bundleName := fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/some-bundle-name")
+
+		subject := bundle.NewBundle(bundleName, fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -186,11 +190,11 @@ func TestPullBundlesOutputToUser(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Regexp(t,
-			`Pulling bundle 'index.docker.io/repo/some-bundle-name@sha256:.*'
+			fmt.Sprintf(`Pulling bundle '%s@sha256:.*'
   Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update`, output.String())
+One or more images not found in bundle repo; skipping lock file update`, bundleName), output.String())
 	})
 
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
@@ -202,8 +206,9 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
 		fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+		bundleName := fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle")
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(bundleName, fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -212,11 +217,11 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		assert.NoError(t, err)
 
 		assert.Regexp(t,
-			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+			fmt.Sprintf(`Pulling bundle '%s@sha256:.*'
   Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update`, output.String())
+One or more images not found in bundle repo; skipping lock file update`, bundleName), output.String())
 	})
 }
 
@@ -232,8 +237,9 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
 		fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+		bundleName := fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle")
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(bundleName, fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -241,16 +247,17 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		assert.NoError(t, err)
 
+		icecreamBundleName := fakeImagesMetadataBuilder.ReferenceOnTestServer("icecream/bundle")
 		assert.Regexp(t,
-			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+			fmt.Sprintf(`Pulling bundle '%s@sha256:.*'
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles
-  Pulling nested bundle 'index.docker.io/icecream/bundle@sha256:.*'
+  Pulling nested bundle '%s@sha256:.*'
     Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update`, output.String())
+One or more images not found in bundle repo; skipping lock file update`, bundleName, icecreamBundleName), output.String())
 	})
 
 	t.Run("bundle referencing multiple of the same bundles", func(t *testing.T) {
@@ -263,13 +270,13 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		// repo/bundle_with_multiple_bundle - dependsOn - [library/image_with_a_smile, library/image_with_non_distributable_layer, library/image_with_config] - dependsOn - apples/bundle
 		fakeImagesMetadataBuilder.WithBundleFromPath("apples/bundle", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
 
-		fakeImagesMetadataBuilder.WithBundleFromPath("library/image_with_config", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
+		fakeImagesMetadataBuilder.WithBundleFromPath("library/image_with_a_frown", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeImagesMetadataBuilder.WithBundleFromPath("library/image_with_non_distributable_layer", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeImagesMetadataBuilder.WithImageFromPath("library/image_with_a_smile", "test_assets/image_with_config", map[string]string{})
 
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_with_multiple_bundle", "test_assets/bundle_with_mult_images").WithEveryImageFrom("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle("repo/bundle_with_multiple_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_with_multiple_bundle"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -279,26 +286,29 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 
 		assert.DirExists(t, outputPath)
 
+		registryURL, err := url.Parse(fakeImagesMetadataBuilder.server.URL)
+		assert.NoError(t, err)
+
 		assert.Regexp(t,
-			`Pulling bundle 'index.docker.io/repo/bundle_with_multiple_bundle@sha256:.*'
+			fmt.Sprintf(`Pulling bundle '%[1]s/repo/bundle_with_multiple_bundle@sha256:.*'
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles
-  Pulling nested bundle 'index.docker.io/library/image_with_config@sha256:.*'
+  Pulling nested bundle '%[1]s/library/image_with_a_frown@sha256:.*'
     Extracting layer 'sha256:.*' \(1/1\)
-    Pulling nested bundle 'index.docker.io/apples/bundle@sha256:.*'
+    Pulling nested bundle '%[1]s/apples/bundle@sha256:.*'
       Extracting layer 'sha256:.*' \(1/1\)
-  Pulling nested bundle 'index.docker.io/library/image_with_non_distributable_layer@sha256:.*'
+  Pulling nested bundle '%[1]s/library/image_with_non_distributable_layer@sha256:.*'
     Extracting layer 'sha256:.*' \(1/1\)
-    Pulling nested bundle 'apples/bundle@sha256:.*'
+    Pulling nested bundle '%[1]s/apples/bundle@sha256:.*'
     Skipped, already downloaded
-  Pulling nested bundle 'index.docker.io/library/image_with_a_smile@sha256:.*'
+  Pulling nested bundle '%[1]s/library/image_with_a_smile@sha256:.*'
     Extracting layer 'sha256:.*' \(1/1\)
-    Pulling nested bundle 'apples/bundle@sha256:.*'
+    Pulling nested bundle '%[1]s/apples/bundle@sha256:.*'
     Skipped, already downloaded
 
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update`, output.String())
+One or more images not found in bundle repo; skipping lock file update`, registryURL.Host), output.String())
 	})
 
 	t.Run("bundle referencing another bundle that references another bundle", func(t *testing.T) {
@@ -314,7 +324,7 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		fakeImagesMetadataBuilder.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFrom("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFrom("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle("repo/bundle_icecream_with_single_bundle", fakeImagesMetadataBuilder.Build())
+		subject := bundle.NewBundle(fakeImagesMetadataBuilder.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeImagesMetadataBuilder.Build())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		assert.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -324,17 +334,20 @@ One or more images not found in bundle repo; skipping lock file update`, output.
 		assert.NoError(t, err)
 
 		//assert log message
+		registryURL, err := url.Parse(fakeImagesMetadataBuilder.server.URL)
+		assert.NoError(t, err)
+
 		assert.Regexp(t,
-			`Pulling bundle 'index.docker.io/repo/bundle_icecream_with_single_bundle@sha256:.*'
+			fmt.Sprintf(`Pulling bundle '%[1]s/repo/bundle_icecream_with_single_bundle@sha256:.*'
   Extracting layer 'sha256:.*' \(1/1\)
 
 Nested bundles
-  Pulling nested bundle 'index.docker.io/icecream/bundle@sha256:.*'
+  Pulling nested bundle '%[1]s/icecream/bundle@sha256:.*'
     Extracting layer 'sha256:.*' \(1/1\)
-    Pulling nested bundle 'index.docker.io/apples/bundle@sha256:.*'
+    Pulling nested bundle '%[1]s/apples/bundle@sha256:.*'
       Extracting layer 'sha256:.*' \(1/1\)
 
 Locating image lock file images...
-One or more images not found in bundle repo; skipping lock file update`, output.String())
+One or more images not found in bundle repo; skipping lock file update`, registryURL.Host), output.String())
 	})
 }
