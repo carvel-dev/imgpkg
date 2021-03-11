@@ -80,7 +80,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		case bundleLock != nil:
 			bundle := ctlbundle.NewBundle(bundleLock.Bundle.Image, o.registry)
 
-			imagesLock, err := bundle.ImagesLockLocalized()
+			imagesLock, err := bundle.AllImagesLock()
 			if err != nil {
 				if ctlbundle.IsNotBundleError(err) {
 					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
@@ -88,7 +88,12 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 				return nil, err
 			}
 
-			for _, img := range imagesLock.Images {
+			imageRefs, err := imagesLock.LocationPrunedImageRefs()
+			if err != nil {
+				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
+			}
+
+			for _, img := range imageRefs {
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.Image})
 			}
 
