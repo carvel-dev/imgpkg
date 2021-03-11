@@ -8,94 +8,53 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/stretchr/testify/assert"
 )
 
-type FakeImagesMetadataBuilder struct {
-	state map[string]*ImageWithTarPath
-	t     *testing.T
+type FakeTestRegistryBuilder struct {
+	images map[string]*ImageWithTarPath
+	server *httptest.Server
+	t      *testing.T
 }
 
-func NewFakeImagesMetadataBuilder(t *testing.T) *FakeImagesMetadataBuilder {
-	return &FakeImagesMetadataBuilder{state: map[string]*ImageWithTarPath{}, t: t}
+func NewFakeImagesMetadataBuilder(t *testing.T) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageWithTarPath{}, t: t}
+	r.server = httptest.NewServer(registry.New())
+
+	return r
 }
 
-func (r *FakeImagesMetadataBuilder) Build() *imagefakes.FakeImagesMetadata {
-	fakeRegistry := &imagefakes.FakeImagesMetadata{}
-	getDescriptor := func(reference name.Reference, r *FakeImagesMetadataBuilder) (v1.Descriptor, error) {
-		if val, found := r.state[reference.Name()]; found {
-			if val.image != nil {
-				mediaType, err := val.image.MediaType()
-				digest, err := val.image.Digest()
-				if err != nil {
-					r.t.Fatal(err.Error())
-				}
-				return v1.Descriptor{
-					MediaType: mediaType,
-					Digest:    digest,
-				}, nil
-			}
-		}
+func (r *FakeTestRegistryBuilder) Build() image.ImagesMetadata {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
 
-		return v1.Descriptor{}, fmt.Errorf("FakeImagesMetadataBuilder: GenericCall: image [%s] not found", reference.Name())
+	for imageRef, val := range r.images {
+		imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
+		assert.NoError(r.t, err)
+		err = regremote.Write(imageRefWithTestRegistry, val.image)
+		assert.NoError(r.t, err)
 	}
 
-	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
-		return getDescriptor(reference, r)
-	})
-
-	fakeRegistry.DigestCalls(func(reference name.Reference) (v1.Hash, error) {
-		if val, found := r.state[reference.Name()]; found {
-			if val.image != nil {
-				return val.image.Digest()
-			}
-		}
-
-		return v1.Hash{}, fmt.Errorf("FakeImagesMetadataBuilder: DigestCall: image [%s] not found", reference.Name())
-	})
-
-	fakeRegistry.GetCalls(func(reference name.Reference) (*regremote.Descriptor, error) {
-		if val, found := r.state[reference.Name()]; found {
-			descriptor, err := getDescriptor(reference, r)
-			if err != nil {
-				r.t.Fatal(err.Error())
-			}
-			if val.image != nil {
-				manifest, err := val.image.RawManifest()
-				if err != nil {
-					r.t.Fatal(err.Error())
-				}
-				return &regremote.Descriptor{
-					Descriptor: descriptor,
-					Manifest:   manifest,
-				}, nil
-			}
-		}
-
-		return &regremote.Descriptor{}, fmt.Errorf("FakeImagesMetadataBuilder: GetCall: image [%s] not found", reference.Name())
-	})
-
-	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
-		if bundle, found := r.state[reference.Name()]; found {
-			return bundle.image, nil
-		}
-		return nil, fmt.Errorf("Did not find bundle in fake registry: %s", reference.Context().Name())
-	}
-
-	return fakeRegistry
+	reg, err := image.NewRegistry(image.RegistryOpts{}, imagelayers.ImageLayerWriterFilter{})
+	assert.NoError(r.t, err)
+	return reg
 }
 
-func (r *FakeImagesMetadataBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
+func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -116,7 +75,7 @@ func (r *FakeImagesMetadataBuilder) WithBundleFromPath(bundleName string, path s
 	return BundleInfo{r, bundleName, path, digest.String()}
 }
 
-func (r *FakeImagesMetadataBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
+func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -127,41 +86,37 @@ func (r *FakeImagesMetadataBuilder) WithImageFromPath(imageNameFromTest string, 
 		r.t.Fatalf("Failed trying to build a file image%s", err)
 	}
 
-	r.updateState(imageNameFromTest, fileImage, path)
-	reference, err := name.ParseReference(imageNameFromTest)
-	if err != nil {
-		r.t.Fatalf("Failed trying to get image name: %s", err)
-	}
-
-	return r.state[reference.Name()]
+	return r.updateState(imageNameFromTest, fileImage, path)
 }
 
-func (r *FakeImagesMetadataBuilder) CleanUp() {
-	for _, tarPath := range r.state {
+func (r *FakeTestRegistryBuilder) CleanUp() {
+	for _, tarPath := range r.images {
 		os.Remove(filepath.Join(tarPath.path, ".imgpkg", "images.yml"))
 	}
+	if r.server != nil {
+		r.server.Close()
+	}
 }
 
-func (r *FakeImagesMetadataBuilder) updateState(imageName string, image v1.Image, path string) {
+func (r *FakeTestRegistryBuilder) ReferenceOnTestServer(repo string) string {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
+	return fmt.Sprintf("%s/%s", u.Host, repo)
+}
+
+func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, path string) *ImageWithTarPath {
 	imgName, err := name.ParseReference(imageName)
 	if err != nil {
 		r.t.Fatalf("unable to parse reference: %s", err)
 	}
 
-	imageOrImageIndexWithTarPath := &ImageWithTarPath{fakeRegistry: r, t: r.t, imageName: imageName, image: image, path: path}
-	r.state[imgName.Name()] = imageOrImageIndexWithTarPath
-
-	if image != nil {
-		digest, err := image.Digest()
-		if err != nil {
-			r.t.Fatalf("unable to parse reference: %s", err)
-		}
-		r.state[imgName.Context().Name()+"@"+digest.String()] = imageOrImageIndexWithTarPath
-	}
+	imageOrImageIndexWithTarPath := &ImageWithTarPath{fakeRegistry: r, t: r.t, image: image, path: path}
+	r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
+	return imageOrImageIndexWithTarPath
 }
 
 type BundleInfo struct {
-	r          *FakeImagesMetadataBuilder
+	r          *FakeTestRegistryBuilder
 	BundleName string
 	BundlePath string
 	Digest     string
@@ -190,11 +145,12 @@ func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) Bu
 		}
 
 		digest, err := imageFromPath.image.Digest()
-		if err != nil {
-			b.r.t.Fatalf("Got error: %s", err.Error())
-		}
+		assert.NoError(b.r.t, err)
+
+		u, err := url.Parse(b.r.server.URL)
+		assert.NoError(b.r.t, err)
 		imageRefs = append(imageRefs, lockconfig.ImageRef{
-			Image: imageRef.Context().RepositoryStr() + "@" + digest.String(),
+			Image: u.Host + "/" + imageRef.Context().RepositoryStr() + "@" + digest.String(),
 		})
 	}
 
@@ -208,8 +164,7 @@ func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) Bu
 }
 
 type ImageWithTarPath struct {
-	fakeRegistry *FakeImagesMetadataBuilder
-	imageName    string
+	fakeRegistry *FakeTestRegistryBuilder
 	image        v1.Image
 	path         string
 	t            *testing.T
