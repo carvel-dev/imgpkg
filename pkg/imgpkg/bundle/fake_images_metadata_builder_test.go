@@ -17,22 +17,26 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/random"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type FakeTestRegistryBuilder struct {
-	images map[string]*ImageWithTarPath
+	images map[string]*ImageOrImageIndexWithTarPath
 	server *httptest.Server
 	t      *testing.T
 }
 
-func NewFakeImagesMetadataBuilder(t *testing.T) *FakeTestRegistryBuilder {
-	r := &FakeTestRegistryBuilder{images: map[string]*ImageWithTarPath{}, t: t}
+func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
 	r.server = httptest.NewServer(registry.New())
 
 	return r
@@ -66,16 +70,31 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 		r.t.Fatalf("unable to create image from file: %s", err)
 	}
 
-	r.updateState(bundleName, bundle, path)
+	r.updateState(bundleName, bundle, nil, path)
 	digest, err := bundle.Digest()
-	if err != nil {
-		r.t.Fatalf(err.Error())
-	}
+	assert.NoError(r.t, err)
 
 	return BundleInfo{r, bundleName, path, digest.String()}
 }
 
-func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageWithTarPath {
+func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
+	bundle, err := random.Image(500, 5)
+	bundle, err = mutate.ConfigFile(bundle, &v1.ConfigFile{
+		Config: v1.Config{
+			Labels: map[string]string{"dev.carvel.imgpkg.bundle": "true"},
+		},
+	})
+	require.NoError(r.t, err, "create image from tar")
+
+	r.updateState(bundleName, bundle, nil, "")
+
+	digest, err := bundle.Digest()
+	assert.NoError(r.t, err)
+
+	return BundleInfo{r, bundleName, "", digest.String()}
+}
+
+func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
 	if err != nil {
 		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
@@ -86,7 +105,62 @@ func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, pa
 		r.t.Fatalf("Failed trying to build a file image%s", err)
 	}
 
-	return r.updateState(imageNameFromTest, fileImage, path)
+	return r.updateState(imageNameFromTest, fileImage, nil, path)
+}
+
+func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
+	img, err := random.Image(500, 3)
+	require.NoError(r.t, err, "create image from tar")
+
+	return r.updateState(imageNameFromTest, img, nil, "")
+}
+
+func (r *FakeTestRegistryBuilder) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
+	return r.updateState(to, img.image, nil, "")
+}
+
+func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
+	newBundle := *r.images[bundleInfo.BundleName]
+	r.updateState(to, newBundle.image, nil, "")
+
+	return BundleInfo{r, to, "", bundleInfo.Digest}
+}
+
+func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) {
+	index, err := random.Index(1024, 1, 1)
+	require.NoError(r.t, err)
+
+	manifest, err := index.IndexManifest()
+	require.NoError(r.t, err)
+
+	imageUsedInIndex, err := index.Image(manifest.Manifests[0].Digest)
+	require.NoError(r.t, err)
+
+	r.updateState(imageName, imageUsedInIndex, index, "")
+}
+
+func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ...string) {
+	for _, imageName := range imageNames {
+		reference, err := name.ParseReference(imageName)
+		require.NoErrorf(r.t, err, "parse reference: %s", imageName)
+
+		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
+		require.NoErrorf(r.t, err, "create layer: %s", imageName)
+
+		imageWithARestrictedLayer, err := mutate.AppendLayers(r.images[reference.Name()].image, layer)
+		require.NoErrorf(r.t, err, "add layer: %s", imageName)
+
+		//TODO: can we remove this?
+		r.updateState(imageName, imageWithARestrictedLayer, r.images[reference.Name()].imageIndex, r.images[reference.Name()].path)
+	}
+}
+
+func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
+	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
+	require.NoError(r.t, err)
+
+	r.image, err = mutate.AppendLayers(r.image, layer)
+	require.NoError(r.t, err)
 }
 
 func (r *FakeTestRegistryBuilder) CleanUp() {
@@ -104,13 +178,13 @@ func (r *FakeTestRegistryBuilder) ReferenceOnTestServer(repo string) string {
 	return fmt.Sprintf("%s/%s", u.Host, repo)
 }
 
-func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, path string) *ImageWithTarPath {
+func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
 	imgName, err := name.ParseReference(imageName)
 	if err != nil {
 		r.t.Fatalf("unable to parse reference: %s", err)
 	}
 
-	imageOrImageIndexWithTarPath := &ImageWithTarPath{fakeRegistry: r, t: r.t, image: image, path: path}
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: image, imageIndex: imageIndex, path: path}
 	r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
 	return imageOrImageIndexWithTarPath
 }
@@ -163,9 +237,10 @@ func (b BundleInfo) WithEveryImageFrom(path string, labels map[string]string) Bu
 	return b.r.WithBundleFromPath(b.BundleName, b.BundlePath)
 }
 
-type ImageWithTarPath struct {
+type ImageOrImageIndexWithTarPath struct {
 	fakeRegistry *FakeTestRegistryBuilder
 	image        v1.Image
+	imageIndex   v1.ImageIndex
 	path         string
 	t            *testing.T
 }

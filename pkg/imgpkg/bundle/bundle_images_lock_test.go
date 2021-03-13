@@ -19,10 +19,10 @@ func TestBundle_AllImagesLock(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t)
 	defer fakeRegistry.CleanUp()
 	logger := &helpers.Logger{}
-	img1 := fakeRegistry.WithRandomImage("my.repo.io/img1")
-	img2 := fakeRegistry.WithRandomImage("my.repo.io/img2")
-	bundle1 := fakeRegistry.WithRandomBundle("my.repo.io/bundle1")
-	bundle2 := fakeRegistry.WithRandomBundle("my.repo.io/bundle2")
+	img1 := fakeRegistry.WithRandomImage("library/img1")
+	img2 := fakeRegistry.WithRandomImage("library/img2")
+	bundle1 := fakeRegistry.WithRandomBundle("library/bundle1")
+	bundle2 := fakeRegistry.WithRandomBundle("library/bundle2")
 
 	t.Run("when a bundle contains only images it returns 2 locations for each image", func(t *testing.T) {
 		fakeImagesLockReader := &bundlefakes.FakeImagesLockReader{}
@@ -52,14 +52,14 @@ func TestBundle_AllImagesLock(t *testing.T) {
 			img1Digest, err := regname.NewDigest(img1.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle1@" + img1Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img1Digest.DigestStr()),
 				img1.RefDigest,
 			}, imageRefs[0].Locations(), "expects bundle1 repository and original location")
 
 			img2Digest, err := regname.NewDigest(img2.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle1@" + img2Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img2Digest.DigestStr()),
 				img2.RefDigest,
 			}, imageRefs[1].Locations(), "expects bundle1 repository and original location")
 		})
@@ -106,23 +106,23 @@ func TestBundle_AllImagesLock(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{
-				"my.repo.io/bundle2@" + bundle1Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + bundle1Digest.DigestStr()),
 				bundle1.RefDigest,
 			}, imgRefs[0].Locations(), "expects bundle2 repository and original bundle location")
 
 			img1Digest, err := regname.NewDigest(img1.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle2@" + img1Digest.DigestStr(),
-				"my.repo.io/bundle1@" + img1Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img1Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img1Digest.DigestStr()),
 				img1.RefDigest,
 			}, imgRefs[1].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
 
 			img2Digest, err := regname.NewDigest(img2.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle2@" + img2Digest.DigestStr(),
-				"my.repo.io/bundle1@" + img2Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img2Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img2Digest.DigestStr()),
 				img2.RefDigest,
 			}, imgRefs[2].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
 		})
@@ -130,7 +130,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 
 	t.Run("when a nested bundle is present twice it only returns each image once", func(t *testing.T) {
 		fakeImagesLockReader := &bundlefakes.FakeImagesLockReader{}
-		bundle3 := fakeRegistry.WithRandomBundle("my.repo.io/bundle3")
+		bundle3 := fakeRegistry.WithRandomBundle("library/bundle3")
 
 		logger.Section("bundle1 contains 2 images", func() {
 			bundle2ImagesLock := lockconfig.ImagesLock{
@@ -184,32 +184,32 @@ func TestBundle_AllImagesLock(t *testing.T) {
 			bundle2Digest, err := regname.NewDigest(bundle2.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle3@" + bundle2Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + bundle2Digest.DigestStr()),
 				bundle2.RefDigest,
 			}, imgRefs[0].Locations(), "expects bundle3 repository and original bundle location")
 
 			bundle1Digest, err := regname.NewDigest(bundle1.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle3@" + bundle1Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + bundle1Digest.DigestStr()),
 				bundle1.RefDigest,
 			}, imgRefs[1].Locations(), "expects bundle3 repository and original bundle location")
 
 			img1Digest, err := regname.NewDigest(img1.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle3@" + img1Digest.DigestStr(),
-				"my.repo.io/bundle2@" + img1Digest.DigestStr(),
-				"my.repo.io/bundle1@" + img1Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + img1Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img1Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img1Digest.DigestStr()),
 				img1.RefDigest,
 			}, imgRefs[2].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
 
 			img2Digest, err := regname.NewDigest(img2.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				"my.repo.io/bundle3@" + img2Digest.DigestStr(),
-				"my.repo.io/bundle2@" + img2Digest.DigestStr(),
-				"my.repo.io/bundle1@" + img2Digest.DigestStr(),
+				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + img2Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img2Digest.DigestStr()),
+				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img2Digest.DigestStr()),
 				img2.RefDigest,
 			}, imgRefs[3].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
 		})
@@ -217,7 +217,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 
 	t.Run("when a nested bundle is present twice it only checks the registry once per image", func(t *testing.T) {
 		fakeImagesLockReader := &bundlefakes.FakeImagesLockReader{}
-		bundle3 := fakeRegistry.WithRandomBundle("my.repo.io/bundle3")
+		bundle3 := fakeRegistry.WithRandomBundle("library/bundle3")
 
 		logger.Section("bundle1 contains 2 images", func() {
 			bundle2ImagesLock := lockconfig.ImagesLock{

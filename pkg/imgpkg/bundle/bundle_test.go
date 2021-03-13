@@ -23,7 +23,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 	pullNestedBundles := false
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
@@ -47,7 +47,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 
 	t.Run("bundle referencing another bundle that references another bundle does *not* pull nested bundles", func(t *testing.T) {
 		// setup
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
@@ -80,7 +80,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 	pullNestedBundles := true
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
 
@@ -103,7 +103,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 	})
 
 	t.Run("bundle referencing another bundle does pull nested bundles", func(t *testing.T) {
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -130,7 +130,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 
 	t.Run("bundle referencing another bundle that references another bundle does pull nested bundles", func(t *testing.T) {
 		// setup
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
@@ -175,7 +175,7 @@ func TestPullBundlesOutputToUser(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
 
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		fakeImagesMetadataBuilder.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFrom("test_assets/image_with_config", map[string]string{})
@@ -200,7 +200,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -231,7 +231,7 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -264,7 +264,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
 
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_with_multiple_bundle - dependsOn - [library/image_with_a_smile, library/image_with_non_distributable_layer, library/image_with_config] - dependsOn - apples/bundle
@@ -316,7 +316,7 @@ One or more images not found in bundle repo; skipping lock file update`, registr
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
 
-		fakeImagesMetadataBuilder := NewFakeImagesMetadataBuilder(t)
+		fakeImagesMetadataBuilder := NewFakeRegistry(t)
 		defer fakeImagesMetadataBuilder.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
