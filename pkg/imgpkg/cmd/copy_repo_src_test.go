@@ -417,47 +417,6 @@ func TestCopyingToRepoImageContainingOnlyDistributableLayers(t *testing.T) {
 		}
 	})
 
-	//TODO: think about this test.
-	//t.Run("Every layer in the image is mounted", func(t *testing.T) {
-	//	fakeRegistry := helpers.NewFakeRegistry(t)
-	//	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
-	//	defer fakeRegistry.CleanUp()
-	//
-	//	subject := subject
-	//	fakeReg := fakeRegistry.Build()
-	//	subject.registry = fakeReg
-	//
-	//	reference, err := name.ParseReference(imageName)
-	//	if err != nil {
-	//		t.Fatalf("Failed to parse %s as a reference: %v", imageName, err)
-	//	}
-	//	descriptor, err := fakeReg.Get(reference)
-	//	if err != nil {
-	//		t.Fatalf("Failed to fakeReg.Get the given reference: %v", err)
-	//	}
-	//	mountableImage, err := descriptor.Image()
-	//	if err != nil {
-	//		t.Fatalf("Failed to convert the descriptor to a mountableImage: %v", err)
-	//	}
-	//
-	//	digest, err := mountableImage.Digest()
-	//	if err != nil {
-	//		t.Fatalf(err.Error())
-	//	}
-	//	referenceNameOfCopiedImage, err := name.ParseReference("index.docker.io/other-repo/image:imgpkg-sha256-" + digest.Hex)
-	//	if err != nil {
-	//		t.Fatalf(err.Error())
-	//	}
-	//
-	//	_, err = subject.CopyToRepo("index.docker.io/other-repo/image")
-	//	if err != nil {
-	//		t.Fatalf("Failed to copy to repo: %v", err)
-	//	}
-	//	multiWriteArgsForCall, _ := fakeReg.MultiWriteArgsForCall(0)
-	//	if !reflect.DeepEqual(multiWriteArgsForCall[referenceNameOfCopiedImage], mountableImage) {
-	//		t.Fatalf("Called MultiWrite with key %s unexpected value %v", referenceNameOfCopiedImage, multiWriteArgsForCall)
-	//	}
-	//})
 }
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
