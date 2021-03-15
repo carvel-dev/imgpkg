@@ -27,6 +27,8 @@ import (
 var subject CopyRepoSrc
 var stdOut *bytes.Buffer
 
+//TODO: refactor imagelock file in tests to use bundleWithMultipleImages.RefDigest
+
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
 	logger := image.NewLogger(stdOut).NewPrefixedWriter("test|    ")
@@ -133,6 +135,73 @@ func TestCopyingToTarBundleContainingOnlyDistributableLayers(t *testing.T) {
 		require.NoError(t, err)
 
 		assertTarballContainsEveryLayer(t, bundleTarPath)
+	})
+}
+
+func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
+	bundleName := "library/bundle"
+	fakeRegistry := helpers.NewFakeRegistry(t)
+	defer fakeRegistry.CleanUp()
+	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
+	randomImage2 := fakeRegistry.WithRandomImage("library/image_with_config_2")
+
+	bundleWithTwoImages := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+		{Image: randomImage.RefDigest},
+		{Image: randomImage2.RefDigest},
+	})
+
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+		{Image: bundleWithTwoImages.RefDigest},
+	})
+
+	subject := subject
+	subject.BundleFlags.Bundle = bundleWithNestedBundle.RefDigest
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("When recursive bundle is enabled, it copies every image to repo", func(t *testing.T) {
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
+		subject.registry = fakeRegistry.Build()
+
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		processedImages, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 4)
+		processedImageDigest := []string{}
+		for _, processedImage := range processedImages.All() {
+			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+		}
+		assert.ElementsMatch(t, processedImageDigest, []string{
+			destRepo+"@"+bundleWithNestedBundle.Digest,
+			destRepo+"@"+bundleWithTwoImages.Digest,
+			destRepo+"@"+randomImage.Digest,
+			destRepo+"@"+randomImage2.Digest,
+		})
+
+	})
+
+	t.Run("When recursive bundle is not enabled, it copies every root image to repo", func(t *testing.T) {
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: false}
+		subject.registry = fakeRegistry.Build()
+
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		processedImages, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 2)
+		processedImageDigest := []string{}
+		for _, processedImage := range processedImages.All() {
+			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+		}
+		assert.ElementsMatch(t, processedImageDigest, []string{
+			destRepo+"@"+bundleWithNestedBundle.Digest,
+			destRepo+"@"+bundleWithTwoImages.Digest,
+		})
+
 	})
 }
 

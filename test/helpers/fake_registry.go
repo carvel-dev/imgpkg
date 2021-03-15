@@ -196,6 +196,7 @@ func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, 
 		imgName, err := name.ParseReference(imageName)
 		require.NoError(r.t, err)
 		imageOrImageIndexWithTarPath.RefDigest = r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
+		imageOrImageIndexWithTarPath.Digest = digest.String()
 		r.images[imgName.Context().RepositoryStr()+"@"+digest.String()] = imageOrImageIndexWithTarPath
 	} else {
 		r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
@@ -272,6 +273,7 @@ type ImageOrImageIndexWithTarPath struct {
 	path         string
 	t            *testing.T
 	RefDigest    string
+	Digest    string
 }
 
 func compress(src string) (*os.File, error) {
