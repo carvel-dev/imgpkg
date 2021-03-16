@@ -97,6 +97,19 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			}
 			imageOrIndexesToWriteLock.Lock()
 			defer imageOrIndexesToWriteLock.Unlock()
+
+			itemDigest, err := item.Digest()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			importDigestRef, err := regname.NewDigest(fmt.Sprintf("%s@%s", importRepo.Name(), itemDigest))
+			if err != nil {
+				errCh <- err
+				return
+			}
+			o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", item.Ref(), importDigestRef.Name())))
+
 			imageOrIndexesToWrite[tag] = taggable
 			errCh <- nil
 		}()
@@ -211,8 +224,6 @@ func (o *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regn
 	if err != nil {
 		return ProcessedImage{}, err
 	}
-
-	o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", existingRef.Name(), importDigestRef.Name())))
 
 	err = o.tagItemCopied(item, importRepo, registry, importDigestRef)
 	if err != nil {
