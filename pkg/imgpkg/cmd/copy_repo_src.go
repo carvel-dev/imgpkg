@@ -79,17 +79,30 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		switch {
 		case bundleLock != nil:
 			bundle := ctlbundle.NewBundle(bundleLock.Bundle.Image, o.registry)
-
-			imagesLock, err := bundle.AllImagesLock()
-			if err != nil {
-				if ctlbundle.IsNotBundleError(err) {
-					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+			var imageRefs []lockconfig.ImageRef
+			if o.ExperimentalFlags.RecursiveBundles {
+				imagesLock, err := bundle.AllImagesLock()
+				if err != nil {
+					if ctlbundle.IsNotBundleError(err) {
+						return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+					}
+					return nil, err
 				}
-				return nil, err
-			}
+				imageRefs, err = imagesLock.LocationPrunedImageRefs()
+				if err != nil {
+					return nil, fmt.Errorf("Pruning image ref locations: %s", err)
+				}
 
-			if !o.ExperimentalFlags.RecursiveBundles {
-				for _, i := range imagesLock.ImageRefs() {
+			} else {
+				imagesLock, err := bundle.ImagesLockLocalized()
+				if err != nil {
+					if ctlbundle.IsNotBundleError(err) {
+						return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+					}
+					return nil, err
+				}
+
+				for _, i := range imagesLock.Images {
 					isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
 					if err != nil {
 						return nil, err
@@ -98,11 +111,8 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 						return nil, fmt.Errorf("This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
 					}
 				}
-			}
 
-			imageRefs, err := imagesLock.LocationPrunedImageRefs()
-			if err != nil {
-				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
+				imageRefs = imagesLock.Images
 			}
 
 			for _, img := range imageRefs {
