@@ -94,22 +94,9 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 				}
 
 			} else {
-				imagesLock, err := bundle.ImagesLockLocalized()
+				imagesLock, err := o.getBundleWithoutNestedBundleImagesLockLocalized(bundle)
 				if err != nil {
-					if ctlbundle.IsNotBundleError(err) {
-						return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-					}
 					return nil, err
-				}
-
-				for _, i := range imagesLock.Images {
-					isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
-					if err != nil {
-						return nil, err
-					}
-					if isBundle {
-						return nil, fmt.Errorf("This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
-					}
 				}
 
 				imageRefs = imagesLock.Images
@@ -164,28 +151,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		bundle := ctlbundle.NewBundle(o.BundleFlags.Bundle, o.registry)
 
 		var imageRefs []lockconfig.ImageRef
-		if !o.ExperimentalFlags.RecursiveBundles {
-			// TODO switch to using fallback URLs for each image
-			// instead of trying to use localized bundle URLs here
-			imagesLock, err := bundle.ImagesLockLocalized()
-			if err != nil {
-				if ctlbundle.IsNotBundleError(err) {
-					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-				}
-				return nil, err
-			}
-			for _, i := range imagesLock.Images {
-				isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
-				if err != nil {
-					return nil, err
-				}
-				if isBundle {
-					return nil, fmt.Errorf("This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
-				}
-			}
-
-			imageRefs = imagesLock.Images
-		} else {
+		if o.ExperimentalFlags.RecursiveBundles {
 			imgLock, err := bundle.AllImagesLock()
 			if err != nil {
 				if ctlbundle.IsNotBundleError(err) {
@@ -198,6 +164,15 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 			if err != nil {
 				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
 			}
+		} else {
+			// TODO switch to using fallback URLs for each image
+			// instead of trying to use localized bundle URLs here
+			imagesLock, err := o.getBundleWithoutNestedBundleImagesLockLocalized(bundle)
+			if err != nil {
+				return nil, err
+			}
+
+			imageRefs = imagesLock.Images
 		}
 
 		for _, img := range imageRefs {
@@ -210,6 +185,26 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	}
 
 	panic("Unreachable")
+}
+
+func (o CopyRepoSrc) getBundleWithoutNestedBundleImagesLockLocalized(bundle *ctlbundle.Bundle) (lockconfig.ImagesLock, error) {
+	imagesLock, err := bundle.ImagesLockLocalized()
+	if err != nil {
+		if ctlbundle.IsNotBundleError(err) {
+			return lockconfig.ImagesLock{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		}
+		return lockconfig.ImagesLock{}, err
+	}
+	for _, i := range imagesLock.Images {
+		isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
+		if err != nil {
+			return lockconfig.ImagesLock{}, err
+		}
+		if isBundle {
+			return lockconfig.ImagesLock{}, fmt.Errorf("This bundle contains bundles, in order to copy please use the --experimental-recursive-bundle flag to copy nested bundles")
+		}
+	}
+	return imagesLock, nil
 }
 
 func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {

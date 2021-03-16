@@ -189,7 +189,7 @@ func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
 		_, err := subject.CopyToRepo(destRepo)
 		require.Error(t, err)
-		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
+		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please use the --experimental-recursive-bundle flag to copy nested bundles")
 	})
 
 	t.Run("When recursive bundle is enabled and a lock file is provided, it copies every image to repo", func(t *testing.T) {
@@ -249,7 +249,7 @@ bundle:
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
 		_, err = subject.CopyToRepo(destRepo)
 		require.Error(t, err)
-		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
+		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please use the --experimental-recursive-bundle flag to copy nested bundles")
 	})
 }
 
