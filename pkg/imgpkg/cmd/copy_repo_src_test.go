@@ -251,6 +251,30 @@ bundle:
 		require.Error(t, err)
 		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please use the --experimental-recursive-bundle flag to copy nested bundles")
 	})
+
+	t.Run("When recursive bundle is enabled and an images lock file is provided, it returns an error message to the user", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+		imagesLock, err := lockconfig.NewImagesLockFromBytes([]byte(fmt.Sprintf(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, bundleWithNestedBundle.RefDigest)))
+		imagesLockTempDir := filepath.Join(assets.CreateTempFolder("images-lock"), "images-lock.yml")
+		assert.NoError(t, imagesLock.WriteToPath(imagesLockTempDir))
+
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
+		subject.BundleFlags.Bundle = ""
+		subject.LockInputFlags.LockFilePath = imagesLockTempDir
+		subject.registry = fakeRegistry.Build()
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		_, err = subject.CopyToRepo(destRepo)
+		require.Error(t, err)
+		assert.EqualError(t, err, "Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
+	})
 }
 
 func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
