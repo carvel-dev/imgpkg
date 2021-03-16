@@ -273,7 +273,7 @@ type ImageOrImageIndexWithTarPath struct {
 	path         string
 	t            *testing.T
 	RefDigest    string
-	Digest    string
+	Digest       string
 }
 
 func compress(src string) (*os.File, error) {

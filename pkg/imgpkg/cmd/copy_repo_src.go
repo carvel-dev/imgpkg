@@ -88,6 +88,18 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 				return nil, err
 			}
 
+			if !o.ExperimentalFlags.RecursiveBundles {
+				for _, i := range imagesLock.ImageRefs() {
+					isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
+					if err != nil {
+						return nil, err
+					}
+					if isBundle {
+						return nil, fmt.Errorf("This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
+					}
+				}
+			}
+
 			imageRefs, err := imagesLock.LocationPrunedImageRefs()
 			if err != nil {
 				return nil, fmt.Errorf("Pruning image ref locations: %s", err)

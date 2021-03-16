@@ -163,7 +163,6 @@ func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
 		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.registry = fakeRegistry.Build()
 
-
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
 		processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
@@ -174,10 +173,10 @@ func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
-			destRepo+"@"+bundleWithNestedBundle.Digest,
-			destRepo+"@"+bundleWithTwoImages.Digest,
-			destRepo+"@"+randomImage.Digest,
-			destRepo+"@"+randomImage2.Digest,
+			destRepo + "@" + bundleWithNestedBundle.Digest,
+			destRepo + "@" + bundleWithTwoImages.Digest,
+			destRepo + "@" + randomImage.Digest,
+			destRepo + "@" + randomImage2.Digest,
 		})
 
 	})
@@ -186,7 +185,6 @@ func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
 		subject := subject
 		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: false}
 		subject.registry = fakeRegistry.Build()
-
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
 		processedImages, err := subject.CopyToRepo(destRepo)
@@ -198,10 +196,70 @@ func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
-			destRepo+"@"+bundleWithNestedBundle.Digest,
-			destRepo+"@"+bundleWithTwoImages.Digest,
+			destRepo + "@" + bundleWithNestedBundle.Digest,
+			destRepo + "@" + bundleWithTwoImages.Digest,
 		})
 
+	})
+
+	t.Run("When recursive bundle is enabled and a lock file is provided, it copies every image to repo", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+		bundleLock, err := lockconfig.NewBundleLockFromBytes([]byte(fmt.Sprintf(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+bundle:
+  image: %s
+`, bundleWithNestedBundle.RefDigest)))
+		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
+		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
+
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
+		subject.BundleFlags.Bundle = ""
+		subject.LockInputFlags.LockFilePath = bundleLockTempDir
+		subject.registry = fakeRegistry.Build()
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		processedImages, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 4)
+		processedImageDigest := []string{}
+		for _, processedImage := range processedImages.All() {
+			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+		}
+		assert.ElementsMatch(t, processedImageDigest, []string{
+			destRepo + "@" + bundleWithNestedBundle.Digest,
+			destRepo + "@" + bundleWithTwoImages.Digest,
+			destRepo + "@" + randomImage.Digest,
+			destRepo + "@" + randomImage2.Digest,
+		})
+
+	})
+
+	t.Run("When recursive bundle is not enabled and a lock file is provided, it copies every root image to repo", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+		bundleLock, err := lockconfig.NewBundleLockFromBytes([]byte(fmt.Sprintf(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+bundle:
+ image: %s
+`, bundleWithNestedBundle.RefDigest)))
+		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
+		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
+
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: false}
+		subject.BundleFlags.Bundle = ""
+		subject.LockInputFlags.LockFilePath = bundleLockTempDir
+		subject.registry = fakeRegistry.Build()
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		_, err = subject.CopyToRepo(destRepo)
+		require.Error(t, err)
+		assert.EqualError(t, err, "This bundle contains bundles, in order to copy please execute the following command\n Hint: Use the --experimental-recursive-bundle flag to copy nested bundles")
 	})
 }
 
