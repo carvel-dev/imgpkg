@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -37,7 +38,7 @@ type FakeTestRegistryBuilder struct {
 
 func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
-	r.server = httptest.NewServer(registry.New())
+	r.server = httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
 
 	return r
 }

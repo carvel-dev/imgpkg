@@ -27,8 +27,6 @@ import (
 var subject CopyRepoSrc
 var stdOut *bytes.Buffer
 
-//TODO: refactor imagelock file in tests to use bundleWithMultipleImages.RefDigest
-
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
 	logger := image.NewLogger(stdOut).NewPrefixedWriter("test|    ")

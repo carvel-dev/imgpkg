@@ -142,7 +142,6 @@ images:
 		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
 		logger.Section("create 2 simple images", func() {
 
-			//TODO: repo is being truncated out and causing errors when pushing to dockerhub
 			img1DigestRef = imgRef.Context().Name() + "-img1"
 			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
 			img1DigestRef = img1DigestRef + img1Digest
