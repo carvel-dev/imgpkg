@@ -6,6 +6,7 @@
 - Slack: [#carvel in Kubernetes slack](https://kubernetes.slack.com/archives/CH8KCCKA5)
 - [Docs](https://carvel.dev/imgpkg/docs/latest/) with example workflow and other details
 - Install: Grab prebuilt binaries from the [Releases page](https://github.com/vmware-tanzu/carvel-imgpkg/releases) or [Homebrew Carvel tap](https://github.com/vmware-tanzu/homebrew-carvel)
+- Backlog: [See what we're up to](https://app.zenhub.com/workspaces/carvel-backlog-6013063a24147d0011410709/board?repos=219018453). (Note: we use ZenHub which requires GitHub authorization).
 
 `imgpkg` (pronounced: "image package") is a tool that allows users to store a set of arbitrary files as an OCI image. One of the driving use cases is to store Kubernetes configuration (plain YAML, ytt templates, Helm templates, etc.) in OCI registry as an image.
 
