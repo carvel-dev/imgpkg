@@ -41,51 +41,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-
-func TestCopyingFromImageLockFile(t *testing.T) {
-	fakeRegistry := helpers.NewFakeRegistry(t)
-	defer fakeRegistry.CleanUp()
-
-	destinationImageName := "library/copied-img"
-
-	image1RefDigest := fakeRegistry.WithRandomImage("library/image-1").RefDigest
-	image2RefDigest := fakeRegistry.WithRandomImage("library/image-2").RefDigest
-	imageLockYAML := fmt.Sprintf(`apiVersion: imgpkg.carvel.dev/v1alpha1
-kind: ImagesLock
-images:
-- image: %s
-  annotations:
-    my-annotation: first-image
-- image: %s
-  annotations:
-    my-annotation: second-image
-`, image1RefDigest, image2RefDigest)
-	lockFile, err := ioutil.TempFile("", "images.lock.yml")
-	require.NoError(t, err)
-	err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
-	require.NoError(t, err)
-
-	subject := subject
-	subject.LockInputFlags.LockFilePath = lockFile.Name()
-	subject.registry = fakeRegistry.Build()
-
-	t.Run("Copies both images", func(t *testing.T) {
-		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		require.NoError(t, err)
-
-		require.Len(t, processedImages.All(), 2)
-
-		img1 := processedImages.All()[0]
-		img2 := processedImages.All()[1]
-		assert.Equal(t, image1RefDigest, img1.UnprocessedImageRef.DigestRef)
-		assert.Equal(t, image2RefDigest, img2.UnprocessedImageRef.DigestRef)
-	})
-}
-
-func TestCopyingToTarBundle(t *testing.T) {
+func TestToTarBundle(t *testing.T) {
 	bundleName := "library/bundle"
 	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
+	bundleWithImages := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle").
+		WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 
 	defer fakeRegistry.CleanUp()
 
@@ -102,19 +62,58 @@ func TestCopyingToTarBundle(t *testing.T) {
 
 		assertTarballContainsEveryLayer(t, bundleTarPath)
 	})
+
+	t.Run("When a bundle contains a bundle, it copies all layers to tar", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		bundleWithNested := fakeRegistry.
+			WithBundleFromPath("library/with-nested-bundle", "test_assets/bundle").
+			WithImageRefs([]lockconfig.ImageRef{
+				{Image: bundleWithImages.RefDigest},
+			})
+
+		bundleLock, err := lockconfig.NewBundleLockFromBytes([]byte(fmt.Sprintf(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+bundle:
+  image: %s
+`, bundleWithNested.RefDigest)))
+		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
+		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
+
+		subject := subject
+		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
+		subject.BundleFlags.Bundle = ""
+		subject.LockInputFlags.LockFilePath = bundleLockTempDir
+		subject.registry = fakeRegistry.Build()
+
+		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(
+			bundleWithNested.BundleName + "@" + bundleWithNested.Digest)
+
+		tarDir := assets.CreateTempFolder("tar-copy")
+		imageTarPath := filepath.Join(tarDir, "bundle.tar")
+
+		err = subject.CopyToTar(imageTarPath)
+		require.NoError(t, err)
+
+		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
+	})
 }
 
-func TestCopyingToTarBundleContainingNonDistributableLayers(t *testing.T) {
+func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	bundleName := "library/bundle"
 	fakeRegistry := helpers.NewFakeRegistry(t)
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
-	randomImageWithNonDistributableLayer := fakeRegistry.WithRandomImage("library/image_with_non_dist_layer").WithNonDistributableLayer()
+	randomImageWithNonDistributableLayer := fakeRegistry.
+		WithRandomImage("library/image_with_non_dist_layer").WithNonDistributableLayer()
 
-	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
-		{Image: randomImage.RefDigest},
-		{Image: randomImageWithNonDistributableLayer.RefDigest},
-	})
+	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
+		WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImage.RefDigest},
+			{Image: randomImageWithNonDistributableLayer.RefDigest},
+		})
 
 	subject := subject
 	subject.BundleFlags = BundleFlags{fakeRegistry.ReferenceOnTestServer(bundleName)}
@@ -183,7 +182,8 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s@%s
-`, fakeRegistry.ReferenceOnTestServer(bundleName), fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").Digest)
+`, fakeRegistry.ReferenceOnTestServer(bundleName), fakeRegistry.
+			WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").Digest)
 		bundleDir := bundleBuilder.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 		bundleWithNested := fakeRegistry.WithBundleFromPath("library/with-nested-bundle", bundleDir)
 
@@ -191,7 +191,8 @@ images:
 		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.registry = fakeRegistry.Build()
 
-		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(bundleWithNested.BundleName + "@" + bundleWithNested.Digest)
+		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(bundleWithNested.BundleName + "@" +
+			bundleWithNested.Digest)
 
 		tarDir := assets.CreateTempFolder("tar-copy")
 		imageTarPath := filepath.Join(tarDir, "bundle.tar")
@@ -203,7 +204,7 @@ images:
 	})
 }
 
-func TestCopyingToTarImage(t *testing.T) {
+func TestToTarImage(t *testing.T) {
 	imageName := "library/image"
 	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
@@ -257,10 +258,11 @@ func TestCopyingToTarImage(t *testing.T) {
 	})
 }
 
-func TestCopyingToTarImageContainingNonDistributableLayers(t *testing.T) {
+func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 	imageName := "library/image"
 	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{}).WithNonDistributableLayer()
+	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{}).
+		WithNonDistributableLayer()
 	defer fakeRegistry.CleanUp()
 	subject := subject
 	subject.ImageFlags = ImageFlags{
@@ -297,7 +299,7 @@ func TestCopyingToTarImageContainingNonDistributableLayers(t *testing.T) {
 	})
 }
 
-func TestCopyingToTarImageIndex(t *testing.T) {
+func TestToTarImageIndex(t *testing.T) {
 	imageName := "library/image"
 	fakeRegistry := helpers.NewFakeRegistry(t)
 	fakeRegistry.WithARandomImageIndex(imageName)
@@ -357,19 +359,21 @@ func TestCopyingToTarImageIndex(t *testing.T) {
 	})
 }
 
-func TestCopyingToRepoBundleContainingANestedBundle(t *testing.T) {
+func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 	bundleName := "library/bundle"
 	fakeRegistry := helpers.NewFakeRegistry(t)
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
 	randomImage2 := fakeRegistry.WithRandomImage("library/image_with_config_2")
 
-	bundleWithTwoImages := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
-		{Image: randomImage.RefDigest},
-		{Image: randomImage2.RefDigest},
-	})
+	bundleWithTwoImages := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
+		WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImage.RefDigest},
+			{Image: randomImage2.RefDigest},
+		})
 
-	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
+		"test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
 		{Image: bundleWithTwoImages.RefDigest},
 	})
 
@@ -512,7 +516,7 @@ images:
 	})
 }
 
-func TestCopyingToRepoBundleWithMultipleRegistries(t *testing.T) {
+func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakeDockerhubRegistry := helpers.NewFakeRegistry(t)
 	defer fakeDockerhubRegistry.CleanUp()
 	fakePrivateRegistry := helpers.NewFakeRegistry(t)
@@ -525,7 +529,8 @@ func TestCopyingToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakePrivateRegistry.WithImage(sourceBundleName, randomImage1FromDockerhub.Image)
 
 	// test_assets/bundle contains images that live in dockerhub
-	bundleWithImageRefsToDockerhub := fakePrivateRegistry.WithBundleFromPath(sourceBundleName, "test_assets/bundle_with_dockerhub_images").WithImageRefs([]lockconfig.ImageRef{
+	bundleWithImageRefsToDockerhub := fakePrivateRegistry.WithBundleFromPath(sourceBundleName,
+		"test_assets/bundle_with_dockerhub_images").WithImageRefs([]lockconfig.ImageRef{
 		{Image: randomImage1FromDockerhub.RefDigest},
 	})
 
@@ -540,15 +545,16 @@ func TestCopyingToRepoBundleWithMultipleRegistries(t *testing.T) {
 
 		require.Len(t, processedImages.All(), 2)
 		for _, processedImage := range processedImages.All() {
-			assert.Contains(t, processedImage.UnprocessedImageRef.DigestRef, fakePrivateRegistry.ReferenceOnTestServer(sourceBundleName))
+			assert.Contains(t, processedImage.UnprocessedImageRef.DigestRef, fakePrivateRegistry.
+				ReferenceOnTestServer(sourceBundleName))
 		}
 	})
 }
 
-func TestCopyingToRepoImage(t *testing.T) {
+func TestToRepoImage(t *testing.T) {
 	imageName := "library/image"
 	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
+	image1 := fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
 	defer fakeRegistry.CleanUp()
 	subject := subject
 	subject.ImageFlags = ImageFlags{
@@ -573,6 +579,43 @@ func TestCopyingToRepoImage(t *testing.T) {
 		}
 	})
 
+	t.Run("When an ImageLock file is provided it should copy every image from the file", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		destinationImageName := "library/copied-img"
+
+		image2RefDigest := fakeRegistry.WithRandomImage("library/image-2").RefDigest
+		imageLockYAML := fmt.Sprintf(`apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+  annotations:
+    my-annotation: first-image
+- image: %s
+  annotations:
+    my-annotation: second-image
+`, image1.RefDigest, image2RefDigest)
+		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+
+		require.NoError(t, err)
+		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		require.NoError(t, err)
+
+		subject := subject
+		subject.LockInputFlags.LockFilePath = lockFile.Name()
+		subject.registry = fakeRegistry.Build()
+
+		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		if err != nil {
+			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
+		}
+
+		require.Len(t, processedImages.All(), 2)
+
+		assert.Equal(t, image1.RefDigest, processedImages.All()[1].UnprocessedImageRef.DigestRef)
+		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
+	})
 }
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
@@ -588,7 +631,8 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 			digest, err := layer.Digest()
 			require.NoError(t, err)
 
-			assert.Truef(t, doesLayerExistInTarball(t, imageTarPath, digest), "did not find the expected layer [%s]", digest)
+			assert.Truef(t, doesLayerExistInTarball(t, imageTarPath, digest), "did not find the expected layer [%s]",
+				digest)
 		}
 	}
 }
