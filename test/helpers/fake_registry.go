@@ -8,176 +8,90 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type FakeRegistry struct {
-	state map[string]*ImageOrImageIndexWithTarPath
-	t     *testing.T
+type FakeTestRegistryBuilder struct {
+	images map[string]*ImageOrImageIndexWithTarPath
+	server *httptest.Server
+	t      *testing.T
 }
 
-func NewFakeRegistry(t *testing.T) *FakeRegistry {
-	return &FakeRegistry{state: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
+func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
+	r.server = httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
+
+	return r
 }
 
-type ImageOrImageIndexWithTarPath struct {
-	fakeRegistry *FakeRegistry
-	imageName    string
-	image        v1.Image
-	imageIndex   v1.ImageIndex
-	path         string
-	t            *testing.T
-	RefDigest    string
+func (r *FakeTestRegistryBuilder) Build() image.Registry {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
+
+	for imageRef, val := range r.images {
+		imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
+		assert.NoError(r.t, err)
+
+		if val.Image != nil {
+			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable)
+			assert.NoError(r.t, err)
+			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image)
+			assert.NoError(r.t, err)
+		}
+
+		if val.imageIndex != nil {
+			err = regremote.WriteIndex(imageRefWithTestRegistry, val.imageIndex, regremote.WithNondistributable)
+			assert.NoError(r.t, err)
+			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.imageIndex)
+			assert.NoError(r.t, err)
+		}
+
+	}
+
+	reg, err := image.NewRegistry(image.RegistryOpts{}, imagelayers.NewImageLayerWriterCheck(false))
+	assert.NoError(r.t, err)
+	return reg
 }
 
-type BundleInfo struct {
-	r          *FakeRegistry
-	BundlePath string
-	RefDigest  string
-}
-
-func (b BundleInfo) WithEveryImageFrom(path string) *FakeRegistry {
-	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml")
-	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
-	require.NoError(b.r.t, err)
-
-	for _, img := range imgLock.Images {
-		b.r.WithImageFromPath(img.Image, path)
-	}
-	return b.r
-}
-
-func (r *FakeRegistry) Build() *imagesetfakes.FakeImagesReaderWriter {
-	fakeRegistry := &imagesetfakes.FakeImagesReaderWriter{}
-	getDescriptor := func(reference name.Reference, r *FakeRegistry) (v1.Descriptor, error) {
-		mediaType := types.OCIManifestSchema1
-		if val, found := r.state[reference.Name()]; found {
-			if val.image != nil {
-				mediaType, err := val.image.MediaType()
-				digest, err := val.image.Digest()
-				require.NoError(r.t, err)
-
-				return v1.Descriptor{
-					MediaType: mediaType,
-					Digest:    digest,
-				}, nil
-			}
-
-			imageIndex := val.imageIndex
-			digest, err := imageIndex.Digest()
-			require.NoError(r.t, err)
-
-			mediaType, err = imageIndex.MediaType()
-			return v1.Descriptor{
-				MediaType: mediaType,
-				Digest:    digest,
-			}, nil
-		}
-
-		return v1.Descriptor{}, fmt.Errorf("FakeRegistry: GenericCall: image [%s] not found", reference.Name())
-	}
-
-	fakeRegistry.GenericCalls(func(reference name.Reference) (descriptor v1.Descriptor, err error) {
-		return getDescriptor(reference, r)
-	})
-
-	fakeRegistry.DigestCalls(func(reference name.Reference) (v1.Hash, error) {
-		if val, found := r.state[reference.Name()]; found {
-			if val.image != nil {
-				return val.image.Digest()
-			}
-			return val.imageIndex.Digest()
-		}
-
-		return v1.Hash{}, fmt.Errorf("FakeRegistry: DigestCall: image [%s] not found", reference.Name())
-	})
-
-	fakeRegistry.GetCalls(func(reference name.Reference) (*regremote.Descriptor, error) {
-		if val, found := r.state[reference.Name()]; found {
-			descriptor, err := getDescriptor(reference, r)
-			if err != nil {
-				r.t.Fatal(err.Error())
-			}
-			if val.image != nil {
-				manifest, err := val.image.RawManifest()
-				if err != nil {
-					r.t.Fatal(err.Error())
-				}
-				return &regremote.Descriptor{
-					Descriptor: descriptor,
-					Manifest:   manifest,
-				}, nil
-			}
-
-			manifest, err := val.imageIndex.RawManifest()
-			if err != nil {
-				r.t.Fatal(err.Error())
-			}
-			return &regremote.Descriptor{
-				Descriptor: descriptor,
-				Manifest:   manifest,
-			}, nil
-		}
-
-		return &regremote.Descriptor{}, fmt.Errorf("FakeRegistry: GetCall: image [%s] not found", reference.Name())
-	})
-
-	fakeRegistry.WriteImageStub = func(reference name.Reference, v v1.Image) error {
-		r.state[reference.Name()] = &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: v, imageName: reference.Name()}
-		return nil
-	}
-
-	fakeRegistry.MultiWriteStub = func(reference map[name.Reference]regremote.Taggable, _ int) error {
-		for ref, taggable := range reference {
-			r.state[ref.Name()] = &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, image: taggable.(v1.Image), imageName: ref.Name()}
-		}
-		return nil
-	}
-
-	fakeRegistry.ImageStub = func(reference name.Reference) (v v1.Image, err error) {
-		if bundle, found := r.state[reference.Name()]; found {
-			return bundle.image, nil
-		}
-		return nil, fmt.Errorf("Did not find bundle in fake registry: %s", reference.Context().Name())
-	}
-
-	fakeRegistry.IndexStub = func(reference name.Reference) (v1.ImageIndex, error) {
-		if imageIndexFromState, found := r.state[reference.Name()]; found {
-			return imageIndexFromState.imageIndex, nil
-		}
-		return nil, fmt.Errorf("Did not find image index in fake registry: %s", reference.Context().Name())
-	}
-
-	return fakeRegistry
-}
-
-func (r *FakeRegistry) WithBundleFromPath(bundleName string, path string) BundleInfo {
+func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
-	require.NoError(r.t, err, "compressing the bundle")
+	if err != nil {
+		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
+	}
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	require.NoError(r.t, err, "create image from tar")
+	if err != nil {
+		r.t.Fatalf("unable to create image from file: %s", err)
+	}
 
-	b := r.updateState(bundleName, bundle, nil, path)
-	return BundleInfo{r, path, b.RefDigest}
+	r.updateState(bundleName, bundle, nil, path)
+	digest, err := bundle.Digest()
+	assert.NoError(r.t, err)
+
+	return BundleInfo{r, bundleName, path, digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
 }
 
-func (r *FakeRegistry) WithRandomBundle(bundleName string) BundleInfo {
+func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
 	bundle, err := random.Image(500, 5)
 	bundle, err = mutate.ConfigFile(bundle, &v1.ConfigFile{
 		Config: v1.Config{
@@ -186,109 +100,181 @@ func (r *FakeRegistry) WithRandomBundle(bundleName string) BundleInfo {
 	})
 	require.NoError(r.t, err, "create image from tar")
 
-	b := r.updateState(bundleName, bundle, nil, "")
-	return BundleInfo{r, "", b.RefDigest}
+	r.updateState(bundleName, bundle, nil, "")
+
+	digest, err := bundle.Digest()
+	assert.NoError(r.t, err)
+
+	return BundleInfo{r, bundleName, "", digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
 }
 
-func (r *FakeRegistry) WithImageFromPath(imageNameFromTest string, path string) *ImageOrImageIndexWithTarPath {
+func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
-	require.NoError(r.t, err, "compressing the path")
+	if err != nil {
+		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
+	}
 
-	fileImage, err := image.NewFileImage(tarballLayer.Name(), nil)
-	require.NoError(r.t, err, "create image from tar")
+	fileImage, err := image.NewFileImage(tarballLayer.Name(), labels)
+	if err != nil {
+		r.t.Fatalf("Failed trying to build a file image%s", err)
+	}
 
 	return r.updateState(imageNameFromTest, fileImage, nil, path)
 }
 
-func (r *FakeRegistry) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
+func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
 	img, err := random.Image(500, 3)
 	require.NoError(r.t, err, "create image from tar")
 
 	return r.updateState(imageNameFromTest, img, nil, "")
 }
 
-func (r *FakeRegistry) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
-	newImg := img
-
-	digest, err := newImg.image.Digest()
-	require.NoError(r.t, err)
-	newImg.RefDigest = to + "@" + digest.String()
-	r.state[newImg.RefDigest] = &newImg
-	return &newImg
+func (r *FakeTestRegistryBuilder) WithImage(imageNameFromTest string, image v1.Image) *ImageOrImageIndexWithTarPath {
+	return r.updateState(imageNameFromTest, image, nil, "")
 }
 
-func (r *FakeRegistry) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
-	digest := strings.Split(bundleInfo.RefDigest, "@")[1]
-	newBundle := *r.state[bundleInfo.RefDigest]
-	newBundle.RefDigest = to + "@" + digest
-	r.state[newBundle.RefDigest] = &newBundle
-	return BundleInfo{r, "", newBundle.RefDigest}
+func (r *FakeTestRegistryBuilder) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
+	return r.updateState(to, img.Image, nil, "")
 }
 
-func (r *FakeRegistry) WithARandomImageIndex(imageName string) {
+func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
+	newBundle := *r.images[bundleInfo.BundleName]
+	r.updateState(to, newBundle.Image, nil, "")
+	return BundleInfo{r, to, "", bundleInfo.Digest, bundleInfo.RefDigest}
+}
+
+func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) {
 	index, err := random.Index(1024, 1, 1)
 	require.NoError(r.t, err)
 
-	manifest, err := index.IndexManifest()
-	require.NoError(r.t, err)
-
-	imageUsedInIndex, err := index.Image(manifest.Manifests[0].Digest)
-	require.NoError(r.t, err)
-
-	r.updateState(imageName, imageUsedInIndex, index, "")
+	r.updateState(imageName, nil, index, "")
 }
 
-func (r *FakeRegistry) WithNonDistributableLayerInImage(imageNames ...string) {
+func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ...string) {
 	for _, imageName := range imageNames {
-		reference, err := name.ParseReference(imageName)
-		require.NoErrorf(r.t, err, "parse reference: %s", imageName)
-
 		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 		require.NoErrorf(r.t, err, "create layer: %s", imageName)
 
-		imageWithARestrictedLayer, err := mutate.AppendLayers(r.state[reference.Name()].image, layer)
+		imageWithARestrictedLayer, err := mutate.AppendLayers(r.images[imageName].Image, layer)
 		require.NoErrorf(r.t, err, "add layer: %s", imageName)
 
-		r.updateState(imageName, imageWithARestrictedLayer, r.state[reference.Name()].imageIndex, r.state[reference.Name()].path)
+		r.updateState(imageName, imageWithARestrictedLayer, r.images[imageName].imageIndex, r.images[imageName].path)
 	}
 }
 
-func (r *FakeRegistry) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
-	imgName, err := name.ParseReference(imageName)
-	require.NoError(r.t, err)
-
-	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, imageName: imageName, image: image, imageIndex: imageIndex, path: path}
-	r.state[imgName.Name()] = imageOrImageIndexWithTarPath
-
-	if image != nil {
-		digest, err := image.Digest()
-		require.NoError(r.t, err)
-
-		imageOrImageIndexWithTarPath.RefDigest = imgName.Context().Name() + "@" + digest.String()
-		r.state[imageOrImageIndexWithTarPath.RefDigest] = imageOrImageIndexWithTarPath
-	}
-	return imageOrImageIndexWithTarPath
-}
-
-func (r *FakeRegistry) CleanUp() {
-	for _, tarPath := range r.state {
-		if tarPath.path != "" {
-			os.Remove(tarPath.path)
-		}
-	}
-}
-
-func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() {
+func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() *ImageOrImageIndexWithTarPath {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	require.NoError(r.t, err)
 
-	r.image, err = mutate.AppendLayers(r.image, layer)
+	r.Image, err = mutate.AppendLayers(r.Image, layer)
+	require.NoError(r.t, err)
+	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.imageIndex, r.path)
+}
+
+func (r *FakeTestRegistryBuilder) CleanUp() {
+	for _, tarPath := range r.images {
+		os.Remove(filepath.Join(tarPath.path, ".imgpkg", "images.yml"))
+	}
+	if r.server != nil {
+		r.server.Close()
+	}
+}
+
+func (r *FakeTestRegistryBuilder) ReferenceOnTestServer(repo string) string {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
+	return fmt.Sprintf("%s/%s", u.Host, repo)
+}
+
+func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
+	imgName, err := name.ParseReference(imageName)
 	require.NoError(r.t, err)
 
-	reference, err := name.ParseReference(r.imageName)
-	require.NoError(r.t, err)
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, Image: image, imageIndex: imageIndex, path: path}
+	if image != nil {
+		digest, err := image.Digest()
+		require.NoError(r.t, err)
+		imgName, err := name.ParseReference(imageName)
+		require.NoError(r.t, err)
+		imageOrImageIndexWithTarPath.RefDigest = r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
+		imageOrImageIndexWithTarPath.Digest = digest.String()
+		r.images[imgName.Context().RepositoryStr()+"@"+digest.String()] = imageOrImageIndexWithTarPath
+	} else {
+		r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
+	}
 
-	r.fakeRegistry.updateState(reference.Name(), r.image, r.imageIndex, r.path)
+	return imageOrImageIndexWithTarPath
+}
+
+type BundleInfo struct {
+	r          *FakeTestRegistryBuilder
+	BundleName string
+	BundlePath string
+	Digest     string
+	RefDigest  string
+}
+
+func (b BundleInfo) WithEveryImageFromPath(path string, labels map[string]string) BundleInfo {
+	imgLockPath := filepath.Join(b.BundlePath, ".imgpkg", "images.yml.template")
+	imgLock, err := lockconfig.NewImagesLockFromPath(imgLockPath)
+	assert.NoError(b.r.t, err)
+
+	var imageRefs []lockconfig.ImageRef
+	imagesLock := lockconfig.ImagesLock{
+		LockVersion: lockconfig.LockVersion{
+			APIVersion: lockconfig.ImagesLockAPIVersion,
+			Kind:       lockconfig.ImagesLockKind,
+		},
+	}
+
+	for _, img := range imgLock.Images {
+		imageFromPath := b.r.WithImageFromPath(img.Image, path, labels)
+		imageRef, err := name.ParseReference(img.Image)
+		assert.NoError(b.r.t, err)
+
+		digest, err := imageFromPath.Image.Digest()
+		assert.NoError(b.r.t, err)
+
+		u, err := url.Parse(b.r.server.URL)
+		assert.NoError(b.r.t, err)
+		imageRefs = append(imageRefs, lockconfig.ImageRef{
+			Image: u.Host + "/" + imageRef.Context().RepositoryStr() + "@" + digest.String(),
+		})
+	}
+
+	imagesLock.Images = imageRefs
+	imagesLockFile := filepath.Join(b.BundlePath, bundle.ImgpkgDir, bundle.ImagesLockFile)
+	err = imagesLock.WriteToPath(imagesLockFile)
+	assert.NoError(b.r.t, err)
+
+	delete(b.r.images, b.BundleName+"@"+b.Digest)
+	return b.r.WithBundleFromPath(b.BundleName, b.BundlePath)
+}
+
+func (b BundleInfo) WithImageRefs(imageRefs []lockconfig.ImageRef) BundleInfo {
+	imagesLock := lockconfig.ImagesLock{
+		LockVersion: lockconfig.LockVersion{
+			APIVersion: lockconfig.ImagesLockAPIVersion,
+			Kind:       lockconfig.ImagesLockKind,
+		},
+	}
+
+	imagesLock.Images = imageRefs
+	err := imagesLock.WriteToPath(filepath.Join(b.BundlePath, bundle.ImgpkgDir, bundle.ImagesLockFile))
+	assert.NoError(b.r.t, err)
+
+	delete(b.r.images, b.BundleName+"@"+b.Digest)
+	return b.r.WithBundleFromPath(b.BundleName, b.BundlePath)
+}
+
+type ImageOrImageIndexWithTarPath struct {
+	fakeRegistry *FakeTestRegistryBuilder
+	Image        v1.Image
+	imageIndex   v1.ImageIndex
+	path         string
+	t            *testing.T
+	RefDigest    string
+	Digest       string
 }
 
 func compress(src string) (*os.File, error) {

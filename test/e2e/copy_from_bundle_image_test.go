@@ -141,16 +141,17 @@ images:
 
 		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
 		logger.Section("create 2 simple images", func() {
-			img1DigestRef = imgRef.Context().RegistryStr() + "/img1"
+
+			img1DigestRef = imgRef.Context().Name() + "-img1"
 			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
 			img1DigestRef = img1DigestRef + img1Digest
 
-			img2DigestRef = imgRef.Context().RegistryStr() + "/img2"
+			img2DigestRef = imgRef.Context().Name() + "-img2"
 			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
 			img2DigestRef = img2DigestRef + img2Digest
 		})
 
-		simpleBundle := imgRef.Context().RegistryStr() + "/simple-bundle"
+		simpleBundle := imgRef.Context().Name() + "-simple-bundle"
 		simpleBundleDigest := ""
 		logger.Section("create simple bundle", func() {
 			imageLockYAML := fmt.Sprintf(`---
@@ -165,7 +166,7 @@ images:
 			simpleBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
-		nestedBundle := imgRef.Context().RegistryStr() + "/bundle-nested"
+		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
 		nestedBundleDigest := ""
 		logger.Section("create nested bundle that contains images and the simple bundle", func() {
 			imageLockYAML := fmt.Sprintf(`---
@@ -182,7 +183,7 @@ images:
 			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
-		outerBundle := imgRef.Context().RegistryStr() + "/bundle-outer"
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
 		outerBundleDigest := ""
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
 		bundleToCopy := fmt.Sprintf("%s%s", outerBundle, bundleTag)
@@ -236,16 +237,16 @@ func TestCopyBundleUsingTar(t *testing.T) {
 
 		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
 		logger.Section("create 2 simple images", func() {
-			img1DigestRef = imgRef.Context().RegistryStr() + "/img1"
+			img1DigestRef = imgRef.Context().Name() + "-img1"
 			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
 			img1DigestRef = img1DigestRef + img1Digest
 
-			img2DigestRef = imgRef.Context().RegistryStr() + "/img2"
+			img2DigestRef = imgRef.Context().Name() + "-img2"
 			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
 			img2DigestRef = img2DigestRef + img2Digest
 		})
 
-		nestedBundle := imgRef.Context().RegistryStr() + "/bundle-nested"
+		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
 		nestedBundleDigest := ""
 		logger.Section("create nested bundle", func() {
 			imageLockYAML := fmt.Sprintf(`---
@@ -261,7 +262,7 @@ images:
 			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
-		outerBundle := imgRef.Context().RegistryStr() + "/bundle-outer"
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
 		outerBundleDigest := ""
 		logger.Section("create outer bundle", func() {
 			imageLockYAML := fmt.Sprintf(`---
