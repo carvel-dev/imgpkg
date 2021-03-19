@@ -195,15 +195,6 @@ func (o CopyRepoSrc) getBundleWithoutNestedBundleImagesLockLocalized(bundle *ctl
 		}
 		return lockconfig.ImagesLock{}, err
 	}
-	for _, i := range imagesLock.Images {
-		isBundle, err := ctlbundle.NewBundle(i.Image, o.registry).IsBundle()
-		if err != nil {
-			return lockconfig.ImagesLock{}, err
-		}
-		if isBundle {
-			return lockconfig.ImagesLock{}, fmt.Errorf("This bundle contains bundles, in order to copy please use the --experimental-recursive-bundle flag to copy nested bundles")
-		}
-	}
 	return imagesLock, nil
 }
 
