@@ -58,7 +58,7 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
 func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
 	imagesLockPath := filepath.Join(outputPath, ImgpkgDir, ImagesLockFile)
 
-	imagesLock, skipped, err := o.LocalizeImagesLock()
+	imagesLock, skipped, err := o.LocalizeImagesLock(true)
 	if err != nil {
 		return err
 	}
@@ -69,14 +69,12 @@ func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
 		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 	} else {
 		ui.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.relativeToRepo)
-		ui.BeginLinef("\nUpdating all images in the ImagesLock file: %s\n", imagesLockPath)
-		ui.BeginLinef("+ Changing all image registry/repository references in %s to %s\n", imagesLockPath, o.relativeToRepo)
 	}
 
 	return imagesLock.WriteToPath(imagesLockPath)
 }
 
-func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
+func (o *ImagesLock) LocalizeImagesLock(checkRegistry bool) (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
 	imagesLock := lockconfig.ImagesLock{
 		LockVersion: o.imagesLock.LockVersion,
@@ -87,21 +85,24 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 		if err != nil {
 			return o.imagesLock, false, err
 		}
+		updatedImageRef := imageInBundleRepo
 
-		foundImg, err := o.checkImagesExist([]string{imageInBundleRepo, imgRef.Image})
-		if err != nil {
-			return o.imagesLock, false, err
-		}
+		if checkRegistry {
+			updatedImageRef, err = o.checkImagesExist([]string{imageInBundleRepo, imgRef.Image})
+			if err != nil {
+				return o.imagesLock, false, err
+			}
 
-		// If cannot find the image in the bundle repo, will not localize any image
-		// We assume that the bundle was not copied to the bundle location,
-		// so there we cannot localize any image
-		if foundImg != imageInBundleRepo {
-			return o.imagesLock, true, nil
+			// If cannot find the image in the bundle repo, will not localize any image
+			// We assume that the bundle was not copied to the bundle location,
+			// so there we cannot localize any image
+			if updatedImageRef != imageInBundleRepo {
+				return o.imagesLock, true, nil
+			}
 		}
 
 		imageRefs = append(imageRefs, lockconfig.ImageRef{
-			Image:       foundImg,
+			Image:       updatedImageRef,
 			Annotations: imgRef.Annotations,
 		})
 	}

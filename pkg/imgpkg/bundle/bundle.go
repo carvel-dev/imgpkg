@@ -48,11 +48,16 @@ func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
-	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
+	_, err := o.checkedImage()
+	if err != nil {
+		return err
+	}
+
+	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0, o.Repo())
 }
 
-func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
-	bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string,
+	imagesProcessed map[string]bool, numSubBundles int, rootBundleRepo string) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -104,8 +109,8 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if err != nil {
 				return err
 			}
-			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui),
-				pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles,
+				o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles, rootBundleRepo)
 			if err != nil {
 				return err
 			}
@@ -117,7 +122,8 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		imagesLockUI = goui.NewNoopUI()
 	}
 
-	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(filepath.Join(baseOutputPath, bundlePath), imagesLockUI)
+	err = NewImagesLock(imagesLock, o.imgRetriever, rootBundleRepo).WriteToPath(
+		filepath.Join(baseOutputPath, bundlePath), imagesLockUI)
 	if err != nil {
 		return fmt.Errorf("Rewriting image lock file: %s", err)
 	}

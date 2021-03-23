@@ -89,7 +89,7 @@ func TestImagesLock_WriteToPath(t *testing.T) {
 		}
 		uiOutput, err := runWriteToPath(imageLock, fakeDigestRetrieval, bundleFolder)
 		require.NoError(t, err)
-		require.Contains(t, uiOutput, "Updating all images in the ImagesLock file")
+		require.Contains(t, uiOutput, "hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)")
 
 		resultImagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(bundleFolder, ".imgpkg", "images.yml"))
 		require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		newImagesLock, skipped, err := subject.LocalizeImagesLock(true)
 		require.NoError(t, err)
 		assert.False(t, skipped)
 
@@ -139,7 +139,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		// Other calls will return the default empty Hash and nil error
 		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		newImagesLock, skipped, err := subject.LocalizeImagesLock(true)
 		require.NoError(t, err)
 		assert.True(t, skipped)
 
