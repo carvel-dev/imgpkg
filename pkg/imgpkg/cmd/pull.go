@@ -9,7 +9,6 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/spf13/cobra"
@@ -61,7 +60,7 @@ func (o *PullOptions) Run() error {
 		return err
 	}
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.ImageLayerWriterFilter{})
+	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}

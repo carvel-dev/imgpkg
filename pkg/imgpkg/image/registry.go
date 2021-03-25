@@ -17,8 +17,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
@@ -35,9 +33,10 @@ const (
 )
 
 type RegistryOpts struct {
-	CACertPaths []string
-	VerifyCerts bool
-	Insecure    bool
+	CACertPaths                   []string
+	VerifyCerts                   bool
+	Insecure                      bool
+	IncludeNonDistributableLayers bool
 
 	Username string
 	Password string
@@ -46,12 +45,11 @@ type RegistryOpts struct {
 }
 
 type Registry struct {
-	opts                    []regremote.Option
-	refOpts                 []regname.Option
-	imageLayerWriterChecker imagelayers.ImageLayerWriterFilter
+	opts    []regremote.Option
+	refOpts []regname.Option
 }
 
-func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLayerWriterFilter) (Registry, error) {
+func NewRegistry(opts RegistryOpts) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -62,13 +60,17 @@ func NewRegistry(opts RegistryOpts, imageLayerWriterChecker imagelayers.ImageLay
 		refOpts = append(refOpts, regname.Insecure)
 	}
 
+	regRemoteOptions := []regremote.Option{
+		regremote.WithTransport(httpTran),
+		regremote.WithAuthFromKeychain(registryKeychain(opts)),
+	}
+	if opts.IncludeNonDistributableLayers {
+		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
+	}
+
 	return Registry{
-		opts: []regremote.Option{
-			regremote.WithTransport(httpTran),
-			regremote.WithAuthFromKeychain(registryKeychain(opts)),
-		},
-		refOpts:                 refOpts,
-		imageLayerWriterChecker: imageLayerWriterChecker,
+		opts:    regRemoteOptions,
+		refOpts: refOpts,
 	}, nil
 }
 
@@ -112,40 +114,6 @@ func (i Registry) Image(ref regname.Reference) (regv1.Image, error) {
 }
 
 func (i Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
-	for ref, img := range imageOrIndexesToUpload {
-		if _, isImage := img.(regv1.Image); !isImage {
-			continue
-		}
-		overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
-		if err != nil {
-			return err
-		}
-
-		layers, err := img.(regv1.Image).Layers()
-		if err != nil {
-			return err
-		}
-		for _, layer := range layers {
-			shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
-			if err != nil {
-				return err
-			}
-
-			mediaType, err := layer.MediaType()
-			if err != nil {
-				return err
-			}
-			if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
-				err = util.Retry(func() error {
-					return regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
-				})
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
 	return util.Retry(func() error {
 		return regremote.MultiWrite(imageOrIndexesToUpload, append(i.opts, regremote.WithJobs(concurrency))...)
 	})
@@ -158,27 +126,6 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	}
 
 	err = util.Retry(func() error {
-		layers, err := img.Layers()
-		if err != nil {
-			return err
-		}
-		for _, layer := range layers {
-			shouldLayerBeIncluded, err := i.imageLayerWriterChecker.ShouldLayerBeIncluded(layer)
-			if err != nil {
-				return err
-			}
-
-			mediaType, err := layer.MediaType()
-			if err != nil {
-				return err
-			}
-			if shouldEagerlyWriteLayer(shouldLayerBeIncluded, mediaType) {
-				err := regremote.WriteLayer(overriddenRef.Context(), layer, i.opts...)
-				if err != nil {
-					return err
-				}
-			}
-		}
 		return regremote.Write(overriddenRef, img, i.opts...)
 	})
 	if err != nil {
@@ -186,10 +133,6 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	}
 
 	return nil
-}
-
-func shouldEagerlyWriteLayer(shouldLayerBeIncluded bool, mediaType types.MediaType) bool {
-	return shouldLayerBeIncluded && !mediaType.IsDistributable()
 }
 
 func (i Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {

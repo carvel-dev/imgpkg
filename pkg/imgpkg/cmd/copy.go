@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
-
 	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
@@ -77,9 +75,12 @@ func (o *CopyOptions) Run() error {
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts(), imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
+	opts := o.RegistryFlags.AsRegistryOpts()
+	opts.IncludeNonDistributableLayers = o.IncludeNonDistributableFlag.IncludeNonDistributable
+
+	registry, err := ctlimg.NewRegistry(opts)
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", opts, err)
 	}
 
 	switch {
