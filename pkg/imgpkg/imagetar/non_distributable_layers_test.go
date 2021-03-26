@@ -1,11 +1,12 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package imagelayers
+package imagetar
 
 import (
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"testing"
+
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 )
 
 func TestIncludesNonDistributableLayerWhenFlagIsProvided(t *testing.T) {

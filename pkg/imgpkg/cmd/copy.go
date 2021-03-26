@@ -18,17 +18,17 @@ import (
 )
 
 type CopyOptions struct {
-	ImageFlags                  ImageFlags
-	BundleFlags                 BundleFlags
-	LockInputFlags              LockInputFlags
-	LockOutputFlags             LockOutputFlags
-	TarFlags                    TarFlags
-	RegistryFlags               RegistryFlags
-	IncludeNonDistributableFlag IncludeNonDistributableFlag
-	ExperimentalFlags           ExperimentalFlags
+	ImageFlags        ImageFlags
+	BundleFlags       BundleFlags
+	LockInputFlags    LockInputFlags
+	LockOutputFlags   LockOutputFlags
+	TarFlags          TarFlags
+	RegistryFlags     RegistryFlags
+	ExperimentalFlags ExperimentalFlags
 
-	RepoDst     string
-	Concurrency int
+	RepoDst                 string
+	Concurrency             int
+	IncludeNonDistributable bool
 }
 
 func NewCopyOptions() *CopyOptions {
@@ -57,10 +57,11 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.LockOutputFlags.Set(cmd)
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
-	o.IncludeNonDistributableFlag.Set(cmd)
 	o.ExperimentalFlags.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
+	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable", false,
+		"Include non-distributable layers when copying an image/bundle")
 	return cmd
 }
 
@@ -75,12 +76,12 @@ func (o *CopyOptions) Run() error {
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 
-	opts := o.RegistryFlags.AsRegistryOpts()
-	opts.IncludeNonDistributableLayers = o.IncludeNonDistributableFlag.IncludeNonDistributable
+	registryOpts := o.RegistryFlags.AsRegistryOpts()
+	registryOpts.IncludeNonDistributableLayers = o.IncludeNonDistributable
 
-	registry, err := ctlimg.NewRegistry(opts)
+	registry, err := ctlimg.NewRegistry(registryOpts)
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", opts, err)
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", registryOpts, err)
 	}
 
 	switch {
@@ -102,19 +103,19 @@ func (o *CopyOptions) Run() error {
 			return err
 		}
 
-		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, o.IncludeNonDistributableFlag.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, o.IncludeNonDistributable, processedImagesMediaType(processedImages))
 		return o.writeLockOutput(processedImages, registry)
 
 	case o.isRepoSrc():
 		imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
 
 		repoSrc := CopyRepoSrc{
-			logger:                      prefixedLogger,
-			ImageFlags:                  o.ImageFlags,
-			BundleFlags:                 o.BundleFlags,
-			LockInputFlags:              o.LockInputFlags,
-			IncludeNonDistributableFlag: o.IncludeNonDistributableFlag,
-			ExperimentalFlags:           o.ExperimentalFlags,
+			logger:                  prefixedLogger,
+			ImageFlags:              o.ImageFlags,
+			BundleFlags:             o.BundleFlags,
+			LockInputFlags:          o.LockInputFlags,
+			IncludeNonDistributable: o.IncludeNonDistributable,
+			ExperimentalFlags:       o.ExperimentalFlags,
 
 			registry:    registry,
 			imageSet:    imageSet,

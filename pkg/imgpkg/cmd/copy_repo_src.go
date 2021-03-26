@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -18,15 +18,15 @@ import (
 )
 
 type CopyRepoSrc struct {
-	ImageFlags                  ImageFlags
-	BundleFlags                 BundleFlags
-	LockInputFlags              LockInputFlags
-	IncludeNonDistributableFlag IncludeNonDistributableFlag
-	ExperimentalFlags           ExperimentalFlags
-	logger                      *ctlimg.LoggerPrefixWriter
-	imageSet                    ctlimgset.ImageSet
-	tarImageSet                 ctlimgset.TarImageSet
-	registry                    ctlimgset.ImagesReaderWriter
+	ImageFlags              ImageFlags
+	BundleFlags             BundleFlags
+	LockInputFlags          LockInputFlags
+	IncludeNonDistributable bool
+	ExperimentalFlags       ExperimentalFlags
+	logger                  *ctlimg.LoggerPrefixWriter
+	imageSet                ctlimgset.ImageSet
+	tarImageSet             ctlimgset.TarImageSet
+	registry                ctlimgset.ImagesReaderWriter
 }
 
 func (o CopyRepoSrc) CopyToTar(dstPath string) error {
@@ -35,12 +35,12 @@ func (o CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	ids, err := o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, imagelayers.NewImageLayerWriterCheck(o.IncludeNonDistributableFlag.IncludeNonDistributable))
+	ids, err := o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, imagetar.NewImageLayerWriterCheck(o.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return nil
 }
@@ -61,7 +61,7 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, err
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributableFlag.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }

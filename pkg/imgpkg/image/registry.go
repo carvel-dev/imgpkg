@@ -33,9 +33,10 @@ const (
 )
 
 type RegistryOpts struct {
-	CACertPaths                   []string
-	VerifyCerts                   bool
-	Insecure                      bool
+	CACertPaths []string
+	VerifyCerts bool
+	Insecure    bool
+
 	IncludeNonDistributableLayers bool
 
 	Username string
