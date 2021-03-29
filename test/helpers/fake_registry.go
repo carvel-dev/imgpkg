@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +66,7 @@ func (r *FakeTestRegistryBuilder) Build() image.Registry {
 
 	}
 
-	reg, err := image.NewRegistry(image.RegistryOpts{}, imagelayers.NewImageLayerWriterCheck(false))
+	reg, err := image.NewRegistry(image.RegistryOpts{})
 	assert.NoError(r.t, err)
 	return reg
 }

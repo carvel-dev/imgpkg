@@ -143,9 +143,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 
 	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -159,9 +157,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	t.Run("When Include-non-distributable flag is provided a warning message should not be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -228,9 +224,7 @@ func TestToTarImage(t *testing.T) {
 
 	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -244,9 +238,7 @@ func TestToTarImage(t *testing.T) {
 	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -283,9 +275,7 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 	})
 	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -324,9 +314,7 @@ func TestToTarImageIndex(t *testing.T) {
 	})
 	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -341,9 +329,7 @@ func TestToTarImageIndex(t *testing.T) {
 	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
@@ -565,9 +551,7 @@ func TestToRepoImage(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
 		subject.registry = fakeRegistry.Build()
-		subject.IncludeNonDistributableFlag = IncludeNonDistributableFlag{
-			IncludeNonDistributable: true,
-		}
+		subject.IncludeNonDistributable = true
 
 		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
 		if err != nil {

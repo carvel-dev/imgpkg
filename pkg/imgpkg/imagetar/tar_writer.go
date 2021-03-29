@@ -12,8 +12,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagelayers"
-
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
@@ -37,10 +35,10 @@ type TarWriter struct {
 
 	opts                  TarWriterOpts
 	logger                Logger
-	imageLayerWriterCheck imagelayers.ImageLayerWriterFilter
+	imageLayerWriterCheck ImageLayerWriterFilter
 }
 
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck imagelayers.ImageLayerWriterFilter) *TarWriter {
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck ImageLayerWriterFilter) *TarWriter {
 	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, imageLayerWriterCheck: imageLayerWriterCheck}
 }
 
