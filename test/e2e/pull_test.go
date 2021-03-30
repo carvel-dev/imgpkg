@@ -62,7 +62,7 @@ images:
 `, fmt.Sprintf("%s@%s", env.Image, bundleDigestRef))
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
-		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--experimental-recursive-bundle"})
+		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 

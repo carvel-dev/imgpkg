@@ -162,7 +162,7 @@ images:
 `, img1DigestRef)
 
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			out := imgpkg.Run([]string{"push", "--tty", "-b", simpleBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", simpleBundle, "-f", bundleDir})
 			simpleBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
@@ -179,7 +179,7 @@ images:
 `, img1DigestRef, img2DigestRef, simpleBundle+simpleBundleDigest)
 
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
 			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
@@ -198,7 +198,7 @@ images:
 `, nestedBundle+nestedBundleDigest, img1DigestRef, simpleBundle+simpleBundleDigest)
 
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			out := imgpkg.Run([]string{"push", "--tty", "-b", bundleToCopy, "-f", bundleDir, "--experimental-recursive-bundle"})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", bundleToCopy, "-f", bundleDir})
 			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
@@ -206,7 +206,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", bundleToCopy,
 				"--to-repo", env.RelocationRepo,
-				"--experimental-recursive-bundle"},
+			},
 			)
 		})
 
@@ -258,7 +258,7 @@ images:
 `, img1DigestRef, img2DigestRef)
 
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
 			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
@@ -274,17 +274,17 @@ images:
 `, nestedBundle+nestedBundleDigest, img1DigestRef)
 
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle, "-f", bundleDir, "--experimental-recursive-bundle"})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle, "-f", bundleDir})
 			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
 		logger.Section("export full bundle to tar", func() {
-			imgpkg.Run([]string{"copy", "-b", outerBundle + outerBundleDigest, "--to-tar", tarFilePath, "--experimental-recursive-bundle"})
+			imgpkg.Run([]string{"copy", "-b", outerBundle + outerBundleDigest, "--to-tar", tarFilePath})
 		})
 
 		lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
 		logger.Section("import bundle to new repository", func() {
-			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath, "--experimental-recursive-bundle"})
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo, "--lock-output", lockFilePath})
 			relocatedRef := fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest)
 			env.Assert.AssertBundleLock(lockFilePath, relocatedRef, "")
 		})

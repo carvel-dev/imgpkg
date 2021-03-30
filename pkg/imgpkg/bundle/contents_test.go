@@ -37,25 +37,8 @@ images:
 	bundleImg.ConfigFileReturns(cfgFile, nil)
 	fakeRegistry.ImageReturns(bundleImg, nil)
 
-	t.Run("when allowInnerBundles is false, push fails", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, false)
-		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
-		if err != nil {
-			t.Fatalf("failed to read tag: %s", err)
-		}
-
-		_, err = subject.Push(imgTag, fakeRegistry, fakeUI)
-		if err == nil {
-			t.Fatalf("expected test to fail, but it did not")
-		}
-		expectedError := "Expected image lock to not contain bundle reference: 'my.registry.io/bundle@sha256:703218c0465075f4425e58fac086e09e1de5c340b12976ab9eb8ad26615c3715'"
-		if err.Error() != expectedError {
-			t.Fatalf("Error message not expected\nExpected: %s\nGot: %s", expectedError, err.Error())
-		}
-	})
-
-	t.Run("when allowInnerBundles is true, push is successful", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, true)
+	t.Run("push is successful", func(t *testing.T) {
+		subject := bundle.NewContents([]string{bundleDir}, nil)
 		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
 		if err != nil {
 			t.Fatalf("failed to read tag: %s", err)
@@ -89,21 +72,8 @@ images:
 	bundleImg.ConfigFileReturns(cfgFile, nil)
 	fakeRegistry.ImageReturns(bundleImg, nil)
 
-	t.Run("when allowInnerBundles is false, push is successful", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, false)
-		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
-		if err != nil {
-			t.Fatalf("failed to read tag: %s", err)
-		}
-
-		_, err = subject.Push(imgTag, fakeRegistry, fakeUI)
-		if err != nil {
-			t.Fatalf("not expecting push to fail: %s", err)
-		}
-	})
-
-	t.Run("when allowInnerBundles is true, push is successful", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, true)
+	t.Run("push is successful", func(t *testing.T) {
+		subject := bundle.NewContents([]string{bundleDir}, nil)
 		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
 		if err != nil {
 			t.Fatalf("failed to read tag: %s", err)
