@@ -77,17 +77,9 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 
 		switch {
 		case bundleLock != nil:
-			bundle := ctlbundle.NewBundle(bundleLock.Bundle.Image, o.registry)
-			imagesLock, err := bundle.AllImagesLock()
+			_, imageRefs, err := o.getBundleImageRefs(bundleLock.Bundle.Image)
 			if err != nil {
-				if ctlbundle.IsNotBundleError(err) {
-					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-				}
 				return nil, err
-			}
-			imageRefs, err := imagesLock.LocationPrunedImageRefs()
-			if err != nil {
-				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
 			}
 
 			for _, img := range imageRefs {
@@ -136,19 +128,9 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		return unprocessedImageRefs, nil
 
 	default:
-		bundle := ctlbundle.NewBundle(o.BundleFlags.Bundle, o.registry)
-
-		imgLock, err := bundle.AllImagesLock()
+		bundle, imageRefs, err := o.getBundleImageRefs(o.BundleFlags.Bundle)
 		if err != nil {
-			if ctlbundle.IsNotBundleError(err) {
-				return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-			}
 			return nil, err
-		}
-
-		imageRefs, err := imgLock.LocationPrunedImageRefs()
-		if err != nil {
-			return nil, fmt.Errorf("Pruning image ref locations: %s", err)
 		}
 
 		for _, img := range imageRefs {
@@ -161,6 +143,24 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	}
 
 	panic("Unreachable")
+}
+
+func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {
+	bundle := ctlbundle.NewBundle(bundleRef, o.registry)
+
+	imgLock, err := bundle.AllImagesLock()
+	if err != nil {
+		if ctlbundle.IsNotBundleError(err) {
+			return nil, nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		}
+		return nil, nil, err
+	}
+
+	imageRefs, err := imgLock.LocationPrunedImageRefs()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Pruning image ref locations: %s", err)
+	}
+	return bundle, imageRefs, nil
 }
 
 func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {
