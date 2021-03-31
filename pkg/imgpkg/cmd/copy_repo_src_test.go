@@ -79,6 +79,8 @@ kind: BundleLock
 bundle:
   image: %s
 `, bundleWithNested.RefDigest)))
+		assert.NoError(t, err)
+
 		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
 		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
 
@@ -396,6 +398,8 @@ kind: BundleLock
 bundle:
   image: %s
 `, bundleWithNestedBundle.RefDigest)))
+		assert.NoError(t, err)
+
 		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
 		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
 
@@ -470,6 +474,35 @@ func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakeDockerhubRegistry.Build()
 
 	t.Run("Images are copied from fake-registry and not from the bundle's ImagesLockFile registry (index.docker.io)", func(t *testing.T) {
+		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
+		require.NoError(t, err, "expected copy command to succeed")
+
+		require.Len(t, processedImages.All(), 2)
+		for _, processedImage := range processedImages.All() {
+			assert.Contains(t, processedImage.UnprocessedImageRef.DigestRef, fakePrivateRegistry.
+				ReferenceOnTestServer(sourceBundleName))
+		}
+	})
+
+	t.Run("Using a BundleLock file, Images are copied from fake-registry and not from the bundle's ImagesLockFile registry (index.docker.io)", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		bundleLock, err := lockconfig.NewBundleLockFromBytes([]byte(fmt.Sprintf(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+bundle:
+  image: %s
+`, bundleWithImageRefsToDockerhub.RefDigest)))
+		assert.NoError(t, err)
+
+		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
+		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
+
+		subject := subject
+		subject.BundleFlags.Bundle = ""
+		subject.LockInputFlags.LockFilePath = bundleLockTempDir
+
 		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
 		require.NoError(t, err, "expected copy command to succeed")
 

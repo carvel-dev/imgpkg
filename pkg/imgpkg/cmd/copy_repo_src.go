@@ -91,7 +91,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 			}
 
 			for _, img := range imageRefs {
-				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.Image})
+				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 			}
 
 			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
