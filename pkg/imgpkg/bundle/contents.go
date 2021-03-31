@@ -13,7 +13,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
 
@@ -24,9 +23,8 @@ const (
 )
 
 type Contents struct {
-	paths             []string
-	excludedPaths     []string
-	allowInnerBundles bool
+	paths         []string
+	excludedPaths []string
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadataWriter
@@ -35,12 +33,12 @@ type ImagesMetadataWriter interface {
 	WriteImage(regname.Reference, regv1.Image) error
 }
 
-func NewContents(paths []string, excludedPaths []string, allowInnerBundles bool) Contents {
-	return Contents{paths: paths, excludedPaths: excludedPaths, allowInnerBundles: allowInnerBundles}
+func NewContents(paths []string, excludedPaths []string) Contents {
+	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
 func (b Contents) Push(uploadRef regname.Tag, registry ImagesMetadataWriter, ui ui.UI) (string, error) {
-	err := b.validate(registry)
+	err := b.validate()
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +64,7 @@ func (b Contents) PresentsAsBundle() (bool, error) {
 	return true, nil
 }
 
-func (b Contents) validate(registry ctlimg.ImagesMetadata) error {
+func (b Contents) validate() error {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
 		return err
@@ -77,40 +75,7 @@ func (b Contents) validate(registry ctlimg.ImagesMetadata) error {
 		return err
 	}
 
-	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(imgpkgDirs[0], ImagesLockFile))
-	if err != nil {
-		return err
-	}
-
-	if b.allowInnerBundles {
-		return nil
-	}
-
-	bundles, err := b.checkForBundles(registry, imagesLock.Images)
-	if err != nil {
-		return fmt.Errorf("Checking image lock for bundles: %s", err)
-	}
-
-	if len(bundles) != 0 {
-		return fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
-	}
-
 	return nil
-}
-
-func (b Contents) checkForBundles(reg ctlimg.ImagesMetadata, imageRefs []lockconfig.ImageRef) ([]string, error) {
-	var bundles []string
-	for _, img := range imageRefs {
-		isBundle, err := NewBundle(img.Image, reg).IsBundle()
-		if err != nil {
-			return nil, err
-		}
-
-		if isBundle {
-			bundles = append(bundles, img.Image)
-		}
-	}
-	return bundles, nil
 }
 
 func (b *Contents) findImgpkgDirs() ([]string, error) {

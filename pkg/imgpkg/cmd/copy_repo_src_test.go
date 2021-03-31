@@ -83,7 +83,6 @@ bundle:
 		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
 
 		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.BundleFlags.Bundle = ""
 		subject.LockInputFlags.LockFilePath = bundleLockTempDir
 		subject.registry = fakeRegistry.Build()
@@ -184,7 +183,6 @@ images:
 		bundleWithNested := fakeRegistry.WithBundleFromPath("library/with-nested-bundle", bundleDir)
 
 		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.registry = fakeRegistry.Build()
 
 		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(bundleWithNested.BundleName + "@" +
@@ -369,7 +367,6 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 
 	t.Run("When recursive bundle is enabled, it copies every image to repo", func(t *testing.T) {
 		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
@@ -388,25 +385,6 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 			destRepo + "@" + randomImage2.Digest,
 		})
 
-	})
-
-	t.Run("When recursive bundle is not enabled,  it returns an error message to the user", func(t *testing.T) {
-		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: false}
-		subject.registry = fakeRegistry.Build()
-
-		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
-		assert.NoError(t, err)
-		require.Len(t, processedImages.All(), 2)
-		processedImageDigest := []string{}
-		for _, processedImage := range processedImages.All() {
-			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
-		}
-		assert.ElementsMatch(t, processedImageDigest, []string{
-			destRepo + "@" + bundleWithNestedBundle.Digest,
-			destRepo + "@" + bundleWithTwoImages.Digest,
-		})
 	})
 
 	t.Run("When recursive bundle is enabled and a lock file is provided, it copies every image to repo", func(t *testing.T) {
@@ -422,7 +400,6 @@ bundle:
 		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
 
 		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.BundleFlags.Bundle = ""
 		subject.LockInputFlags.LockFilePath = bundleLockTempDir
 		subject.registry = fakeRegistry.Build()
@@ -445,38 +422,6 @@ bundle:
 
 	})
 
-	t.Run("When recursive bundle is not enabled and a lock file is provided, it returns an error message to the user", func(t *testing.T) {
-		assets := &helpers.Assets{T: t}
-		defer assets.CleanCreatedFolders()
-		bundleLock, err := lockconfig.NewBundleLockFromBytes([]byte(fmt.Sprintf(`
-apiVersion: imgpkg.carvel.dev/v1alpha1
-kind: BundleLock
-bundle:
- image: %s
-`, bundleWithNestedBundle.RefDigest)))
-		assert.NoError(t, err)
-		bundleLockTempDir := filepath.Join(assets.CreateTempFolder("bundle-lock"), "lock.yml")
-		assert.NoError(t, bundleLock.WriteToPath(bundleLockTempDir))
-
-		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: false}
-		subject.BundleFlags.Bundle = ""
-		subject.LockInputFlags.LockFilePath = bundleLockTempDir
-		subject.registry = fakeRegistry.Build()
-
-		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
-		require.Len(t, processedImages.All(), 2)
-		processedImageDigest := []string{}
-		for _, processedImage := range processedImages.All() {
-			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
-		}
-		assert.ElementsMatch(t, processedImageDigest, []string{
-			destRepo + "@" + bundleWithNestedBundle.Digest,
-			destRepo + "@" + bundleWithTwoImages.Digest,
-		})
-	})
-
 	t.Run("When recursive bundle is enabled and an images lock file is provided, it returns an error message to the user", func(t *testing.T) {
 		assets := &helpers.Assets{T: t}
 		defer assets.CleanCreatedFolders()
@@ -490,7 +435,6 @@ images:
 		assert.NoError(t, imagesLock.WriteToPath(imagesLockTempDir))
 
 		subject := subject
-		subject.ExperimentalFlags = ExperimentalFlags{RecursiveBundles: true}
 		subject.BundleFlags.Bundle = ""
 		subject.LockInputFlags.LockFilePath = imagesLockTempDir
 		subject.registry = fakeRegistry.Build()

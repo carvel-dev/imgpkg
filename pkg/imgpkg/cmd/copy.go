@@ -18,13 +18,12 @@ import (
 )
 
 type CopyOptions struct {
-	ImageFlags        ImageFlags
-	BundleFlags       BundleFlags
-	LockInputFlags    LockInputFlags
-	LockOutputFlags   LockOutputFlags
-	TarFlags          TarFlags
-	RegistryFlags     RegistryFlags
-	ExperimentalFlags ExperimentalFlags
+	ImageFlags      ImageFlags
+	BundleFlags     BundleFlags
+	LockInputFlags  LockInputFlags
+	LockOutputFlags LockOutputFlags
+	TarFlags        TarFlags
+	RegistryFlags   RegistryFlags
 
 	RepoDst                 string
 	Concurrency             int
@@ -57,7 +56,6 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.LockOutputFlags.Set(cmd)
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
-	o.ExperimentalFlags.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable", false,
@@ -115,7 +113,6 @@ func (o *CopyOptions) Run() error {
 			BundleFlags:             o.BundleFlags,
 			LockInputFlags:          o.LockInputFlags,
 			IncludeNonDistributable: o.IncludeNonDistributable,
-			ExperimentalFlags:       o.ExperimentalFlags,
 
 			registry:    registry,
 			imageSet:    imageSet,

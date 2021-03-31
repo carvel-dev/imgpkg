@@ -22,7 +22,6 @@ type CopyRepoSrc struct {
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
 	IncludeNonDistributable bool
-	ExperimentalFlags       ExperimentalFlags
 	logger                  *ctlimg.LoggerPrefixWriter
 	imageSet                ctlimgset.ImageSet
 	tarImageSet             ctlimgset.TarImageSet
@@ -79,27 +78,16 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		switch {
 		case bundleLock != nil:
 			bundle := ctlbundle.NewBundle(bundleLock.Bundle.Image, o.registry)
-			var imageRefs []lockconfig.ImageRef
-			if o.ExperimentalFlags.RecursiveBundles {
-				imagesLock, err := bundle.AllImagesLock()
-				if err != nil {
-					if ctlbundle.IsNotBundleError(err) {
-						return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-					}
-					return nil, err
+			imagesLock, err := bundle.AllImagesLock()
+			if err != nil {
+				if ctlbundle.IsNotBundleError(err) {
+					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 				}
-				imageRefs, err = imagesLock.LocationPrunedImageRefs()
-				if err != nil {
-					return nil, fmt.Errorf("Pruning image ref locations: %s", err)
-				}
-
-			} else {
-				imagesLock, err := o.getBundleWithoutNestedBundleImagesLockLocalized(bundle)
-				if err != nil {
-					return nil, err
-				}
-
-				imageRefs = imagesLock.Images
+				return nil, err
+			}
+			imageRefs, err := imagesLock.LocationPrunedImageRefs()
+			if err != nil {
+				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
 			}
 
 			for _, img := range imageRefs {
@@ -150,29 +138,17 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	default:
 		bundle := ctlbundle.NewBundle(o.BundleFlags.Bundle, o.registry)
 
-		var imageRefs []lockconfig.ImageRef
-		if o.ExperimentalFlags.RecursiveBundles {
-			imgLock, err := bundle.AllImagesLock()
-			if err != nil {
-				if ctlbundle.IsNotBundleError(err) {
-					return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-				}
-				return nil, err
+		imgLock, err := bundle.AllImagesLock()
+		if err != nil {
+			if ctlbundle.IsNotBundleError(err) {
+				return nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 			}
+			return nil, err
+		}
 
-			imageRefs, err = imgLock.LocationPrunedImageRefs()
-			if err != nil {
-				return nil, fmt.Errorf("Pruning image ref locations: %s", err)
-			}
-		} else {
-			// TODO switch to using fallback URLs for each image
-			// instead of trying to use localized bundle URLs here
-			imagesLock, err := o.getBundleWithoutNestedBundleImagesLockLocalized(bundle)
-			if err != nil {
-				return nil, err
-			}
-
-			imageRefs = imagesLock.Images
+		imageRefs, err := imgLock.LocationPrunedImageRefs()
+		if err != nil {
+			return nil, fmt.Errorf("Pruning image ref locations: %s", err)
 		}
 
 		for _, img := range imageRefs {
@@ -185,17 +161,6 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	}
 
 	panic("Unreachable")
-}
-
-func (o CopyRepoSrc) getBundleWithoutNestedBundleImagesLockLocalized(bundle *ctlbundle.Bundle) (lockconfig.ImagesLock, error) {
-	imagesLock, err := bundle.ImagesLockLocalized()
-	if err != nil {
-		if ctlbundle.IsNotBundleError(err) {
-			return lockconfig.ImagesLock{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-		}
-		return lockconfig.ImagesLock{}, err
-	}
-	return imagesLock, nil
 }
 
 func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {
