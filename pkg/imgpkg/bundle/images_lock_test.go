@@ -5,97 +5,19 @@ package bundle_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
-}
-
-func TestImagesLock_WriteToPath(t *testing.T) {
-	assets := helpers.Assets{T: t}
-	defer assets.CleanCreatedFolders()
-
-	t.Run("When an Image is not a Bundle, it does not update the ImagesLock file", func(t *testing.T) {
-		bundleFolder := assets.CreateTempFolder("no-update")
-		require.NoError(t, os.MkdirAll(filepath.Join(bundleFolder, ".imgpkg"), 0700))
-
-		imageLock := lockconfig.ImagesLock{
-			LockVersion: lockconfig.LockVersion{
-				APIVersion: lockconfig.ImagesLockAPIVersion,
-				Kind:       lockconfig.ImagesLockKind,
-			},
-			Images: []lockconfig.ImageRef{
-				{
-					Image: "some.place/repo@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632",
-				},
-				{
-					Image: "gcr.io/cf-k8s-lifecycle-tooling-klt/nginx@sha256:f35b49b1d18e083235015fd4bbeeabf6a49d9dc1d3a1f84b7df3794798b70c13",
-				},
-			},
-		}
-		fakeDigestRetrieval := func(reference regname.Reference) (regv1.Hash, error) {
-			// Error out when checking for nginx image in the same repository as the bundle
-			if reference.Identifier() != "sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632" &&
-				reference.Context().Name() == "some.place/repo" {
-				return regv1.Hash{}, fmt.Errorf("failed")
-			}
-			return regv1.Hash{}, nil
-		}
-		uiOutput, err := runWriteToPath(imageLock, fakeDigestRetrieval, bundleFolder)
-		require.NoError(t, err)
-		assert.Contains(t, uiOutput, "skipping lock file update")
-
-		resultImagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(bundleFolder, ".imgpkg", "images.yml"))
-		require.NoError(t, err)
-		require.Len(t, resultImagesLock.Images, 2)
-		assert.Equal(t, imageLock.Images[0].Image, resultImagesLock.Images[0].Image)
-		assert.Equal(t, imageLock.Images[1].Image, resultImagesLock.Images[1].Image)
-	})
-
-	t.Run("when all images are in the bundle repo, it updates the ImagesLock file", func(t *testing.T) {
-		bundleFolder := assets.CreateTempFolder("updated")
-		require.NoError(t, os.MkdirAll(filepath.Join(bundleFolder, ".imgpkg"), 0700))
-
-		imageLock := lockconfig.ImagesLock{
-			LockVersion: lockconfig.LockVersion{
-				APIVersion: lockconfig.ImagesLockAPIVersion,
-				Kind:       lockconfig.ImagesLockKind,
-			},
-			Images: []lockconfig.ImageRef{
-				{
-					Image: "some.other.place/repo@sha256:8136ff3a64517457b91f86bf66b8ffe13b986aaf3511887eda107e59dcb8c632",
-				},
-			},
-		}
-		fakeDigestRetrieval := func(reference regname.Reference) (regv1.Hash, error) {
-			if reference.Context().Name() != "some.place/repo" {
-				return regv1.Hash{}, fmt.Errorf("not found")
-			}
-			return regv1.Hash{}, nil
-		}
-		uiOutput, err := runWriteToPath(imageLock, fakeDigestRetrieval, bundleFolder)
-		require.NoError(t, err)
-		require.Contains(t, uiOutput, "Updating all images in the ImagesLock file")
-
-		resultImagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(bundleFolder, ".imgpkg", "images.yml"))
-		require.NoError(t, err)
-		require.Len(t, resultImagesLock.Images, 1)
-		assert.NotEqual(t, imageLock.Images[0].Image, resultImagesLock.Images[0].Image)
-	})
 }
 
 func TestImagesLock_LocalizeImagesLock(t *testing.T) {
@@ -251,16 +173,4 @@ func TestImagesLock_Merge(t *testing.T) {
 		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imagesRefs[0].Image)
 		assert.Equal(t, map[string]string{"will be": "kept"}, imagesRefs[0].Annotations)
 	})
-}
-
-func runWriteToPath(imagesLock lockconfig.ImagesLock, fakeDigestHandler func(reference regname.Reference) (regv1.Hash, error), bundleFolder string) (string, error) {
-	fakeRegistry := &imagefakes.FakeImagesMetadata{}
-	fakeRegistry.DigestCalls(fakeDigestHandler)
-	uiOutput := ""
-	uiFake := &bundlefakes.FakeUI{}
-	uiFake.BeginLinefCalls(func(s string, i ...interface{}) {
-		uiOutput = fmt.Sprintf("%s%s", uiOutput, fmt.Sprintf(s, i...))
-	})
-	subject := ctlbundle.NewImagesLock(imagesLock, fakeRegistry, "some.place/repo")
-	return uiOutput, subject.WriteToPath(bundleFolder, uiFake)
 }

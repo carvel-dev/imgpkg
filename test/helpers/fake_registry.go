@@ -87,7 +87,7 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
 
-	return BundleInfo{r, bundleName, path, digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
+	return BundleInfo{r, bundle, bundleName, path, digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
 }
 
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
@@ -104,7 +104,7 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
 
-	return BundleInfo{r, bundleName, "", digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
+	return BundleInfo{r, bundle, bundleName, "", digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
 }
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
@@ -139,7 +139,7 @@ func (r *FakeTestRegistryBuilder) CopyImage(img ImageOrImageIndexWithTarPath, to
 func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
 	newBundle := *r.images[bundleInfo.BundleName]
 	r.updateState(to, newBundle.Image, nil, "")
-	return BundleInfo{r, to, "", bundleInfo.Digest, bundleInfo.RefDigest}
+	return BundleInfo{r, newBundle.Image, to, "", bundleInfo.Digest, bundleInfo.RefDigest}
 }
 
 func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) {
@@ -207,6 +207,7 @@ func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, 
 
 type BundleInfo struct {
 	r          *FakeTestRegistryBuilder
+	Image      v1.Image
 	BundleName string
 	BundlePath string
 	Digest     string

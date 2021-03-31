@@ -51,8 +51,8 @@ func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) err
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 }
 
-func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
-	bundlePath string, imagesProcessed map[string]bool, numSubBundles int) error {
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string,
+	imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
 	if err != nil {
 		return err
@@ -74,8 +74,13 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
+	localizedImagesLockToRepo, notLocalizedToBundle, err := NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
+	if err != nil {
+		return err
+	}
+
 	if pullNestedBundles {
-		for _, image := range imagesLock.Images {
+		for _, image := range localizedImagesLockToRepo.Images {
 			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
 				if isBundle {
 					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
@@ -104,8 +109,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if err != nil {
 				return err
 			}
-			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui),
-				pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
 			if err != nil {
 				return err
 			}
@@ -117,9 +121,16 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		imagesLockUI = goui.NewNoopUI()
 	}
 
-	err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).WriteToPath(filepath.Join(baseOutputPath, bundlePath), imagesLockUI)
-	if err != nil {
-		return fmt.Errorf("Rewriting image lock file: %s", err)
+	imagesLockUI.BeginLinef("\nLocating image lock file images...\n")
+	if notLocalizedToBundle {
+		imagesLockUI.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
+	} else {
+		imagesLockUI.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
+
+		err := localizedImagesLockToRepo.WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
+		if err != nil {
+			return fmt.Errorf("Rewriting image lock file: %s", err)
+		}
 	}
 
 	return nil

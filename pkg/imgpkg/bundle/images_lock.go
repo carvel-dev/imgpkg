@@ -5,10 +5,8 @@ package bundle
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -53,27 +51,6 @@ func (o *ImagesLock) GenerateImagesLocations() error {
 
 func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
 	o.imagesLock.AddImageRef(ref)
-}
-
-func (o *ImagesLock) WriteToPath(outputPath string, ui ui.UI) error {
-	imagesLockPath := filepath.Join(outputPath, ImgpkgDir, ImagesLockFile)
-
-	imagesLock, skipped, err := o.LocalizeImagesLock()
-	if err != nil {
-		return err
-	}
-
-	ui.BeginLinef("\nLocating image lock file images...\n")
-
-	if skipped {
-		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
-	} else {
-		ui.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.relativeToRepo)
-		ui.BeginLinef("\nUpdating all images in the ImagesLock file: %s\n", imagesLockPath)
-		ui.BeginLinef("+ Changing all image registry/repository references in %s to %s\n", imagesLockPath, o.relativeToRepo)
-	}
-
-	return imagesLock.WriteToPath(imagesLockPath)
 }
 
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {

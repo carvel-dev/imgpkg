@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPullBundlesWritingContentsToDisk(t *testing.T) {
+func TestPullBundleWritingContentsToDisk(t *testing.T) {
 	fakeUI := &bundlefakes.FakeUI{}
 	pullNestedBundles := false
 
@@ -43,7 +43,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		expectedConfigFile, err := os.ReadFile("test_assets/bundle/config.yml")
 		assert.NoError(t, err)
-		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
+		assert.Equal(t, string(expectedConfigFile), string(actualConfigFile))
 	})
 
 	t.Run("bundle referencing another bundle that references another bundle does *not* pull nested bundles", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestPullBundlesWritingContentsToDisk(t *testing.T) {
 	})
 }
 
-func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
+func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 	fakeUI := &bundlefakes.FakeUI{}
 	pullNestedBundles := true
 
@@ -100,7 +100,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		expectedConfigFile, err := os.ReadFile("test_assets/bundle/config.yml")
 		assert.NoError(t, err)
-		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
+		assert.Equal(t, string(expectedConfigFile), string(actualConfigFile))
 	})
 
 	t.Run("bundle referencing another bundle does pull nested bundles", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		expectedConfigFile, err := os.ReadFile("test_assets/bundle_with_mult_images/config.yml")
 		assert.NoError(t, err)
-		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
+		assert.Equal(t, string(expectedConfigFile), string(actualConfigFile))
 	})
 
 	t.Run("bundle referencing another bundle that references another bundle does pull nested bundles", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		expectedConfigFile, err := os.ReadFile("test_assets/bundle_apples_with_single_bundle/config.yml")
 		assert.NoError(t, err)
-		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
+		assert.Equal(t, string(expectedConfigFile), string(actualConfigFile))
 
 		// assert apples bundle was recursively pulled onto disk
 		outputDirConfigFile = filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(applesBundle.Digest, "sha256:", "sha256-"), "config.yml")
@@ -165,11 +165,125 @@ func TestPullAllNestedBundlesWritingContentsToDisk(t *testing.T) {
 		assert.NoError(t, err)
 		expectedConfigFile, err = os.ReadFile("test_assets/bundle_with_mult_images/config.yml")
 		assert.NoError(t, err)
-		assert.Equal(t, string(actualConfigFile), string(expectedConfigFile))
+		assert.Equal(t, string(expectedConfigFile), string(actualConfigFile))
 	})
 }
 
-func TestPullBundlesOutputToUser(t *testing.T) {
+func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
+	fakeUI := &bundlefakes.FakeUI{}
+	pullNestedBundles := true
+
+	t.Run("bundle referencing another bundle in the same repo updates both bundle's imageslock", func(t *testing.T) {
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
+		randomImageFromPrivateRegistry := fakeRegistry.WithImage("library/image1", randomImageColocatedWithIcecreamBundle.Image)
+
+		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageFromPrivateRegistry.RefDigest},
+		})
+
+		randomBundleCollocatedWithRootBundle := fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", icecreamBundle.Image)
+		randomImageCollocatedWithRootBundle := fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", randomImageColocatedWithIcecreamBundle.Image)
+
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: icecreamBundle.RefDigest},
+		})
+
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		assert.NoError(t, err)
+
+		assert.DirExists(t, outputPath)
+		rootBundleImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "images.yml")
+		assert.FileExists(t, rootBundleImagesYmlFile)
+		rootImagesYmlFile, err := os.ReadFile(rootBundleImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, randomBundleCollocatedWithRootBundle.RefDigest), string(rootImagesYmlFile))
+
+		outputDirImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(icecreamBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
+		assert.FileExists(t, outputDirImagesYmlFile)
+		nestedImagesYmlFile, err := os.ReadFile(outputDirImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, randomImageCollocatedWithRootBundle.RefDigest), string(nestedImagesYmlFile))
+	})
+
+	t.Run("bundle referencing two bundles, only 1 is relocated, should update only the 1 that is relocated imageslock", func(t *testing.T) {
+		fakePublicRegistry := helpers.NewFakeRegistry(t)
+		defer fakePublicRegistry.CleanUp()
+
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+
+		randomImageFromFakeRegistry := fakeRegistry.WithRandomImage("icecream/bundle")
+		randomImageFromPublicRegistry := fakePublicRegistry.WithImage("library/image1", randomImageFromFakeRegistry.Image)
+
+		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageFromPublicRegistry.RefDigest},
+		})
+
+		appleBundle := fakeRegistry.WithBundleFromPath("apple/bundle", "test_assets/bundle_apples_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageFromPublicRegistry.RefDigest},
+		})
+
+		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_and_apple", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: icecreamBundle.RefDigest},
+			{Image: appleBundle.RefDigest},
+		})
+
+		fakePublicRegistry.Build()
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_and_apple"), fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		assert.NoError(t, err)
+
+		outputDirImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(icecreamBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
+		assert.FileExists(t, outputDirImagesYmlFile)
+		actualImagesYmlFile, err := os.ReadFile(outputDirImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, randomImageFromFakeRegistry.RefDigest), string(actualImagesYmlFile))
+
+		outputDirImagesYmlFile = filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(appleBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
+		assert.FileExists(t, outputDirImagesYmlFile)
+		actualImagesYmlFile, err = os.ReadFile(outputDirImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, randomImageFromPublicRegistry.RefDigest), string(actualImagesYmlFile))
+	})
+}
+
+func TestPullBundleOutputToUser(t *testing.T) {
 	pullNestedBundles := false
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
@@ -228,10 +342,53 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 
 func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 	pullNestedBundles := true
+	output := bytes.NewBufferString("")
+	writerUI := ui.NewWriterUI(output, output, nil)
 
-	t.Run("bundle referencing another bundle", func(t *testing.T) {
-		output := bytes.NewBufferString("")
-		writerUI := ui.NewWriterUI(output, output, nil)
+	t.Run("bundle referencing another collocated bundle", func(t *testing.T) {
+		defer output.Reset()
+
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
+		randomImageFromPrivateRegistry := fakeRegistry.WithImage("library/image1", randomImageColocatedWithIcecreamBundle.Image)
+
+		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageFromPrivateRegistry.RefDigest},
+		})
+
+		fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", icecreamBundle.Image)
+		fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", randomImageColocatedWithIcecreamBundle.Image)
+
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: icecreamBundle.RefDigest},
+		})
+
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		assert.NoError(t, err)
+
+		assert.Regexp(t,
+			fmt.Sprintf(`Pulling bundle .*
+  Extracting layer .*
+
+Nested bundles
+  Pulling nested bundle .*
+    Extracting layer .*
+
+Locating image lock file images...
+The bundle repo \(%s\) is hosting every image specified in the bundle's Images Lock file \(\.imgpkg/images\.yml\)
+`, fakeRegistry.ReferenceOnTestServer("repo/bundle-with-collocated-bundles")), output.String())
+	})
+
+	t.Run("bundle referencing another *not* colocated bundle", func(t *testing.T) {
+		defer output.Reset()
+
 		fakeRegistry := helpers.NewFakeRegistry(t)
 		defer fakeRegistry.CleanUp()
 
@@ -262,8 +419,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 	})
 
 	t.Run("bundle referencing multiple of the same bundles", func(t *testing.T) {
-		output := bytes.NewBufferString("")
-		writerUI := ui.NewWriterUI(output, output, nil)
+		defer output.Reset()
 
 		fakeRegistry := helpers.NewFakeRegistry(t)
 		defer fakeRegistry.CleanUp()
@@ -318,9 +474,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleW
 	})
 
 	t.Run("bundle referencing another bundle that references another bundle", func(t *testing.T) {
-		// setup
-		output := bytes.NewBufferString("")
-		writerUI := ui.NewWriterUI(output, output, nil)
+		defer output.Reset()
 
 		fakeRegistry := helpers.NewFakeRegistry(t)
 		defer fakeRegistry.CleanUp()
