@@ -72,10 +72,10 @@ images:
 `, fmt.Sprintf("%s@%s", uniqueImageName, bundleDigestRef))
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
-		outerBundleOut := imgpkg.Run([]string{"push", "--tty", "-b", uniqueImageName, "-f", bundleDir, "--experimental-recursive-bundle"})
+		outerBundleOut := imgpkg.Run([]string{"push", "--tty", "-b", uniqueImageName, "-f", bundleDir})
 		outerBundleDigestRef := helpers.ExtractDigest(t, outerBundleOut)
 
-		imgpkg.Run([]string{"copy", "--experimental-recursive-bundle", "-b", uniqueImageName + "@" + outerBundleDigestRef, "--to-repo", uniqueImageName})
+		imgpkg.Run([]string{"copy", "-b", uniqueImageName + "@" + outerBundleDigestRef, "--to-repo", uniqueImageName})
 
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 
