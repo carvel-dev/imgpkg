@@ -185,7 +185,7 @@ func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 }
 
 func registryKeychain(opts RegistryOpts) regauthn.Keychain {
-	return customRegistryKeychain{opts}
+	return regauthn.NewMultiKeychain(customRegistryKeychain{opts}, NewEnvKeychain("IMGPKG_REGISTRY"))
 }
 
 func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {
