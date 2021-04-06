@@ -15,10 +15,13 @@ func TestAuthErr(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
+	outputDir := env.Assets.CreateTempFolder("pull-image")
+	defer env.Assets.CleanCreatedFolders()
+
 	var stderrBs bytes.Buffer
 
 	_, err := imgpkg.RunWithOpts([]string{
-		"pull", "-i", "index.docker.io/k8slt/imgpkg-test", "-o", "/tmp/unused",
+		"pull", "-i", "index.docker.io/k8slt/imgpkg-test", "-o", outputDir,
 		"--registry-username", "incorrect-user",
 		"--registry-password", "incorrect-password",
 	}, helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})

@@ -63,7 +63,7 @@ func NewRegistry(opts RegistryOpts) (Registry, error) {
 
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(registryKeychain(opts)),
+		regremote.WithAuthFromKeychain(registryMultiKeychain(opts)),
 	}
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
@@ -184,8 +184,9 @@ func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 	return regremote.List(overriddenRepo, i.opts...)
 }
 
-func registryKeychain(opts RegistryOpts) regauthn.Keychain {
-	return regauthn.NewMultiKeychain(customRegistryKeychain{opts}, NewEnvKeychain("IMGPKG_REGISTRY"))
+func registryMultiKeychain(opts RegistryOpts) regauthn.Keychain {
+	//TODO: should flag or env variable take precedence if both are set
+	return regauthn.NewMultiKeychain(NewEnvKeychain("IMGPKG_REGISTRY"), customRegistryKeychain{opts})
 }
 
 func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {

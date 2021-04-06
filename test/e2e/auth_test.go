@@ -1,0 +1,77 @@
+// Copyright 2021 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+package e2e
+
+import (
+	"testing"
+
+	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBasicAuth(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+
+	outputDir := env.Assets.CreateTempFolder("pull-image")
+	defer env.Assets.CleanCreatedFolders()
+
+	expectedUsername := "expected-user"
+	expectedPassword := "expected-password"
+	imageRef := "repo/imgpkg-test"
+
+	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry.WithBasicAuth(expectedUsername, expectedPassword)
+	fakeRegistry.WithRandomImage(imageRef)
+	fakeRegistry.Build()
+
+	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_USERNAME=expected-user", "IMGPKG_REGISTRY_PASSWORD=expected-password"},
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestIdentityToken(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+
+	outputDir := env.Assets.CreateTempFolder("pull-image")
+	defer env.Assets.CleanCreatedFolders()
+
+	expectedToken := "ID_TOKEN"
+	imageRef := "repo/imgpkg-test"
+
+	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry.WithIdentityToken(expectedToken)
+	fakeRegistry.WithRandomImage(imageRef)
+	fakeRegistry.Build()
+
+	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_IDENTITY_TOKEN=" + expectedToken},
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestRegistryToken(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+
+	outputDir := env.Assets.CreateTempFolder("pull-image")
+	defer env.Assets.CleanCreatedFolders()
+
+	expectedToken := "REGISTRY_TOKEN"
+	imageRef := "repo/imgpkg-test"
+
+	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry.WithRegistryToken(expectedToken)
+	fakeRegistry.WithRandomImage(imageRef)
+	fakeRegistry.Build()
+
+	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_REGISTRY_TOKEN=" + expectedToken},
+	})
+
+	assert.NoError(t, err)
+}

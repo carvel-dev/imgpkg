@@ -9,12 +9,15 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
@@ -33,6 +36,7 @@ type FakeTestRegistryBuilder struct {
 	images map[string]*ImageOrImageIndexWithTarPath
 	server *httptest.Server
 	t      *testing.T
+	auth   authn.Authenticator
 }
 
 func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
@@ -51,9 +55,11 @@ func (r *FakeTestRegistryBuilder) Build() image.Registry {
 		assert.NoError(r.t, err)
 
 		if val.Image != nil {
-			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable)
+			auth := regremote.WithAuth(r.auth)
+
+			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image)
+			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
 			assert.NoError(r.t, err)
 		}
 
@@ -69,6 +75,103 @@ func (r *FakeTestRegistryBuilder) Build() image.Registry {
 	reg, err := image.NewRegistry(image.RegistryOpts{})
 	assert.NoError(r.t, err)
 	return reg
+}
+
+func (r *FakeTestRegistryBuilder) WithBasicAuth(username string, password string) {
+	parentHandler := r.server.Config.Handler
+
+	authenticatedRegistry := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.String(), "/v2/") {
+			// In order to let ggcr know that this registry uses authentication, the /v2/ endpoint needs to return a
+			// 'challenge' response when 'pinging' the /v2/ endpoint.
+			writer.Header().Add("WWW-Authenticate", "Basic")
+			writer.WriteHeader(401)
+			return
+		}
+
+		usernameFromReq, passwordFromReq, ok := request.BasicAuth()
+		if usernameFromReq != username || passwordFromReq != password || !ok {
+			writer.WriteHeader(401)
+			return
+		}
+
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.auth = &authn.Basic{
+		Username: username,
+		Password: password,
+	}
+	r.server.Config.Handler = authenticatedRegistry
+}
+
+func (r *FakeTestRegistryBuilder) WithIdentityToken(idToken string) {
+	const accessToken string = "access_token"
+	r.auth = &authn.Bearer{Token: accessToken}
+
+	parentHandler := r.server.Config.Handler
+
+	oauth2HandlerFunc := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.String(), "/v2/") {
+			// In order to let ggcr know that this registry uses authentication, the /v2/ endpoint needs to return a
+			// 'challenge' response when 'pinging' the /v2/ endpoint.
+
+			writer.Header().Add("WWW-Authenticate", `Bearer service="fakeRegistry",realm="`+r.server.URL+`/id_token_auth"`)
+			writer.WriteHeader(401)
+			return
+		}
+
+		if strings.HasSuffix(request.URL.String(), "/id_token_auth") {
+			requestBody, err := ioutil.ReadAll(request.Body)
+			assert.NoError(r.t, err)
+			if !strings.Contains(string(requestBody), "&refresh_token="+idToken) {
+				writer.WriteHeader(401)
+				return
+			}
+			_, _ = writer.Write([]byte(fmt.Sprintf(`{
+						"access_token": "%s",
+						"scope": "pubsub",
+						"token_type": "bearer",
+						"expires_in": 3600
+					}`, accessToken)))
+			return
+		}
+
+		if request.Header.Get("Authorization") != "Bearer "+accessToken {
+			writer.WriteHeader(401)
+			return
+		}
+
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.server.Config.Handler = oauth2HandlerFunc
+}
+
+func (r *FakeTestRegistryBuilder) WithRegistryToken(regToken string) {
+	r.auth = &authn.Bearer{Token: regToken}
+
+	parentHandler := r.server.Config.Handler
+
+	authHandlerFunc := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.String(), "/v2/") {
+			// In order to let ggcr know that this registry uses authentication, the /v2/ endpoint needs to return a
+			// 'challenge' response when 'pinging' the /v2/ endpoint.
+
+			writer.Header().Add("WWW-Authenticate", `Bearer realm="some.realm"`)
+			writer.WriteHeader(401)
+			return
+		}
+
+		if request.Header.Get("Authorization") != "Bearer "+regToken {
+			writer.WriteHeader(401)
+			return
+		}
+
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.server.Config.Handler = authHandlerFunc
 }
 
 func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
@@ -185,6 +288,12 @@ func (r *FakeTestRegistryBuilder) ReferenceOnTestServer(repo string) string {
 	return fmt.Sprintf("%s/%s", u.Host, repo)
 }
 
+func (r *FakeTestRegistryBuilder) Host() string {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
+	return u.Host
+}
+
 func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
 	imgName, err := name.ParseReference(imageName)
 	require.NoError(r.t, err)
@@ -228,7 +337,7 @@ func (r *FakeTestRegistryBuilder) RemoveImage(imageRef string) {
 	imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
 	assert.NoError(r.t, err)
 
-	err = regremote.Delete(imageRefWithTestRegistry)
+	err = regremote.Delete(imageRefWithTestRegistry, regremote.WithAuth(r.auth))
 	assert.NoError(r.t, err)
 }
 

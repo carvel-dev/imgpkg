@@ -1,7 +1,10 @@
+// Copyright 2021 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
 package image
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -9,8 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const globalTestPrefix string = "TEST_IMGPKG_REGISTRY"
+
 func TestAnonAuthWhenNoEnvVarsProvided(t *testing.T) {
-	envKeychain := NewEnvKeychain("IMGPKG_")
+	envKeychain := NewEnvKeychain(globalTestPrefix)
 	resource, err := name.NewRepository("imgpkg_test")
 	assert.NoError(t, err)
 
@@ -21,70 +26,93 @@ func TestAnonAuthWhenNoEnvVarsProvided(t *testing.T) {
 }
 
 func TestEnvAuthWhenEnvVarsProvided(t *testing.T) {
-	user := "my_cool_user"
-	pass := "my_neat_pass"
-	err := os.Setenv("TEST_IMGPKG_REGISTRY_USERNAME", user)
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_PASSWORD", pass)
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_HOSTNAME", "localhost:9999")
-	assert.NoError(t, err)
+	setTestEnv(t, "USERNAME", "user")
+	setTestEnv(t, "PASSWORD", "pass")
+	setTestEnv(t, "HOSTNAME", "localhost:9999")
 
-	defer os.Unsetenv("TEST_IMGPKG_REGISTRY_USERNAME")
-	defer os.Unsetenv("TEST_IMGPKG_REGISTRY_PASSWORD")
-	defer os.Unsetenv("TEST_IMGPKG_REGISTRY_HOSTNAME")
+	defer unsetTestEnv(t)
 
-	envKeychain := NewEnvKeychain("TEST_IMGPKG_REGISTRY")
+	envKeychain := NewEnvKeychain(globalTestPrefix)
 	resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 	assert.NoError(t, err)
 
 	auth, err := envKeychain.Resolve(resource)
 	assert.NoError(t, err)
 
-	expected := authn.FromConfig(authn.AuthConfig{
-		Username: user,
-		Password: pass,
-	})
-
-	assert.Equal(t, expected, auth)
+	assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+		Username: "user",
+		Password: "pass",
+	}), auth)
 }
 
 func TestEnvAuthWhenEnvVarsProvidedWithMultipleRegistries(t *testing.T) {
-	err := os.Setenv("TEST_IMGPKG_REGISTRY_USERNAME_0", "user_0")
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_PASSWORD_0", "pass_0")
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_HOSTNAME_0", "localhost:0000")
-	assert.NoError(t, err)
+	setTestEnv(t, "USERNAME_0", "user_0")
+	setTestEnv(t, "PASSWORD_0", "pass_0")
+	setTestEnv(t, "HOSTNAME_0", "localhost:0000")
 
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_USERNAME_1", "user_1")
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_PASSWORD_1", "pass_1")
-	assert.NoError(t, err)
-	err = os.Setenv("TEST_IMGPKG_REGISTRY_HOSTNAME_1", "localhost:1111")
-	assert.NoError(t, err)
+	setTestEnv(t, "USERNAME_1", "user_1")
+	setTestEnv(t, "PASSWORD_1", "pass_1")
+	setTestEnv(t, "HOSTNAME_1", "localhost:1111")
 
+	defer unsetTestEnv(t)
 
-	defer func() {
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_USERNAME_0")
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_PASSWORD_0")
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_HOSTNAME_0")
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_USERNAME_1")
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_PASSWORD_1")
-		os.Unsetenv("TEST_IMGPKG_REGISTRY_HOSTNAME_1")
-	}()
-
-	envKeychain := NewEnvKeychain("TEST_IMGPKG_REGISTRY")
+	envKeychain := NewEnvKeychain(globalTestPrefix)
 	resource, err := name.NewRepository("localhost:1111/imgpkg_test")
 	assert.NoError(t, err)
 
 	auth, err := envKeychain.Resolve(resource)
 	assert.NoError(t, err)
 
-	expected := authn.FromConfig(authn.AuthConfig{
+	assert.Equal(t, authn.FromConfig(authn.AuthConfig{
 		Username: "user_1",
 		Password: "pass_1",
-	})
+	}), auth)
+}
 
-	assert.Equal(t, expected, auth)
+func TestRegistryToken(t *testing.T) {
+	setTestEnv(t, "HOSTNAME", "localhost:1111")
+	setTestEnv(t, "REGISTRY_TOKEN", "TOKEN")
+
+	defer unsetTestEnv(t)
+
+	envKeychain := NewEnvKeychain(globalTestPrefix)
+	resource, err := name.NewRepository("localhost:1111/imgpkg_test")
+	assert.NoError(t, err)
+
+	auth, err := envKeychain.Resolve(resource)
+	assert.NoError(t, err)
+
+	assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+		RegistryToken: "TOKEN",
+	}), auth)
+}
+
+func TestIdentityToken(t *testing.T) {
+	setTestEnv(t, "HOSTNAME", "localhost:1111")
+	setTestEnv(t, "IDENTITY_TOKEN", "ID_TOKEN")
+
+	defer unsetTestEnv(t)
+
+	envKeychain := NewEnvKeychain(globalTestPrefix)
+	resource, err := name.NewRepository("localhost:1111/imgpkg_test")
+	assert.NoError(t, err)
+
+	auth, err := envKeychain.Resolve(resource)
+	assert.NoError(t, err)
+
+	assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+		IdentityToken: "ID_TOKEN",
+	}), auth)
+}
+
+func setTestEnv(t *testing.T, key string, value string) {
+	assert.NoError(t, os.Setenv(globalTestPrefix+"_"+key, value))
+}
+
+func unsetTestEnv(t *testing.T) {
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, globalTestPrefix) {
+			assert.NoError(t, os.Unsetenv(strings.Split(env, "=")[0]))
+		}
+	}
 }
