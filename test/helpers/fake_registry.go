@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/registry"
+	regregistry "github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -28,6 +28,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,22 +42,21 @@ type FakeTestRegistryBuilder struct {
 
 func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
-	r.server = httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
+	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
 
 	return r
 }
 
-func (r *FakeTestRegistryBuilder) Build() image.Registry {
+func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 	u, err := url.Parse(r.server.URL)
 	assert.NoError(r.t, err)
 
 	for imageRef, val := range r.images {
 		imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
 		assert.NoError(r.t, err)
+		auth := regremote.WithAuth(r.auth)
 
 		if val.Image != nil {
-			auth := regremote.WithAuth(r.auth)
-
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
 			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
@@ -64,15 +64,14 @@ func (r *FakeTestRegistryBuilder) Build() image.Registry {
 		}
 
 		if val.ImageIndex != nil {
-			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable)
+			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex)
+			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
 			assert.NoError(r.t, err)
 		}
-
 	}
 
-	reg, err := image.NewRegistry(image.RegistryOpts{})
+	reg, err := registry.NewRegistry(registry.Opts{})
 	assert.NoError(r.t, err)
 	return reg
 }

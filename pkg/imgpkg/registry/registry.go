@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package image
+package registry
 
 import (
 	"crypto/tls"
@@ -10,29 +10,16 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
+	"os"
 	"time"
 
-	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
-) // constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
-
-const (
-	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
-	// the same message and docker can handle it properly.
-	errCredentialsNotFoundMessage = "credentials not found in native keychain"
-	// ErrCredentialsMissingServerURL and ErrCredentialsMissingUsername standardize
-	// invalid credentials or credentials management operations
-	errCredentialsMissingServerURLMessage = "no credentials server URL"
-	errCredentialsMissingUsernameMessage  = "no credentials username"
-
-	globalPrefix = "IMGPKG_REGISTRY"
 )
 
-type RegistryOpts struct {
+type Opts struct {
 	CACertPaths []string
 	VerifyCerts bool
 	Insecure    bool
@@ -50,7 +37,7 @@ type Registry struct {
 	refOpts []regname.Option
 }
 
-func NewRegistry(opts RegistryOpts) (Registry, error) {
+func NewRegistry(opts Opts) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -63,7 +50,15 @@ func NewRegistry(opts RegistryOpts) (Registry, error) {
 
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(registryMultiKeychain(opts)),
+		regremote.WithAuthFromKeychain(Keychain(
+			KeychainOpts{
+				Username: opts.Username,
+				Password: opts.Password,
+				Token:    opts.Token,
+				Anon:     opts.Anon,
+			},
+			os.Environ),
+		),
 	}
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
@@ -184,11 +179,7 @@ func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 	return regremote.List(overriddenRepo, i.opts...)
 }
 
-func registryMultiKeychain(opts RegistryOpts) regauthn.Keychain {
-	return regauthn.NewMultiKeychain(customRegistryKeychain{opts}, NewEnvKeychain(globalPrefix))
-}
-
-func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {
+func newHTTPTransport(opts Opts) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		pool = x509.NewCertPool()
@@ -225,42 +216,4 @@ func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {
 			InsecureSkipVerify: (opts.VerifyCerts == false),
 		},
 	}, nil
-}
-
-type customRegistryKeychain struct {
-	opts RegistryOpts
-}
-
-func (k customRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authenticator, error) {
-	switch {
-	case len(k.opts.Username) > 0:
-		return &regauthn.Basic{Username: k.opts.Username, Password: k.opts.Password}, nil
-	case len(k.opts.Token) > 0:
-		return &regauthn.Bearer{Token: k.opts.Token}, nil
-	case k.opts.Anon:
-		return regauthn.Anonymous, nil
-	default:
-		return retryDefaultKeychain(func() (regauthn.Authenticator, error) {
-			return regauthn.DefaultKeychain.Resolve(res)
-		})
-	}
-}
-
-func retryDefaultKeychain(doFunc func() (regauthn.Authenticator, error)) (regauthn.Authenticator, error) {
-	var auth regauthn.Authenticator
-	var lastErr error
-
-	for i := 0; i < 5; i++ {
-		auth, lastErr = doFunc()
-		if lastErr == nil {
-			return auth, nil
-		}
-
-		if strings.Contains(lastErr.Error(), errCredentialsNotFoundMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingUsernameMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingServerURLMessage) {
-			return auth, lastErr
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-	return auth, fmt.Errorf("Retried 5 times: %s", lastErr)
 }

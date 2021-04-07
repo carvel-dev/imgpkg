@@ -6,7 +6,7 @@ package cmd
 import (
 	"os"
 
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -32,8 +32,8 @@ func (s *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&s.Anon, "registry-anon", false, "Set anonymous auth ($IMGPKG_ANON)")
 }
 
-func (s *RegistryFlags) AsRegistryOpts() ctlimg.RegistryOpts {
-	opts := ctlimg.RegistryOpts{
+func (s *RegistryFlags) AsRegistryOpts() registry.Opts {
+	opts := registry.Opts{
 		CACertPaths: s.CACertPaths,
 		VerifyCerts: s.VerifyCerts,
 		Insecure:    s.Insecure,
