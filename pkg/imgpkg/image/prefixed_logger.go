@@ -44,7 +44,6 @@ func (w *LoggerPrefixWriter) Write(data []byte) (int, error) {
 	w.writerLock.Lock()
 	defer w.writerLock.Unlock()
 
-	// TODO does not deal with races of multitple writers
 	_, err := w.writer.Write(newData)
 	if err != nil {
 		return 0, fmt.Errorf("write err: %s", err)

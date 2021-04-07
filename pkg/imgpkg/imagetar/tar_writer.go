@@ -202,22 +202,22 @@ func (w *TarWriter) writeLayers() error {
 }
 
 func (w *TarWriter) fillInLayers(writtenLayers map[string]writtenLayer) error {
-	var sortedWritterLayers []writtenLayer
+	var sortedWriterLayers []writtenLayer
 
 	for _, writtenLayer := range writtenLayers {
-		sortedWritterLayers = append(sortedWritterLayers, writtenLayer)
+		sortedWriterLayers = append(sortedWriterLayers, writtenLayer)
 	}
 
 	// Prefer larger sizes first
-	sort.Slice(sortedWritterLayers, func(i, j int) bool {
-		return sortedWritterLayers[i].Layer.Size >= sortedWritterLayers[j].Layer.Size
+	sort.Slice(sortedWriterLayers, func(i, j int) bool {
+		return sortedWriterLayers[i].Layer.Size >= sortedWriterLayers[j].Layer.Size
 	})
 
 	errCh := make(chan error, len(writtenLayers))
 	writeThrottle := util.NewThrottle(w.opts.Concurrency)
 
 	// Fill in actual data
-	for _, writtenLayer := range sortedWritterLayers {
+	for _, writtenLayer := range sortedWriterLayers {
 		writtenLayer := writtenLayer // copy
 
 		go func() {
