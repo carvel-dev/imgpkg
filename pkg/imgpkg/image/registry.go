@@ -18,18 +18,18 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
-)
+) // constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
 
-// constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
 const (
 	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
 	// the same message and docker can handle it properly.
 	errCredentialsNotFoundMessage = "credentials not found in native keychain"
-
 	// ErrCredentialsMissingServerURL and ErrCredentialsMissingUsername standardize
 	// invalid credentials or credentials management operations
 	errCredentialsMissingServerURLMessage = "no credentials server URL"
 	errCredentialsMissingUsernameMessage  = "no credentials username"
+
+	globalPrefix = "IMGPKG_REGISTRY"
 )
 
 type RegistryOpts struct {
@@ -185,8 +185,7 @@ func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
 }
 
 func registryMultiKeychain(opts RegistryOpts) regauthn.Keychain {
-	//TODO: should flag or env variable take precedence if both are set
-	return regauthn.NewMultiKeychain(NewEnvKeychain("IMGPKG_REGISTRY"), customRegistryKeychain{opts})
+	return regauthn.NewMultiKeychain(customRegistryKeychain{opts}, NewEnvKeychain(globalPrefix))
 }
 
 func newHTTPTransport(opts RegistryOpts) (*http.Transport, error) {

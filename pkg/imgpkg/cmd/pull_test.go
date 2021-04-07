@@ -34,7 +34,7 @@ func TestImageAndBundleAndLockError(t *testing.T) {
 	}
 }
 
-func Test_Invalid_Args_Passed(t *testing.T) {
+func TestInvalidArgsPassed(t *testing.T) {
 	confUI := ui.NewConfUI(ui.NewNoopLogger())
 	defer confUI.Flush()
 
