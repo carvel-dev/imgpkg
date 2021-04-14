@@ -57,10 +57,10 @@ func (r *FakeTestRegistryBuilder) Build() image.Registry {
 			assert.NoError(r.t, err)
 		}
 
-		if val.imageIndex != nil {
-			err = regremote.WriteIndex(imageRefWithTestRegistry, val.imageIndex, regremote.WithNondistributable)
+		if val.ImageIndex != nil {
+			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable)
 			assert.NoError(r.t, err)
-			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.imageIndex)
+			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex)
 			assert.NoError(r.t, err)
 		}
 
@@ -142,11 +142,11 @@ func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to stri
 	return BundleInfo{r, newBundle.Image, to, "", bundleInfo.Digest, bundleInfo.RefDigest}
 }
 
-func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) {
+func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) *ImageOrImageIndexWithTarPath {
 	index, err := random.Index(1024, 1, 1)
 	require.NoError(r.t, err)
 
-	r.updateState(imageName, nil, index, "")
+	return r.updateState(imageName, nil, index, "")
 }
 
 func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ...string) {
@@ -157,7 +157,7 @@ func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ..
 		imageWithARestrictedLayer, err := mutate.AppendLayers(r.images[imageName].Image, layer)
 		require.NoErrorf(r.t, err, "add layer: %s", imageName)
 
-		r.updateState(imageName, imageWithARestrictedLayer, r.images[imageName].imageIndex, r.images[imageName].path)
+		r.updateState(imageName, imageWithARestrictedLayer, r.images[imageName].ImageIndex, r.images[imageName].path)
 	}
 }
 
@@ -167,7 +167,7 @@ func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() *ImageOrImage
 
 	r.Image, err = mutate.AppendLayers(r.Image, layer)
 	require.NoError(r.t, err)
-	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.imageIndex, r.path)
+	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path)
 }
 
 func (r *FakeTestRegistryBuilder) CleanUp() {
@@ -189,20 +189,36 @@ func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, 
 	imgName, err := name.ParseReference(imageName)
 	require.NoError(r.t, err)
 
-	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, Image: image, imageIndex: imageIndex, path: path}
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, Image: image, ImageIndex: imageIndex, path: path}
+
+	var digest v1.Hash
 	if image != nil {
-		digest, err := image.Digest()
+		digest, err = image.Digest()
 		require.NoError(r.t, err)
-		imgName, err := name.ParseReference(imageName)
-		require.NoError(r.t, err)
-		imageOrImageIndexWithTarPath.RefDigest = r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
-		imageOrImageIndexWithTarPath.Digest = digest.String()
-		r.images[imgName.Context().RepositoryStr()+"@"+digest.String()] = imageOrImageIndexWithTarPath
 	} else {
-		r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
+		digest, err = imageIndex.Digest()
+		require.NoError(r.t, err)
 	}
 
+	imageOrImageIndexWithTarPath.RefDigest = r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
+	imageOrImageIndexWithTarPath.Digest = digest.String()
+	r.images[imgName.Context().RepositoryStr()+"@"+digest.String()] = imageOrImageIndexWithTarPath
+	r.images[imgName.Context().RepositoryStr()] = imageOrImageIndexWithTarPath
+
 	return imageOrImageIndexWithTarPath
+}
+
+func (r *FakeTestRegistryBuilder) WithImageIndex(imageIndexName string, images ...mutate.Appendable) *ImageOrImageIndexWithTarPath {
+	index, err := random.Index(500, 1, 1)
+	assert.NoError(r.t, err)
+
+	for _, image := range images {
+		index = mutate.AppendManifests(index, mutate.IndexAddendum{
+			Add: image,
+		})
+	}
+
+	return r.updateState(imageIndexName, nil, index, "")
 }
 
 type BundleInfo struct {
@@ -270,7 +286,7 @@ func (b BundleInfo) WithImageRefs(imageRefs []lockconfig.ImageRef) BundleInfo {
 type ImageOrImageIndexWithTarPath struct {
 	fakeRegistry *FakeTestRegistryBuilder
 	Image        v1.Image
-	imageIndex   v1.ImageIndex
+	ImageIndex   v1.ImageIndex
 	path         string
 	t            *testing.T
 	RefDigest    string
