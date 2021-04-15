@@ -107,3 +107,17 @@ func (i *ImageFactory) PushImageWithLayerSize(imgRef string, size int64) string 
 
 	return digest.String()
 }
+
+func (i *ImageFactory) PushImageIndex(imgRef string) {
+	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
+	if err != nil {
+		i.T.Fatalf(err.Error())
+	}
+
+	index, err := random.Index(1024, 1, 2)
+
+	err = remote.WriteIndex(imageRef, index, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		i.T.Fatalf(err.Error())
+	}
+}

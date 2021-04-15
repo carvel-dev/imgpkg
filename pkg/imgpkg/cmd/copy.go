@@ -8,6 +8,7 @@ import (
 	"os"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
@@ -242,17 +243,57 @@ func (o *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
 func processedImagesMediaType(processedImages *ctlimgset.ProcessedImages) []string {
 	everyMediaType := []string{}
 	for _, image := range processedImages.All() {
-		layers, err := image.Image.Layers()
-		if err != nil {
-			continue
+		if image.ImageIndex != nil {
+			mediaTypes := everyMediaTypeForAnImageIndex(image.ImageIndex)
+			everyMediaType = append(everyMediaType, mediaTypes...)
+		} else if image.Image != nil {
+			mediaTypes := everyMediaTypeForAnImage(image.Image)
+			everyMediaType = append(everyMediaType, mediaTypes...)
 		}
-		for _, layer := range layers {
-			mediaType, err := layer.MediaType()
+	}
+	return everyMediaType
+}
+
+func everyMediaTypeForAnImageIndex(imageIndex regv1.ImageIndex) []string {
+	everyMediaType := []string{}
+	indexManifest, err := imageIndex.IndexManifest()
+	if err != nil {
+		return []string{}
+	}
+	for _, descriptor := range indexManifest.Manifests {
+		if descriptor.MediaType.IsIndex() {
+			imageIndex, err := imageIndex.ImageIndex(descriptor.Digest)
 			if err != nil {
 				continue
 			}
-			everyMediaType = append(everyMediaType, string(mediaType))
+			mediaTypesForImageIndex := everyMediaTypeForAnImageIndex(imageIndex)
+			everyMediaType = append(everyMediaType, mediaTypesForImageIndex...)
+		} else {
+			image, err := imageIndex.Image(descriptor.Digest)
+			if err != nil {
+				continue
+			}
+			mediaTypeForImage := everyMediaTypeForAnImage(image)
+			everyMediaType = append(everyMediaType, mediaTypeForImage...)
 		}
+	}
+	return everyMediaType
+}
+
+func everyMediaTypeForAnImage(image regv1.Image) []string {
+	var everyMediaType []string
+
+	layers, err := image.Layers()
+	if err != nil {
+		return everyMediaType
+	}
+
+	for _, layer := range layers {
+		mediaType, err := layer.MediaType()
+		if err != nil {
+			continue
+		}
+		everyMediaType = append(everyMediaType, string(mediaType))
 	}
 	return everyMediaType
 }
