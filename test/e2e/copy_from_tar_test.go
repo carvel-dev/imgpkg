@@ -66,4 +66,27 @@ func TestCopyTarSrc(t *testing.T) {
 
 		assert.Contains(t, outputBuffer.String(), "Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable flag")
 	})
+
+	t.Run("When a tar contains an image that no longer exists on the registry", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		defer env.Cleanup()
+
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		defer fakeRegistry.CleanUp()
+		randomImage := fakeRegistry.WithRandomImage("repo/randomimage")
+		bundleInfo := fakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImage.RefDigest},
+		})
+
+		fakeRegistry.Build()
+
+		tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+		tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+		imgpkg.Run([]string{"copy", "-b", bundleInfo.RefDigest, "--to-tar", tempBundleTarFile})
+
+		fakeRegistry.RemoveImage("repo/randomimage@" + randomImage.Digest)
+
+		imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", fakeRegistry.ReferenceOnTestServer("copied-bundle")})
+	})
 }

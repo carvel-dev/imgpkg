@@ -189,11 +189,13 @@ func (ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef
 	if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
 		descriptor, err := registry.Get(itemRef)
 		if err != nil {
-			return nil, fmt.Errorf("Getting mountable image failed: %s: %s", itemRef, err)
+			// If a performance improvement cannot be done, fallback to the 'non-performant' way
+			return regv1.Image(imageWithRef), nil
 		}
 		artifactToWrite, err := descriptor.Image()
 		if err != nil {
-			return nil, fmt.Errorf("Getting mountable image from descriptor failed: %s: %s", itemRef, err)
+			// If a performance improvement cannot be done, fallback to the 'non-performant' way
+			return regv1.Image(imageWithRef), nil
 		}
 		return artifactToWrite, nil
 	}

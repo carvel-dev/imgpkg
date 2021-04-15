@@ -221,6 +221,17 @@ func (r *FakeTestRegistryBuilder) WithImageIndex(imageIndexName string, images .
 	return r.updateState(imageIndexName, nil, index, "")
 }
 
+func (r *FakeTestRegistryBuilder) RemoveImage(imageRef string) {
+	u, err := url.Parse(r.server.URL)
+	assert.NoError(r.t, err)
+
+	imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
+	assert.NoError(r.t, err)
+
+	err = regremote.Delete(imageRefWithTestRegistry)
+	assert.NoError(r.t, err)
+}
+
 type BundleInfo struct {
 	r          *FakeTestRegistryBuilder
 	Image      v1.Image
