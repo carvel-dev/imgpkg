@@ -20,58 +20,17 @@ type KeychainOpts struct {
 }
 
 func Keychain(keychainOpts KeychainOpts, environFunc func() []string) regauthn.Keychain {
-	return regauthn.NewMultiKeychain(customRegistryKeychain{opts: keychainOpts},
-		&envKeychain{environFunc: environFunc})
+	return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, customRegistryKeychain{opts: keychainOpts})
 }
 
-type customRegistryKeychain struct {
-	opts KeychainOpts
-}
+var _ regauthn.Keychain = &envKeychain{}
 
-var _ regauthn.Keychain = customRegistryKeychain{}
-
-func (k customRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authenticator, error) {
-	switch {
-	case len(k.opts.Username) > 0:
-		return &regauthn.Basic{Username: k.opts.Username, Password: k.opts.Password}, nil
-	case len(k.opts.Token) > 0:
-		return &regauthn.Bearer{Token: k.opts.Token}, nil
-	case k.opts.Anon:
-		return regauthn.Anonymous, nil
-	default:
-		return k.retryDefaultKeychain(func() (regauthn.Authenticator, error) {
-			return regauthn.DefaultKeychain.Resolve(res)
-		})
-	}
-}
-
-func (k customRegistryKeychain) retryDefaultKeychain(doFunc func() (regauthn.Authenticator, error)) (regauthn.Authenticator, error) {
-	// constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
-
-	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
-	// the same message and docker can handle it properly.
-	const errCredentialsNotFoundMessage = "credentials not found in native keychain"
-	// ErrCredentialsMissingServerURL and ErrCredentialsMissingUsername standardize
-	// invalid credentials or credentials management operations
-	const errCredentialsMissingServerURLMessage = "no credentials server URL"
-	const errCredentialsMissingUsernameMessage = "no credentials username"
-
-	var auth regauthn.Authenticator
-	var lastErr error
-
-	for i := 0; i < 5; i++ {
-		auth, lastErr = doFunc()
-		if lastErr == nil {
-			return auth, nil
-		}
-
-		if strings.Contains(lastErr.Error(), errCredentialsNotFoundMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingUsernameMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingServerURLMessage) {
-			return auth, lastErr
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-	return auth, fmt.Errorf("Retried 5 times: %s", lastErr)
+type envKeychainInfo struct {
+	Hostname      string
+	Username      string
+	Password      string
+	IdentityToken string
+	RegistryToken string
 }
 
 type envKeychain struct {
@@ -82,8 +41,6 @@ type envKeychain struct {
 	collected   bool
 	collectLock sync.Mutex
 }
-
-var _ regauthn.Keychain = &envKeychain{}
 
 func (k *envKeychain) Resolve(target regauthn.Resource) (regauthn.Authenticator, error) {
 	infos, err := k.collect()
@@ -157,39 +114,36 @@ func (k *envKeychain) collect() ([]envKeychainInfo, error) {
 			continue
 		}
 
+		if !strings.HasPrefix(pieces[0], globalEnvironPrefix) {
+			continue
+		}
+
 		var matched bool
 
-		if strings.HasPrefix(pieces[0], globalEnvironPrefix) {
-			authOpt := strings.TrimPrefix(pieces[0], globalEnvironPrefix)
-
-			if updateFunc, ok := funcsMap[authOpt]; ok {
+		for key, updateFunc := range funcsMap {
+			switch {
+			case pieces[0] == globalEnvironPrefix+key:
 				matched = true
 				err := updateFunc(&defaultInfo, pieces[1])
 				if err != nil {
 					k.collectErr = err
 					return nil, k.collectErr
 				}
-			} else {
-				splits := strings.SplitN(authOpt, "_", 2)
-				authOpt = splits[0]
-				suffix := splits[1]
-
-				if updateFunc, ok = funcsMap[authOpt]; ok {
-					matched = true
-					info := infos[suffix]
-					err := updateFunc(&info, pieces[1])
-					if err != nil {
-						k.collectErr = err
-						return nil, k.collectErr
-					}
-					infos[suffix] = info
+			case strings.HasPrefix(pieces[0], globalEnvironPrefix+key+sep):
+				matched = true
+				suffix := strings.TrimPrefix(pieces[0], globalEnvironPrefix+key+sep)
+				info := infos[suffix]
+				err := updateFunc(&info, pieces[1])
+				if err != nil {
+					k.collectErr = err
+					return nil, k.collectErr
 				}
+				infos[suffix] = info
 			}
-
-			if !matched {
-				k.collectErr = fmt.Errorf("Unknown env variable '%s'", pieces[0])
-				return nil, k.collectErr
-			}
+		}
+		if !matched {
+			k.collectErr = fmt.Errorf("Unknown env variable '%s'", pieces[0])
+			return nil, k.collectErr
 		}
 	}
 
@@ -208,10 +162,52 @@ func (k *envKeychain) collect() ([]envKeychainInfo, error) {
 	return append([]envKeychainInfo{}, k.infos...), nil
 }
 
-type envKeychainInfo struct {
-	Hostname      string
-	Username      string
-	Password      string
-	IdentityToken string
-	RegistryToken string
+var _ regauthn.Keychain = customRegistryKeychain{}
+
+type customRegistryKeychain struct {
+	opts KeychainOpts
+}
+
+func (k customRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authenticator, error) {
+	switch {
+	case len(k.opts.Username) > 0:
+		return &regauthn.Basic{Username: k.opts.Username, Password: k.opts.Password}, nil
+	case len(k.opts.Token) > 0:
+		return &regauthn.Bearer{Token: k.opts.Token}, nil
+	case k.opts.Anon:
+		return regauthn.Anonymous, nil
+	default:
+		return k.retryDefaultKeychain(func() (regauthn.Authenticator, error) {
+			return regauthn.DefaultKeychain.Resolve(res)
+		})
+	}
+}
+
+func (k customRegistryKeychain) retryDefaultKeychain(doFunc func() (regauthn.Authenticator, error)) (regauthn.Authenticator, error) {
+	// constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
+
+	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
+	// the same message and docker can handle it properly.
+	const errCredentialsNotFoundMessage = "credentials not found in native keychain"
+	// ErrCredentialsMissingServerURL and ErrCredentialsMissingUsername standardize
+	// invalid credentials or credentials management operations
+	const errCredentialsMissingServerURLMessage = "no credentials server URL"
+	const errCredentialsMissingUsernameMessage = "no credentials username"
+
+	var auth regauthn.Authenticator
+	var lastErr error
+
+	for i := 0; i < 5; i++ {
+		auth, lastErr = doFunc()
+		if lastErr == nil {
+			return auth, nil
+		}
+
+		if strings.Contains(lastErr.Error(), errCredentialsNotFoundMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingUsernameMessage) || strings.Contains(lastErr.Error(), errCredentialsMissingServerURLMessage) {
+			return auth, lastErr
+		}
+
+		time.Sleep(2 * time.Second)
+	}
+	return auth, fmt.Errorf("Retried 5 times: %s", lastErr)
 }

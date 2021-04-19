@@ -9,69 +9,71 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBasicAuth(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+func TestAuth(t *testing.T) {
+	t.Run("Basic Auth", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
-	outputDir := env.Assets.CreateTempFolder("pull-image")
-	defer env.Assets.CleanCreatedFolders()
+		outputDir := env.Assets.CreateTempFolder("pull-image")
+		defer env.Assets.CleanCreatedFolders()
 
-	expectedUsername := "expected-user"
-	expectedPassword := "expected-password"
-	imageRef := "repo/imgpkg-test"
+		expectedUsername := "expected-user"
+		expectedPassword := "expected-password"
+		imageRef := "repo/imgpkg-test"
 
-	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithBasicAuth(expectedUsername, expectedPassword)
-	fakeRegistry.WithRandomImage(imageRef)
-	fakeRegistry.Build()
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry.WithBasicAuth(expectedUsername, expectedPassword)
+		fakeRegistry.WithRandomImage(imageRef)
+		fakeRegistry.Build()
 
-	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
-		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_USERNAME=expected-user", "IMGPKG_REGISTRY_PASSWORD=expected-password"},
+		_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+			EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_USERNAME=expected-user", "IMGPKG_REGISTRY_PASSWORD=expected-password"},
+		})
+
+		assert.NoError(t, err)
 	})
 
-	assert.NoError(t, err)
-}
+	t.Run("Identity Token", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
-func TestIdentityToken(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		outputDir := env.Assets.CreateTempFolder("pull-image")
+		defer env.Assets.CleanCreatedFolders()
 
-	outputDir := env.Assets.CreateTempFolder("pull-image")
-	defer env.Assets.CleanCreatedFolders()
+		expectedToken := "ID_TOKEN"
+		imageRef := "repo/imgpkg-test"
 
-	expectedToken := "ID_TOKEN"
-	imageRef := "repo/imgpkg-test"
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry.WithIdentityToken(expectedToken)
+		fakeRegistry.WithRandomImage(imageRef)
+		fakeRegistry.Build()
 
-	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithIdentityToken(expectedToken)
-	fakeRegistry.WithRandomImage(imageRef)
-	fakeRegistry.Build()
+		_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+			EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_IDENTITY_TOKEN=" + expectedToken},
+		})
 
-	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
-		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_IDENTITY_TOKEN=" + expectedToken},
+		assert.NoError(t, err)
 	})
 
-	assert.NoError(t, err)
-}
+	t.Run("Identity Token", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
 
-func TestRegistryToken(t *testing.T) {
-	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		outputDir := env.Assets.CreateTempFolder("pull-image")
+		defer env.Assets.CleanCreatedFolders()
 
-	outputDir := env.Assets.CreateTempFolder("pull-image")
-	defer env.Assets.CleanCreatedFolders()
+		expectedToken := "REGISTRY_TOKEN"
+		imageRef := "repo/imgpkg-test"
 
-	expectedToken := "REGISTRY_TOKEN"
-	imageRef := "repo/imgpkg-test"
+		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry.WithRegistryToken(expectedToken)
+		fakeRegistry.WithRandomImage(imageRef)
+		fakeRegistry.Build()
 
-	fakeRegistry := helpers.NewFakeRegistry(t)
-	fakeRegistry.WithRegistryToken(expectedToken)
-	fakeRegistry.WithRandomImage(imageRef)
-	fakeRegistry.Build()
+		_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
+			EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_REGISTRY_TOKEN=" + expectedToken},
+		})
 
-	_, err := imgpkg.RunWithOpts([]string{"pull", "-i", fakeRegistry.ReferenceOnTestServer(imageRef), "-o", outputDir}, helpers.RunOpts{
-		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistry.Host(), "IMGPKG_REGISTRY_REGISTRY_TOKEN=" + expectedToken},
+		assert.NoError(t, err)
 	})
-
-	assert.NoError(t, err)
 }
