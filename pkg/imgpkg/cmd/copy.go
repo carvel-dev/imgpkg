@@ -15,6 +15,7 @@ import (
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -78,7 +79,7 @@ func (o *CopyOptions) Run() error {
 	registryOpts := o.RegistryFlags.AsRegistryOpts()
 	registryOpts.IncludeNonDistributableLayers = o.IncludeNonDistributable
 
-	registry, err := ctlimg.NewRegistry(registryOpts)
+	registry, err := registry.NewRegistry(registryOpts)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", registryOpts, err)
 	}
@@ -140,7 +141,7 @@ func (o *CopyOptions) Run() error {
 	panic("Unreachable")
 }
 
-func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry ctlimg.Registry) error {
+func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
 	var foundBundle *bundle.Bundle
 	for _, item := range processedImages.All() {
 		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)

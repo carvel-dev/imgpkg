@@ -9,9 +9,9 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -50,7 +50,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (o *PushOptions) Run() error {
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := registry.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
 	}
@@ -88,7 +88,7 @@ func (o *PushOptions) Run() error {
 	return nil
 }
 
-func (o *PushOptions) pushBundle(registry ctlimg.Registry) (string, error) {
+func (o *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	uploadRef, err := regname.NewTag(o.BundleFlags.Bundle, regname.WeakValidation)
 	if err != nil {
 		return "", fmt.Errorf("Parsing '%s': %s", o.BundleFlags.Bundle, err)
@@ -120,7 +120,7 @@ func (o *PushOptions) pushBundle(registry ctlimg.Registry) (string, error) {
 	return imageURL, nil
 }
 
-func (o *PushOptions) pushImage(registry ctlimg.Registry) (string, error) {
+func (o *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	if o.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
 	}

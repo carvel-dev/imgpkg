@@ -11,6 +11,7 @@ import (
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ type PullOptions struct {
 	OutputPath           string
 }
 
-var _ ctlimg.ImagesMetadata = ctlimg.Registry{}
+var _ ctlimg.ImagesMetadata = registry.Registry{}
 
 func NewPullOptions(ui ui.UI) *PullOptions {
 	return &PullOptions{ui: ui}
@@ -60,7 +61,7 @@ func (o *PullOptions) Run() error {
 		return err
 	}
 
-	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	registry, err := registry.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
