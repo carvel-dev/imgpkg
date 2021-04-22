@@ -65,23 +65,6 @@ func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesL
 	return allImagesLock, nil
 }
 
-// ImagesLockLocalized returns possibly modified images lock
-// with image URLs relative to bundle location
-func (o *Bundle) ImagesLockLocalized() (lockconfig.ImagesLock, error) {
-	img, err := o.checkedImage()
-	if err != nil {
-		return lockconfig.ImagesLock{}, err
-	}
-
-	imagesLock, err := o.imagesLockReader.Read(img)
-	if err != nil {
-		return lockconfig.ImagesLock{}, err
-	}
-
-	imagesLock, _, err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
-	return imagesLock, err
-}
-
 type singleLayerReader struct{}
 
 func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error) {

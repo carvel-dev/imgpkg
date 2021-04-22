@@ -53,6 +53,7 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
 	o.imagesLock.AddImageRef(ref)
 }
 
+// TODO: we should use LocationPrunedImageRefs as part of this function
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
 	imagesLock := lockconfig.ImagesLock{
