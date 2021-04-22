@@ -3,6 +3,7 @@ module github.com/k14s/imgpkg
 go 1.16
 
 require (
+	github.com/briandowns/spinner v1.12.0
 	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72
 	github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
 	github.com/google/go-containerregistry v0.4.1

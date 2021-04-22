@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 
@@ -68,6 +70,10 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 
 func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Start()
+	defer s.Stop()
+	s.Prefix = "Calculating Bundle Images "
 
 	switch {
 	case o.LockInputFlags.LockFilePath != "":
