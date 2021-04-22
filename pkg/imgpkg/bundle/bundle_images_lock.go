@@ -9,17 +9,20 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"sync"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
-func (o *Bundle) AllImagesLock() (*ImagesLock, error) {
-	return o.buildAllImagesLock(map[string]struct{}{})
+func (o *Bundle) AllImagesLock(concurrency int) (*ImagesLock, error) {
+	throttleReq := util.NewThrottle(concurrency)
+	return o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}})
 }
 
-func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesLock, error) {
+func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages) (*ImagesLock, error) {
 	img, err := o.checkedImage()
 	if err != nil {
 		return nil, err
@@ -32,28 +35,38 @@ func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesL
 
 	allImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
 
+	errChan := make(chan error, len(imagesLock.Images))
+	mutex := &sync.Mutex{}
+
 	for _, image := range imagesLock.Images {
-		if _, skip := processedImgs[image.Image]; skip {
+		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
+			errChan <- nil
 			continue
 		}
-		processedImgs[image.Image] = struct{}{}
 
-		bundle := NewBundleWithReader(image.Image, o.imgRetriever, o.imagesLockReader)
-		isBundle, err := bundle.IsBundle()
-		if err != nil {
-			return nil, fmt.Errorf("Checking if '%s' is a bundle: %s", image.Image, err)
-		}
-
-		if isBundle {
-			imgLock, err := bundle.buildAllImagesLock(processedImgs)
+		image := image.DeepCopy()
+		go func() {
+			imgsLock, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
 			if err != nil {
-				return nil, fmt.Errorf("Retrieving images for bundle '%s': %s", image.Image, err)
+				errChan <- err
+				return
 			}
+			if imgsLock != nil {
+				mutex.Lock()
+				defer mutex.Unlock()
+				err = allImagesLock.Merge(imgsLock)
+				if err != nil {
+					errChan <- fmt.Errorf("Merging images for bundle '%s': %s", image.Image, err)
+					return
+				}
+			}
+			errChan <- nil
+		}()
+	}
 
-			err = allImagesLock.Merge(imgLock)
-			if err != nil {
-				return nil, fmt.Errorf("Merging images for bundle '%s': %s", image.Image, err)
-			}
+	for range imagesLock.Images {
+		if err := <-errChan; err != nil {
+			return nil, err
 		}
 	}
 
@@ -63,6 +76,39 @@ func (o *Bundle) buildAllImagesLock(processedImgs map[string]struct{}) (*ImagesL
 	}
 
 	return allImagesLock, nil
+}
+
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, image lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, error) {
+	throttleReq.Take()
+	bundle := NewBundleWithReader(image.Image, o.imgRetriever, o.imagesLockReader)
+
+	isBundle, err := bundle.IsBundle()
+	throttleReq.Done()
+	if err != nil {
+		return nil, fmt.Errorf("Checking if '%s' is a bundle: %s", image.Image, err)
+	}
+
+	var imgLock *ImagesLock
+	if isBundle {
+		imgLock, err = bundle.buildAllImagesLock(throttleReq, processedImgs)
+		if err != nil {
+			return nil, fmt.Errorf("Retrieving images for bundle '%s': %s", image.Image, err)
+		}
+	}
+	return imgLock, nil
+}
+
+type processedImages struct {
+	lock          sync.Mutex
+	processedImgs map[string]struct{}
+}
+
+func (p *processedImages) CheckAndAddImage(ref string) bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	_, present := p.processedImgs[ref]
+	p.processedImgs[ref] = struct{}{}
+	return present
 }
 
 type singleLayerReader struct{}

@@ -41,7 +41,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 		})
 
 		subject := bundle.NewBundleWithReader(bundle1.RefDigest, fakeRegistry.Build(), fakeImagesLockReader)
-		resultImagesLock, err := subject.AllImagesLock()
+		resultImagesLock, err := subject.AllImagesLock(1)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, fakeImagesLockReader.ReadCallCount())
@@ -94,7 +94,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 		})
 
 		subject := bundle.NewBundleWithReader(bundle2.RefDigest, fakeRegistry.Build(), fakeImagesLockReader)
-		resultImagesLock, err := subject.AllImagesLock()
+		resultImagesLock, err := subject.AllImagesLock(1)
 		require.NoError(t, err)
 
 		require.Equal(t, 2, fakeImagesLockReader.ReadCallCount())
@@ -173,7 +173,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 
 		fakeImagesReaderWriter := fakeRegistry.Build()
 		subject := bundle.NewBundleWithReader(bundle3.RefDigest, fakeImagesReaderWriter, fakeImagesLockReader)
-		resultImagesLock, err := subject.AllImagesLock()
+		resultImagesLock, err := subject.AllImagesLock(1)
 		require.NoError(t, err)
 
 		require.Equal(t, 3, fakeImagesLockReader.ReadCallCount())
@@ -200,18 +200,16 @@ func TestBundle_AllImagesLock(t *testing.T) {
 			assert.Equal(t, []string{
 				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + img1Digest.DigestStr()),
 				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img1Digest.DigestStr()),
-				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img1Digest.DigestStr()),
 				img1.RefDigest,
-			}, imgRefs[2].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
+			}, imgRefs[2].Locations(), "expects bundle3, bundle2 repository, and original image location")
 
 			img2Digest, err := regname.NewDigest(img2.RefDigest)
 			require.NoError(t, err)
 			assert.Equal(t, []string{
 				fakeRegistry.ReferenceOnTestServer("library/bundle3@" + img2Digest.DigestStr()),
 				fakeRegistry.ReferenceOnTestServer("library/bundle2@" + img2Digest.DigestStr()),
-				fakeRegistry.ReferenceOnTestServer("library/bundle1@" + img2Digest.DigestStr()),
 				img2.RefDigest,
-			}, imgRefs[3].Locations(), "expects bundle2 repository, bundle1 repository and original image location")
+			}, imgRefs[3].Locations(), "expects bundle3, bundle2 repository, and original image location")
 		})
 	})
 
@@ -260,7 +258,7 @@ func TestBundle_AllImagesLock(t *testing.T) {
 
 		fakeImagesReaderWriter := fakeRegistry.Build()
 		subject := bundle.NewBundleWithReader(bundle3.RefDigest, fakeImagesReaderWriter, fakeImagesLockReader)
-		_, err := subject.AllImagesLock()
+		_, err := subject.AllImagesLock(1)
 		require.NoError(t, err)
 
 		require.Equal(t, 3, fakeImagesLockReader.ReadCallCount())

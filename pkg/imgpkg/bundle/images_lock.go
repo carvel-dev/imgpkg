@@ -6,6 +6,7 @@ package bundle
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
@@ -38,7 +39,7 @@ func (o *ImagesLock) Merge(imgLock *ImagesLock) error {
 }
 
 func (o *ImagesLock) GenerateImagesLocations() error {
-	for i, imgRef := range o.imagesLock.Images {
+	for i, imgRef := range o.ImageRefs() {
 		imageInBundleRepo, err := o.imageRelativeToBundle(imgRef.Image)
 		if err != nil {
 			return err
@@ -88,9 +89,9 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	return imagesLock, false, nil
 }
 
-func (o ImagesLock) LocationPrunedImageRefs() ([]lockconfig.ImageRef, error) {
+func (o *ImagesLock) LocationPrunedImageRefs() ([]lockconfig.ImageRef, error) {
 	var imageRefs []lockconfig.ImageRef
-	for _, imgRef := range o.imagesLock.Images {
+	for _, imgRef := range o.ImageRefs() {
 		newImgRef := imgRef.DeepCopy()
 
 		foundImg, err := o.checkImagesExist(newImgRef.Locations())

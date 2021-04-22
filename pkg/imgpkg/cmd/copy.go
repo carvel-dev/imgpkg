@@ -119,6 +119,7 @@ func (o *CopyOptions) Run() error {
 			registry:    registry,
 			imageSet:    imageSet,
 			tarImageSet: ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger),
+			Concurrency: o.Concurrency,
 		}
 
 		switch {

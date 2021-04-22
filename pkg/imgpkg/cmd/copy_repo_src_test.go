@@ -36,6 +36,7 @@ func TestMain(m *testing.M) {
 		logger:      logger,
 		imageSet:    imageSet,
 		tarImageSet: imageset.NewTarImageSet(imageSet, 1, logger),
+		Concurrency: 1,
 	}
 
 	os.Exit(m.Run())
