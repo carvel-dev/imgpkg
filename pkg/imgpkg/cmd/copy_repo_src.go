@@ -157,7 +157,7 @@ func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, err
 	}
 
-	imageRefs, err := imgLock.LocationPrunedImageRefs()
+	imageRefs, err := imgLock.LocationPrunedImageRefs(o.Concurrency)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Pruning image ref locations: %s", err)
 	}
