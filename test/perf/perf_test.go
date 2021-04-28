@@ -13,6 +13,7 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 type ByteSize int64
@@ -46,10 +47,7 @@ func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
 	expectedMaxTimeToTake := benchmarkResultInitialPush.T.Nanoseconds() / 15
 	actualTimeTaken := benchmarkResultCopyInSameRegistry.T.Nanoseconds()
 
-	if actualTimeTaken > expectedMaxTimeToTake {
-		t.Fatalf("copying a large image took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(expectedMaxTimeToTake), time.Duration(actualTimeTaken))
-	}
-
+	require.Greaterf(t, expectedMaxTimeToTake, actualTimeTaken, "copying a large image took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(expectedMaxTimeToTake), time.Duration(actualTimeTaken))
 }
 
 func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testing.T) {
@@ -70,18 +68,14 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 	actualTimeTaken := benchmarkResultCopyLargeBundle.T.Nanoseconds()
 
 	reference, err := regname.ParseReference(env.RelocationRepo)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	require.NoError(t, err)
 
 	maxTimeCopyShouldTake := time.Minute.Nanoseconds()
 	if !strings.Contains(reference.Context().RegistryStr(), "index.docker.io") {
 		maxTimeCopyShouldTake = 8 * time.Minute.Nanoseconds()
 	}
 
-	if actualTimeTaken > maxTimeCopyShouldTake {
-		t.Fatalf("copying a large bundle took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(maxTimeCopyShouldTake), time.Duration(actualTimeTaken))
-	}
+	require.Greaterf(t, maxTimeCopyShouldTake, actualTimeTaken, "copying a large bundle took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(maxTimeCopyShouldTake), time.Duration(actualTimeTaken))
 }
 
 func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
