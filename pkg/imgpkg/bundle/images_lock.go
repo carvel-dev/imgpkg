@@ -141,7 +141,7 @@ func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {
 			return img, nil
 		}
 	}
-	return "", fmt.Errorf("Checking image existance: %s", err)
+	return "", fmt.Errorf("Checking image existence: %s", err)
 }
 
 func (o *ImagesLock) imageRelativeToBundle(img string) (string, error) {
