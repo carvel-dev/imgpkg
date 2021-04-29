@@ -22,6 +22,7 @@ type CopyRepoSrc struct {
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
 	IncludeNonDistributable bool
+	Concurrency             int
 	logger                  *ctlimg.LoggerPrefixWriter
 	imageSet                ctlimgset.ImageSet
 	tarImageSet             ctlimgset.TarImageSet
@@ -148,7 +149,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {
 	bundle := ctlbundle.NewBundle(bundleRef, o.registry)
 
-	imgLock, err := bundle.AllImagesLock()
+	imgLock, err := bundle.AllImagesLock(o.Concurrency)
 	if err != nil {
 		if ctlbundle.IsNotBundleError(err) {
 			return nil, nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
@@ -156,7 +157,7 @@ func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, err
 	}
 
-	imageRefs, err := imgLock.LocationPrunedImageRefs()
+	imageRefs, err := imgLock.LocationPrunedImageRefs(o.Concurrency)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Pruning image ref locations: %s", err)
 	}

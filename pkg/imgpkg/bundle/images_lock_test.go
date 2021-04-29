@@ -89,7 +89,7 @@ func TestImagesLock_LocationPrunedImagesLock(t *testing.T) {
 		fakeImagesMetadata.DigestReturnsOnCall(0, regv1.Hash{}, errors.New("not found"))
 
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
-		imgRefs, err := subject.LocationPrunedImageRefs()
+		imgRefs, err := subject.LocationPrunedImageRefs(5)
 		require.NoError(t, err)
 		assert.Equal(t, "second.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imgRefs[0].PrimaryLocation())
 	})
@@ -108,7 +108,7 @@ func TestImagesLock_LocationPrunedImagesLock(t *testing.T) {
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
 
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
-		imgRefs, err := subject.LocationPrunedImageRefs()
+		imgRefs, err := subject.LocationPrunedImageRefs(1)
 		require.NoError(t, err)
 		assert.Equal(t, "first.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imgRefs[0].PrimaryLocation())
 	})
