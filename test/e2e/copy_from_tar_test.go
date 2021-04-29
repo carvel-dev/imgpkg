@@ -64,7 +64,7 @@ func TestCopyTarSrc(t *testing.T) {
 			StdoutWriter: outputBuffer,
 		})
 
-		assert.Contains(t, outputBuffer.String(), "Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable flag")
+		assert.Contains(t, outputBuffer.String(), "Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
 	})
 
 	t.Run("When a tar contains an image that no longer exists on the registry", func(t *testing.T) {

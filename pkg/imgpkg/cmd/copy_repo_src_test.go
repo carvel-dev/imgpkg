@@ -140,10 +140,10 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		err := subject.CopyToTar(imageTarPath)
 		require.NoError(t, err)
 
-		require.Regexp(t, "Skipped layer due to it being non-distributable\\. If you would like to include non-distributable layers, use the --include-non-distributable flag", stdOut)
+		require.Regexp(t, "Skipped layer due to it being non-distributable\\. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag", stdOut)
 	})
 
-	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
 		subject.IncludeNonDistributable = true
 
@@ -156,7 +156,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		assertTarballContainsEveryLayer(t, imageTarPath)
 	})
 
-	t.Run("When Include-non-distributable flag is provided a warning message should not be printed", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided a warning message should not be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
 		subject.IncludeNonDistributable = true
@@ -167,7 +167,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		err := subject.CopyToTar(imageTarPath)
 		require.NoError(t, err)
 
-		assert.NotContains(t, stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
+		assert.NotContains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 		assert.NotContains(t, stdOut.String(), "Skipped layer due to it being non-distributable.")
 	})
 
@@ -247,7 +247,7 @@ func TestToTarImage(t *testing.T) {
 		err := subject.CopyToTar(imageTarPath)
 		require.NoError(t, err)
 
-		assert.Contains(t, stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n")
+		assert.Contains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n")
 	})
 }
 
@@ -274,7 +274,7 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
 	})
-	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
 		subject.IncludeNonDistributable = true
 
@@ -313,7 +313,7 @@ func TestToTarImageIndex(t *testing.T) {
 
 		assertTarballContainsEveryLayer(t, imageTarPath)
 	})
-	t.Run("When Include-non-distributable flag is provided the tarball should contain every layer", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided the tarball should contain every layer", func(t *testing.T) {
 		subject := subject
 		subject.IncludeNonDistributable = true
 
@@ -327,7 +327,7 @@ func TestToTarImageIndex(t *testing.T) {
 
 		assertTarballContainsEveryLayer(t, imageTarPath)
 	})
-	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided a warning message should be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
 		subject.IncludeNonDistributable = true
@@ -340,7 +340,7 @@ func TestToTarImageIndex(t *testing.T) {
 			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
 		}
 
-		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n") {
+		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n") {
 			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
 		}
 	})
@@ -525,7 +525,7 @@ func TestToRepoImage(t *testing.T) {
 		fakeRegistry.ReferenceOnTestServer(imageName),
 	}
 
-	t.Run("When Include-non-distributable flag is provided a warning message should be printed", func(t *testing.T) {
+	t.Run("When Include-non-distributable-layers flag is provided a warning message should be printed", func(t *testing.T) {
 		stdOut.Reset()
 		subject := subject
 		subject.registry = fakeRegistry.Build()
@@ -536,7 +536,7 @@ func TestToRepoImage(t *testing.T) {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
 
-		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.\n") {
+		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n") {
 			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
 		}
 	})

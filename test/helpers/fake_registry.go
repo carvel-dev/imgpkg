@@ -175,15 +175,11 @@ func (r *FakeTestRegistryBuilder) WithRegistryToken(regToken string) {
 
 func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
 	tarballLayer, err := compress(path)
-	if err != nil {
-		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
-	}
+	require.NoError(r.t, err)
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
-	if err != nil {
-		r.t.Fatalf("unable to create image from file: %s", err)
-	}
+	require.NoError(r.t, err)
 
 	r.updateState(bundleName, bundle, nil, path)
 	digest, err := bundle.Digest()
@@ -211,14 +207,10 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
 	tarballLayer, err := compress(path)
-	if err != nil {
-		r.t.Fatalf("Failed trying to compress %s: %s", path, err)
-	}
+	require.NoError(r.t, err)
 
 	fileImage, err := image.NewFileImage(tarballLayer.Name(), labels)
-	if err != nil {
-		r.t.Fatalf("Failed trying to build a file image%s", err)
-	}
+	require.NoError(r.t, err)
 
 	return r.updateState(imageNameFromTest, fileImage, nil, path)
 }

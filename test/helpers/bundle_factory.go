@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type BundleFactory struct {
@@ -26,19 +28,13 @@ func (b *BundleFactory) CreateBundleDir(bYml, iYml string) string {
 	imgpkgDir := filepath.Join(outDir, ".imgpkg")
 
 	err := os.Mkdir(imgpkgDir, 0700)
-	if err != nil {
-		b.t.Fatalf("unable to create .imgpkg folder: %s", err)
-	}
+	require.NoError(b.t, err, "unable to create .imgpkg folder")
 
 	err = ioutil.WriteFile(filepath.Join(imgpkgDir, BundleFile), []byte(bYml), 0600)
-	if err != nil {
-		b.t.Fatalf("unable to create bundle lock file: %s", err)
-	}
+	require.NoError(b.t, err, "unable to create bundle lock file")
 
 	err = ioutil.WriteFile(filepath.Join(imgpkgDir, ImageFile), []byte(iYml), 0600)
-	if err != nil {
-		b.t.Fatalf("unable to create images lock file: %s", err)
-	}
+	require.NoError(b.t, err, "unable to create images lock file")
 
 	b.bundleFolder = outDir
 	return outDir
@@ -50,13 +46,9 @@ func (b *BundleFactory) AddFileToBundle(path, content string) {
 	if subfolders != "" {
 		path := filepath.Join(b.bundleFolder, subfolders)
 		err := os.MkdirAll(path, 0700)
-		if err != nil {
-			b.t.Fatalf("Unable to add subfolders to bundle: %s", err)
-		}
+		require.NoError(b.t, err, "unable to add subfolders to bundle")
 	}
 
 	err := ioutil.WriteFile(filepath.Join(b.bundleFolder, path), []byte(content), 0600)
-	if err != nil {
-		b.t.Fatalf("Error creating file '%s': %s", path, err)
-	}
+	require.NoError(b.t, err)
 }

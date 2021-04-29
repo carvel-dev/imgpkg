@@ -70,7 +70,7 @@ func (f tarFile) openChunk(path string) (io.ReadCloser, error) {
 				Reader:  tf, Closer: file}, nil
 		}
 	}
-	return nil, util.NonRetryableError{Message: fmt.Sprintf("file %s not found in tar. hint: This may be because when copying to a tarball, the --include-non-distributable flag should have been provided.", path)}
+	return nil, util.NonRetryableError{Message: fmt.Sprintf("file %s not found in tar. hint: This may be because when copying to a tarball, the --include-non-distributable-layers flag should have been provided.", path)}
 }
 
 func (f tarFileChunkReadCloser) Close() error {

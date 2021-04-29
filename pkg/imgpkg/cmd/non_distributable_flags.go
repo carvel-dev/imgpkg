@@ -10,6 +10,6 @@ type IncludeNonDistributableFlag struct {
 }
 
 func (i *IncludeNonDistributableFlag) Set(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(&i.IncludeNonDistributable, "include-non-distributable", false,
+	cmd.Flags().BoolVar(&i.IncludeNonDistributable, "include-non-distributable-layers", false,
 		"Include non-distributable layers when copying an image/bundle")
 }
