@@ -60,7 +60,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.RegistryFlags.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
-	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable", false,
+	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
 		"Include non-distributable layers when copying an image/bundle")
 	return cmd
 }
@@ -309,8 +309,8 @@ func informUserToUseTheNonDistributableFlagWithDescriptors(logger *ctlimg.Logger
 	}
 
 	if includeNonDistributableFlag && noNonDistributableLayers {
-		logger.WriteStr("Warning: '--include-non-distributable' flag provided, but no images contained a non-distributable layer.")
+		logger.WriteStr("Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable flag")
+		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
 	}
 }
