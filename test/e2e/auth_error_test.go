@@ -5,10 +5,11 @@ package e2e
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuthErr(t *testing.T) {
@@ -27,11 +28,6 @@ func TestAuthErr(t *testing.T) {
 	}, helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 
 	errOut := stderrBs.String()
-
-	if err == nil {
-		t.Fatalf("Expected auth error")
-	}
-	if !strings.Contains(errOut, "incorrect username or password") {
-		t.Fatalf("Expected auth error explanation in output '%s'", errOut)
-	}
+	require.Error(t, err)
+	assert.Contains(t, errOut, "incorrect username or password")
 }

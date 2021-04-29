@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type Env struct {
@@ -84,7 +86,5 @@ func (e Env) Validate(t *testing.T) {
 		}
 	}
 
-	if len(errStrs) > 0 {
-		t.Fatalf("%s", strings.Join(errStrs, "\n"))
-	}
+	require.Len(t, errStrs, 0)
 }

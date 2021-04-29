@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBundlePushPullAnnotation(t *testing.T) {
@@ -28,18 +28,12 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
 	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		t.Fatalf("Error getting remote image: %s", err)
-	}
+	require.NoError(t, err)
 
 	config, err := image.ConfigFile()
-	if err != nil {
-		t.Fatalf("Error getting manifest: %s", err)
-	}
+	require.NoError(t, err)
 
-	if _, found := config.Config.Labels["dev.carvel.imgpkg.bundle"]; !found {
-		t.Fatalf("Expected to find bundle but didn't")
-	}
+	require.Contains(t, config.Config.Labels, "dev.carvel.imgpkg.bundle")
 
 	outDir := env.Assets.CreateTempFolder("bundle-annotation")
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
@@ -85,9 +79,7 @@ func TestBundleLockFile(t *testing.T) {
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", bundleLockFilepath})
 
 	bundleBs, err := ioutil.ReadFile(bundleLockFilepath)
-	if err != nil {
-		t.Fatalf("Could not read bundle lock file: %s", err)
-	}
+	require.NoError(t, err)
 
 	// Keys are written in alphabetical order
 	expectedYml := fmt.Sprintf(`---
@@ -98,9 +90,7 @@ bundle:
 kind: BundleLock
 `, env.Image)
 
-	if !regexp.MustCompile(expectedYml).Match(bundleBs) {
-		t.Fatalf("Regex did not match; diff expected...actual:\n%v\n", helpers.DiffText(expectedYml, string(bundleBs)))
-	}
+	require.Regexp(t, expectedYml, string(bundleBs))
 
 	outputDir := env.Assets.CreateTempFolder("bundle-pull")
 	imgpkg.Run([]string{"pull", "--lock", bundleLockFilepath, "-o", outputDir})
@@ -123,12 +113,8 @@ func TestImagePullOnBundleError(t *testing.T) {
 		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 	errOut := stderrBs.String()
 
-	if err == nil {
-		t.Fatalf("Expected incorrect flag error")
-	}
-	if !strings.Contains(errOut, "Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)") {
-		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
-	}
+	require.Error(t, err)
+	assert.Contains(t, errOut, "Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
 }
 
 func TestBundlePullOnImageError(t *testing.T) {
@@ -144,13 +130,9 @@ func TestBundlePullOnImageError(t *testing.T) {
 	_, err := imgpkg.RunWithOpts([]string{"pull", "-b", env.Image, "-o", path},
 		helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
 
-	if err == nil {
-		t.Fatal("Expected incorrect flag error")
-	}
+	require.Error(t, err)
 
 	errOut := stderrBs.String()
 
-	if !strings.Contains(errOut, "Expected bundle image but found plain image (hint: Did you use -i instead of -b?)") {
-		t.Fatalf("Expected error to contain message about using the wrong pull flag, got: %s", errOut)
-	}
+	require.Contains(t, errOut, "Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 }

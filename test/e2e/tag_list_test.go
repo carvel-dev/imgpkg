@@ -8,6 +8,7 @@ import (
 
 	uitest "github.com/cppforlife/go-cli-ui/ui/test"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTagList(t *testing.T) {
@@ -31,14 +32,10 @@ func TestTagList(t *testing.T) {
 		for _, row := range resp.Tables[0].Rows {
 			if row["name"] == name {
 				found = true
-				if row["digest"] != digest {
-					t.Fatalf("Expected digest for tag '%s' does not match", name)
-				}
+				require.Equal(t, row["digest"], digest)
 				break
 			}
 		}
-		if !found {
-			t.Fatalf("Expected to find tag '%s'", name)
-		}
+		require.Truef(t, found, "Expected to find tag '%s'", name)
 	}
 }

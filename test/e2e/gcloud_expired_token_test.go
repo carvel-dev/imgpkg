@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t *testing.T) {
@@ -44,31 +45,25 @@ images:
 	lockFile := filepath.Join(testDir, "bundle.lock.yml")
 	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
 
-	err := overrideDockerCredHelperToRandomlyFailWhenCalled(t, env)
+	overrideDockerCredHelperToRandomlyFailWhenCalled(t, env)
 
 	dir, err := filepath.Abs("./")
-	if err != nil {
-		t.Fatalf("failed to get directory of current file: %v", err)
-	}
+	require.NoError(t, err)
 
 	// copy via output file
 	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
 	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, helpers.RunOpts{
 		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
 	})
-	if err != nil {
-		t.Fatalf("expected test not to fail: %s", err)
-	}
+	require.NoError(t, err)
 }
 
-func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) error {
+func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) {
 	// Read docker config that will be temporarily replaced
 	homeDir, _ := os.UserHomeDir()
 	dockerConfigPath := filepath.Join(homeDir, ".docker/config.json")
 	originalDockerConfigJSONContents, err := ioutil.ReadFile(dockerConfigPath)
-	if err != nil {
-		t.Fatalf("failed to read docker config: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Retrieve the docker image
 	exec.Command("docker", "pull", "ubuntu:21.04").Run()
@@ -78,25 +73,18 @@ func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers
 
 	var dockerConfigJSONMap map[string]interface{}
 	err = json.Unmarshal(originalDockerConfigJSONContents, &dockerConfigJSONMap)
-	if err != nil {
-		t.Fatalf("failed to unmarshal docker config.json: %v", err)
-	}
+	require.NoError(t, err)
 
 	dockerConfigJSONMap["credHelpers"] = map[string]string{"gcr.io": "gcloud-race-condition-db-error"}
 
 	dockerConfigJSONContents, err := json.Marshal(dockerConfigJSONMap)
-	if err != nil {
-		t.Fatalf("failed to marshal new docker config.json: %v", err)
-	}
+	require.NoError(t, err)
 
 	err = ioutil.WriteFile(dockerConfigPath, dockerConfigJSONContents, os.ModePerm)
-	if err != nil {
-		t.Fatalf("failed to write docker config: %v", err)
-	}
+	require.NoError(t, err)
 
 	// restore docker config
 	env.AddCleanup(func() {
 		ioutil.WriteFile(dockerConfigPath, originalDockerConfigJSONContents, os.ModePerm)
 	})
-	return err
 }

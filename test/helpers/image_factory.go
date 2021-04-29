@@ -15,6 +15,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/stretchr/testify/require"
 )
 
 type ImageFactory struct {
@@ -24,38 +25,24 @@ type ImageFactory struct {
 
 func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	image, err := random.Image(1024, 1)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	digest, err := layer.Digest()
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	image, err = mutate.Append(empty.Image, mutate.Addendum{
 		Layer: layer,
 		URLs:  []string{fmt.Sprintf("%s://%s/v2/%s/blobs/%s", imageRef.Context().Registry.Scheme(), imageRef.Context().RegistryStr(), imageRef.Context().RepositoryStr(), digest)},
 	})
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	err = remote.WriteLayer(imageRef.Context(), layer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	err = remote.Write(imageRef, image, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	return digest.String()
 }
@@ -72,52 +59,34 @@ func (i *ImageFactory) PushSimpleAppImageWithRandomFile(imgpkg Imgpkg, imgRef st
 
 func (i *ImageFactory) PushImageWithLayerSize(imgRef string, size int64) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	image, err := random.Image(1024, 1)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	layer, err := random.Layer(size, types.OCIUncompressedLayer)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	digest, err := layer.Digest()
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	image, err = mutate.Append(empty.Image, mutate.Addendum{
 		Layer: layer,
 		URLs:  []string{fmt.Sprintf("%s://%s/v2/%s/blobs/%s", imageRef.Context().Registry.Scheme(), imageRef.Context().RegistryStr(), imageRef.Context().RepositoryStr(), digest)},
 	})
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	err = remote.WriteLayer(imageRef.Context(), layer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 	err = remote.Write(imageRef, image, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	return digest.String()
 }
 
 func (i *ImageFactory) PushImageIndex(imgRef string) {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 
 	index, err := random.Index(1024, 1, 2)
 
 	err = remote.WriteIndex(imageRef, index, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		i.T.Fatalf(err.Error())
-	}
+	require.NoError(i.T, err)
 }

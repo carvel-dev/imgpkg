@@ -4,55 +4,23 @@
 package helpers
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"regexp"
-	"strings"
 	"testing"
 
-	"github.com/k14s/difflib"
+	"github.com/stretchr/testify/require"
 )
 
 func CompareFiles(t *testing.T, path1, path2 string) {
 	t.Helper()
 	path1Bs, err := ioutil.ReadFile(path1)
-	if err != nil {
-		t.Fatalf("reading path1: %s", err)
-	}
+	require.NoError(t, err, "reading path1")
 
 	path2Bs, err := ioutil.ReadFile(path2)
-	if err != nil {
-		t.Fatalf("reading path2: %s", err)
-	}
+	require.NoError(t, err, "reading path2")
 
-	if string(path1Bs) != string(path2Bs) {
-		t.Fatalf("Expected contents to match for %s vs %s\nDiff: %s", path1, path2, DiffText(string(path1Bs), string(path2Bs)))
-	}
-}
-
-func DiffText(left, right string) string {
-	var sb strings.Builder
-
-	recs := difflib.Diff(strings.Split(right, "\n"), strings.Split(left, "\n"))
-
-	for _, diff := range recs {
-		var mark string
-
-		switch diff.Delta {
-		case difflib.RightOnly:
-			mark = " + |"
-		case difflib.LeftOnly:
-			mark = " - |"
-		case difflib.Common:
-			mark = "   |"
-		}
-
-		// make sure to have line numbers to make sure diff is truly unique
-		sb.WriteString(fmt.Sprintf("%3d,%3d%s%s\n", diff.LineLeft, diff.LineRight, mark, diff.Payload))
-	}
-
-	return sb.String()
+	require.Equal(t, string(path2Bs), string(path1Bs))
 }
 
 const BundleYAML = `---
@@ -76,9 +44,7 @@ const BundleFile = "bundle.yml"
 func ExtractDigest(t *testing.T, out string) string {
 	t.Helper()
 	match := regexp.MustCompile("@(sha256:[0123456789abcdef]{64})").FindStringSubmatch(out)
-	if len(match) != 2 {
-		t.Fatalf("Expected to find digest in output '%s'", out)
-	}
+	require.Len(t, match, 2)
 	return match[1]
 }
 

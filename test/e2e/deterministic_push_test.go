@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeterministicPush(t *testing.T) {
@@ -22,7 +23,5 @@ func TestDeterministicPush(t *testing.T) {
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
 	tag2Digest := helpers.ExtractDigest(t, out)
 
-	if tag1Digest != tag2Digest {
-		t.Fatalf("Digests do not match, hence non-deterministic")
-	}
+	require.Equal(t, tag1Digest, tag2Digest, "Digests do not match, hence non-deterministic")
 }
