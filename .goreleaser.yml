@@ -15,15 +15,13 @@ builds:
     main: ./cmd/imgpkg
     binary: imgpkg-{{ .Os }}-{{ .Arch }}
 
-    # not sure if the ldflags buildid is needed anymore. check https://github.com/golang/go/issues/16860
     flags:
       - -trimpath
-    ldflags:
-      - -X "github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}"
-      - -buildid=
 
-    # is mod_timestamp needed?
-    # mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - -buildid=
+      - -X github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
+
 archives:
   - format: binary
     name_template: "{{ .Binary }}"
@@ -40,14 +38,11 @@ snapshot:
   name_template: "{{ .Tag }}-next"
 release:
   # Repo in which the release will be created.
-  # Default is extracted from the origin remote URL or empty if its private hosted.
-  # Note: it can only be one: either github, gitlab or gitea
   github:
     owner: DennisDenuto
     name: carvel-imgpkg
 
   # If set to true, will not auto-publish the release.
-  # Default is false.
   draft: true
 
   # If set to auto, will mark the release as not ready for production
@@ -56,8 +51,7 @@ release:
   # Default is false.
   prerelease: auto
 
-  # You can change the name of the release.
-  # Default is `{{.Tag}}`
+  # use to change the name of the release.
   name_template: "{{.Tag}}"
 
   # You can disable this pipe in order to not upload any artifacts.
@@ -81,4 +75,3 @@ changelog:
     exclude:
       - '^docs:'
       - typo
-      - (?i)foo
