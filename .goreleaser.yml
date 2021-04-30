@@ -19,6 +19,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
+      - -X "github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}"
       - -buildid=
 
     # is mod_timestamp needed?
