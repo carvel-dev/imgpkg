@@ -5,11 +5,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
+	"github.com/mattn/go-isatty"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -70,10 +72,14 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 
 func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Start()
-	defer s.Stop()
-	s.Prefix = "Calculating Bundle Images "
+	if isatty.IsTerminal(os.Stdout.Fd()) {
+		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+		s.Start()
+		defer s.Stop()
+		s.Prefix = "Calculating Bundle Images "
+	} else {
+		o.logger.WriteStr("Calculating Bundle Images\n")
+	}
 
 	switch {
 	case o.LockInputFlags.LockFilePath != "":
