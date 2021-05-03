@@ -4,6 +4,7 @@ linters:
     - golint
     - deadcode
     - unused
+    - staticcheck
   disable-all: true
 # all available settings of specific linters
 linters-settings:

@@ -27,13 +27,11 @@ func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string) string
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)
 
-	image, err := random.Image(1024, 1)
-	require.NoError(i.T, err)
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	require.NoError(i.T, err)
 	digest, err := layer.Digest()
 	require.NoError(i.T, err)
-	image, err = mutate.Append(empty.Image, mutate.Addendum{
+	image, err := mutate.Append(empty.Image, mutate.Addendum{
 		Layer: layer,
 		URLs:  []string{fmt.Sprintf("%s://%s/v2/%s/blobs/%s", imageRef.Context().Registry.Scheme(), imageRef.Context().RegistryStr(), imageRef.Context().RepositoryStr(), digest)},
 	})
@@ -61,13 +59,11 @@ func (i *ImageFactory) PushImageWithLayerSize(imgRef string, size int64) string 
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)
 
-	image, err := random.Image(1024, 1)
-	require.NoError(i.T, err)
 	layer, err := random.Layer(size, types.OCIUncompressedLayer)
 	require.NoError(i.T, err)
 	digest, err := layer.Digest()
 	require.NoError(i.T, err)
-	image, err = mutate.Append(empty.Image, mutate.Addendum{
+	image, err := mutate.Append(empty.Image, mutate.Addendum{
 		Layer: layer,
 		URLs:  []string{fmt.Sprintf("%s://%s/v2/%s/blobs/%s", imageRef.Context().Registry.Scheme(), imageRef.Context().RegistryStr(), imageRef.Context().RepositoryStr(), digest)},
 	})
@@ -86,6 +82,7 @@ func (i *ImageFactory) PushImageIndex(imgRef string) {
 	require.NoError(i.T, err)
 
 	index, err := random.Index(1024, 1, 2)
+	require.NoError(i.T, err)
 
 	err = remote.WriteIndex(imageRef, index, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(i.T, err)

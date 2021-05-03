@@ -34,6 +34,9 @@ func NewFileImage(path string, labels map[string]string) (*FileImage, error) {
 		mediaType: types.DockerLayer,
 		path:      path,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	add := mutate.Addendum{
 		Layer: layer,

@@ -288,7 +288,7 @@ func stopRegistryForAirgapTesting(t *testing.T, env *helpers.Env) {
 
 func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) string {
 	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-airgapped-testing", "registry:2")
-	output, err := dockerRunCmd.CombinedOutput()
+	_, err := dockerRunCmd.CombinedOutput()
 	require.NoError(t, err)
 
 	env.AddCleanup(func() {
@@ -297,7 +297,7 @@ func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) string {
 	})
 
 	inspectCmd := exec.Command("docker", "inspect", `--format='{{(index (index .NetworkSettings.Ports "5000/tcp") 0).HostPort}}'`, "registry-for-airgapped-testing")
-	output, err = inspectCmd.CombinedOutput()
+	output, err := inspectCmd.CombinedOutput()
 	require.NoError(t, err)
 
 	hostPort := strings.ReplaceAll(string(output), "'", "")
