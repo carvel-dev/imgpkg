@@ -15,10 +15,10 @@ import (
 	"testing"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ var stdOut *bytes.Buffer
 
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
-	logger := image.NewLogger(stdOut).NewPrefixedWriter("test|    ")
+	logger := util.NewLogger(stdOut).NewPrefixedWriter("test|    ")
 	imageSet := imageset.NewImageSet(1, logger)
 
 	subject = CopyRepoSrc{

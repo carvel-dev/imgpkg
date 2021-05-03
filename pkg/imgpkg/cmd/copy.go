@@ -11,11 +11,11 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +73,7 @@ func (c *CopyOptions) Run() error {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
 	}
 
-	logger := ctlimg.NewLogger(os.Stderr)
+	logger := util.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
@@ -300,7 +300,7 @@ func everyMediaTypeForAnImage(image regv1.Image) []string {
 	return everyMediaType
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(logger *ctlimg.LoggerPrefixWriter, includeNonDistributableFlag bool, everyMediaType []string) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includeNonDistributableFlag bool, everyMediaType []string) {
 	noNonDistributableLayers := true
 
 	for _, mediaType := range everyMediaType {

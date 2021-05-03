@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package image
+package util
 
 import (
 	"bytes"
@@ -10,16 +10,16 @@ import (
 	"sync"
 )
 
-type KbldLogger struct {
+type ImgpkgLogger struct {
 	writer     io.Writer
 	writerLock *sync.Mutex
 }
 
-func NewLogger(writer io.Writer) KbldLogger {
-	return KbldLogger{writer: writer, writerLock: &sync.Mutex{}}
+func NewLogger(writer io.Writer) ImgpkgLogger {
+	return ImgpkgLogger{writer: writer, writerLock: &sync.Mutex{}}
 }
 
-func (l KbldLogger) NewPrefixedWriter(prefix string) *LoggerPrefixWriter {
+func (l ImgpkgLogger) NewPrefixedWriter(prefix string) *LoggerPrefixWriter {
 	return &LoggerPrefixWriter{prefix, l.writer, l.writerLock}
 }
 

@@ -1,19 +1,19 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package image_test
+package util_test
 
 import (
 	"bytes"
 	"testing"
 
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 func TestLogger(t *testing.T) {
 	var buf bytes.Buffer
 
-	logger := ctlimg.NewLogger(&buf)
+	logger := util.NewLogger(&buf)
 	prefLogger := logger.NewPrefixedWriter("prefix: ")
 
 	prefLogger.Write([]byte("content1"))

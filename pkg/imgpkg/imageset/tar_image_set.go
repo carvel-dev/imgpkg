@@ -9,7 +9,6 @@ import (
 	"os"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
@@ -17,10 +16,10 @@ import (
 type TarImageSet struct {
 	imageSet    ImageSet
 	concurrency int
-	logger      *ctlimg.LoggerPrefixWriter
+	logger      Logger
 }
 
-func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPrefixWriter) TarImageSet {
+func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger) TarImageSet {
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
