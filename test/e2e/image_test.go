@@ -12,7 +12,7 @@ import (
 
 func TestPushPull(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	testDir := env.Assets.CreateTempFolder("imgpkg-test-basic")
@@ -30,7 +30,7 @@ func TestPushPull(t *testing.T) {
 
 func TestPushMultipleFiles(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imgpkg.Run([]string{

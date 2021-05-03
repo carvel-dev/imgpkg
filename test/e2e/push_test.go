@@ -14,7 +14,7 @@ import (
 func TestPushBundleOfBundles(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	logger := helpers.Logger{}
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDigestRef := ""

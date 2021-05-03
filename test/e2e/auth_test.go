@@ -12,7 +12,7 @@ import (
 func TestAuth(t *testing.T) {
 	t.Run("Basic Auth", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 
 		outputDir := env.Assets.CreateTempFolder("pull-image")
 		defer env.Assets.CleanCreatedFolders()
@@ -35,7 +35,7 @@ func TestAuth(t *testing.T) {
 
 	t.Run("Identity Token", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 
 		outputDir := env.Assets.CreateTempFolder("pull-image")
 		defer env.Assets.CleanCreatedFolders()
@@ -57,7 +57,7 @@ func TestAuth(t *testing.T) {
 
 	t.Run("Identity Token", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 
 		outputDir := env.Assets.CreateTempFolder("pull-image")
 		defer env.Assets.CleanCreatedFolders()

@@ -436,6 +436,7 @@ kind: ImagesLock
 images:
 - image: %s
 `, bundleWithNestedBundle.RefDigest)))
+		require.NoError(t, err)
 		imagesLockTempDir := filepath.Join(assets.CreateTempFolder("images-lock"), "images-lock.yml")
 		assert.NoError(t, imagesLock.WriteToPath(imagesLockTempDir))
 

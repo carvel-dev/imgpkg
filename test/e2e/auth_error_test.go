@@ -14,7 +14,7 @@ import (
 
 func TestAuthErr(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 
 	outputDir := env.Assets.CreateTempFolder("pull-image")
 	defer env.Assets.CleanCreatedFolders()

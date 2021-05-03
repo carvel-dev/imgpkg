@@ -4,6 +4,10 @@ linters:
     - golint
     - deadcode
     - unused
+    - staticcheck
+    - typecheck
+    - structcheck
+    - govet
   disable-all: true
 # all available settings of specific linters
 linters-settings:

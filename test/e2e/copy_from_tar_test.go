@@ -16,7 +16,7 @@ import (
 func TestCopyTarSrc(t *testing.T) {
 	t.Run("When a tar contains an ImageIndex", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		fakeRegistry := helpers.NewFakeRegistry(t)
@@ -36,7 +36,7 @@ func TestCopyTarSrc(t *testing.T) {
 
 	t.Run("When a tar contains an ImageIndex that contains an image with a non-distributable layer", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 		outputBuffer := bytes.NewBufferString("")
 
@@ -69,7 +69,7 @@ func TestCopyTarSrc(t *testing.T) {
 
 	t.Run("When a tar contains an image that no longer exists on the registry", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		fakeRegistry := helpers.NewFakeRegistry(t)

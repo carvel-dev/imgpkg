@@ -28,13 +28,13 @@ func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
-func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, ui ui.UI) (string, error) {
-	err := b.validate()
+func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, ui ui.UI) (string, error) {
+	err := i.validate()
 	if err != nil {
 		return "", err
 	}
 
-	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
+	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, InfoLog{ui})
 
 	img, err := tarImg.AsFileImage(labels)
 	if err != nil {
@@ -56,13 +56,13 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	return fmt.Sprintf("%s@%s", uploadRef.Context(), digest), nil
 }
 
-func (b Contents) validate() error {
-	return b.checkRepeatedPaths()
+func (i Contents) validate() error {
+	return i.checkRepeatedPaths()
 }
 
-func (b Contents) checkRepeatedPaths() error {
+func (i Contents) checkRepeatedPaths() error {
 	imageRootPaths := make(map[string][]string)
-	for _, flagPath := range b.paths {
+	for _, flagPath := range i.paths {
 		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

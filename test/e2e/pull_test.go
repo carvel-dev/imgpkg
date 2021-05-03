@@ -18,7 +18,7 @@ import (
 
 func TestPullImageLockRewrite(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imageDigestRef := "@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"
@@ -44,7 +44,7 @@ images:
 func TestPullImageLockRewriteBundleOfBundles(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	logger := helpers.Logger{}
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDigestRef := ""
@@ -101,7 +101,7 @@ kind: ImagesLock
 func TestPullBundleOfBundles(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	logger := helpers.Logger{}
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDigestRef := ""

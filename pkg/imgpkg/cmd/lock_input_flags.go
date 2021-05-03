@@ -11,7 +11,7 @@ type LockInputFlags struct {
 	LockFilePath string
 }
 
-func (s *LockInputFlags) Set(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&s.LockFilePath, "lock", "",
+func (l *LockInputFlags) Set(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&l.LockFilePath, "lock", "",
 		"Lock file with asset references to copy to destination")
 }

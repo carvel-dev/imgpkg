@@ -33,23 +33,23 @@ func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
 	return ImageSet{concurrency, logger}
 }
 
-func (o ImageSet) Relocate(foundImages *UnprocessedImageRefs,
+func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
 
-	ids, err := o.Export(foundImages, registry)
+	ids, err := i.Export(foundImages, registry)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	images, err := o.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
+	images, err := i.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
 	return images, ids, err
 }
 
-func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
+func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 	imagesMetadata ctlimg.ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
-	o.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
-	defer func() { o.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
+	i.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
+	defer func() { i.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
 
 	var refs []imagedesc.Metadata
 
@@ -59,8 +59,8 @@ func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
 			return nil, err
 		}
 
-		o.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.DigestRef)))
-		refs = append(refs, imagedesc.Metadata{ref, img.Tag})
+		i.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.DigestRef)))
+		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, imagesMetadata)
@@ -71,15 +71,15 @@ func (o ImageSet) Export(foundImages *UnprocessedImageRefs,
 	return ids, nil
 }
 
-func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
+func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	importedImages := NewProcessedImages()
 
-	o.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
-	defer func() { o.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
+	i.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
+	defer func() { i.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
 
-	importThrottle := util.NewThrottle(o.concurrency)
+	importThrottle := util.NewThrottle(i.concurrency)
 
 	imageOrIndexesToWrite := map[regname.Reference]regremote.Taggable{}
 	var imageOrIndexesToWriteLock = &sync.Mutex{}
@@ -90,7 +90,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 		go func() {
 			importThrottle.Take()
 			defer importThrottle.Done()
-			tag, taggable, err := o.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
+			tag, taggable, err := i.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
 			if err != nil {
 				errCh <- err
 				return
@@ -108,7 +108,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 				errCh <- err
 				return
 			}
-			o.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", item.Ref(), importDigestRef.Name())))
+			i.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", item.Ref(), importDigestRef.Name())))
 
 			imageOrIndexesToWrite[tag] = taggable
 			errCh <- nil
@@ -120,7 +120,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 		return nil, err
 	}
 
-	err = registry.MultiWrite(imageOrIndexesToWrite, o.concurrency)
+	err = registry.MultiWrite(imageOrIndexesToWrite, i.concurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			processedImage, err := o.tagAndVerifyItem(item, importRepo, registry)
+			processedImage, err := i.tagAndVerifyItem(item, importRepo, registry)
 			importedImages.Add(processedImage)
 			errChVerifyImages <- err
 		}()
@@ -157,7 +157,7 @@ func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan er
 	return nil
 }
 
-func (o ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
+func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
 	uploadTagRef, err := buildUploadTagRef(item, importRepo)
 	if err != nil {
 		return regname.Tag{}, nil, err
@@ -166,7 +166,7 @@ func (o ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex,
 	var artifactToWrite regremote.Taggable
 	switch {
 	case item.Image != nil:
-		artifactToWrite, err = o.mountableImage(*item.Image, uploadTagRef, registry)
+		artifactToWrite, err = i.mountableImage(*item.Image, uploadTagRef, registry)
 		if err != nil {
 			return regname.Tag{}, nil, err
 		}
@@ -216,18 +216,18 @@ func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repositor
 	return uploadTagRef, nil
 }
 
-func (o *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
+func (i *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
 	existingRef, err := regname.NewDigest(item.Ref())
 	if err != nil {
 		return ProcessedImage{}, err
 	}
 
-	importDigestRef, err := o.verifyItemCopied(item, importRepo, registry)
+	importDigestRef, err := i.verifyItemCopied(item, importRepo, registry)
 	if err != nil {
 		return ProcessedImage{}, err
 	}
 
-	err = o.tagItemCopied(item, importRepo, registry, importDigestRef)
+	err = i.tagItemCopied(item, importRepo, registry, importDigestRef)
 	if err != nil {
 		return ProcessedImage{}, fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
 	}
@@ -248,7 +248,7 @@ func (o *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regn
 	}, nil
 }
 
-func (o *ImageSet) tagItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter, importDigestRef regname.Digest) error {
+func (i *ImageSet) tagItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter, importDigestRef regname.Digest) error {
 	if item.Tag() != "" {
 		uploadOriginalTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), item.Tag()))
 		if err != nil {
@@ -275,7 +275,7 @@ func (o *ImageSet) tagItemCopied(item imagedesc.ImageOrIndex, importRepo regname
 	return nil
 }
 
-func (o *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Digest, error) {
+func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Digest, error) {
 	itemDigest, err := item.Digest()
 	if err != nil {
 		return regname.Digest{}, err
@@ -296,14 +296,14 @@ func (o *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regn
 	// Being a little bit paranoid here because tag ref is used for import
 	// instead of plain digest ref, because AWS ECR doesnt like digests
 	// during manifest upload.
-	err = o.verifyTagDigest(uploadTagRef, importDigestRef, registry)
+	err = i.verifyTagDigest(uploadTagRef, importDigestRef, registry)
 	if err != nil {
 		return regname.Digest{}, err
 	}
 	return importDigestRef, nil
 }
 
-func (o *ImageSet) verifyTagDigest(
+func (i *ImageSet) verifyTagDigest(
 	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry ImagesReaderWriter) error {
 
 	resultURL, err := getResolvedImageURL(uploadTagRef.Name(), registry)

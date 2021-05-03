@@ -190,6 +190,8 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
 	bundle, err := random.Image(500, 5)
+	require.NoError(r.t, err)
+
 	bundle, err = mutate.ConfigFile(bundle, &v1.ConfigFile{
 		Config: v1.Config{
 			Labels: map[string]string{"dev.carvel.imgpkg.bundle": "true"},
@@ -416,7 +418,7 @@ func compress(src string) (*os.File, error) {
 	tw := tar.NewWriter(tempTarFile)
 
 	// walk through every file in the folder
-	filepath.Walk(src, func(file string, fi os.FileInfo, err error) error {
+	filepath.Walk(src, func(file string, fi os.FileInfo, _ error) error {
 		header, err := tar.FileInfoHeader(fi, file)
 		if err != nil {
 			return err

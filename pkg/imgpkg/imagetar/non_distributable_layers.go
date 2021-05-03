@@ -15,10 +15,10 @@ func NewImageLayerWriterCheck(includeNonDistributable bool) ImageLayerWriterFilt
 	return ImageLayerWriterFilter{includeNonDistributable}
 }
 
-func (c ImageLayerWriterFilter) ShouldLayerBeIncluded(layer regv1.Layer) (bool, error) {
+func (f ImageLayerWriterFilter) ShouldLayerBeIncluded(layer regv1.Layer) (bool, error) {
 	mediaType, err := layer.MediaType()
 	if err != nil {
 		return false, err
 	}
-	return mediaType.IsDistributable() || c.includeNonDistributable, nil
+	return mediaType.IsDistributable() || f.includeNonDistributable, nil
 }

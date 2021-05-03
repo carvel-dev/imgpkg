@@ -49,16 +49,16 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	return cmd
 }
 
-func (o *PushOptions) Run() error {
-	registry, err := registry.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+func (po *PushOptions) Run() error {
+	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
 	}
 
 	var imageURL string
 
-	isBundle := o.BundleFlags.Bundle != ""
-	isImage := o.ImageFlags.Image != ""
+	isBundle := po.BundleFlags.Bundle != ""
+	isImage := po.ImageFlags.Image != ""
 
 	switch {
 	case isBundle && isImage:
@@ -68,13 +68,13 @@ func (o *PushOptions) Run() error {
 		return fmt.Errorf("Expected either image or bundle")
 
 	case isBundle:
-		imageURL, err = o.pushBundle(registry)
+		imageURL, err = po.pushBundle(reg)
 		if err != nil {
 			return err
 		}
 
 	case isImage:
-		imageURL, err = o.pushImage(registry)
+		imageURL, err = po.pushImage(reg)
 		if err != nil {
 			return err
 		}
@@ -83,23 +83,23 @@ func (o *PushOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	o.ui.BeginLinef("Pushed '%s'", imageURL)
+	po.ui.BeginLinef("Pushed '%s'", imageURL)
 
 	return nil
 }
 
-func (o *PushOptions) pushBundle(registry registry.Registry) (string, error) {
-	uploadRef, err := regname.NewTag(o.BundleFlags.Bundle, regname.WeakValidation)
+func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
+	uploadRef, err := regname.NewTag(po.BundleFlags.Bundle, regname.WeakValidation)
 	if err != nil {
-		return "", fmt.Errorf("Parsing '%s': %s", o.BundleFlags.Bundle, err)
+		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
 	}
 
-	imageURL, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, o.ui)
+	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, po.ui)
 	if err != nil {
 		return "", err
 	}
 
-	if o.LockOutputFlags.LockFilePath != "" {
+	if po.LockOutputFlags.LockFilePath != "" {
 		bundleLock := lockconfig.BundleLock{
 			LockVersion: lockconfig.LockVersion{
 				APIVersion: lockconfig.BundleLockAPIVersion,
@@ -111,7 +111,7 @@ func (o *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 			},
 		}
 
-		err := bundleLock.WriteToPath(o.LockOutputFlags.LockFilePath)
+		err := bundleLock.WriteToPath(po.LockOutputFlags.LockFilePath)
 		if err != nil {
 			return "", err
 		}
@@ -120,17 +120,17 @@ func (o *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	return imageURL, nil
 }
 
-func (o *PushOptions) pushImage(registry registry.Registry) (string, error) {
-	if o.LockOutputFlags.LockFilePath != "" {
+func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
+	if po.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
 	}
 
-	uploadRef, err := regname.NewTag(o.ImageFlags.Image, regname.WeakValidation)
+	uploadRef, err := regname.NewTag(po.ImageFlags.Image, regname.WeakValidation)
 	if err != nil {
-		return "", fmt.Errorf("Parsing '%s': %s", o.ImageFlags.Image, err)
+		return "", fmt.Errorf("Parsing '%s': %s", po.ImageFlags.Image, err)
 	}
 
-	isBundle, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).PresentsAsBundle()
+	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).PresentsAsBundle()
 	if err != nil {
 		return "", err
 	}
@@ -138,5 +138,5 @@ func (o *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
 
-	return plainimage.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, o.ui)
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, po.ui)
 }

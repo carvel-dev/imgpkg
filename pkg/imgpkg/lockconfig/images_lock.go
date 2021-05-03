@@ -52,23 +52,23 @@ func NewImagesLockFromBytes(data []byte) (ImagesLock, error) {
 	return lock, nil
 }
 
-func (c *ImagesLock) AddImageRef(ref ImageRef) {
-	for _, image := range c.Images {
+func (i *ImagesLock) AddImageRef(ref ImageRef) {
+	for _, image := range i.Images {
 		if image.Image == ref.Image {
 			return
 		}
 	}
-	c.Images = append(c.Images, ref)
+	i.Images = append(i.Images, ref)
 }
 
-func (c ImagesLock) Validate() error {
-	if c.APIVersion != ImagesLockAPIVersion {
+func (i ImagesLock) Validate() error {
+	if i.APIVersion != ImagesLockAPIVersion {
 		return fmt.Errorf("Validating apiVersion: Unknown version (known: %s)", ImagesLockAPIVersion)
 	}
-	if c.Kind != ImagesLockKind {
+	if i.Kind != ImagesLockKind {
 		return fmt.Errorf("Validating kind: Unknown kind (known: %s)", ImagesLockKind)
 	}
-	for _, imageRef := range c.Images {
+	for _, imageRef := range i.Images {
 		if _, err := regname.NewDigest(imageRef.Image); err != nil {
 			return fmt.Errorf("Expected ref to be in digest form, got '%s'", imageRef.Image)
 		}
@@ -76,19 +76,19 @@ func (c ImagesLock) Validate() error {
 	return nil
 }
 
-func (c ImagesLock) AsBytes() ([]byte, error) {
-	err := c.Validate()
+func (i ImagesLock) AsBytes() ([]byte, error) {
+	err := i.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("Validating images lock: %s", err)
 	}
 
 	// Use the first location instead of the value present in Image
 	var imgRefs []ImageRef
-	for _, image := range c.Images {
+	for _, image := range i.Images {
 		image.Image = image.PrimaryLocation()
 		imgRefs = append(imgRefs, image)
 	}
-	updatedImagesLock := c
+	updatedImagesLock := i
 	updatedImagesLock.Images = imgRefs
 
 	bs, err := yaml.Marshal(updatedImagesLock)
@@ -99,8 +99,8 @@ func (c ImagesLock) AsBytes() ([]byte, error) {
 	return []byte(fmt.Sprintf("---\n%s", bs)), nil
 }
 
-func (c ImagesLock) WriteToPath(path string) error {
-	bs, err := c.AsBytes()
+func (i ImagesLock) WriteToPath(path string) error {
+	bs, err := i.AsBytes()
 	if err != nil {
 		return err
 	}

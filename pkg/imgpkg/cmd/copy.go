@@ -65,19 +65,19 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	return cmd
 }
 
-func (o *CopyOptions) Run() error {
-	if !o.hasOneSrc() {
+func (c *CopyOptions) Run() error {
+	if !c.hasOneSrc() {
 		return fmt.Errorf("Expected either --lock, --bundle (-b), --image (-i), or --tar as a source")
 	}
-	if !o.hasOneDst() {
+	if !c.hasOneDst() {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
 	}
 
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 
-	registryOpts := o.RegistryFlags.AsRegistryOpts()
-	registryOpts.IncludeNonDistributableLayers = o.IncludeNonDistributable
+	registryOpts := c.RegistryFlags.AsRegistryOpts()
+	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributable
 
 	registry, err := registry.NewRegistry(registryOpts)
 	if err != nil {
@@ -85,64 +85,64 @@ func (o *CopyOptions) Run() error {
 	}
 
 	switch {
-	case o.isTarSrc():
-		if o.isTarDst() {
+	case c.isTarSrc():
+		if c.isTarDst() {
 			return fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		importRepo, err := regname.NewRepository(o.RepoDst)
+		importRepo, err := regname.NewRepository(c.RepoDst)
 		if err != nil {
 			return fmt.Errorf("Building import repository ref: %s", err)
 		}
 
-		imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
-		tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
+		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-		processedImages, err := tarImageSet.Import(o.TarFlags.TarSrc, importRepo, registry)
+		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, registry)
 		if err != nil {
 			return err
 		}
 
-		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, o.IncludeNonDistributable, processedImagesMediaType(processedImages))
-		return o.writeLockOutput(processedImages, registry)
+		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		return c.writeLockOutput(processedImages, registry)
 
-	case o.isRepoSrc():
-		imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
+	case c.isRepoSrc():
+		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 
 		repoSrc := CopyRepoSrc{
 			logger:                  prefixedLogger,
-			ImageFlags:              o.ImageFlags,
-			BundleFlags:             o.BundleFlags,
-			LockInputFlags:          o.LockInputFlags,
-			IncludeNonDistributable: o.IncludeNonDistributable,
+			ImageFlags:              c.ImageFlags,
+			BundleFlags:             c.BundleFlags,
+			LockInputFlags:          c.LockInputFlags,
+			IncludeNonDistributable: c.IncludeNonDistributable,
 
 			registry:    registry,
 			imageSet:    imageSet,
-			tarImageSet: ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger),
-			Concurrency: o.Concurrency,
+			tarImageSet: ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
+			Concurrency: c.Concurrency,
 		}
 
 		switch {
-		case o.isTarDst():
-			if o.LockOutputFlags.LockFilePath != "" {
+		case c.isTarDst():
+			if c.LockOutputFlags.LockFilePath != "" {
 				return fmt.Errorf("cannot output lock file with tar destination")
 			}
 
-			return repoSrc.CopyToTar(o.TarFlags.TarDst)
+			return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
-		case o.isRepoDst():
-			processedImages, err := repoSrc.CopyToRepo(o.RepoDst)
+		case c.isRepoDst():
+			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
 			if err != nil {
 				return err
 			}
 
-			return o.writeLockOutput(processedImages, registry)
+			return c.writeLockOutput(processedImages, registry)
 		}
 	}
 	panic("Unreachable")
 }
 
-func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
+func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
 	var foundBundle *bundle.Bundle
 	for _, item := range processedImages.All() {
 		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
@@ -157,34 +157,34 @@ func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages
 		}
 	}
 
-	if o.LockOutputFlags.LockFilePath != "" {
+	if c.LockOutputFlags.LockFilePath != "" {
 		if foundBundle != nil {
-			return o.writeBundleLockOutput(foundBundle)
+			return c.writeBundleLockOutput(foundBundle)
 		}
-		return o.writeImagesLockOutput(processedImages)
+		return c.writeImagesLockOutput(processedImages)
 	}
 	return nil
 }
 
-func (o *CopyOptions) isTarSrc() bool { return o.TarFlags.TarSrc != "" }
+func (c *CopyOptions) isTarSrc() bool { return c.TarFlags.TarSrc != "" }
 
-func (o *CopyOptions) isRepoSrc() bool {
-	return o.ImageFlags.Image != "" || o.BundleFlags.Bundle != "" || o.LockInputFlags.LockFilePath != ""
+func (c *CopyOptions) isRepoSrc() bool {
+	return c.ImageFlags.Image != "" || c.BundleFlags.Bundle != "" || c.LockInputFlags.LockFilePath != ""
 }
 
-func (o *CopyOptions) isTarDst() bool  { return o.TarFlags.TarDst != "" }
-func (o *CopyOptions) isRepoDst() bool { return o.RepoDst != "" }
+func (c *CopyOptions) isTarDst() bool  { return c.TarFlags.TarDst != "" }
+func (c *CopyOptions) isRepoDst() bool { return c.RepoDst != "" }
 
-func (o *CopyOptions) hasOneDst() bool {
-	repoSet := o.isRepoDst()
-	tarSet := o.isTarDst()
+func (c *CopyOptions) hasOneDst() bool {
+	repoSet := c.isRepoDst()
+	tarSet := c.isTarDst()
 	return (repoSet || tarSet) && !(repoSet && tarSet)
 }
 
-func (o *CopyOptions) hasOneSrc() bool {
+func (c *CopyOptions) hasOneSrc() bool {
 	var seen bool
-	for _, ref := range []string{o.LockInputFlags.LockFilePath, o.TarFlags.TarSrc,
-		o.BundleFlags.Bundle, o.ImageFlags.Image} {
+	for _, ref := range []string{c.LockInputFlags.LockFilePath, c.TarFlags.TarSrc,
+		c.BundleFlags.Bundle, c.ImageFlags.Image} {
 		if ref != "" {
 			if seen {
 				return false
@@ -195,7 +195,7 @@ func (o *CopyOptions) hasOneSrc() bool {
 	return seen
 }
 
-func (o *CopyOptions) writeImagesLockOutput(processedImages *ctlimgset.ProcessedImages) error {
+func (c *CopyOptions) writeImagesLockOutput(processedImages *ctlimgset.ProcessedImages) error {
 	imagesLock := lockconfig.ImagesLock{
 		LockVersion: lockconfig.LockVersion{
 			APIVersion: lockconfig.ImagesLockAPIVersion,
@@ -203,9 +203,9 @@ func (o *CopyOptions) writeImagesLockOutput(processedImages *ctlimgset.Processed
 		},
 	}
 
-	if o.LockInputFlags.LockFilePath != "" {
+	if c.LockInputFlags.LockFilePath != "" {
 		var err error
-		imagesLock, err = lockconfig.NewImagesLockFromPath(o.LockInputFlags.LockFilePath)
+		imagesLock, err = lockconfig.NewImagesLockFromPath(c.LockInputFlags.LockFilePath)
 		if err != nil {
 			return err
 		}
@@ -224,10 +224,10 @@ func (o *CopyOptions) writeImagesLockOutput(processedImages *ctlimgset.Processed
 		}
 	}
 
-	return imagesLock.WriteToPath(o.LockOutputFlags.LockFilePath)
+	return imagesLock.WriteToPath(c.LockOutputFlags.LockFilePath)
 }
 
-func (o *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
+func (c *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
 	bundleLock := lockconfig.BundleLock{
 		LockVersion: lockconfig.LockVersion{
 			APIVersion: lockconfig.BundleLockAPIVersion,
@@ -239,7 +239,7 @@ func (o *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
 		},
 	}
 
-	return bundleLock.WriteToPath(o.LockOutputFlags.LockFilePath)
+	return bundleLock.WriteToPath(c.LockOutputFlags.LockFilePath)
 }
 
 func processedImagesMediaType(processedImages *ctlimgset.ProcessedImages) []string {

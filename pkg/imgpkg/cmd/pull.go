@@ -55,30 +55,30 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 	return cmd
 }
 
-func (o *PullOptions) Run() error {
-	err := o.validate()
+func (po *PullOptions) Run() error {
+	err := po.validate()
 	if err != nil {
 		return err
 	}
 
-	registry, err := registry.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", po.RegistryFlags.AsRegistryOpts(), err)
 	}
 
 	switch {
-	case len(o.LockInputFlags.LockFilePath) > 0 || len(o.BundleFlags.Bundle) > 0:
-		bundleRef := o.BundleFlags.Bundle
+	case len(po.LockInputFlags.LockFilePath) > 0 || len(po.BundleFlags.Bundle) > 0:
+		bundleRef := po.BundleFlags.Bundle
 
-		if len(o.LockInputFlags.LockFilePath) > 0 {
-			bundleLock, err := lockconfig.NewBundleLockFromPath(o.LockInputFlags.LockFilePath)
+		if len(po.LockInputFlags.LockFilePath) > 0 {
+			bundleLock, err := lockconfig.NewBundleLockFromPath(po.LockInputFlags.LockFilePath)
 			if err != nil {
 				return err
 			}
 			bundleRef = bundleLock.Bundle.Image
 		}
 
-		err := bundle.NewBundle(bundleRef, registry).Pull(o.OutputPath, o.ui, o.BundleRecursiveFlags.Recursive)
+		err := bundle.NewBundle(bundleRef, reg).Pull(po.OutputPath, po.ui, po.BundleRecursiveFlags.Recursive)
 		if err != nil {
 			if bundle.IsNotBundleError(err) {
 				return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
@@ -87,33 +87,33 @@ func (o *PullOptions) Run() error {
 		}
 		return nil
 
-	case len(o.ImageFlags.Image) > 0:
-		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, registry)
-		ok, err := bundle.NewBundleFromPlainImage(plainImg, registry).IsBundle()
+	case len(po.ImageFlags.Image) > 0:
+		plainImg := plainimage.NewPlainImage(po.ImageFlags.Image, reg)
+		ok, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 		if err != nil {
 			return err
 		}
 		if ok {
 			return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
 		}
-		return plainImg.Pull(o.OutputPath, o.ui)
+		return plainImg.Pull(po.OutputPath, po.ui)
 
 	default:
 		panic("Unreachable code")
 	}
 }
 
-func (o *PullOptions) validate() error {
-	if o.OutputPath == "" {
+func (po *PullOptions) validate() error {
+	if po.OutputPath == "" {
 		return fmt.Errorf("Expected --output to be none empty")
 	}
 
-	if o.OutputPath == "/" || o.OutputPath == "." || o.OutputPath == ".." {
+	if po.OutputPath == "/" || po.OutputPath == "." || po.OutputPath == ".." {
 		return fmt.Errorf("Disallowed output directory (trying to avoid accidental deletion)")
 	}
 
 	presentInputParams := 0
-	for _, inputParam := range []string{o.LockInputFlags.LockFilePath, o.BundleFlags.Bundle, o.ImageFlags.Image} {
+	for _, inputParam := range []string{po.LockInputFlags.LockFilePath, po.BundleFlags.Bundle, po.ImageFlags.Image} {
 		if len(inputParam) > 0 {
 			presentInputParams++
 		}
