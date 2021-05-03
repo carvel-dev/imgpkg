@@ -142,8 +142,6 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 
 		return unprocessedImageRefs, nil
 	}
-
-	panic("Unreachable")
 }
 
 func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {

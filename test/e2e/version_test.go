@@ -12,7 +12,7 @@ import (
 
 func TestVersion(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	out := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}.Run([]string{"version"})
+	out := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}.Run([]string{"version"})
 
 	require.Contains(t, out, "imgpkg version")
 }

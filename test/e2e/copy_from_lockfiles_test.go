@@ -235,7 +235,7 @@ images:
 
 func TestCopyFromImageLock(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	logger := helpers.Logger{}
 	defer env.Cleanup()
 

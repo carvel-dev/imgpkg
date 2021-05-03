@@ -60,7 +60,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 		}
 
 		i.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.DigestRef)))
-		refs = append(refs, imagedesc.Metadata{ref, img.Tag})
+		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, imagesMetadata)

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -43,7 +42,7 @@ func NewFileImage(path string, labels map[string]string) (*FileImage, error) {
 		History: v1.History{
 			Author:    "imgpkg",
 			CreatedBy: "imgpkg",
-			Created:   v1.Time{time.Time{}}, // static
+			Created:   v1.Time{}, // static
 		},
 	}
 

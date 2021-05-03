@@ -36,7 +36,7 @@ func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
 	})
 
 	benchmarkResultCopyInSameRegistry := testing.Benchmark(func(b *testing.B) {
-		imgpkg := helpers.Imgpkg{t, logger, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: logger, ImgpkgPath: env.ImgpkgPath}
 
 		imgpkg.Run([]string{"copy", "-i", perfTestingRepo, "--to-repo", perfTestingRepo + strconv.Itoa(b.N)})
 	})
@@ -55,7 +55,7 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 	env := helpers.BuildEnv(t)
 	defer env.Cleanup()
 
-	imgpkg := helpers.Imgpkg{t, logger, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: logger, ImgpkgPath: env.ImgpkgPath}
 
 	imgpkg.Run([]string{"push", "-f", "./assets/cf-for-k8s-bundle", "-b", env.RelocationRepo})
 

@@ -20,7 +20,7 @@ import (
 
 func TestBundlePushPullAnnotation(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
@@ -43,7 +43,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 
 func TestPushWithFileExclusion(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
@@ -68,7 +68,7 @@ func TestPushWithFileExclusion(t *testing.T) {
 
 func TestBundleLockFile(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
@@ -100,7 +100,7 @@ kind: BundleLock
 
 func TestImagePullOnBundleError(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
@@ -119,7 +119,7 @@ func TestImagePullOnBundleError(t *testing.T) {
 
 func TestBundlePullOnImageError(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	imageDir := env.Assets.CreateAndCopySimpleApp("image-folder")

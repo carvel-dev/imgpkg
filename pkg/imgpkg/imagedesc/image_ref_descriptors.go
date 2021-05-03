@@ -6,16 +6,17 @@ package imagedesc
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"sort"
+	"strings"
+	"sync"
+
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	regtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"golang.org/x/sync/errgroup"
-	"io"
-	"sort"
-	"strings"
-	"sync"
 )
 
 type Registry interface {
@@ -240,7 +241,7 @@ func (ids *ImageRefDescriptors) buildImage(ref Metadata) (ImageDescriptor, error
 	return td, nil
 }
 
-func (ImageRefDescriptors) isImageIndex(regDesc regv1.Descriptor) bool {
+func (*ImageRefDescriptors) isImageIndex(regDesc regv1.Descriptor) bool {
 	switch regDesc.MediaType {
 	case regtypes.OCIImageIndex, regtypes.DockerManifestList:
 		return true

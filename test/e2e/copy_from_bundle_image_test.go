@@ -62,7 +62,7 @@ images:
 
 	t.Run("when some images are not in the same repository as the bundle it copies all images", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		image := env.Image + "-image-outside-repo"
@@ -93,7 +93,7 @@ images:
 
 	t.Run("when copying bundle with annotations in ImagesLock it maintain the annotation after the copy", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		var bundleDigestRef, bundleDigest string
@@ -226,7 +226,7 @@ func TestCopyBundleUsingTar(t *testing.T) {
 	logger := helpers.Logger{}
 	t.Run("when a bundle contains other bundles it copies all images from all bundles", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		testDir := env.Assets.CreateTempFolder("nested-bundles-tar-test")
@@ -300,7 +300,7 @@ images:
 
 	t.Run("when bundle contains only images it copies all images", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		testDir := env.Assets.CreateTempFolder("tar-test")
@@ -346,7 +346,7 @@ images:
 
 	t.Run("when bundle have tag it preserves the tag in the destination", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		testDir := env.Assets.CreateTempFolder("tar-tag-test")
@@ -385,7 +385,7 @@ func TestCopyErrorsWhenCopyBundleUsingImageFlag(t *testing.T) {
 	logger := helpers.Logger{}
 	t.Run("when trying to copy a bundle using the -i flag, it fails", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		bundleDigestRef := ""

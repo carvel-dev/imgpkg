@@ -25,7 +25,7 @@ import (
 
 func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserverImageTag(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -51,7 +51,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 	t.Run("environment with internet", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 
 		defer env.Cleanup()
 
@@ -85,7 +85,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		env := helpers.BuildEnv(t)
 		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 
 		defer env.Cleanup()
 
@@ -115,7 +115,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 
 func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// general setup
@@ -146,7 +146,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 	t.Run("With --include-non-distributable-layers flag and image contains a non-distributable layer should copy every layer", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -182,7 +182,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -216,7 +216,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 
 	t.Run("With --lock-output flag should generate a valid ImageLock file", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		// general setup
@@ -249,7 +249,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 
 func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
 	// create generic image
@@ -268,7 +268,7 @@ func TestCopyErrorsWhenCopyImageUsingBundleFlag(t *testing.T) {
 
 func TestCopyErrorsWhenCopyToTarAndGenerateOutputLockFile(t *testing.T) {
 	env := helpers.BuildEnv(t)
-	imgpkg := helpers.Imgpkg{t, helpers.Logger{}, env.ImgpkgPath}
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	_, err := imgpkg.RunWithOpts(
 		[]string{"copy", "--tty", "-i", env.Image, "--to-tar", "file", "--lock-output", "bogus"},
 		helpers.RunOpts{AllowError: true},
