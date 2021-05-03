@@ -24,8 +24,8 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPre
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
-	ids, err := o.imageSet.Export(foundImages, registry)
+func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
+	ids, err := i.imageSet.Export(foundImages, registry)
 	if err != nil {
 		return nil, err
 	}
@@ -44,14 +44,14 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 		return os.OpenFile(outputPath, os.O_RDWR, 0755)
 	}
 
-	o.logger.WriteStr("writing layers...\n")
+	i.logger.WriteStr("writing layers...\n")
 
-	opts := imagetar.TarWriterOpts{Concurrency: o.concurrency}
+	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
 
-	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, o.logger, imageLayerWriterCheck).Write()
+	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck).Write()
 }
 
-func (o *TarImageSet) Import(path string,
+func (i *TarImageSet) Import(path string,
 	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
@@ -59,6 +59,6 @@ func (o *TarImageSet) Import(path string,
 		return nil, err
 	}
 
-	processedImages, err := o.imageSet.Import(imgOrIndexes, importRepo, registry)
+	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)
 	return processedImages, err
 }

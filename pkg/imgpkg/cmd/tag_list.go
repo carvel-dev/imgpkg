@@ -41,18 +41,18 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 	return cmd
 }
 
-func (o *TagListOptions) Run() error {
-	registry, err := registry.NewRegistry(o.RegistryFlags.AsRegistryOpts())
+func (t *TagListOptions) Run() error {
+	reg, err := registry.NewRegistry(t.RegistryFlags.AsRegistryOpts())
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
+		return fmt.Errorf("Unable to create a registry with the options %v: %v", t.RegistryFlags.AsRegistryOpts(), err)
 	}
 
-	ref, err := regname.ParseReference(o.ImageFlags.Image, regname.WeakValidation)
+	ref, err := regname.ParseReference(t.ImageFlags.Image, regname.WeakValidation)
 	if err != nil {
 		return err
 	}
 
-	tags, err := registry.ListTags(ref.Context())
+	tags, err := reg.ListTags(ref.Context())
 	if err != nil {
 		return err
 	}
@@ -74,13 +74,13 @@ func (o *TagListOptions) Run() error {
 	for _, tag := range tags {
 		var digest string
 
-		if o.Digests {
+		if t.Digests {
 			tagRef, err := regname.NewTag(ref.Context().String()+":"+tag, regname.WeakValidation)
 			if err != nil {
 				return err
 			}
 
-			hash, err := registry.Digest(tagRef)
+			hash, err := reg.Digest(tagRef)
 			if err != nil {
 				return err
 			}
@@ -94,7 +94,7 @@ func (o *TagListOptions) Run() error {
 		})
 	}
 
-	o.ui.PrintTable(table)
+	t.ui.PrintTable(table)
 
 	return nil
 }

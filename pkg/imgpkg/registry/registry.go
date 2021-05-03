@@ -70,12 +70,12 @@ func NewRegistry(opts Opts) (Registry, error) {
 	}, nil
 }
 
-func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return regv1.Descriptor{}, err
 	}
-	desc, err := regremote.Get(overriddenRef, i.opts...)
+	desc, err := regremote.Get(overriddenRef, r.opts...)
 	if err != nil {
 		return regv1.Descriptor{}, err
 	}
@@ -83,16 +83,16 @@ func (i Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
 	return desc.Descriptor, nil
 }
 
-func (i Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
-	return regremote.Get(ref, i.opts...)
+func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+	return regremote.Get(ref, r.opts...)
 }
 
-func (i Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return regv1.Hash{}, err
 	}
-	desc, err := regremote.Head(overriddenRef, i.opts...)
+	desc, err := regremote.Head(overriddenRef, r.opts...)
 	if err != nil {
 		return regv1.Hash{}, err
 	}
@@ -100,29 +100,29 @@ func (i Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	return desc.Digest, nil
 }
 
-func (i Registry) Image(ref regname.Reference) (regv1.Image, error) {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return regremote.Image(overriddenRef, i.opts...)
+	return regremote.Image(overriddenRef, r.opts...)
 }
 
-func (i Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
+func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
 	return util.Retry(func() error {
-		return regremote.MultiWrite(imageOrIndexesToUpload, append(i.opts, regremote.WithJobs(concurrency))...)
+		return regremote.MultiWrite(imageOrIndexesToUpload, append(r.opts, regremote.WithJobs(concurrency))...)
 	})
 }
 
-func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
 	}
 
 	err = util.Retry(func() error {
-		return regremote.Write(overriddenRef, img, i.opts...)
+		return regremote.Write(overriddenRef, img, r.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
@@ -131,22 +131,22 @@ func (i Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	return nil
 }
 
-func (i Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return regremote.Index(overriddenRef, i.opts...)
+	return regremote.Index(overriddenRef, r.opts...)
 }
 
-func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
-	overriddenRef, err := regname.ParseReference(ref.String(), i.refOpts...)
+func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
 	}
 
 	err = util.Retry(func() error {
-		return regremote.WriteIndex(overriddenRef, idx, i.opts...)
+		return regremote.WriteIndex(overriddenRef, idx, r.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
@@ -155,14 +155,14 @@ func (i Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 	return nil
 }
 
-func (i Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
-	overriddenRef, err := regname.NewTag(ref.String(), i.refOpts...)
+func (r Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
+	overriddenRef, err := regname.NewTag(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
 	}
 
 	err = util.Retry(func() error {
-		return regremote.Tag(overriddenRef, taggagle, i.opts...)
+		return regremote.Tag(overriddenRef, taggagle, r.opts...)
 	})
 	if err != nil {
 		return fmt.Errorf("Tagging image: %s", err)
@@ -171,12 +171,12 @@ func (i Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 	return nil
 }
 
-func (i Registry) ListTags(repo regname.Repository) ([]string, error) {
-	overriddenRepo, err := regname.NewRepository(repo.Name(), i.refOpts...)
+func (r Registry) ListTags(repo regname.Repository) ([]string, error) {
+	overriddenRepo, err := regname.NewRepository(repo.Name(), r.refOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return regremote.List(overriddenRepo, i.opts...)
+	return regremote.List(overriddenRepo, r.opts...)
 }
 
 func newHTTPTransport(opts Opts) (*http.Transport, error) {

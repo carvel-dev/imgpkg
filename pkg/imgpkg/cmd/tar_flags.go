@@ -12,7 +12,7 @@ type TarFlags struct {
 	TarDst string
 }
 
-func (s *TarFlags) Set(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&s.TarDst, "to-tar", "", "Location to write a tar file containing assets")
-	cmd.Flags().StringVar(&s.TarSrc, "tar", "", "Path to tar file which contains assets to be copied to a registry")
+func (t *TarFlags) Set(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&t.TarDst, "to-tar", "", "Location to write a tar file containing assets")
+	cmd.Flags().StringVar(&t.TarSrc, "tar", "", "Path to tar file which contains assets to be copied to a registry")
 }

@@ -21,27 +21,27 @@ type RegistryFlags struct {
 	Anon     bool
 }
 
-func (s *RegistryFlags) Set(cmd *cobra.Command) {
-	cmd.Flags().StringSliceVar(&s.CACertPaths, "registry-ca-cert-path", nil, "Add CA certificates for registry API (format: /tmp/foo) (can be specified multiple times)")
-	cmd.Flags().BoolVar(&s.VerifyCerts, "registry-verify-certs", true, "Set whether to verify server's certificate chain and host name")
-	cmd.Flags().BoolVar(&s.Insecure, "registry-insecure", false, "Allow the use of http when interacting with registries")
+func (r *RegistryFlags) Set(cmd *cobra.Command) {
+	cmd.Flags().StringSliceVar(&r.CACertPaths, "registry-ca-cert-path", nil, "Add CA certificates for registry API (format: /tmp/foo) (can be specified multiple times)")
+	cmd.Flags().BoolVar(&r.VerifyCerts, "registry-verify-certs", true, "Set whether to verify server's certificate chain and host name")
+	cmd.Flags().BoolVar(&r.Insecure, "registry-insecure", false, "Allow the use of http when interacting with registries")
 
-	cmd.Flags().StringVar(&s.Username, "registry-username", "", "Set username for auth ($IMGPKG_USERNAME)")
-	cmd.Flags().StringVar(&s.Password, "registry-password", "", "Set password for auth ($IMGPKG_PASSWORD)")
-	cmd.Flags().StringVar(&s.Token, "registry-token", "", "Set token for auth ($IMGPKG_TOKEN)")
-	cmd.Flags().BoolVar(&s.Anon, "registry-anon", false, "Set anonymous auth ($IMGPKG_ANON)")
+	cmd.Flags().StringVar(&r.Username, "registry-username", "", "Set username for auth ($IMGPKG_USERNAME)")
+	cmd.Flags().StringVar(&r.Password, "registry-password", "", "Set password for auth ($IMGPKG_PASSWORD)")
+	cmd.Flags().StringVar(&r.Token, "registry-token", "", "Set token for auth ($IMGPKG_TOKEN)")
+	cmd.Flags().BoolVar(&r.Anon, "registry-anon", false, "Set anonymous auth ($IMGPKG_ANON)")
 }
 
-func (s *RegistryFlags) AsRegistryOpts() registry.Opts {
+func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	opts := registry.Opts{
-		CACertPaths: s.CACertPaths,
-		VerifyCerts: s.VerifyCerts,
-		Insecure:    s.Insecure,
+		CACertPaths: r.CACertPaths,
+		VerifyCerts: r.VerifyCerts,
+		Insecure:    r.Insecure,
 
-		Username: s.Username,
-		Password: s.Password,
-		Token:    s.Token,
-		Anon:     s.Anon,
+		Username: r.Username,
+		Password: r.Password,
+		Token:    r.Token,
+		Anon:     r.Anon,
 	}
 
 	if len(opts.Username) == 0 {

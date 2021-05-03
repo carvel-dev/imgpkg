@@ -29,24 +29,24 @@ type CopyRepoSrc struct {
 	registry                ctlimgset.ImagesReaderWriter
 }
 
-func (o CopyRepoSrc) CopyToTar(dstPath string) error {
-	unprocessedImageRefs, err := o.getSourceImages()
+func (c CopyRepoSrc) CopyToTar(dstPath string) error {
+	unprocessedImageRefs, err := c.getSourceImages()
 	if err != nil {
 		return err
 	}
 
-	ids, err := o.tarImageSet.Export(unprocessedImageRefs, dstPath, o.registry, imagetar.NewImageLayerWriterCheck(o.IncludeNonDistributable))
+	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return nil
 }
 
-func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
-	unprocessedImageRefs, err := o.getSourceImages()
+func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
+	unprocessedImageRefs, err := c.getSourceImages()
 	if err != nil {
 		return nil, err
 	}
@@ -56,29 +56,29 @@ func (o CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	processedImages, ids, err := o.imageSet.Relocate(unprocessedImageRefs, importRepo, o.registry)
+	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 	if err != nil {
 		return nil, err
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(o.logger, o.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }
 
-func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
+func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 
 	switch {
-	case o.LockInputFlags.LockFilePath != "":
-		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(o.LockInputFlags.LockFilePath)
+	case c.LockInputFlags.LockFilePath != "":
+		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
 		if err != nil {
 			return nil, err
 		}
 
 		switch {
 		case bundleLock != nil:
-			_, imageRefs, err := o.getBundleImageRefs(bundleLock.Bundle.Image)
+			_, imageRefs, err := c.getBundleImageRefs(bundleLock.Bundle.Image)
 			if err != nil {
 				return nil, err
 			}
@@ -96,9 +96,9 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 
 		case imagesLock != nil:
 			for _, img := range imagesLock.Images {
-				plainImg := plainimage.NewPlainImage(img.Image, o.registry)
+				plainImg := plainimage.NewPlainImage(img.Image, c.registry)
 
-				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 				if err != nil {
 					return nil, err
 				}
@@ -114,10 +114,10 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 			panic("Unreachable")
 		}
 
-	case o.ImageFlags.Image != "":
-		plainImg := plainimage.NewPlainImage(o.ImageFlags.Image, o.registry)
+	case c.ImageFlags.Image != "":
+		plainImg := plainimage.NewPlainImage(c.ImageFlags.Image, c.registry)
 
-		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, o.registry).IsBundle()
+		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +129,7 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 		return unprocessedImageRefs, nil
 
 	default:
-		bundle, imageRefs, err := o.getBundleImageRefs(o.BundleFlags.Bundle)
+		bundle, imageRefs, err := c.getBundleImageRefs(c.BundleFlags.Bundle)
 		if err != nil {
 			return nil, err
 		}
@@ -146,10 +146,10 @@ func (o CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	panic("Unreachable")
 }
 
-func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {
-	bundle := ctlbundle.NewBundle(bundleRef, o.registry)
+func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {
+	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
 
-	imgLock, err := bundle.AllImagesLock(o.Concurrency)
+	imgLock, err := bundle.AllImagesLock(c.Concurrency)
 	if err != nil {
 		if ctlbundle.IsNotBundleError(err) {
 			return nil, nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
@@ -157,7 +157,7 @@ func (o CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, err
 	}
 
-	imageRefs, err := imgLock.LocationPrunedImageRefs(o.Concurrency)
+	imageRefs, err := imgLock.LocationPrunedImageRefs(c.Concurrency)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Pruning image ref locations: %s", err)
 	}

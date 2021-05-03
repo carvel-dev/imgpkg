@@ -11,10 +11,10 @@ type ImageFlags struct {
 	Image string
 }
 
-func (s *ImageFlags) Set(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&s.Image, "image", "i", "", "Set image (example: docker.io/dkalinin/test-content)")
+func (i *ImageFlags) Set(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&i.Image, "image", "i", "", "Set image (example: docker.io/dkalinin/test-content)")
 }
 
-func (s *ImageFlags) SetCopy(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&s.Image, "image", "i", "", "Image reference for copying a generic image (example: docker.io/dkalinin/test-content)")
+func (i *ImageFlags) SetCopy(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&i.Image, "image", "i", "", "Image reference for copying a generic image (example: docker.io/dkalinin/test-content)")
 }

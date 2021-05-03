@@ -29,19 +29,19 @@ type RunOpts struct {
 	EnvVars      []string
 }
 
-func (k Imgpkg) Run(args []string) string {
-	k.T.Helper()
-	out, _ := k.RunWithOpts(args, RunOpts{})
+func (i Imgpkg) Run(args []string) string {
+	i.T.Helper()
+	out, _ := i.RunWithOpts(args, RunOpts{})
 	return out
 }
 
-func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
-	k.T.Helper()
+func (i Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
+	i.T.Helper()
 	args = append(args, "--yes")
 
-	k.L.Debugf("Running '%s'...\n", k.cmdDesc(args, opts))
+	i.L.Debugf("Running '%s'...\n", i.cmdDesc(args, opts))
 
-	cmd := exec.Command(k.ImgpkgPath, args...)
+	cmd := exec.Command(i.ImgpkgPath, args...)
 	if len(opts.EnvVars) != 0 {
 		cmd.Env = os.Environ()
 		for _, env := range opts.EnvVars {
@@ -81,14 +81,14 @@ func (k Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
 		err = fmt.Errorf("Execution error: stdout: '%s' stderr: '%s' error: '%s'", stdoutStr, stderr.String(), err)
 
 		if !opts.AllowError {
-			k.T.Fatalf("Failed to successfully execute '%s': %v", k.cmdDesc(args, opts), err)
+			i.T.Fatalf("Failed to successfully execute '%s': %v", i.cmdDesc(args, opts), err)
 		}
 	}
 
 	return stdoutStr, err
 }
 
-func (k Imgpkg) cmdDesc(args []string, opts RunOpts) string {
+func (i Imgpkg) cmdDesc(args []string, opts RunOpts) string {
 	prefix := "imgpkg"
 	if opts.Redact {
 		return prefix + " -redacted-"
