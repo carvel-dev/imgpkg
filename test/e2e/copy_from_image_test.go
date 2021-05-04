@@ -124,7 +124,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 
 	env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
 
-	repoToCopyName := env.RelocationRepo + "include-non-distributable-layers-1"
+	repoToCopyName := env.RelocationRepo + "-include-non-distributable-layers-1"
 	var stdOutWriter bytes.Buffer
 
 	// copying an image that contains a NDL to a tarball (the tarball includes the NDL)
@@ -135,7 +135,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 	imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
 		StderrWriter: stderr,
 	})
-	imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, stderr.String()))
+	imageDigest := fmt.Sprintf("@%s", env.ImageFactory.ImageDigest(env.RelocationRepo))
 
 	// copying from a repo (the image in the repo does *not* include the NDL) to a tarball. We expect NDL to be copied into the tarball.
 	imgpkg.Run([]string{"copy", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable-layers"})
@@ -144,36 +144,41 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 }
 
 func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
+	logger := helpers.Logger{}
 	t.Run("With --include-non-distributable-layers flag and image contains a non-distributable layer should copy every layer", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
-		// general setup
-		testDir := env.Assets.CreateTempFolder("image-to-tar")
-		tarFilePath := filepath.Join(testDir, "image.tar")
-
-		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
 		repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
+		tarFilePath := ""
+		nonDistributableLayerDigest := ""
+		logger.Section("Create Image With Non Distributable Layer", func() {
+			testDir := env.Assets.CreateTempFolder("image-to-tar")
+			tarFilePath = filepath.Join(testDir, "image.tar")
 
-		// copy to tar
-		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
+			nonDistributableLayerDigest = env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+		})
+		imageDigest := fmt.Sprintf("@%s", env.ImageFactory.ImageDigest(env.RelocationRepo))
 
-		stderr := bytes.NewBufferString("")
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable-layers"}, helpers.RunOpts{
-			StderrWriter: stderr,
+		logger.Section("Create a Tar from Image", func() {
+			imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
 		})
 
-		digest, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
-		require.NoError(t, err)
+		logger.Section("Import Tar to Registry", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable-layers"})
+		})
 
-		layer, err := remote.Layer(digest, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-		require.NoError(t, err)
+		logger.Section("Check if Layer was correctly copied", func() {
+			digest, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+			require.NoError(t, err)
 
-		_, err = layer.Compressed()
-		require.NoError(t, err)
+			layer, err := remote.Layer(digest, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+			require.NoError(t, err)
 
-		imageDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, stderr.String()))
+			_, err = layer.Compressed()
+			require.NoError(t, err)
+		})
 
 		imgpkg.Run([]string{"pull", "-i", repoToCopyName + imageDigest, "--output", env.Assets.CreateTempFolder("pulled-image")})
 	})

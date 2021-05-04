@@ -81,7 +81,6 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	importedImages := NewProcessedImages()
 
 	i.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
-	defer func() { i.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
 
 	importThrottle := util.NewThrottle(i.concurrency)
 
@@ -101,18 +100,6 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			}
 			imageOrIndexesToWriteLock.Lock()
 			defer imageOrIndexesToWriteLock.Unlock()
-
-			itemDigest, err := item.Digest()
-			if err != nil {
-				errCh <- err
-				return
-			}
-			importDigestRef, err := regname.NewDigest(fmt.Sprintf("%s@%s", importRepo.Name(), itemDigest))
-			if err != nil {
-				errCh <- err
-				return
-			}
-			i.logger.WriteStr("importing %s -> %s...\n", item.Ref(), importDigestRef.Name())
 
 			imageOrIndexesToWrite[tag] = taggable
 			errCh <- nil
