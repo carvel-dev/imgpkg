@@ -126,8 +126,8 @@ func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarW
 	header := &tar.Header{
 		Name:     relPath,
 		Size:     info.Size(),
-		Mode:     0600,        // static
-		ModTime:  time.Time{}, // static
+		Mode:     int64(info.Mode() & 0700), // static
+		ModTime:  time.Time{},               // static
 		Typeflag: tar.TypeReg,
 	}
 
