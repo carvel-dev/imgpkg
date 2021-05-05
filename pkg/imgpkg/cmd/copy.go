@@ -9,13 +9,14 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -73,16 +74,18 @@ func (c *CopyOptions) Run() error {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
 	}
 
-	logger := ctlimg.NewLogger(os.Stderr)
-	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
 	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributable
 
-	registry, err := registry.NewRegistry(registryOpts)
+	uploadProgress := make(chan regv1.Update)
+	reg, err := registry.NewRegistry(registryOpts, remote.WithProgress(uploadProgress))
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", registryOpts, err)
 	}
+
+	logger := util.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("copy | ")
+	progressLogger := logger.NewProgressBar("copy | ", uploadProgress)
 
 	switch {
 	case c.isTarSrc():
@@ -98,13 +101,15 @@ func (c *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, registry)
+		progressLogger.Start()
+		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, reg)
+		progressLogger.End("done importing images")
 		if err != nil {
 			return err
 		}
 
 		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
-		return c.writeLockOutput(processedImages, registry)
+		return c.writeLockOutput(processedImages, reg)
 
 	case c.isRepoSrc():
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
@@ -116,7 +121,7 @@ func (c *CopyOptions) Run() error {
 			LockInputFlags:          c.LockInputFlags,
 			IncludeNonDistributable: c.IncludeNonDistributable,
 
-			registry:    registry,
+			registry:    reg,
 			imageSet:    imageSet,
 			tarImageSet: ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
 			Concurrency: c.Concurrency,
@@ -131,12 +136,13 @@ func (c *CopyOptions) Run() error {
 			return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
 		case c.isRepoDst():
+			progressLogger.Start()
 			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
+			progressLogger.End("done importing images")
 			if err != nil {
 				return err
 			}
-
-			return c.writeLockOutput(processedImages, registry)
+			return c.writeLockOutput(processedImages, reg)
 		}
 	}
 	panic("Unreachable")
@@ -300,7 +306,7 @@ func everyMediaTypeForAnImage(image regv1.Image) []string {
 	return everyMediaType
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(logger *ctlimg.LoggerPrefixWriter, includeNonDistributableFlag bool, everyMediaType []string) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includeNonDistributableFlag bool, everyMediaType []string) {
 	noNonDistributableLayers := true
 
 	for _, mediaType := range everyMediaType {

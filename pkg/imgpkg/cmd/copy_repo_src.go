@@ -6,13 +6,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
-
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
@@ -23,7 +21,7 @@ type CopyRepoSrc struct {
 	LockInputFlags          LockInputFlags
 	IncludeNonDistributable bool
 	Concurrency             int
-	logger                  *ctlimg.LoggerPrefixWriter
+	logger                  Logger
 	imageSet                ctlimgset.ImageSet
 	tarImageSet             ctlimgset.TarImageSet
 	registry                ctlimgset.ImagesReaderWriter

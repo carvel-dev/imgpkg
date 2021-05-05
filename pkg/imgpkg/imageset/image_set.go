@@ -15,6 +15,10 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
+type Logger interface {
+	WriteStr(str string, args ...interface{}) error
+}
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
 	ctlimg.ImagesMetadata
@@ -26,10 +30,10 @@ type ImagesReaderWriter interface {
 
 type ImageSet struct {
 	concurrency int
-	logger      *ctlimg.LoggerPrefixWriter
+	logger      Logger
 }
 
-func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
+func NewImageSet(concurrency int, logger Logger) ImageSet {
 	return ImageSet{concurrency, logger}
 }
 
@@ -59,7 +63,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 			return nil, err
 		}
 
-		i.logger.Write([]byte(fmt.Sprintf("will export %s\n", img.DigestRef)))
+		i.logger.WriteStr("will export %s\n", img.DigestRef)
 		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag})
 	}
 
@@ -77,7 +81,6 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	importedImages := NewProcessedImages()
 
 	i.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
-	defer func() { i.logger.WriteStr("imported %d images\n", len(importedImages.All())) }()
 
 	importThrottle := util.NewThrottle(i.concurrency)
 
@@ -97,18 +100,6 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			}
 			imageOrIndexesToWriteLock.Lock()
 			defer imageOrIndexesToWriteLock.Unlock()
-
-			itemDigest, err := item.Digest()
-			if err != nil {
-				errCh <- err
-				return
-			}
-			importDigestRef, err := regname.NewDigest(fmt.Sprintf("%s@%s", importRepo.Name(), itemDigest))
-			if err != nil {
-				errCh <- err
-				return
-			}
-			i.logger.Write([]byte(fmt.Sprintf("importing %s -> %s...\n", item.Ref(), importDigestRef.Name())))
 
 			imageOrIndexesToWrite[tag] = taggable
 			errCh <- nil

@@ -23,6 +23,17 @@ type ImageFactory struct {
 	T      *testing.T
 }
 
+func (i *ImageFactory) ImageDigest(imgRef string) string {
+	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
+	require.NoError(i.T, err)
+	img, err := remote.Image(imageRef)
+	require.NoError(i.T, err)
+
+	digest, err := img.Digest()
+	require.NoError(i.T, err)
+	return digest.String()
+}
+
 func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)

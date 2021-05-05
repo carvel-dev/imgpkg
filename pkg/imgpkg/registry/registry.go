@@ -37,7 +37,7 @@ type Registry struct {
 	refOpts []regname.Option
 }
 
-func NewRegistry(opts Opts) (Registry, error) {
+func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return Registry{}, err
@@ -62,6 +62,9 @@ func NewRegistry(opts Opts) (Registry, error) {
 	}
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
+	}
+	if regOpts != nil {
+		regRemoteOptions = append(regRemoteOptions, regOpts...)
 	}
 
 	return Registry{
