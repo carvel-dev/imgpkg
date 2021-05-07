@@ -114,7 +114,7 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 
 		msg := fmt.Sprintf("This directory is not a bundle. It it is missing %s", imgpkgPath)
 		if len(imgpkgDirs) > 0 {
-			msg = fmt.Sprintf("This directory is not a bundle. It it is missing a single instance of %s and instead has %s", imgpkgPath, strings.Join(imgpkgDirs, ", "))
+			msg = fmt.Sprintf("This directory constains multiple bundle definitions. Only a single instance of %s can be provided and instead these were provided %s", imgpkgPath, strings.Join(imgpkgDirs, ", "))
 		}
 
 		return bundleValidationError{msg}
@@ -131,7 +131,7 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 		if filepath.Dir(path) == flagPath {
 			imgpkgPath := filepath.Join(path, ImagesLockFile)
 			if _, err := os.Stat(imgpkgPath); os.IsNotExist(err) {
-				msg := fmt.Sprintf("The bundle expected '%s' to exist, but it wasn't found", imgpkgPath)
+				msg := fmt.Sprintf("The bundle expected .imgpkg/images.yml to exist, but it wasn't found in the path %s", imgpkgPath)
 
 				return bundleValidationError{msg}
 			}
