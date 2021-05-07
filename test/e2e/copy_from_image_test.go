@@ -28,23 +28,30 @@ func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserveImageTag(t *
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
-	// create generic image
+	logger := helpers.Logger{}
 	tag := time.Now().UnixNano()
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, fmt.Sprintf("%s:%d", env.Image, tag))
+
+	var imageDigest string
+	logger.Section(fmt.Sprintf("Create Image with Tag '%d'", tag), func() {
+		imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, fmt.Sprintf("%s:%d", env.Image, tag))
+	})
 
 	lockOutputPath := filepath.Join(os.TempDir(), "image-relocate-lock.yml")
 	defer os.Remove(lockOutputPath)
 
-	// copy via create ref
-	imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s:%v", env.Image, tag),
-		"--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	logger.Section("Copy Image using the Tag", func() {
+		imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s:%v", env.Image, tag),
+			"--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	})
 
-	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
+	logger.Section("Check ImagesLock is correct and that Image with copied with tag successfully", func() {
+		expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
+		env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
 
-	require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{env.RelocationRepo + imageDigest}))
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{env.RelocationRepo + imageDigest}))
 
-	require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}))
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}))
+	})
 }
 
 func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
