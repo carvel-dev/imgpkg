@@ -123,7 +123,7 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 			return nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
 		}
 
-		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef()})
+		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef(), Tag: plainImg.Tag()})
 		return unprocessedImageRefs, nil
 
 	default:
