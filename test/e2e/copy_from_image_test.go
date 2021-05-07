@@ -23,28 +23,35 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
-func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserverImageTag(t *testing.T) {
+func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserveImageTag(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
-	// create generic image
+	logger := helpers.Logger{}
 	tag := time.Now().UnixNano()
-	imageDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, fmt.Sprintf("%s:%d", env.Image, tag))
+
+	var imageDigest string
+	logger.Section(fmt.Sprintf("Create Image with Tag '%d'", tag), func() {
+		imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, fmt.Sprintf("%s:%d", env.Image, tag))
+	})
 
 	lockOutputPath := filepath.Join(os.TempDir(), "image-relocate-lock.yml")
 	defer os.Remove(lockOutputPath)
 
-	// copy via create ref
-	imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s:%v", env.Image, tag),
-		"--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	logger.Section("Copy Image using the Tag", func() {
+		imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s:%v", env.Image, tag),
+			"--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath})
+	})
 
-	expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
-	env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
+	logger.Section("Check ImagesLock is correct and that Image with copied with tag successfully", func() {
+		expectedRef := fmt.Sprintf("%s%s", env.RelocationRepo, imageDigest)
+		env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
 
-	require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{env.RelocationRepo + imageDigest}))
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{env.RelocationRepo + imageDigest}))
 
-	require.Error(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}))
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}))
+	})
 }
 
 func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
@@ -263,6 +270,36 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			env.Assert.AssertImagesLock(lockOutputPath, []lockconfig.ImageRef{{Image: expectedRef}})
 
 			refs := []string{env.RelocationRepo + imageDigest}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+		})
+	})
+
+	t.Run("Preserves tag", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		var tarFilePath, testDir string
+		tag := fmt.Sprintf("%d", time.Now().UnixNano())
+		tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
+
+		logger.Section("Create Image with a specific tag", func() {
+			testDir = env.Assets.CreateTempFolder("image-to-tar")
+			tarFilePath = filepath.Join(testDir, "image.tar")
+
+			env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, tagRef)
+		})
+
+		logger.Section("Create tar from Image", func() {
+			imgpkg.Run([]string{"copy", "-i", tagRef, "--to-tar", tarFilePath})
+		})
+
+		logger.Section("Import Tar into Registry and regenerate a lock file", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo})
+		})
+
+		logger.Section("Check that the tag is present", func() {
+			refs := []string{fmt.Sprintf("%s:%s", env.RelocationRepo, tag)}
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 		})
 	})
