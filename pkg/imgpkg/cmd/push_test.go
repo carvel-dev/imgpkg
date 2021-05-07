@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1
@@ -53,7 +56,7 @@ func TestMultiImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	if !strings.Contains(err.Error(), "Expected one '.imgpkg' dir, got 2") {
+	if !strings.Contains(err.Error(), "This directory constains multiple bundle definitions. Only a single instance of .imgpkg/images.yml can be provided") {
 		t.Fatalf("Expected error to contain message about multiple .imgpkg dirs, got: %s", err)
 	}
 }
@@ -116,26 +119,46 @@ func TestNestedImgpkgDirError(t *testing.T) {
 	}
 }
 
-func TestBundleFlagWithoutDirectoryError(t *testing.T) {
-	tempDir := os.TempDir()
-	pushDir := filepath.Join(tempDir, "imgpkg-push-units-bundle-without-dir")
-	defer Cleanup(pushDir)
-
-	// cleanup any previous state
-	Cleanup(pushDir)
-	err := os.Mkdir(pushDir, 0700)
-	if err != nil {
-		t.Fatalf("Failed to setup test: %s", err)
+func TestBundleDirectoryErrors(t *testing.T) {
+	testCases := []struct {
+		name            string
+		expectedError   string
+		createBundleDir bool
+	}{
+		{
+			name:            "bundle but no imagesLock",
+			createBundleDir: true,
+			expectedError:   "The bundle expected .imgpkg/images.yml to exist, but it wasn't found",
+		},
+		{
+			name:            "no bundle",
+			createBundleDir: false,
+			expectedError:   "This directory is not a bundle. It it is missing .imgpkg/images.yml",
+		},
 	}
 
-	push := PushOptions{FileFlags: FileFlags{Files: []string{pushDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
-	err = push.Run()
-	if err == nil {
-		t.Fatalf("Expected validations to err, but did not")
-	}
+	for _, tc := range testCases {
+		f := func(t *testing.T) {
+			tempDir := os.TempDir()
+			pushDir := filepath.Join(tempDir, "imgpkg-push-dir")
+			defer Cleanup(pushDir)
 
-	if !strings.Contains(err.Error(), "Expected one '.imgpkg' dir, got 0") {
-		t.Fatalf("Expected error to contain message about missing .imgpkg dir, got: %s", err)
+			err := os.Mkdir(pushDir, 0700)
+			require.NoError(t, err)
+
+			if tc.createBundleDir {
+				err = createEmptyBundleDir(pushDir)
+				require.NoError(t, err)
+			}
+
+			push := PushOptions{FileFlags: FileFlags{Files: []string{pushDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
+			err = push.Run()
+			require.Error(t, err)
+
+			assert.Contains(t, err.Error(), tc.expectedError)
+		}
+
+		t.Run(tc.name, f)
 	}
 }
 
@@ -218,15 +241,19 @@ func Cleanup(dirs ...string) {
 }
 
 func createBundleDir(loc, imagesYaml string) error {
-	if imagesYaml == "" {
-		imagesYaml = emptyImagesYaml
-	}
-
 	bundleDir := filepath.Join(loc, ".imgpkg")
 	err := os.Mkdir(bundleDir, 0700)
 	if err != nil {
 		return err
 	}
 
+	if imagesYaml == "" {
+		imagesYaml = emptyImagesYaml
+	}
 	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
+}
+
+func createEmptyBundleDir(loc string) error {
+	bundleDir := filepath.Join(loc, ".imgpkg")
+	return os.Mkdir(bundleDir, 0700)
 }

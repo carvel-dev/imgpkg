@@ -110,14 +110,18 @@ func (b *Contents) findImgpkgDirs() ([]string, error) {
 
 func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 	if len(imgpkgDirs) != 1 {
-		return bundleValidationError{
-			fmt.Sprintf("Expected one '%s' dir, got %d: %s",
-				ImgpkgDir, len(imgpkgDirs), strings.Join(imgpkgDirs, ", "))}
+		imgpkgPath := filepath.Join(ImgpkgDir, ImagesLockFile)
+
+		msg := fmt.Sprintf("This directory is not a bundle. It it is missing %s", imgpkgPath)
+		if len(imgpkgDirs) > 0 {
+			msg = fmt.Sprintf("This directory constains multiple bundle definitions. Only a single instance of %s can be provided and instead these were provided %s", imgpkgPath, strings.Join(imgpkgDirs, ", "))
+		}
+
+		return bundleValidationError{msg}
 	}
 
-	path := imgpkgDirs[0]
-
 	// make sure it is a child of one input dir
+	path := imgpkgDirs[0]
 	for _, flagPath := range b.paths {
 		flagPath, err := filepath.Abs(flagPath)
 		if err != nil {
@@ -125,13 +129,21 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 		}
 
 		if filepath.Dir(path) == flagPath {
+			imgpkgPath := filepath.Join(path, ImagesLockFile)
+			if _, err := os.Stat(imgpkgPath); os.IsNotExist(err) {
+				msg := fmt.Sprintf("The bundle expected .imgpkg/images.yml to exist, but it wasn't found in the path %s", imgpkgPath)
+
+				return bundleValidationError{msg}
+			}
+
 			return nil
 		}
 	}
 
-	return bundleValidationError{
-		fmt.Sprintf("Expected '%s' directory, to be a direct child of one of: %s; was %s",
-			ImgpkgDir, strings.Join(b.paths, ", "), path)}
+	msg := fmt.Sprintf("Expected '%s' directory, to be a direct child of one of: %s; was %s",
+		ImgpkgDir, strings.Join(b.paths, ", "), path)
+
+	return bundleValidationError{msg}
 }
 
 type bundleValidationError struct {
