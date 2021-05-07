@@ -4,13 +4,13 @@
 package cmd
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -141,31 +141,21 @@ func TestBundleDirectoryErrors(t *testing.T) {
 		f := func(t *testing.T) {
 			tempDir := os.TempDir()
 			pushDir := filepath.Join(tempDir, "imgpkg-push-dir")
+			defer Cleanup(pushDir)
 
 			err := os.Mkdir(pushDir, 0700)
 			require.NoError(t, err)
 
 			if tc.createBundleDir {
 				err = createEmptyBundleDir(pushDir)
-				if err != nil {
-					Cleanup(pushDir)
-					require.Fail(t, fmt.Sprintf("Failed to setup test: %s", err))
-				}
+				require.NoError(t, err)
 			}
 
 			push := PushOptions{FileFlags: FileFlags{Files: []string{pushDir}}, BundleFlags: BundleFlags{Bundle: "foo"}}
 			err = push.Run()
-			if err == nil {
-				Cleanup(pushDir)
-				require.Fail(t, "Expected validations to err, but did not")
-			}
+			require.Error(t, err)
 
-			if !strings.Contains(err.Error(), tc.expectedError) {
-				Cleanup(pushDir)
-				require.Fail(t, fmt.Sprintf("Expected error to contain: %s, got: %s", tc.expectedError, err))
-			}
-
-			Cleanup(pushDir)
+			assert.Contains(t, err.Error(), tc.expectedError)
 		}
 
 		t.Run(tc.name, f)
