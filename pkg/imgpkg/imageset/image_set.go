@@ -199,7 +199,7 @@ func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repositor
 		return regname.Tag{}, err
 	}
 
-	tag := fmt.Sprintf("imgpkg-%s-%s", itemDigest.Algorithm, itemDigest.Hex)
+	tag := fmt.Sprintf("%s-%s.imgpkg", itemDigest.Algorithm, itemDigest.Hex)
 	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
 	if err != nil {
 		return regname.Tag{}, fmt.Errorf("Building upload tag image ref: %s", err)
