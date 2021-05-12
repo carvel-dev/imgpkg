@@ -33,6 +33,9 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 			},
 		}
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata.FirstImageExistsCalls(func(strings []string) (string, error) {
+			return strings[0], nil
+		})
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
 		newImagesLock, skipped, err := subject.LocalizeImagesLock()

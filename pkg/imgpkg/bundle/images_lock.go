@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
@@ -65,7 +64,7 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 			return o.imagesLock, false, err
 		}
 
-		foundImg, err := o.checkImagesExist([]string{imageInBundleRepo, imgRef.Image})
+		foundImg, err := o.imgRetriever.FirstImageExists([]string{imageInBundleRepo, imgRef.Image})
 		if err != nil {
 			return o.imagesLock, false, err
 		}
@@ -85,21 +84,6 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 
 	imagesLock.Images = imageRefs
 	return imagesLock, false, nil
-}
-
-func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {
-	var err error
-	for _, img := range urls {
-		ref, parseErr := regname.NewDigest(img)
-		if parseErr != nil {
-			return "", parseErr
-		}
-		_, err = o.imgRetriever.Digest(ref)
-		if err == nil {
-			return img, nil
-		}
-	}
-	return "", fmt.Errorf("Checking image existence: %s", err)
 }
 
 func (o *ImagesLock) imageRelativeToBundle(img string) (string, error) {

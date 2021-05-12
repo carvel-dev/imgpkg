@@ -20,6 +20,7 @@ type ImagesMetadata interface {
 	Digest(regname.Reference) (regv1.Hash, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
 	Image(regname.Reference) (regv1.Image, error)
+	FirstImageExists(digests []string) (string, error)
 }
 
 type Images struct {
@@ -130,6 +131,10 @@ func (m errImagesMetadata) Index(ref regname.Reference) (regv1.ImageIndex, error
 func (m errImagesMetadata) Image(ref regname.Reference) (regv1.Image, error) {
 	img, err := m.delegate.Image(ref)
 	return img, m.betterErr(ref, err)
+}
+
+func (m errImagesMetadata) FirstImageExists(digests []string) (string, error) {
+	return m.delegate.FirstImageExists(digests)
 }
 
 func (m errImagesMetadata) betterErr(ref regname.Reference, err error) error {

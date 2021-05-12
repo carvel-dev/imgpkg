@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -91,7 +90,7 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockcon
 	// We need to check where we can find the image we are looking for.
 	// First checks the current bundle repository and if it cannot be found there
 	// it will check in the original location of the image
-	imgURL, err := o.checkImagesExist(imgRef.Locations())
+	imgURL, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 	throttleReq.Done()
 	if err != nil {
 		return nil, lockconfig.ImageRef{}, err
@@ -115,21 +114,6 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockcon
 		}
 	}
 	return imgLock, newImgRef, nil
-}
-
-func (o *Bundle) checkImagesExist(urls []string) (string, error) {
-	var err error
-	for _, img := range urls {
-		ref, parseErr := regname.NewDigest(img)
-		if parseErr != nil {
-			return "", parseErr
-		}
-		_, err = o.imgRetriever.Digest(ref)
-		if err == nil {
-			return img, nil
-		}
-	}
-	return "", fmt.Errorf("Checking image existence: %s", err)
 }
 
 type processedImages struct {

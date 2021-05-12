@@ -24,6 +24,19 @@ type FakeImagesReaderWriter struct {
 		result1 v1.Hash
 		result2 error
 	}
+	FirstImageExistsStub        func([]string) (string, error)
+	firstImageExistsMutex       sync.RWMutex
+	firstImageExistsArgsForCall []struct {
+		arg1 []string
+	}
+	firstImageExistsReturns struct {
+		result1 string
+		result2 error
+	}
+	firstImageExistsReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	GenericStub        func(name.Reference) (v1.Descriptor, error)
 	genericMutex       sync.RWMutex
 	genericArgsForCall []struct {
@@ -134,15 +147,16 @@ func (fake *FakeImagesReaderWriter) Digest(arg1 name.Reference) (v1.Hash, error)
 	fake.digestArgsForCall = append(fake.digestArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.DigestStub
+	fakeReturns := fake.digestReturns
 	fake.recordInvocation("Digest", []interface{}{arg1})
 	fake.digestMutex.Unlock()
-	if fake.DigestStub != nil {
-		return fake.DigestStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.digestReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -191,21 +205,91 @@ func (fake *FakeImagesReaderWriter) DigestReturnsOnCall(i int, result1 v1.Hash, 
 	}{result1, result2}
 }
 
+func (fake *FakeImagesReaderWriter) FirstImageExists(arg1 []string) (string, error) {
+	var arg1Copy []string
+	if arg1 != nil {
+		arg1Copy = make([]string, len(arg1))
+		copy(arg1Copy, arg1)
+	}
+	fake.firstImageExistsMutex.Lock()
+	ret, specificReturn := fake.firstImageExistsReturnsOnCall[len(fake.firstImageExistsArgsForCall)]
+	fake.firstImageExistsArgsForCall = append(fake.firstImageExistsArgsForCall, struct {
+		arg1 []string
+	}{arg1Copy})
+	stub := fake.FirstImageExistsStub
+	fakeReturns := fake.firstImageExistsReturns
+	fake.recordInvocation("FirstImageExists", []interface{}{arg1Copy})
+	fake.firstImageExistsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesReaderWriter) FirstImageExistsCallCount() int {
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
+	return len(fake.firstImageExistsArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) FirstImageExistsCalls(stub func([]string) (string, error)) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) FirstImageExistsArgsForCall(i int) []string {
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
+	argsForCall := fake.firstImageExistsArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) FirstImageExistsReturns(result1 string, result2 error) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = nil
+	fake.firstImageExistsReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) FirstImageExistsReturnsOnCall(i int, result1 string, result2 error) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = nil
+	if fake.firstImageExistsReturnsOnCall == nil {
+		fake.firstImageExistsReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.firstImageExistsReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeImagesReaderWriter) Generic(arg1 name.Reference) (v1.Descriptor, error) {
 	fake.genericMutex.Lock()
 	ret, specificReturn := fake.genericReturnsOnCall[len(fake.genericArgsForCall)]
 	fake.genericArgsForCall = append(fake.genericArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.GenericStub
+	fakeReturns := fake.genericReturns
 	fake.recordInvocation("Generic", []interface{}{arg1})
 	fake.genericMutex.Unlock()
-	if fake.GenericStub != nil {
-		return fake.GenericStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.genericReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -260,15 +344,16 @@ func (fake *FakeImagesReaderWriter) Get(arg1 name.Reference) (*remote.Descriptor
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.GetStub
+	fakeReturns := fake.getReturns
 	fake.recordInvocation("Get", []interface{}{arg1})
 	fake.getMutex.Unlock()
-	if fake.GetStub != nil {
-		return fake.GetStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.getReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -323,15 +408,16 @@ func (fake *FakeImagesReaderWriter) Image(arg1 name.Reference) (v1.Image, error)
 	fake.imageArgsForCall = append(fake.imageArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.ImageStub
+	fakeReturns := fake.imageReturns
 	fake.recordInvocation("Image", []interface{}{arg1})
 	fake.imageMutex.Unlock()
-	if fake.ImageStub != nil {
-		return fake.ImageStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.imageReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -386,15 +472,16 @@ func (fake *FakeImagesReaderWriter) Index(arg1 name.Reference) (v1.ImageIndex, e
 	fake.indexArgsForCall = append(fake.indexArgsForCall, struct {
 		arg1 name.Reference
 	}{arg1})
+	stub := fake.IndexStub
+	fakeReturns := fake.indexReturns
 	fake.recordInvocation("Index", []interface{}{arg1})
 	fake.indexMutex.Unlock()
-	if fake.IndexStub != nil {
-		return fake.IndexStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.indexReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -450,15 +537,16 @@ func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Ta
 		arg1 map[name.Reference]remote.Taggable
 		arg2 int
 	}{arg1, arg2})
+	stub := fake.MultiWriteStub
+	fakeReturns := fake.multiWriteReturns
 	fake.recordInvocation("MultiWrite", []interface{}{arg1, arg2})
 	fake.multiWriteMutex.Unlock()
-	if fake.MultiWriteStub != nil {
-		return fake.MultiWriteStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.multiWriteReturns
 	return fakeReturns.result1
 }
 
@@ -511,15 +599,16 @@ func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Imag
 		arg1 name.Reference
 		arg2 v1.Image
 	}{arg1, arg2})
+	stub := fake.WriteImageStub
+	fakeReturns := fake.writeImageReturns
 	fake.recordInvocation("WriteImage", []interface{}{arg1, arg2})
 	fake.writeImageMutex.Unlock()
-	if fake.WriteImageStub != nil {
-		return fake.WriteImageStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.writeImageReturns
 	return fakeReturns.result1
 }
 
@@ -572,15 +661,16 @@ func (fake *FakeImagesReaderWriter) WriteIndex(arg1 name.Reference, arg2 v1.Imag
 		arg1 name.Reference
 		arg2 v1.ImageIndex
 	}{arg1, arg2})
+	stub := fake.WriteIndexStub
+	fakeReturns := fake.writeIndexReturns
 	fake.recordInvocation("WriteIndex", []interface{}{arg1, arg2})
 	fake.writeIndexMutex.Unlock()
-	if fake.WriteIndexStub != nil {
-		return fake.WriteIndexStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.writeIndexReturns
 	return fakeReturns.result1
 }
 
@@ -633,15 +723,16 @@ func (fake *FakeImagesReaderWriter) WriteTag(arg1 name.Tag, arg2 remote.Taggable
 		arg1 name.Tag
 		arg2 remote.Taggable
 	}{arg1, arg2})
+	stub := fake.WriteTagStub
+	fakeReturns := fake.writeTagReturns
 	fake.recordInvocation("WriteTag", []interface{}{arg1, arg2})
 	fake.writeTagMutex.Unlock()
-	if fake.WriteTagStub != nil {
-		return fake.WriteTagStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.writeTagReturns
 	return fakeReturns.result1
 }
 
@@ -692,6 +783,8 @@ func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.digestMutex.RLock()
 	defer fake.digestMutex.RUnlock()
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
 	fake.genericMutex.RLock()
 	defer fake.genericMutex.RUnlock()
 	fake.getMutex.RLock()

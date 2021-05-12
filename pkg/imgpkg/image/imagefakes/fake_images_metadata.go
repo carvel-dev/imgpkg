@@ -24,6 +24,19 @@ type FakeImagesMetadata struct {
 		result1 v1.Hash
 		result2 error
 	}
+	FirstImageExistsStub        func([]string) (string, error)
+	firstImageExistsMutex       sync.RWMutex
+	firstImageExistsArgsForCall []struct {
+		arg1 []string
+	}
+	firstImageExistsReturns struct {
+		result1 string
+		result2 error
+	}
+	firstImageExistsReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	GenericStub        func(name.Reference) (v1.Descriptor, error)
 	genericMutex       sync.RWMutex
 	genericArgsForCall []struct {
@@ -140,6 +153,75 @@ func (fake *FakeImagesMetadata) DigestReturnsOnCall(i int, result1 v1.Hash, resu
 	}
 	fake.digestReturnsOnCall[i] = struct {
 		result1 v1.Hash
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadata) FirstImageExists(arg1 []string) (string, error) {
+	var arg1Copy []string
+	if arg1 != nil {
+		arg1Copy = make([]string, len(arg1))
+		copy(arg1Copy, arg1)
+	}
+	fake.firstImageExistsMutex.Lock()
+	ret, specificReturn := fake.firstImageExistsReturnsOnCall[len(fake.firstImageExistsArgsForCall)]
+	fake.firstImageExistsArgsForCall = append(fake.firstImageExistsArgsForCall, struct {
+		arg1 []string
+	}{arg1Copy})
+	stub := fake.FirstImageExistsStub
+	fakeReturns := fake.firstImageExistsReturns
+	fake.recordInvocation("FirstImageExists", []interface{}{arg1Copy})
+	fake.firstImageExistsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesMetadata) FirstImageExistsCallCount() int {
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
+	return len(fake.firstImageExistsArgsForCall)
+}
+
+func (fake *FakeImagesMetadata) FirstImageExistsCalls(stub func([]string) (string, error)) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = stub
+}
+
+func (fake *FakeImagesMetadata) FirstImageExistsArgsForCall(i int) []string {
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
+	argsForCall := fake.firstImageExistsArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesMetadata) FirstImageExistsReturns(result1 string, result2 error) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = nil
+	fake.firstImageExistsReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadata) FirstImageExistsReturnsOnCall(i int, result1 string, result2 error) {
+	fake.firstImageExistsMutex.Lock()
+	defer fake.firstImageExistsMutex.Unlock()
+	fake.FirstImageExistsStub = nil
+	if fake.firstImageExistsReturnsOnCall == nil {
+		fake.firstImageExistsReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.firstImageExistsReturnsOnCall[i] = struct {
+		result1 string
 		result2 error
 	}{result1, result2}
 }
@@ -405,6 +487,8 @@ func (fake *FakeImagesMetadata) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.digestMutex.RLock()
 	defer fake.digestMutex.RUnlock()
+	fake.firstImageExistsMutex.RLock()
+	defer fake.firstImageExistsMutex.RUnlock()
 	fake.genericMutex.RLock()
 	defer fake.genericMutex.RUnlock()
 	fake.getMutex.RLock()
