@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 
 func TestToTarBundle(t *testing.T) {
 	bundleName := "library/bundle"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	bundleWithImages := fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle").
 		WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 
@@ -105,7 +105,7 @@ bundle:
 
 func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	bundleName := "library/bundle"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
 	randomImageWithNonDistributableLayer := fakeRegistry.
@@ -203,7 +203,7 @@ images:
 
 func TestToTarImage(t *testing.T) {
 	imageName := "library/image"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
 	defer fakeRegistry.CleanUp()
 
@@ -253,7 +253,7 @@ func TestToTarImage(t *testing.T) {
 
 func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 	imageName := "library/image"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{}).
 		WithNonDistributableLayer()
 	defer fakeRegistry.CleanUp()
@@ -292,7 +292,7 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 
 func TestToTarImageIndex(t *testing.T) {
 	imageName := "library/image"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	fakeRegistry.WithARandomImageIndex(imageName)
 	defer fakeRegistry.CleanUp()
 
@@ -348,7 +348,7 @@ func TestToTarImageIndex(t *testing.T) {
 
 func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 	bundleName := "library/bundle"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
 	randomImage2 := fakeRegistry.WithRandomImage("library/image_with_config_2")
@@ -453,9 +453,9 @@ images:
 }
 
 func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
-	fakeDockerhubRegistry := helpers.NewFakeRegistry(t)
+	fakeDockerhubRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeDockerhubRegistry.CleanUp()
-	fakePrivateRegistry := helpers.NewFakeRegistry(t)
+	fakePrivateRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakePrivateRegistry.CleanUp()
 
 	sourceBundleName := "library/bundle"
@@ -518,7 +518,7 @@ bundle:
 
 func TestToRepoImage(t *testing.T) {
 	imageName := "library/image"
-	fakeRegistry := helpers.NewFakeRegistry(t)
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	image1 := fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
 	defer fakeRegistry.CleanUp()
 	subject := subject

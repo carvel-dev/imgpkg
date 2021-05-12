@@ -19,7 +19,7 @@ func TestCopyTarSrc(t *testing.T) {
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 		imageIndex := fakeRegistry.WithARandomImageIndex("repo/imageindex")
 		bundleInfo := fakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
@@ -40,7 +40,7 @@ func TestCopyTarSrc(t *testing.T) {
 		defer env.Cleanup()
 		outputBuffer := bytes.NewBufferString("")
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		imageWithNonDistributableLayer := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
@@ -72,7 +72,7 @@ func TestCopyTarSrc(t *testing.T) {
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 		randomImage := fakeRegistry.WithRandomImage("repo/randomimage")
 		bundleInfo := fakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
