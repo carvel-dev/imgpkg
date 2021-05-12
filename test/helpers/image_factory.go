@@ -66,6 +66,19 @@ func (i *ImageFactory) PushSimpleAppImageWithRandomFile(imgpkg Imgpkg, imgRef st
 	return fmt.Sprintf("@%s", ExtractDigest(i.T, out))
 }
 
+func (i *ImageFactory) PushSimpleAppImageWithRandomFileWithAuth(imgpkg Imgpkg, imgRef string, host, username, password string) string {
+	i.T.Helper()
+	imgDir := i.Assets.CreateAndCopySimpleApp("simple-image")
+	// Add file to ensure we have a different digest
+	i.Assets.AddFileToFolder(filepath.Join(imgDir, "random-file.txt"), randString(500))
+
+	out, err := imgpkg.RunWithOpts([]string{"push", "--tty", "-i", imgRef, "-f", imgDir}, RunOpts{
+		EnvVars: []string{"IMGPKG_REGISTRY_HOSTNAME=" + host, "IMGPKG_REGISTRY_USERNAME=" + username, "IMGPKG_REGISTRY_PASSWORD=" + password},
+	})
+	require.NoError(i.T, err)
+	return fmt.Sprintf("@%s", ExtractDigest(i.T, out))
+}
+
 func (i *ImageFactory) PushImageWithLayerSize(imgRef string, size int64) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)

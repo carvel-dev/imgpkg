@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -33,12 +34,22 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, err
 	}
 
-	allImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+	resultImagesLock := NewImagesLock(lockconfig.ImagesLock{}, o.imgRetriever, o.Repo())
 
 	errChan := make(chan error, len(imagesLock.Images))
 	mutex := &sync.Mutex{}
 
-	for _, image := range imagesLock.Images {
+	bImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+	// We generate the locations at this point.
+	// This is done to ensure that the first place we look for each image is in
+	// the bundle repository we are currently processing, only after will try to
+	// check the original location
+	err = bImagesLock.GenerateImagesLocations()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, image := range bImagesLock.ImageRefs() {
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
 			continue
@@ -46,15 +57,17 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		image := image.DeepCopy()
 		go func() {
-			imgsLock, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
+			imgsLock, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
 			if err != nil {
 				errChan <- err
 				return
 			}
+
+			mutex.Lock()
+			defer mutex.Unlock()
+			resultImagesLock.AddImageRef(imgRef)
 			if imgsLock != nil {
-				mutex.Lock()
-				defer mutex.Unlock()
-				err = allImagesLock.Merge(imgsLock)
+				err = resultImagesLock.Merge(imgsLock)
 				if err != nil {
 					errChan <- fmt.Errorf("Merging images for bundle '%s': %s", image.Image, err)
 					return
@@ -70,32 +83,53 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		}
 	}
 
-	err = allImagesLock.GenerateImagesLocations()
-	if err != nil {
-		return nil, fmt.Errorf("Generating locations list for images in bundle %s: %s", o.DigestRef(), err)
-	}
-
-	return allImagesLock, nil
+	return resultImagesLock, nil
 }
 
-func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, image lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, error) {
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, lockconfig.ImageRef, error) {
 	throttleReq.Take()
-	bundle := NewBundleWithReader(image.Image, o.imgRetriever, o.imagesLockReader)
+	// We need to check where we can find the image we are looking for.
+	// First checks the current bundle repository and if it cannot be found there
+	// it will check in the original location of the image
+	imgURL, err := o.checkImagesExist(imgRef.Locations())
+	throttleReq.Done()
+	if err != nil {
+		return nil, lockconfig.ImageRef{}, err
+	}
+	newImgRef := imgRef.DiscardLocationsExcept(imgURL)
 
+	bundle := NewBundleWithReader(newImgRef.PrimaryLocation(), o.imgRetriever, o.imagesLockReader)
+
+	throttleReq.Take()
 	isBundle, err := bundle.IsBundle()
 	throttleReq.Done()
 	if err != nil {
-		return nil, fmt.Errorf("Checking if '%s' is a bundle: %s", image.Image, err)
+		return nil, lockconfig.ImageRef{}, fmt.Errorf("Checking if '%s' is a bundle: %s", imgRef.Image, err)
 	}
 
 	var imgLock *ImagesLock
 	if isBundle {
 		imgLock, err = bundle.buildAllImagesLock(throttleReq, processedImgs)
 		if err != nil {
-			return nil, fmt.Errorf("Retrieving images for bundle '%s': %s", image.Image, err)
+			return nil, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
 		}
 	}
-	return imgLock, nil
+	return imgLock, newImgRef, nil
+}
+
+func (o *Bundle) checkImagesExist(urls []string) (string, error) {
+	var err error
+	for _, img := range urls {
+		ref, parseErr := regname.NewDigest(img)
+		if parseErr != nil {
+			return "", parseErr
+		}
+		_, err = o.imgRetriever.Digest(ref)
+		if err == nil {
+			return img, nil
+		}
+	}
+	return "", fmt.Errorf("Checking image existence: %s", err)
 }
 
 type processedImages struct {

@@ -71,49 +71,6 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 	})
 }
 
-func TestImagesLock_LocationPrunedImagesLock(t *testing.T) {
-	t.Run("when image cannot be found in primary location, it prunes that location from the list", func(t *testing.T) {
-		imgRef := lockconfig.ImageRef{
-			Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
-		}
-		imgRef.AddLocation("second.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
-		imgRef.AddLocation("first.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
-		imagesLock := lockconfig.ImagesLock{
-			Images: []lockconfig.ImageRef{
-				imgRef,
-			},
-		}
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
-
-		// does not find image in first.repo.io/img1
-		fakeImagesMetadata.DigestReturnsOnCall(0, regv1.Hash{}, errors.New("not found"))
-
-		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
-		imgRefs, err := subject.LocationPrunedImageRefs(5)
-		require.NoError(t, err)
-		assert.Equal(t, "second.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imgRefs[0].PrimaryLocation())
-	})
-
-	t.Run("when image is found in primary location, it does not prune any location", func(t *testing.T) {
-		imgRef := lockconfig.ImageRef{
-			Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
-		}
-		imgRef.AddLocation("second.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
-		imgRef.AddLocation("first.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
-		imagesLock := lockconfig.ImagesLock{
-			Images: []lockconfig.ImageRef{
-				imgRef,
-			},
-		}
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
-
-		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
-		imgRefs, err := subject.LocationPrunedImageRefs(1)
-		require.NoError(t, err)
-		assert.Equal(t, "first.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imgRefs[0].PrimaryLocation())
-	})
-}
-
 func TestImagesLock_Merge(t *testing.T) {
 	t.Run("appends the images from the provided ImagesLock", func(t *testing.T) {
 		parentImagesLock := lockconfig.ImagesLock{

@@ -6,12 +6,10 @@ package bundle
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cppforlife/go-cli-ui/ui.UI
@@ -55,7 +53,6 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
 	o.imagesLock.AddImageRef(ref)
 }
 
-// TODO: we should use LocationPrunedImageRefs as part of this function
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
 	imagesLock := lockconfig.ImagesLock{
@@ -90,45 +87,6 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	return imagesLock, false, nil
 }
 
-func (o *ImagesLock) LocationPrunedImageRefs(concurrency int) ([]lockconfig.ImageRef, error) {
-	var imageRefs []lockconfig.ImageRef
-
-	errChan := make(chan error, len(o.ImageRefs()))
-	throttle := util.NewThrottle(concurrency)
-	mutex := &sync.Mutex{}
-
-	for _, imgRef := range o.ImageRefs() {
-		newImgRef := imgRef.DeepCopy()
-		go func() {
-			throttle.Take()
-			defer throttle.Done()
-
-			foundImg, err := o.checkImagesExist(newImgRef.Locations())
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			newImgRef.DiscardLocationsExcept(foundImg)
-
-			mutex.Lock()
-			defer mutex.Unlock()
-
-			imageRefs = append(imageRefs, newImgRef)
-			errChan <- nil
-		}()
-	}
-
-	for range o.ImageRefs() {
-		err := <-errChan
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return imageRefs, nil
-}
-
 func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {
 	var err error
 	for _, img := range urls {
@@ -147,7 +105,7 @@ func (o *ImagesLock) checkImagesExist(urls []string) (string, error) {
 func (o *ImagesLock) imageRelativeToBundle(img string) (string, error) {
 	imgParts := strings.Split(img, "@")
 	if len(imgParts) != 2 {
-		return "", fmt.Errorf("Parsing image URL: %s", img)
+		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", img))
 	}
 	return o.relativeToRepo + "@" + imgParts[1], nil
 }

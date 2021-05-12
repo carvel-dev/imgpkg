@@ -374,6 +374,16 @@ func (r *FakeTestRegistryBuilder) RemoveImage(imageRef string) {
 	assert.NoError(r.t, err)
 }
 
+// RemoveByImageRef This function only works as expected before running Build()
+// Prevents the creation in the registry of the image provided
+func (r *FakeTestRegistryBuilder) RemoveByImageRef(imageRef string) {
+	digest, err := name.NewDigest(imageRef)
+	require.NoError(r.t, err)
+	r.logger.Tracef("removing %s\n", digest.Context().RepositoryStr()+"@"+digest.DigestStr())
+	delete(r.images, digest.Context().RepositoryStr()+"@"+digest.DigestStr())
+	delete(r.images, digest.Context().RepositoryStr())
+}
+
 type BundleInfo struct {
 	r          *FakeTestRegistryBuilder
 	Image      v1.Image
