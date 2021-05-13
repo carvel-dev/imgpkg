@@ -60,6 +60,47 @@ images:
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 	})
 
+	t.Run("when copying bundle it adds a default tag to all images", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		var bundleDigest, imageDigest string
+		logger.Section("create bundle with image", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s%s
+`, env.Image, imageDigest)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+
+			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag),
+				"--to-repo", env.RelocationRepo},
+			)
+		})
+
+		logger.Section("Check default tag was created in the bundle and all the images", func() {
+			algorithmAndSHA := strings.Split(imageDigest, "@")[1]
+			splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
+			imageDefaultTag := fmt.Sprintf("%s:%s-%s.imgpkg", env.RelocationRepo, splitAlgAndSHA[0], splitAlgAndSHA[1])
+
+			algorithmAndSHA = strings.Split(bundleDigest, "@")[1]
+			splitAlgAndSHA = strings.Split(algorithmAndSHA, ":")
+			bundleDefaultTag := fmt.Sprintf("%s:%s-%s.imgpkg", env.RelocationRepo, splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{imageDefaultTag, bundleDefaultTag}))
+		})
+	})
+
 	t.Run("when some images are not in the same repository as the bundle it copies all images", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}

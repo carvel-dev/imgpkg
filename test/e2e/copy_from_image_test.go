@@ -52,6 +52,12 @@ func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserveImageTag(t *
 
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%v", env.RelocationRepo, tag)}))
 	})
+
+	logger.Section("Check default tag was created", func() {
+		algorithmAndSHA := strings.Split(imageDigest, "@")[1]
+		splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{fmt.Sprintf("%s:%s-%s.imgpkg", env.RelocationRepo, splitAlgAndSHA[0], splitAlgAndSHA[1])}))
+	})
 }
 
 func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
