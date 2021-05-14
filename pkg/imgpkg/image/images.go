@@ -16,7 +16,6 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadata
 type ImagesMetadata interface {
-	Generic(regname.Reference) (regv1.Descriptor, error)
 	Get(regname.Reference) (*regremote.Descriptor, error)
 	Digest(regname.Reference) (regv1.Hash, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
@@ -33,14 +32,14 @@ func NewImages(ref regname.Reference, metadata ImagesMetadata) Images {
 }
 
 func (tds Images) Images() ([]regv1.Image, error) {
-	desc, err := tds.metadata.Generic(tds.ref)
+	desc, err := tds.metadata.Get(tds.ref)
 	if err != nil {
 		return nil, err
 	}
 
 	var result []regv1.Image
 
-	if tds.isImageIndex(desc) {
+	if tds.isImageIndex(desc.Descriptor) {
 		imgs, err := tds.buildImageIndex(tds.ref)
 		if err != nil {
 			return nil, err
@@ -111,11 +110,6 @@ func (tds Images) buildRef(otherRef regname.Reference, digest string) regname.Re
 
 type errImagesMetadata struct {
 	delegate ImagesMetadata
-}
-
-func (m errImagesMetadata) Generic(ref regname.Reference) (regv1.Descriptor, error) {
-	desc, err := m.delegate.Generic(ref)
-	return desc, m.betterErr(ref, err)
 }
 
 func (m errImagesMetadata) Get(ref regname.Reference) (*regremote.Descriptor, error) {

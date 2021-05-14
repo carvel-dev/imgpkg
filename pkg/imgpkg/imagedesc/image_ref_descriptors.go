@@ -13,6 +13,7 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	regtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	regtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
@@ -20,7 +21,7 @@ import (
 )
 
 type Registry interface {
-	Generic(regname.Reference) (regv1.Descriptor, error)
+	Get(regname.Reference) (*regremote.Descriptor, error)
 	Digest(regname.Reference) (regv1.Hash, error)
 	Index(regname.Reference) (regv1.ImageIndex, error)
 	Image(regname.Reference) (regv1.Image, error)
@@ -70,15 +71,15 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 			buildThrottle.Take()
 			defer buildThrottle.Done()
 
-			regDesc, err := registry.Generic(ref.Ref)
+			regDesc, err := registry.Get(ref.Ref)
 			if err != nil {
 				return err
 			}
 
 			var td ImageOrImageIndexDescriptor
 
-			if imageRefDescs.isImageIndex(regDesc) {
-				imgIndexTd, err := imageRefDescs.buildImageIndex(ref, regDesc)
+			if imageRefDescs.isImageIndex(regDesc.Descriptor) {
+				imgIndexTd, err := imageRefDescs.buildImageIndex(ref, regDesc.Descriptor)
 
 				if err != nil {
 					return err
@@ -296,8 +297,8 @@ type errRegistry struct {
 	delegate Registry
 }
 
-func (m errRegistry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
-	regDesc, err := m.delegate.Generic(ref)
+func (m errRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+	regDesc, err := m.delegate.Get(ref)
 	return regDesc, m.betterErr(ref, err)
 }
 
