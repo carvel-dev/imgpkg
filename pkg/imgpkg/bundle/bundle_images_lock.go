@@ -34,21 +34,12 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	}
 
 	resultImagesLock := NewImagesLock(lockconfig.ImagesLock{}, o.imgRetriever, o.Repo())
+	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
 
 	errChan := make(chan error, len(imagesLock.Images))
 	mutex := &sync.Mutex{}
 
-	bImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
-	// We generate the locations at this point.
-	// This is done to ensure that the first place we look for each image is in
-	// the bundle repository we are currently processing, only after will try to
-	// check the original location
-	err = bImagesLock.GenerateImagesLocations()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, image := range bImagesLock.ImageRefs() {
+	for _, image := range currentImagesLock.ImageRefs() {
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
 			continue
