@@ -73,21 +73,12 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	}, nil
 }
 
-func (r Registry) Generic(ref regname.Reference) (regv1.Descriptor, error) {
+func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
-		return regv1.Descriptor{}, err
+		return nil, err
 	}
-	desc, err := regremote.Get(overriddenRef, r.opts...)
-	if err != nil {
-		return regv1.Descriptor{}, err
-	}
-
-	return desc.Descriptor, nil
-}
-
-func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
-	return regremote.Get(ref, r.opts...)
+	return regremote.Get(overriddenRef, r.opts...)
 }
 
 func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
@@ -97,7 +88,11 @@ func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	}
 	desc, err := regremote.Head(overriddenRef, r.opts...)
 	if err != nil {
-		return regv1.Hash{}, err
+		getDesc, err := regremote.Get(overriddenRef, r.opts...)
+		if err != nil {
+			return regv1.Hash{}, err
+		}
+		return getDesc.Digest, nil
 	}
 
 	return desc.Digest, nil
