@@ -97,7 +97,11 @@ func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	}
 	desc, err := regremote.Head(overriddenRef, r.opts...)
 	if err != nil {
-		return regv1.Hash{}, err
+		getDesc, err := regremote.Get(overriddenRef, r.opts...)
+		if err != nil {
+			return regv1.Hash{}, err
+		}
+		return getDesc.Digest, nil
 	}
 
 	return desc.Digest, nil
