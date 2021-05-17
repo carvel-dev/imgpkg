@@ -19,7 +19,7 @@ import (
 )
 
 func TestCopyBundleToDifferentRepository(t *testing.T) {
-	logger := helpers.Logger{}
+	logger := &helpers.Logger{}
 
 	t.Run("when all images are collocated it copies all images from the original location and generate a BundleLock", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
@@ -258,6 +258,89 @@ images:
 			env.RelocationRepo + nestedBundleDigest,
 			env.RelocationRepo + bundleTag,
 			env.RelocationRepo + outerBundleDigest,
+		}
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+	})
+
+	t.Run("when bundle is created in auth registry, copy the bundle to a public registry, after without credentials try to copy the bundle from the public registry", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
+		const (
+			username = "some-user"
+			password = "some-password"
+		)
+		fakeRegistryBuilder.WithBasicAuth(username, password)
+		_ = fakeRegistryBuilder.Build()
+		defer fakeRegistryBuilder.CleanUp()
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images in auth registry", func() {
+			img1DigestRef = fakeRegistryBuilder.ReferenceOnTestServer(imgRef.Context().RepositoryStr() + "-img1")
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFileWithAuth(imgpkg, img1DigestRef, fakeRegistryBuilder.Host(), username, password)
+			img1DigestRef = img1DigestRef + img1Digest
+			logger.Debugf("Created image: %s\n", img1DigestRef)
+
+			img2DigestRef = fakeRegistryBuilder.ReferenceOnTestServer(imgRef.Context().RepositoryStr() + "-img2")
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFileWithAuth(imgpkg, img2DigestRef, fakeRegistryBuilder.Host(), username, password)
+			img2DigestRef = img2DigestRef + img2Digest
+			logger.Debugf("Created image: %s\n", img2DigestRef)
+		})
+
+		bundle := fakeRegistryBuilder.ReferenceOnTestServer(imgRef.Context().RepositoryStr() + "-bundle")
+		bundleDigest := ""
+		logger.Section("create nested bundle that contains images", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out, err := imgpkg.RunWithOpts([]string{"push", "--tty", "-b", bundle, "-f", bundleDir}, helpers.RunOpts{
+				EnvVars: []string{
+					"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistryBuilder.Host(),
+					"IMGPKG_REGISTRY_USERNAME=" + username,
+					"IMGPKG_REGISTRY_PASSWORD=" + password},
+			})
+			require.NoError(t, err)
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+			logger.Debugf("Created bundle: %s\n", bundle+bundleDigest)
+		})
+
+		relocatedBundle := env.RelocationRepo + "-bundle"
+		logger.Section("copy bundle to repository from the private registry to the public registry", func() {
+			out, err := imgpkg.RunWithOpts([]string{"copy",
+				"--bundle", bundle + bundleDigest,
+				"--to-repo", relocatedBundle,
+			}, helpers.RunOpts{
+				EnvVars: []string{
+					"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistryBuilder.Host(),
+					"IMGPKG_REGISTRY_USERNAME=" + username,
+					"IMGPKG_REGISTRY_PASSWORD=" + password},
+			})
+			require.NoError(t, err)
+			fmt.Println(out)
+		})
+
+		logger.Section("copy bundle from the public registry to a different repository", func() {
+			out := imgpkg.Run([]string{"copy",
+				"--bundle", relocatedBundle + bundleDigest,
+				"--to-repo", relocatedBundle + "-copied",
+			})
+			fmt.Println(out)
+		})
+
+		refs := []string{
+			relocatedBundle + "-copied" + img1Digest,
+			relocatedBundle + "-copied" + img2Digest,
+			relocatedBundle + "-copied" + bundleDigest,
 		}
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 	})

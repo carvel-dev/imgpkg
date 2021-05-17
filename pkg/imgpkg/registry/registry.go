@@ -177,6 +177,21 @@ func (r Registry) ListTags(repo regname.Repository) ([]string, error) {
 	return regremote.List(overriddenRepo, r.opts...)
 }
 
+func (r Registry) FirstImageExists(digests []string) (string, error) {
+	var err error
+	for _, img := range digests {
+		ref, parseErr := regname.NewDigest(img)
+		if parseErr != nil {
+			return "", parseErr
+		}
+		_, err = r.Digest(ref)
+		if err == nil {
+			return img, nil
+		}
+	}
+	return "", fmt.Errorf("Checking image existence: %s", err)
+}
+
 func newHTTPTransport(opts Opts) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {

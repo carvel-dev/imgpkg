@@ -24,7 +24,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 	pullNestedBundles := false
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
@@ -48,7 +48,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 
 	t.Run("bundle referencing another bundle that references another bundle does *not* pull nested bundles", func(t *testing.T) {
 		// setup
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
@@ -81,7 +81,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 	pullNestedBundles := true
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 
@@ -104,7 +104,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 	})
 
 	t.Run("bundle referencing another bundle does pull nested bundles", func(t *testing.T) {
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -131,7 +131,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 
 	t.Run("bundle referencing another bundle that references another bundle does pull nested bundles", func(t *testing.T) {
 		// setup
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle
@@ -174,7 +174,7 @@ func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
 	pullNestedBundles := true
 
 	t.Run("bundle referencing another bundle in the same repo updates both bundle's imageslock", func(t *testing.T) {
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
@@ -226,10 +226,10 @@ kind: ImagesLock
 	})
 
 	t.Run("bundle referencing two bundles, only 1 is relocated, should update only the 1 that is relocated imageslock", func(t *testing.T) {
-		fakePublicRegistry := helpers.NewFakeRegistry(t)
+		fakePublicRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakePublicRegistry.CleanUp()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		randomImageFromFakeRegistry := fakeRegistry.WithRandomImage("icecream/bundle")
@@ -290,7 +290,7 @@ func TestPullBundleOutputToUser(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
@@ -315,7 +315,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
 		output := bytes.NewBufferString("")
 		writerUI := ui.NewWriterUI(output, output, nil)
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -348,7 +348,7 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 	t.Run("bundle referencing another collocated bundle", func(t *testing.T) {
 		defer output.Reset()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
@@ -389,7 +389,7 @@ The bundle repo \(%s\) is hosting every image specified in the bundle's Images L
 	t.Run("bundle referencing another *not* colocated bundle", func(t *testing.T) {
 		defer output.Reset()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle
@@ -421,7 +421,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 	t.Run("bundle referencing multiple of the same bundles", func(t *testing.T) {
 		defer output.Reset()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_with_multiple_bundle - dependsOn - [library/image_with_a_smile, library/image_with_non_distributable_layer, library/image_with_config] - dependsOn - apples/bundle
@@ -476,7 +476,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleW
 	t.Run("bundle referencing another bundle that references another bundle", func(t *testing.T) {
 		defer output.Reset()
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
 		// repo/bundle_icecream_with_single_bundle - dependsOn - icecream/bundle - dependsOn - apples/bundle

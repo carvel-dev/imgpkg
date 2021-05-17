@@ -153,11 +153,13 @@ func (i *ImageRef) PrimaryLocation() string {
 	return i.Locations()[0]
 }
 
-func (i *ImageRef) DiscardLocationsExcept(viableLocation string) {
-	if viableLocation == i.Image {
-		i.locations = []string{}
-		return
+func (i *ImageRef) DiscardLocationsExcept(viableLocation string) ImageRef {
+	imgRef := i.DeepCopy()
+	if viableLocation == imgRef.Image {
+		imgRef.locations = []string{}
+		return imgRef
 	}
 
-	i.locations = []string{viableLocation}
+	imgRef.locations = []string{viableLocation}
+	return imgRef
 }

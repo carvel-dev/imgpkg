@@ -21,7 +21,7 @@ func TestAuth(t *testing.T) {
 		expectedPassword := "expected-password"
 		imageRef := "repo/imgpkg-test"
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry.WithBasicAuth(expectedUsername, expectedPassword)
 		fakeRegistry.WithRandomImage(imageRef)
 		fakeRegistry.Build()
@@ -43,7 +43,7 @@ func TestAuth(t *testing.T) {
 		expectedToken := "ID_TOKEN"
 		imageRef := "repo/imgpkg-test"
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry.WithIdentityToken(expectedToken)
 		fakeRegistry.WithRandomImage(imageRef)
 		fakeRegistry.Build()
@@ -65,7 +65,7 @@ func TestAuth(t *testing.T) {
 		expectedToken := "REGISTRY_TOKEN"
 		imageRef := "repo/imgpkg-test"
 
-		fakeRegistry := helpers.NewFakeRegistry(t)
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry.WithRegistryToken(expectedToken)
 		fakeRegistry.WithRandomImage(imageRef)
 		fakeRegistry.Build()

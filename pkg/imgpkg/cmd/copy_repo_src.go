@@ -153,11 +153,7 @@ func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, err
 	}
 
-	imageRefs, err := imgLock.LocationPrunedImageRefs(c.Concurrency)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Pruning image ref locations: %s", err)
-	}
-	return bundle, imageRefs, nil
+	return bundle, imgLock.ImageRefs(), nil
 }
 
 func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {

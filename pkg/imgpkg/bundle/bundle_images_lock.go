@@ -33,12 +33,13 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, err
 	}
 
-	allImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+	resultImagesLock := NewImagesLock(lockconfig.ImagesLock{}, o.imgRetriever, o.Repo())
+	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
 
 	errChan := make(chan error, len(imagesLock.Images))
 	mutex := &sync.Mutex{}
 
-	for _, image := range imagesLock.Images {
+	for _, image := range currentImagesLock.ImageRefs() {
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
 			continue
@@ -46,15 +47,17 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		image := image.DeepCopy()
 		go func() {
-			imgsLock, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
+			imgsLock, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
 			if err != nil {
 				errChan <- err
 				return
 			}
+
+			mutex.Lock()
+			defer mutex.Unlock()
+			resultImagesLock.AddImageRef(imgRef)
 			if imgsLock != nil {
-				mutex.Lock()
-				defer mutex.Unlock()
-				err = allImagesLock.Merge(imgsLock)
+				err = resultImagesLock.Merge(imgsLock)
 				if err != nil {
 					errChan <- fmt.Errorf("Merging images for bundle '%s': %s", image.Image, err)
 					return
@@ -70,32 +73,38 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		}
 	}
 
-	err = allImagesLock.GenerateImagesLocations()
-	if err != nil {
-		return nil, fmt.Errorf("Generating locations list for images in bundle %s: %s", o.DigestRef(), err)
-	}
-
-	return allImagesLock, nil
+	return resultImagesLock, nil
 }
 
-func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, image lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, error) {
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, lockconfig.ImageRef, error) {
 	throttleReq.Take()
-	bundle := NewBundleWithReader(image.Image, o.imgRetriever, o.imagesLockReader)
+	// We need to check where we can find the image we are looking for.
+	// First checks the current bundle repository and if it cannot be found there
+	// it will check in the original location of the image
+	imgURL, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
+	throttleReq.Done()
+	if err != nil {
+		return nil, lockconfig.ImageRef{}, err
+	}
+	newImgRef := imgRef.DiscardLocationsExcept(imgURL)
 
+	bundle := NewBundleWithReader(newImgRef.PrimaryLocation(), o.imgRetriever, o.imagesLockReader)
+
+	throttleReq.Take()
 	isBundle, err := bundle.IsBundle()
 	throttleReq.Done()
 	if err != nil {
-		return nil, fmt.Errorf("Checking if '%s' is a bundle: %s", image.Image, err)
+		return nil, lockconfig.ImageRef{}, fmt.Errorf("Checking if '%s' is a bundle: %s", imgRef.Image, err)
 	}
 
 	var imgLock *ImagesLock
 	if isBundle {
 		imgLock, err = bundle.buildAllImagesLock(throttleReq, processedImgs)
 		if err != nil {
-			return nil, fmt.Errorf("Retrieving images for bundle '%s': %s", image.Image, err)
+			return nil, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
 		}
 	}
-	return imgLock, nil
+	return imgLock, newImgRef, nil
 }
 
 type processedImages struct {

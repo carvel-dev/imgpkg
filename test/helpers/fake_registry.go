@@ -38,10 +38,11 @@ type FakeTestRegistryBuilder struct {
 	server *httptest.Server
 	t      *testing.T
 	auth   authn.Authenticator
+	logger *Logger
 }
 
-func NewFakeRegistry(t *testing.T) *FakeTestRegistryBuilder {
-	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t}
+func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
 
 	return r
@@ -57,6 +58,7 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 		auth := regremote.WithAuth(r.auth)
 
 		if val.Image != nil {
+			r.logger.Tracef("build: creating image on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
 			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
@@ -64,6 +66,7 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 		}
 
 		if val.ImageIndex != nil {
+			r.logger.Tracef("build: creating index on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
 			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
@@ -185,7 +188,8 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
 
-	return BundleInfo{r, bundle, bundleName, path, digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
+	return BundleInfo{r, bundle, bundleName, path,
+		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
 }
 
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
@@ -203,8 +207,12 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
-
-	return BundleInfo{r, bundle, bundleName, "", digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
+	imgName, err := name.ParseReference(bundleName)
+	require.NoError(r.t, err)
+	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
+	r.logger.Tracef("created bundle %s\n", bundleRef)
+	return BundleInfo{r, bundle, bundleName, "",
+		digest.String(), bundleRef}
 }
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
@@ -221,7 +229,9 @@ func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *Ima
 	img, err := random.Image(500, 3)
 	require.NoError(r.t, err, "create image from tar")
 
-	return r.updateState(imageNameFromTest, img, nil, "")
+	newImg := r.updateState(imageNameFromTest, img, nil, "")
+	r.logger.Tracef("created image %s\n", newImg.RefDigest)
+	return newImg
 }
 
 func (r *FakeTestRegistryBuilder) WithImage(imageNameFromTest string, image v1.Image) *ImageOrImageIndexWithTarPath {
@@ -229,13 +239,43 @@ func (r *FakeTestRegistryBuilder) WithImage(imageNameFromTest string, image v1.I
 }
 
 func (r *FakeTestRegistryBuilder) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
+	r.logger.Tracef("copy image %s to %s\n", img.RefDigest, to)
 	return r.updateState(to, img.Image, nil, "")
+}
+
+func (r *FakeTestRegistryBuilder) CopyFromImageRef(imageRef, to string) *ImageOrImageIndexWithTarPath {
+	digest, err := name.NewDigest(imageRef)
+	require.NoError(r.t, err)
+	r.logger.Tracef("copying image %s to %s\n", imageRef, to)
+	img, ok := r.images[digest.Context().RepositoryStr()+"@"+digest.DigestStr()]
+	require.True(r.t, ok)
+	return r.updateState(to, img.Image, nil, "")
+}
+
+func (r *FakeTestRegistryBuilder) CopyAllImagesFromRepo(imageRef, to string) {
+	digest, err := name.NewDigest(imageRef)
+	require.NoError(r.t, err)
+	var imgsToCopy []*ImageOrImageIndexWithTarPath
+	for repo, img := range r.images {
+		parts := strings.Split(repo, "@")
+		if len(parts) != 2 {
+			continue
+		}
+		if parts[0] == digest.Context().RepositoryStr() {
+			imgsToCopy = append(imgsToCopy, img)
+		}
+	}
+	for _, img := range imgsToCopy {
+		r.logger.Tracef("copying image %s to %s\n", img.RefDigest, strings.Split(to, "@")[0])
+		r.updateState(to, img.Image, nil, "")
+	}
 }
 
 func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
 	newBundle := *r.images[bundleInfo.BundleName]
-	r.updateState(to, newBundle.Image, nil, "")
-	return BundleInfo{r, newBundle.Image, to, "", bundleInfo.Digest, bundleInfo.RefDigest}
+	r.updateState(to, bundleInfo.Image, nil, "")
+	return BundleInfo{r, newBundle.Image, to, "",
+		newBundle.Digest, newBundle.RefDigest}
 }
 
 func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) *ImageOrImageIndexWithTarPath {
@@ -332,6 +372,16 @@ func (r *FakeTestRegistryBuilder) RemoveImage(imageRef string) {
 
 	err = regremote.Delete(imageRefWithTestRegistry, regremote.WithAuth(r.auth))
 	assert.NoError(r.t, err)
+}
+
+// RemoveByImageRef This function only works as expected before running Build()
+// Prevents the creation in the registry of the image provided
+func (r *FakeTestRegistryBuilder) RemoveByImageRef(imageRef string) {
+	digest, err := name.NewDigest(imageRef)
+	require.NoError(r.t, err)
+	r.logger.Tracef("removing %s\n", digest.Context().RepositoryStr()+"@"+digest.DigestStr())
+	delete(r.images, digest.Context().RepositoryStr()+"@"+digest.DigestStr())
+	delete(r.images, digest.Context().RepositoryStr())
 }
 
 type BundleInfo struct {
