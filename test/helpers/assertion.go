@@ -4,7 +4,11 @@
 package helpers
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -17,7 +21,9 @@ import (
 )
 
 type Assertion struct {
-	T *testing.T
+	T                    *testing.T
+	logger               *Logger
+	signatureKeyLocation string
 }
 
 func (a *Assertion) ImagesDigestIsOnTar(tarFilePath string, imagesDigestRef ...string) {
@@ -74,10 +80,26 @@ func (a *Assertion) AssertImagesLock(path string, images []lockconfig.ImageRef) 
 func (a *Assertion) ValidateImagesPresenceInRegistry(refs []string) error {
 	a.T.Helper()
 	for _, refString := range refs {
-		ref, _ := name.ParseReference(refString)
+		ref, err := name.ParseReference(refString)
+		require.NoError(a.T, err)
 		if _, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 			return fmt.Errorf("validating image %s: %v", refString, err)
 		}
 	}
 	return nil
+}
+
+func (a *Assertion) ValidateCosignSignature(refs []string) {
+	for _, ref := range refs {
+		cmdArgs := []string{"verify", "-key", filepath.Join(a.signatureKeyLocation, "cosign.pub"), ref}
+		a.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
+
+		cmd := exec.Command(filepath.Join(a.signatureKeyLocation, "tmp", "bin", "cosign"), cmdArgs...)
+		var stderr, stdout bytes.Buffer
+		cmd.Stderr = &stderr
+		cmd.Stdout = &stdout
+
+		err := cmd.Run()
+		assert.NoError(a.T, err, fmt.Sprintf("error: %s", stderr.String()))
+	}
 }

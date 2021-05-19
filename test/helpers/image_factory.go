@@ -4,8 +4,13 @@
 package helpers
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -19,8 +24,10 @@ import (
 )
 
 type ImageFactory struct {
-	Assets *Assets
-	T      *testing.T
+	Assets               *Assets
+	T                    *testing.T
+	signatureKeyLocation string
+	logger               *Logger
 }
 
 func (i *ImageFactory) ImageDigest(imgRef string) string {
@@ -110,4 +117,26 @@ func (i *ImageFactory) PushImageIndex(imgRef string) {
 
 	err = remote.WriteIndex(imageRef, index, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(i.T, err)
+}
+
+func (i *ImageFactory) SignImage(imgRef string) string {
+	cmdArgs := []string{"sign", "-key", filepath.Join(i.signatureKeyLocation, "cosign.key"), imgRef}
+	i.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
+
+	cmd := exec.Command(filepath.Join(i.signatureKeyLocation, "tmp", "bin", "cosign"), cmdArgs...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "COSIGN_PASSWORD=")
+
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	err := cmd.Run()
+	require.NoError(i.T, err, fmt.Sprintf("error: %s", stderr.String()))
+
+	stderrStr := stderr.String()
+	match := regexp.MustCompile(":(sha256-[0123456789abcdef]{64}.*)").FindStringSubmatch(stderrStr)
+	require.Len(i.T, match, 2)
+	return match[1]
 }

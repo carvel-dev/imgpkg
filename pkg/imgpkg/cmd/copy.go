@@ -16,6 +16,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/k14s/imgpkg/pkg/imgpkg/signature"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/spf13/cobra"
 )
@@ -27,6 +28,7 @@ type CopyOptions struct {
 	LockOutputFlags LockOutputFlags
 	TarFlags        TarFlags
 	RegistryFlags   RegistryFlags
+	SignatureFlags  SignatureFlags
 
 	RepoDst                 string
 	Concurrency             int
@@ -59,6 +61,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.LockOutputFlags.Set(cmd)
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	o.SignatureFlags.Set(cmd)
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
@@ -114,6 +117,13 @@ func (c *CopyOptions) Run() error {
 	case c.isRepoSrc():
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 
+		var signatureRetriever SignatureRetriever
+		if c.SignatureFlags.CopyCosignSignatures {
+			signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), c.Concurrency)
+		} else {
+			signatureRetriever = signature.NewNoop()
+		}
+
 		repoSrc := CopyRepoSrc{
 			logger:                  prefixedLogger,
 			ImageFlags:              c.ImageFlags,
@@ -121,10 +131,11 @@ func (c *CopyOptions) Run() error {
 			LockInputFlags:          c.LockInputFlags,
 			IncludeNonDistributable: c.IncludeNonDistributable,
 
-			registry:    reg,
-			imageSet:    imageSet,
-			tarImageSet: ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
-			Concurrency: c.Concurrency,
+			registry:           reg,
+			imageSet:           imageSet,
+			tarImageSet:        ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
+			Concurrency:        c.Concurrency,
+			signatureRetriever: signatureRetriever,
 		}
 
 		switch {

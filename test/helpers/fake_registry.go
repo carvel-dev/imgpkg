@@ -61,16 +61,26 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 			r.logger.Tracef("build: creating image on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
-			assert.NoError(r.t, err)
+			if val.Tag != "" {
+				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.Image, auth)
+				assert.NoError(r.t, err)
+			} else {
+				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
+				assert.NoError(r.t, err)
+			}
 		}
 
 		if val.ImageIndex != nil {
 			r.logger.Tracef("build: creating index on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
-			assert.NoError(r.t, err)
+			if val.Tag != "" {
+				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.ImageIndex, auth)
+				assert.NoError(r.t, err)
+			} else {
+				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
+				assert.NoError(r.t, err)
+			}
 		}
 	}
 
@@ -331,7 +341,14 @@ func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, 
 	imgName, err := name.ParseReference(imageName)
 	require.NoError(r.t, err)
 
-	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, Image: image, ImageIndex: imageIndex, path: path}
+	// Ignoring the error because the image might not have a tag
+	tagName := ""
+	tag, err := name.NewTag(imageName)
+	if err == nil {
+		tagName = tag.TagStr()
+	}
+
+	imageOrImageIndexWithTarPath := &ImageOrImageIndexWithTarPath{fakeRegistry: r, t: r.t, Image: image, ImageIndex: imageIndex, path: path, Tag: tagName}
 
 	var digest v1.Hash
 	if image != nil {
@@ -454,6 +471,7 @@ type ImageOrImageIndexWithTarPath struct {
 	t            *testing.T
 	RefDigest    string
 	Digest       string
+	Tag          string
 }
 
 func compress(src string) (*os.File, error) {
