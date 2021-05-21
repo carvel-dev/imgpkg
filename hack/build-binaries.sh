@@ -2,7 +2,8 @@
 
 set -e -x -u
 
-VERSION="$1"
+LATEST_GIT_TAG=$(git describe --tags | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+')
+VERSION="${1:-$LATEST_GIT_TAG}"
 
 go fmt ./cmd/... ./pkg/... ./test/...
 go mod vendor
