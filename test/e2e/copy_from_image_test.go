@@ -309,6 +309,46 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 		})
 	})
+
+	t.Run("Copies signature", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		var tarFilePath, testDir, signatureTag string
+		tag := fmt.Sprintf("%d", time.Now().UnixNano())
+		tagRef := fmt.Sprintf("%s:%s", env.Image, tag)
+
+		logger.Section("Create Image and signature", func() {
+			testDir = env.Assets.CreateTempFolder("image-to-tar")
+			tarFilePath = filepath.Join(testDir, "image.tar")
+
+			imgDigest := env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, tagRef)
+			imgRef := env.Image + imgDigest
+			signatureTag = env.ImageFactory.SignImage(imgRef)
+		})
+
+		logger.Section("Create tar from Image", func() {
+			imgpkg.Run([]string{"copy",
+				"-i", tagRef,
+				"--to-tar", tarFilePath,
+				"--cosign-signatures",
+			})
+		})
+
+		logger.Section("Import Tar into Registry and regenerate a lock file", func() {
+			imgpkg.Run([]string{"copy",
+				"--tar", tarFilePath,
+				"--to-repo", env.RelocationRepo,
+			})
+		})
+
+		logger.Section("Check that signature image is present", func() {
+			refs := []string{fmt.Sprintf("%s:%s", env.RelocationRepo, signatureTag)}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+			env.Assert.ValidateCosignSignature([]string{fmt.Sprintf("%s:%s", env.RelocationRepo, tag)})
+		})
+	})
 }
 
 func TestCopyErrors(t *testing.T) {

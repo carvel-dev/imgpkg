@@ -33,10 +33,11 @@ func TestMain(m *testing.M) {
 	imageSet := imageset.NewImageSet(1, logger)
 
 	subject = CopyRepoSrc{
-		logger:      logger,
-		imageSet:    imageSet,
-		tarImageSet: imageset.NewTarImageSet(imageSet, 1, logger),
-		Concurrency: 1,
+		logger:             logger,
+		imageSet:           imageSet,
+		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, logger),
+		Concurrency:        1,
+		signatureRetriever: &fakeSignatureRetriever{},
 	}
 
 	os.Exit(m.Run())
@@ -580,6 +581,15 @@ images:
 		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
 	})
 }
+
+type fakeSignatureRetriever struct {
+}
+
+func (f fakeSignatureRetriever) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
+	return imageset.NewUnprocessedImageRefs(), nil
+}
+
+var _ SignatureRetriever = new(fakeSignatureRetriever)
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 	path := imagetar.NewTarReader(imageTarPath)

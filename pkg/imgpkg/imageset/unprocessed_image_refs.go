@@ -29,6 +29,10 @@ func (i *UnprocessedImageRefs) Add(imgRef UnprocessedImageRef) {
 	i.imgRefs[imgRef] = struct{}{}
 }
 
+func (i *UnprocessedImageRefs) Length() int {
+	return len(i.imgRefs)
+}
+
 func (i *UnprocessedImageRefs) All() []UnprocessedImageRef {
 	var result []UnprocessedImageRef
 	for imgRef := range i.imgRefs {

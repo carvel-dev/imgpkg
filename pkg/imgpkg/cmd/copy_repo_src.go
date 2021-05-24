@@ -9,11 +9,16 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
+
+type SignatureRetriever interface {
+	Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error)
+}
 
 type CopyRepoSrc struct {
 	ImageFlags              ImageFlags
@@ -25,12 +30,22 @@ type CopyRepoSrc struct {
 	imageSet                ctlimgset.ImageSet
 	tarImageSet             ctlimgset.TarImageSet
 	registry                ctlimgset.ImagesReaderWriter
+	signatureRetriever      SignatureRetriever
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	unprocessedImageRefs, err := c.getSourceImages()
 	if err != nil {
 		return err
+	}
+
+	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
+	if err != nil {
+		return err
+	}
+
+	for _, signature := range signatures.All() {
+		unprocessedImageRefs.Add(signature)
 	}
 
 	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
@@ -47,6 +62,14 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	unprocessedImageRefs, err := c.getSourceImages()
 	if err != nil {
 		return nil, err
+	}
+
+	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
+	if err != nil {
+		return nil, err
+	}
+	for _, signature := range signatures.All() {
+		unprocessedImageRefs.Add(signature)
 	}
 
 	importRepo, err := regname.NewRepository(repo)

@@ -5,6 +5,7 @@ package helpers
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -19,6 +20,7 @@ type Env struct {
 	Assets         *Assets
 	Assert         Assertion
 	ImageFactory   ImageFactory
+	Logger         *Logger
 	cleanupFuncs   []func()
 }
 
@@ -30,16 +32,24 @@ func BuildEnv(t *testing.T) *Env {
 	}
 
 	assets := &Assets{T: t}
+	logger := &Logger{LogLevel: LogDebug}
 	env := Env{
 		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
 		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
 		ImgpkgPath:     imgpkgPath,
 		BundleFactory:  NewBundleDir(t, assets),
 		Assets:         assets,
-		Assert:         Assertion{T: t},
+		Assert: Assertion{
+			T:                    t,
+			logger:               logger,
+			signatureKeyLocation: filepath.Dir(imgpkgPath),
+		},
+		Logger: logger,
 		ImageFactory: ImageFactory{
-			Assets: assets,
-			T:      t,
+			Assets:               assets,
+			T:                    t,
+			signatureKeyLocation: filepath.Dir(imgpkgPath),
+			logger:               logger,
 		},
 	}
 	env.Validate(t)

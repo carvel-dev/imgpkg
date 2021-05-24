@@ -262,6 +262,98 @@ images:
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 	})
 
+	t.Run("when bundle contains a bundle with signed images it copies signatures", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = imgRef.Context().Name() + "-img1"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+			env.ImageFactory.SignImage(img1DigestRef)
+
+			img2DigestRef = imgRef.Context().Name() + "-img2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+			env.ImageFactory.SignImage(img2DigestRef)
+		})
+
+		simpleBundle := imgRef.Context().Name() + "-simple-bundle"
+		var simpleBundleDigest string
+		logger.Section("create simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", simpleBundle, "-f", bundleDir})
+			simpleBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+			env.ImageFactory.SignImage(simpleBundle + simpleBundleDigest)
+		})
+
+		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
+		var nestedBundleDigest string
+		logger.Section("create nested bundle that contains images and the simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+			env.ImageFactory.SignImage(nestedBundle + nestedBundleDigest)
+		})
+
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
+		var outerBundleDigest string
+		logger.Section("create outer bundle with image, simple bundle and nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, nestedBundle+nestedBundleDigest, img1DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle, "-f", bundleDir})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+			env.ImageFactory.SignImage(outerBundle + outerBundleDigest)
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", outerBundle + outerBundleDigest,
+				"--to-repo", env.RelocationRepo,
+				"--cosign-signatures",
+			},
+			)
+		})
+
+		refs := []string{
+			env.RelocationRepo + ":" + img1Digest,
+			env.RelocationRepo + ":" + img2Digest,
+			env.RelocationRepo + ":" + simpleBundleDigest,
+			env.RelocationRepo + ":" + nestedBundleDigest,
+			env.RelocationRepo + ":" + outerBundleDigest,
+		}
+		env.Assert.ValidateCosignSignature(refs)
+	})
+
 	t.Run("when bundle is created in auth registry, copy the bundle to a public registry, after without credentials try to copy the bundle from the public registry", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
@@ -502,6 +594,54 @@ images:
 			fmt.Sprintf("%s:%v", env.RelocationRepo, tag),
 		}
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(imagesToCheck))
+	})
+
+	t.Run("when bundle contains signed images it copies all signatures", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		testDir := env.Assets.CreateTempFolder("tar-test")
+		tarFilePath := filepath.Join(testDir, "bundle.tar")
+
+		var bundleDigest, imageDigest, imageSignatureTag, bundleSignatureTag string
+		logger.Section("create bundle with image and signs both", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+			imageDigestRef := env.Image + imageDigest
+			imageSignatureTag = env.ImageFactory.SignImage(imageDigestRef)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, imageDigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+
+			out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+			bundleSignatureTag = env.ImageFactory.SignImage(env.Image + bundleDigest)
+		})
+
+		logger.Section("copy images to a tar file", func() {
+			imgpkg.Run([]string{"copy", "-b", env.Image, "--to-tar", tarFilePath, "--cosign-signatures"})
+		})
+
+		logger.Section("import images to the new registry", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo})
+		})
+
+		imagesToCheck := []string{
+			env.RelocationRepo + ":" + imageSignatureTag,
+			env.RelocationRepo + ":" + bundleSignatureTag,
+		}
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(imagesToCheck))
+		checkSigsOnImages := []string{
+			env.RelocationRepo + bundleDigest,
+			env.RelocationRepo + imageDigest,
+		}
+		env.Assert.ValidateCosignSignature(checkSigsOnImages)
 	})
 }
 
