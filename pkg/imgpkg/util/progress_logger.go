@@ -28,11 +28,11 @@ func (l ImgpkgLogger) NewProgressBar(prefix, finalMessage string) ProgressLogger
 }
 
 type ProgressBarLogger struct {
-	ctx            context.Context
-	cancelFunc     context.CancelFunc
-	bar            *pb.ProgressBar
-	prefix         string
-	finalMessage   string
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+	bar          *pb.ProgressBar
+	prefix       string
+	finalMessage string
 }
 
 func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
@@ -64,10 +64,10 @@ func (l *ProgressBarLogger) End() {
 }
 
 type ProgressBarNoTTYLogger struct {
-	ctx            context.Context
-	cancelFunc     context.CancelFunc
-	prefix         string
-	finalMessage   string
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+	prefix       string
+	finalMessage string
 }
 
 func (l *ProgressBarNoTTYLogger) Start(progressChan <-chan regv1.Update) {

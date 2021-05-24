@@ -86,6 +86,7 @@ func (c *CopyOptions) Run() error {
 
 	logger := util.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
+	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
 
 	imagesUploaderLogger := logger.NewProgressBar("copy | ", "done uploading images")
 	regWithProgress := registry.NewRegistryWithProgress(reg, imagesUploaderLogger)
@@ -109,7 +110,7 @@ func (c *CopyOptions) Run() error {
 			return err
 		}
 
-		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		informUserToUseTheNonDistributableFlagWithDescriptors(levelLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 		return c.writeLockOutput(processedImages, reg)
 
 	case c.isRepoSrc():
@@ -122,8 +123,9 @@ func (c *CopyOptions) Run() error {
 			signatureRetriever = signature.NewNoop()
 		}
 
+		levelLogger.LogLevel = util.LogTrace
 		repoSrc := CopyRepoSrc{
-			logger:                  prefixedLogger,
+			logger:                  levelLogger,
 			ImageFlags:              c.ImageFlags,
 			BundleFlags:             c.BundleFlags,
 			LockInputFlags:          c.LockInputFlags,
@@ -313,7 +315,7 @@ func everyMediaTypeForAnImage(image regv1.Image) []string {
 	return everyMediaType
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includeNonDistributableFlag bool, everyMediaType []string) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(logger util.LoggerWithLevels, includeNonDistributableFlag bool, everyMediaType []string) {
 	noNonDistributableLayers := true
 
 	for _, mediaType := range everyMediaType {
@@ -323,8 +325,8 @@ func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includ
 	}
 
 	if includeNonDistributableFlag && noNonDistributableLayers {
-		logger.WriteStr("Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
+		logger.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
+		logger.Warnf("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
 	}
 }

@@ -29,13 +29,15 @@ var stdOut *bytes.Buffer
 
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
-	logger := util.NewLogger(stdOut).NewPrefixedWriter("test|    ")
-	imageSet := imageset.NewImageSet(1, logger)
+	logger := util.NewLogger(stdOut)
+	prefixedLogger := logger.NewPrefixedWriter("test | ")
+	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
+	imageSet := imageset.NewImageSet(1, prefixedLogger)
 
 	subject = CopyRepoSrc{
-		logger:             logger,
+		logger:             levelLogger,
 		imageSet:           imageSet,
-		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, logger),
+		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, prefixedLogger),
 		Concurrency:        1,
 		signatureRetriever: &fakeSignatureRetriever{},
 	}
