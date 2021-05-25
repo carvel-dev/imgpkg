@@ -107,9 +107,10 @@ func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
 	return regremote.Image(overriddenRef, r.opts...)
 }
 
-func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
+func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, opts ...regremote.Option) error {
 	return util.Retry(func() error {
-		return regremote.MultiWrite(imageOrIndexesToUpload, append(r.opts, regremote.WithJobs(concurrency))...)
+		lOpts := append(append([]regremote.Option{}, r.opts...), opts...)
+		return regremote.MultiWrite(imageOrIndexesToUpload, append(lOpts, regremote.WithJobs(concurrency))...)
 	})
 }
 

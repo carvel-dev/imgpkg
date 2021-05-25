@@ -37,19 +37,6 @@ type FakeImagesReaderWriter struct {
 		result1 string
 		result2 error
 	}
-	GenericStub        func(name.Reference) (v1.Descriptor, error)
-	genericMutex       sync.RWMutex
-	genericArgsForCall []struct {
-		arg1 name.Reference
-	}
-	genericReturns struct {
-		result1 v1.Descriptor
-		result2 error
-	}
-	genericReturnsOnCall map[int]struct {
-		result1 v1.Descriptor
-		result2 error
-	}
 	GetStub        func(name.Reference) (*remote.Descriptor, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
@@ -89,11 +76,12 @@ type FakeImagesReaderWriter struct {
 		result1 v1.ImageIndex
 		result2 error
 	}
-	MultiWriteStub        func(map[name.Reference]remote.Taggable, int) error
+	MultiWriteStub        func(map[name.Reference]remote.Taggable, int, ...remote.Option) error
 	multiWriteMutex       sync.RWMutex
 	multiWriteArgsForCall []struct {
 		arg1 map[name.Reference]remote.Taggable
 		arg2 int
+		arg3 []remote.Option
 	}
 	multiWriteReturns struct {
 		result1 error
@@ -270,70 +258,6 @@ func (fake *FakeImagesReaderWriter) FirstImageExistsReturnsOnCall(i int, result1
 	}
 	fake.firstImageExistsReturnsOnCall[i] = struct {
 		result1 string
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesReaderWriter) Generic(arg1 name.Reference) (v1.Descriptor, error) {
-	fake.genericMutex.Lock()
-	ret, specificReturn := fake.genericReturnsOnCall[len(fake.genericArgsForCall)]
-	fake.genericArgsForCall = append(fake.genericArgsForCall, struct {
-		arg1 name.Reference
-	}{arg1})
-	stub := fake.GenericStub
-	fakeReturns := fake.genericReturns
-	fake.recordInvocation("Generic", []interface{}{arg1})
-	fake.genericMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeImagesReaderWriter) GenericCallCount() int {
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
-	return len(fake.genericArgsForCall)
-}
-
-func (fake *FakeImagesReaderWriter) GenericCalls(stub func(name.Reference) (v1.Descriptor, error)) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = stub
-}
-
-func (fake *FakeImagesReaderWriter) GenericArgsForCall(i int) name.Reference {
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
-	argsForCall := fake.genericArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeImagesReaderWriter) GenericReturns(result1 v1.Descriptor, result2 error) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = nil
-	fake.genericReturns = struct {
-		result1 v1.Descriptor
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesReaderWriter) GenericReturnsOnCall(i int, result1 v1.Descriptor, result2 error) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = nil
-	if fake.genericReturnsOnCall == nil {
-		fake.genericReturnsOnCall = make(map[int]struct {
-			result1 v1.Descriptor
-			result2 error
-		})
-	}
-	fake.genericReturnsOnCall[i] = struct {
-		result1 v1.Descriptor
 		result2 error
 	}{result1, result2}
 }
@@ -530,19 +454,20 @@ func (fake *FakeImagesReaderWriter) IndexReturnsOnCall(i int, result1 v1.ImageIn
 	}{result1, result2}
 }
 
-func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Taggable, arg2 int) error {
+func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Taggable, arg2 int, arg3 ...remote.Option) error {
 	fake.multiWriteMutex.Lock()
 	ret, specificReturn := fake.multiWriteReturnsOnCall[len(fake.multiWriteArgsForCall)]
 	fake.multiWriteArgsForCall = append(fake.multiWriteArgsForCall, struct {
 		arg1 map[name.Reference]remote.Taggable
 		arg2 int
-	}{arg1, arg2})
+		arg3 []remote.Option
+	}{arg1, arg2, arg3})
 	stub := fake.MultiWriteStub
 	fakeReturns := fake.multiWriteReturns
-	fake.recordInvocation("MultiWrite", []interface{}{arg1, arg2})
+	fake.recordInvocation("MultiWrite", []interface{}{arg1, arg2, arg3})
 	fake.multiWriteMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -556,17 +481,17 @@ func (fake *FakeImagesReaderWriter) MultiWriteCallCount() int {
 	return len(fake.multiWriteArgsForCall)
 }
 
-func (fake *FakeImagesReaderWriter) MultiWriteCalls(stub func(map[name.Reference]remote.Taggable, int) error) {
+func (fake *FakeImagesReaderWriter) MultiWriteCalls(stub func(map[name.Reference]remote.Taggable, int, ...remote.Option) error) {
 	fake.multiWriteMutex.Lock()
 	defer fake.multiWriteMutex.Unlock()
 	fake.MultiWriteStub = stub
 }
 
-func (fake *FakeImagesReaderWriter) MultiWriteArgsForCall(i int) (map[name.Reference]remote.Taggable, int) {
+func (fake *FakeImagesReaderWriter) MultiWriteArgsForCall(i int) (map[name.Reference]remote.Taggable, int, []remote.Option) {
 	fake.multiWriteMutex.RLock()
 	defer fake.multiWriteMutex.RUnlock()
 	argsForCall := fake.multiWriteArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeImagesReaderWriter) MultiWriteReturns(result1 error) {
@@ -785,8 +710,6 @@ func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	defer fake.digestMutex.RUnlock()
 	fake.firstImageExistsMutex.RLock()
 	defer fake.firstImageExistsMutex.RUnlock()
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	fake.imageMutex.RLock()

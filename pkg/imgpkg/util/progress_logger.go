@@ -14,28 +14,28 @@ import (
 )
 
 type ProgressLogger interface {
-	Start()
-	End(msg string)
+	Start(progress <-chan regv1.Update)
+	End()
 }
 
-func (l ImgpkgLogger) NewProgressBar(prefix string, progress <-chan regv1.Update) ProgressLogger {
+func (l ImgpkgLogger) NewProgressBar(prefix, finalMessage string) ProgressLogger {
 	ctx, cancel := context.WithCancel(context.Background())
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		return &ProgressBarLogger{progress, ctx, cancel, nil, prefix}
+		return &ProgressBarLogger{ctx: ctx, cancelFunc: cancel, prefix: prefix, finalMessage: finalMessage}
 	}
 
-	return &ProgressBarNoTTYLogger{prefix: prefix, uploadProgress: progress, ctx: ctx, cancelFunc: cancel}
+	return &ProgressBarNoTTYLogger{prefix: prefix, ctx: ctx, cancelFunc: cancel, finalMessage: finalMessage}
 }
 
 type ProgressBarLogger struct {
-	uploadProgress <-chan regv1.Update
 	ctx            context.Context
 	cancelFunc     context.CancelFunc
 	bar            *pb.ProgressBar
 	prefix         string
+	finalMessage   string
 }
 
-func (l *ProgressBarLogger) Start() {
+func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 	l.bar = pb.New64(0).SetUnits(pb.U_BYTES)
 	l.bar.ShowSpeed = true
 	go func() {
@@ -43,7 +43,7 @@ func (l *ProgressBarLogger) Start() {
 			select {
 			case <-l.ctx.Done():
 				return
-			case update := <-l.uploadProgress:
+			case update := <-progressChan:
 				if update.Total == 0 {
 					return
 				}
@@ -58,31 +58,31 @@ func (l *ProgressBarLogger) Start() {
 	}()
 }
 
-func (l *ProgressBarLogger) End(msg string) {
+func (l *ProgressBarLogger) End() {
 	l.cancelFunc()
-	l.bar.FinishPrint(fmt.Sprintf("%s%s", l.prefix, msg))
+	l.bar.FinishPrint(fmt.Sprintf("%s%s", l.prefix, l.finalMessage))
 }
 
 type ProgressBarNoTTYLogger struct {
-	uploadProgress <-chan regv1.Update
-	prefix         string
 	ctx            context.Context
 	cancelFunc     context.CancelFunc
+	prefix         string
+	finalMessage   string
 }
 
-func (l *ProgressBarNoTTYLogger) Start() {
+func (l *ProgressBarNoTTYLogger) Start(progressChan <-chan regv1.Update) {
 	go func() {
 		for {
 			select {
 			case <-l.ctx.Done():
 				return
-			case <-l.uploadProgress:
+			case <-progressChan:
 			}
 		}
 	}()
 }
 
-func (l *ProgressBarNoTTYLogger) End(msg string) {
+func (l *ProgressBarNoTTYLogger) End() {
 	l.cancelFunc()
-	fmt.Printf("%s%s\n", l.prefix, msg)
+	fmt.Printf("%s%s\n", l.prefix, l.finalMessage)
 }
