@@ -422,11 +422,10 @@ images:
 		})
 
 		logger.Section("copy bundle from the public registry to a different repository", func() {
-			out := imgpkg.Run([]string{"copy",
+			imgpkg.Run([]string{"copy",
 				"--bundle", relocatedBundle + bundleDigest,
 				"--to-repo", relocatedBundle + "-copied",
 			})
-			fmt.Println(out)
 		})
 
 		refs := []string{
