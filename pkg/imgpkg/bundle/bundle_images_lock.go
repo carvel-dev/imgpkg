@@ -55,7 +55,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 			mutex.Lock()
 			defer mutex.Unlock()
-			resultImagesLock.AddImageRef(imgRef)
+			resultImagesLock.AddImageRef(imgRef, imgsLock != nil) // imgsLock will be != nil when the image is a bundle
 			if imgsLock != nil {
 				err = resultImagesLock.Merge(imgsLock)
 				if err != nil {

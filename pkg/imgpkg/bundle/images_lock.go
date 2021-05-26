@@ -13,52 +13,65 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cppforlife/go-cli-ui/ui.UI
 
+type ImageRef struct {
+	lockconfig.ImageRef
+	IsBundle bool
+}
+
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
-	imgsLock := &ImagesLock{imagesLock: imagesLock, imgRetriever: imgRetriever}
+	var imagesRef []ImageRef
+	for _, image := range imagesLock.Images {
+		imagesRef = append(imagesRef, ImageRef{ImageRef: image, IsBundle: false})
+	}
+
+	imgsLock := &ImagesLock{imagesRef: imagesRef, imgRetriever: imgRetriever}
 	imgsLock.generateImagesLocations(relativeToRepo)
 	return imgsLock
 }
 
 type ImagesLock struct {
-	imagesLock   lockconfig.ImagesLock
+	imagesRef    []ImageRef
 	imgRetriever ctlimg.ImagesMetadata
 }
 
 func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
-	for i, imgRef := range o.imagesLock.Images {
+	for i, imgRef := range o.imagesRef {
 		imageInBundleRepo := o.imageRelativeToBundle(imgRef.Image, relativeToRepo)
-		o.imagesLock.Images[i].AddLocation(imageInBundleRepo)
+		o.imagesRef[i].AddLocation(imageInBundleRepo)
 	}
 }
 
-func (o ImagesLock) ImageRefs() []lockconfig.ImageRef {
-	return o.imagesLock.Images
+func (o ImagesLock) ImageRefs() []ImageRef {
+	return o.imagesRef
 }
 
 func (o *ImagesLock) Merge(imgLock *ImagesLock) error {
-	for _, image := range imgLock.imagesLock.Images {
+	for _, image := range imgLock.imagesRef {
 		imgRef := image.DeepCopy()
-		o.imagesLock.AddImageRef(imgRef)
+		o.AddImageRef(imgRef, image.IsBundle)
 	}
 
 	return nil
 }
 
-func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
-	o.imagesLock.AddImageRef(ref)
+func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
+	for _, image := range o.imagesRef {
+		if image.Image == ref.Image {
+			return
+		}
+	}
+	o.imagesRef = append(o.imagesRef, ImageRef{ImageRef: ref.DeepCopy(), IsBundle: bundle})
 }
 
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
-	imagesLock := lockconfig.ImagesLock{
-		LockVersion: o.imagesLock.LockVersion,
-	}
+	imagesLock := lockconfig.NewEmptyImagesLock()
 
 	skippedLocalization := false
-	for _, imgRef := range o.imagesLock.Images {
+	for _, imgRef := range o.imagesRef {
 		foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 		if err != nil {
-			return o.imagesLock, false, err
+			return lockconfig.ImagesLock{}, false, err
 		}
 
 		// If cannot find the image in the bundle repo, will not localize any image
@@ -79,7 +92,7 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 		imageRefs = []lockconfig.ImageRef{}
 		// Remove the bundle location on all the Images, which is present due to the constructor call to
 		// ImagesLock.generateImagesLocations
-		for _, image := range o.imagesLock.Images {
+		for _, image := range o.imagesRef {
 			imageRefs = append(imageRefs, image.DiscardLocationsExcept(image.Image))
 		}
 	}

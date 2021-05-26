@@ -27,6 +27,15 @@ type ImageRef struct {
 	locations   []string
 }
 
+func NewEmptyImagesLock() ImagesLock {
+	return ImagesLock{
+		LockVersion: LockVersion{
+			APIVersion: ImagesLockAPIVersion,
+			Kind:       ImagesLockKind,
+		},
+	}
+}
+
 func NewImagesLockFromPath(path string) (ImagesLock, error) {
 	bs, err := ioutil.ReadFile(path)
 	if err != nil {

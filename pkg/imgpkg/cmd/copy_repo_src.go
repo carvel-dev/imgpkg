@@ -166,7 +166,7 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 	}
 }
 
-func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []lockconfig.ImageRef, error) {
+func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []ctlbundle.ImageRef, error) {
 	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
 
 	imgLock, err := bundle.AllImagesLock(c.Concurrency)

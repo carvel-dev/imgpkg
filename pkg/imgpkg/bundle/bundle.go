@@ -29,6 +29,7 @@ type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ctlimg.ImagesMetadata
 	imagesLockReader ImagesLockReader
+	imagesRef        map[string]ImageRef
 }
 
 func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
@@ -36,16 +37,35 @@ func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
 }
 
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainImg, imagesMetadata, &singleLayerReader{}}
+	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata, imagesLockReader: &singleLayerReader{}, imagesRef: map[string]ImageRef{}}
 }
 
 func NewBundleWithReader(ref string, imagesMetadata ctlimg.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
-	return &Bundle{plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader}
+	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata), imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader, imagesRef: map[string]ImageRef{}}
 }
 
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
+
+func (o *Bundle) AddImagesRef(refs ...ImageRef) {
+	for _, imageRef := range refs {
+		o.imagesRef[imageRef.Image] = imageRef
+	}
+}
+
+func (o *Bundle) ImageRef(imageDigest string) (ImageRef, bool) {
+	ref, found := o.imagesRef[imageDigest]
+	return ref, found
+}
+
+func (o *Bundle) ImagesRef() []ImageRef {
+	var imgsRef []ImageRef
+	for _, ref := range o.imagesRef {
+		imgsRef = append(imgsRef, ref)
+	}
+	return imgsRef
+}
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
