@@ -35,7 +35,7 @@ type CopyRepoSrc struct {
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
-	unprocessedImageRefs, err := c.getSourceImages()
+	unprocessedImageRefs, _, err := c.getSourceImages()
 	if err != nil {
 		return err
 	}
@@ -59,12 +59,14 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	return nil
 }
 
-func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
-	unprocessedImageRefs, err := c.getSourceImages()
+func (c *CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
+	c.logger.Tracef(fmt.Sprintf("CopyToRepo(%s)\n", repo))
+	unprocessedImageRefs, bundles, err := c.getSourceImages()
 	if err != nil {
 		return nil, err
 	}
 
+	c.logger.Debugf("fetching signatures\n")
 	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
 	if err != nil {
 		return nil, err
@@ -78,34 +80,41 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
+	c.logger.Debugf("copy the fetched images\n")
 	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 	if err != nil {
 		return nil, err
 	}
 
+	for _, bundle := range bundles {
+		if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+			return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+		}
+	}
 	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }
 
-func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) {
+func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 
 	switch {
 	case c.LockInputFlags.LockFilePath != "":
 		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		switch {
 		case bundleLock != nil:
-			_, imageRefs, err := c.getBundleImageRefs(bundleLock.Bundle.Image)
+			c.logger.Tracef("get images from BundleLock file\n")
+			_, bundles, imagesRef, err := c.getBundleImageRefs(bundleLock.Bundle.Image)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
-			for _, img := range imageRefs {
+			for _, img := range imagesRef {
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 			}
 
@@ -114,70 +123,76 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, error) 
 				Tag:       bundleLock.Bundle.Tag,
 			})
 
-			return unprocessedImageRefs, nil
+			return unprocessedImageRefs, bundles, nil
 
 		case imagesLock != nil:
+			c.logger.Tracef("get images from ImagesLock file\n")
 			for _, img := range imagesLock.Images {
 				plainImg := plainimage.NewPlainImage(img.Image, c.registry)
 
 				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				if ok {
-					return nil, fmt.Errorf("Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
+					return nil, nil, fmt.Errorf("Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
 				}
 
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef()})
 			}
-			return unprocessedImageRefs, nil
+			return unprocessedImageRefs, nil, nil
 
 		default:
 			panic("Unreachable")
 		}
 
 	case c.ImageFlags.Image != "":
+		c.logger.Tracef("copy single image\n")
 		plainImg := plainimage.NewPlainImage(c.ImageFlags.Image, c.registry)
 
 		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if ok {
-			return nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+			return nil, nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef(), Tag: plainImg.Tag()})
-		return unprocessedImageRefs, nil
+		return unprocessedImageRefs, nil, nil
 
 	default:
-		bundle, imageRefs, err := c.getBundleImageRefs(c.BundleFlags.Bundle)
+		c.logger.Tracef("copy bundle\n")
+		bundle, allBundles, imagesRef, err := c.getBundleImageRefs(c.BundleFlags.Bundle)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		for _, img := range imageRefs {
+		for _, img := range imagesRef {
 			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: bundle.DigestRef(), Tag: bundle.Tag()})
 
-		return unprocessedImageRefs, nil
+		return unprocessedImageRefs, allBundles, nil
 	}
 }
 
-func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []ctlbundle.ImageRef, error) {
+func (c *CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImagesRef, error) {
 	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
-
-	imgLock, err := bundle.AllImagesLock(c.Concurrency)
+	isBundle, err := bundle.IsBundle()
 	if err != nil {
-		if ctlbundle.IsNotBundleError(err) {
-			return nil, nil, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-		}
-		return nil, nil, err
+		return nil, nil, ctlbundle.ImagesRef{}, err
+	}
+	if !isBundle {
+		return nil, nil, ctlbundle.ImagesRef{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	}
 
-	return bundle, imgLock.ImageRefs(), nil
+	nestedBundles, imageRefs, err := bundle.AllImagesRefs(c.Concurrency, c.logger)
+	if err != nil {
+		return nil, nil, ctlbundle.ImagesRef{}, fmt.Errorf("Reading Images from Bundle: %s", err)
+	}
+	return bundle, nestedBundles, imageRefs, nil
 }
 
 func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {

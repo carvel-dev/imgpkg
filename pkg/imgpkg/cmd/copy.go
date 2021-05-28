@@ -123,7 +123,6 @@ func (c *CopyOptions) Run() error {
 			signatureRetriever = signature.NewNoop()
 		}
 
-		levelLogger.LogLevel = util.LogTrace
 		repoSrc := CopyRepoSrc{
 			logger:                  levelLogger,
 			ImageFlags:              c.ImageFlags,

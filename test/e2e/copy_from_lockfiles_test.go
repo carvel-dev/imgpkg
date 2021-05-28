@@ -11,6 +11,7 @@ import (
 	"time"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
@@ -229,6 +230,143 @@ images:
 			}
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 
+		})
+	})
+
+	t.Run("When Copying bundle it generates image with locations", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = imgRef.Context().Name() + "-img1"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+
+			img2DigestRef = imgRef.Context().Name() + "-img2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+		})
+
+		simpleBundle := imgRef.Context().Name() + "-simple-bundle"
+		simpleBundleDigest := ""
+		logger.Section("create simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", simpleBundle, "-f", bundleDir})
+			simpleBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
+		nestedBundleDigest := ""
+		logger.Section("create nested bundle that contains images and the simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
+		outerBundleDigest := ""
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		bundleToCopy := fmt.Sprintf("%s%s", outerBundle, bundleTag)
+		var lockFile string
+
+		logger.Section("create outer bundle with image, simple bundle and nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, nestedBundle+nestedBundleDigest, img1DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			lockFile = filepath.Join(bundleDir, "bundle.lock.yml")
+			out := imgpkg.Run([]string{"push", "--tty", "-b", bundleToCopy, "-f", bundleDir, "--lock-output", lockFile})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			out := imgpkg.Run([]string{"copy",
+				"--lock", lockFile,
+				"--to-repo", env.RelocationRepo},
+			)
+			fmt.Println(out)
+		})
+
+		logger.Section("download the locations file for outer bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, outerBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "Locations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    nestedBundle + nestedBundleDigest,
+						IsBundle: true,
+					},
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    simpleBundle + simpleBundleDigest,
+						IsBundle: true,
+					},
+				},
+			})
+		})
+
+		logger.Section("download the locations file for nested bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, nestedBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "Locations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    img2DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    simpleBundle + simpleBundleDigest,
+						IsBundle: true,
+					},
+				},
+			})
+		})
+
+		logger.Section("download the locations file for simple bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, simpleBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "Locations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+				},
+			})
 		})
 	})
 }

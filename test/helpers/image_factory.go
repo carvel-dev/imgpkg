@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -20,6 +21,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,4 +141,16 @@ func (i *ImageFactory) SignImage(imgRef string) string {
 	match := regexp.MustCompile(":(sha256-[0123456789abcdef]{64}.*)").FindStringSubmatch(stderrStr)
 	require.Len(i.T, match, 2)
 	return match[1]
+}
+
+func (i *ImageFactory) Download(imgRef, location string) {
+	imageReg, err := name.ParseReference(imgRef, name.WeakValidation)
+	require.NoError(i.T, err)
+	img, err := remote.Image(imageReg, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	output := bytes.NewBufferString("")
+	writerUI := goui.NewWriterUI(output, output, nil)
+	err = ctlimg.NewDirImage(filepath.Join(location), img, writerUI).AsDirectory()
+	require.NoError(i.T, err)
 }

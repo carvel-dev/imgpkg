@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
-	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	plainimg "github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 const (
@@ -65,6 +67,40 @@ func (o *Bundle) ImagesRef() []ImageRef {
 		imgsRef = append(imgsRef, ref)
 	}
 	return imgsRef
+}
+
+func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, logger util.LoggerWithLevels) error {
+	locationsCfg := ImageLocationsConfig{
+		APIVersion: LocationAPIVersion,
+		Kind:       LocationKind,
+	}
+	var bundleProcessedImage imageset.ProcessedImage
+	for _, image := range processedImages.All() {
+		ref, found := o.ImageRef(image.UnprocessedImageRef.DigestRef)
+		if found {
+			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
+				Image:    ref.Image,
+				IsBundle: ref.IsBundle,
+			})
+		}
+		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {
+			bundleProcessedImage = image
+			break
+		}
+	}
+
+	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: '%s' have to be a digest", bundleProcessedImage.DigestRef))
+	}
+
+	logger.Debugf("creating Locations OCI Image\n")
+	// Using NewNoopUI because we do not want to have output from this push
+	err = NewLocations(logger).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
@@ -125,7 +161,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
 				ui.BeginLinef("\nNested bundles\n")
 			}
-			bundleDigest, err := name.NewDigest(image.Image)
+			bundleDigest, err := regname.NewDigest(image.Image)
 			if err != nil {
 				return err
 			}
@@ -156,7 +192,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	return nil
 }
 
-func (*Bundle) subBundlePath(bundleDigest name.Digest) string {
+func (*Bundle) subBundlePath(bundleDigest regname.Digest) string {
 	return filepath.Join(ImgpkgDir, BundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
 }
 

@@ -5,6 +5,7 @@ package bundle_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -31,13 +32,14 @@ type imageOrBundleDef struct {
 	isBundle                            bool
 	deleteFromOriginAfterBeingColocated bool
 	images                              []imageOrBundleDef
+	haveLocationImage                   bool
 }
 type imgAssertion struct {
 	image                  string
 	orderedListOfLocations []string
 }
 
-func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
+func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 
 	allTests := allImagesLockTests{
@@ -154,6 +156,21 @@ func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
 					colocateWithParent: true,
 					images: []imageOrBundleDef{
 						{
+							location:           "registry.io/duplicated-bundle",
+							isBundle:           true,
+							colocateWithParent: true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img2",
+								},
+							},
+						},
+						{
 							location:           "registry.io/nested-bundle",
 							isBundle:           true,
 							colocateWithParent: true,
@@ -172,21 +189,6 @@ func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
 											location:           "some-other.reg.io/img2",
 										},
 									},
-								},
-							},
-						},
-						{
-							location:           "registry.io/duplicated-bundle",
-							isBundle:           true,
-							colocateWithParent: true,
-							images: []imageOrBundleDef{
-								{
-									colocateWithParent: true,
-									location:           "other.reg.io/img1",
-								},
-								{
-									colocateWithParent: true,
-									location:           "some-other.reg.io/img2",
 								},
 							},
 						},
@@ -416,8 +418,13 @@ func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
 	}
 	for _, test := range allTests.tests {
 		t.Run(test.description, func(t *testing.T) {
-			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger)
+			tmpfolder, err := os.MkdirTemp("", "")
+			require.NoError(t, err)
+			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
 			defer registryFakeBuilder.CleanUp()
+			t.Cleanup(func() {
+				os.Remove(tmpfolder)
+			})
 			fmt.Println("setup bundle layout:")
 			imagesTree.PrintTree()
 			fmt.Println("============")
@@ -426,11 +433,15 @@ func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
 				fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
 			}
 			fmt.Println("============")
+			fmt.Println("expected image references per bundle:")
+			imagesTree.PrintBundleImageRefs()
+			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			resultImagesLock, err := subject.AllImagesLock(6)
+			bundles, imagesRefs, err := subject.AllImagesRefs(6, logger)
 			require.NoError(t, err)
-			runAssertions(t, test.assertions, resultImagesLock, imagesTree)
+			runAssertions(t, test.assertions, imagesRefs, imagesTree)
+			checkBundlesPresence(t, bundles, imagesTree)
 
 			logger.Section("ensure when bundle is duplicate only reads each bundle once", func() {
 				require.Equal(t, imagesTree.TotalNumberBundles(), fakeImagesLockReader.ReadCallCount())
@@ -439,7 +450,7 @@ func TestBundle_AllImagesLock_AllImagesCollocated(t *testing.T) {
 	}
 }
 
-func TestBundle_AllImagesLock_ImagesNotCollocated(t *testing.T) {
+func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 
 	allTests := allImagesLockTests{
@@ -628,8 +639,13 @@ func TestBundle_AllImagesLock_ImagesNotCollocated(t *testing.T) {
 	}
 	for _, test := range allTests.tests {
 		t.Run(test.description, func(t *testing.T) {
-			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger)
+			tmpfolder, err := os.MkdirTemp("", "")
+			require.NoError(t, err)
+			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
 			defer registryFakeBuilder.CleanUp()
+			t.Cleanup(func() {
+				os.Remove(tmpfolder)
+			})
 			fmt.Println("setup bundle layout:")
 			imagesTree.PrintTree()
 			fmt.Println("============")
@@ -638,11 +654,15 @@ func TestBundle_AllImagesLock_ImagesNotCollocated(t *testing.T) {
 				fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
 			}
 			fmt.Println("============")
+			fmt.Println("expected image references per bundle:")
+			imagesTree.PrintBundleImageRefs()
+			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			resultImagesLock, err := subject.AllImagesLock(1)
+			bundles, imagesRefs, err := subject.AllImagesRefs(1, logger)
 			require.NoError(t, err)
-			runAssertions(t, test.assertions, resultImagesLock, imagesTree)
+			runAssertions(t, test.assertions, imagesRefs, imagesTree)
+			checkBundlesPresence(t, bundles, imagesTree)
 
 			logger.Section("ensure when bundle is duplicate only reads each bundle once", func() {
 				require.Equal(t, imagesTree.TotalNumberBundles(), fakeImagesLockReader.ReadCallCount())
@@ -651,12 +671,488 @@ func TestBundle_AllImagesLock_ImagesNotCollocated(t *testing.T) {
 	}
 }
 
-func handleSetup(t *testing.T, setup imageOrBundleDef, logger *helpers.Logger) (*bundlefakes.FakeImagesLockReader, *helpers.FakeTestRegistryBuilder, string, *imageTree) {
+func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
+	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+
+	allTests := allImagesLockTests{
+		tests: []allImagesLockTest{
+			{
+				description: "when a bundle contains only images it returns 2 locations for each image",
+				setup: imageOrBundleDef{
+					location:          "registry.io/bundle",
+					isBundle:          true,
+					haveLocationImage: true,
+					images: []imageOrBundleDef{
+						{
+							colocateWithParent: true,
+							location:           "other.reg.io/img1",
+						},
+						{
+							colocateWithParent: true,
+							location:           "some-other.reg.io/img2",
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img2",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img2"},
+					},
+				},
+			},
+			{
+				description: "when bundle contains a nested bundle with images only it returns 2 possible locations for each image",
+				setup: imageOrBundleDef{
+					location:           "registry.io/bundle",
+					isBundle:           true,
+					colocateWithParent: true,
+					haveLocationImage:  true,
+					images: []imageOrBundleDef{
+						{
+							location:           "registry.io/nested-bundle",
+							isBundle:           true,
+							colocateWithParent: true,
+							haveLocationImage:  true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img2",
+								},
+							},
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "registry.io/nested-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle"},
+					},
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img2",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img2"},
+					},
+				},
+			},
+			{
+				description: "when bundle contains a nested bundle and other images it returns 2 possible locations for each image",
+				setup: imageOrBundleDef{
+					location:          "registry.io/bundle",
+					isBundle:          true,
+					haveLocationImage: true,
+					images: []imageOrBundleDef{
+						{
+							location:           "registry.io/nested-bundle",
+							isBundle:           true,
+							colocateWithParent: true,
+							haveLocationImage:  true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+							},
+						},
+						{
+							colocateWithParent: true,
+							location:           "some-other.reg.io/img3",
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "registry.io/nested-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle"},
+					},
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img3",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img3"},
+					},
+				},
+			},
+			{
+				description: "when a nested bundle is present twice it only returns each image once",
+				setup: imageOrBundleDef{
+					location:           "registry.io/bundle",
+					isBundle:           true,
+					colocateWithParent: true,
+					haveLocationImage:  true,
+					images: []imageOrBundleDef{
+						{
+							location:           "registry.io/duplicated-bundle",
+							isBundle:           true,
+							colocateWithParent: true,
+							haveLocationImage:  true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img2",
+								},
+							},
+						},
+						{
+							location:           "registry.io/nested-bundle",
+							isBundle:           true,
+							haveLocationImage:  true,
+							colocateWithParent: true,
+							images: []imageOrBundleDef{
+								{
+									location:           "registry.io/duplicated-bundle",
+									isBundle:           true,
+									colocateWithParent: true,
+									haveLocationImage:  true,
+									images: []imageOrBundleDef{
+										{
+											colocateWithParent: true,
+											location:           "other.reg.io/img1",
+										},
+										{
+											colocateWithParent: true,
+											location:           "some-other.reg.io/img2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "registry.io/nested-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle"},
+					},
+					{
+						image:                  "registry.io/duplicated-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/duplicated-bundle"},
+					},
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img2",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img2"},
+					},
+				},
+			},
+			{
+				description: "when nested bundle does not exist anymore in the original repository it works as expected",
+				setup: imageOrBundleDef{
+					location:          "registry.io/bundle",
+					isBundle:          true,
+					haveLocationImage: true,
+					images: []imageOrBundleDef{
+						{
+							location:                            "registry.io/nested-bundle",
+							isBundle:                            true,
+							colocateWithParent:                  true,
+							deleteFromOriginAfterBeingColocated: true,
+							haveLocationImage:                   true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img2",
+								},
+							},
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "registry.io/nested-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle"},
+					},
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img2",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img2"},
+					},
+				},
+			},
+			{
+				description: "when big number of images and bundles it works as expected",
+				setup: imageOrBundleDef{
+					location:          "registry.io/bundle",
+					isBundle:          true,
+					haveLocationImage: true,
+					images: []imageOrBundleDef{
+						{
+							location:           "registry.io/nested-bundle",
+							isBundle:           true,
+							colocateWithParent: true,
+							haveLocationImage:  true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/img1",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img2",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img3",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img4",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img5",
+								},
+								{
+									colocateWithParent: true,
+									location:           "some-other.reg.io/img6",
+								},
+							},
+						},
+						{
+							location:           "registry.io/nested-bundle1",
+							isBundle:           true,
+							colocateWithParent: true,
+							haveLocationImage:  true,
+							images: []imageOrBundleDef{
+								{
+									colocateWithParent: true,
+									location:           "other.reg.io/some-other-image",
+								},
+								{
+									location:           "registry.io/inner-bundle",
+									isBundle:           true,
+									colocateWithParent: true,
+									haveLocationImage:  true,
+									images: []imageOrBundleDef{
+										{
+											colocateWithParent: true,
+											location:           "other.reg.io/other-image",
+										},
+										{
+											location:           "registry.io/inside-inner-bundle",
+											isBundle:           true,
+											colocateWithParent: true,
+											haveLocationImage:  true,
+											images: []imageOrBundleDef{
+												{
+													colocateWithParent: true,
+													location:           "other.reg.io/my-image",
+												},
+												{
+													colocateWithParent: true,
+													location:           "other.reg.io/your-image",
+												},
+												{
+													location:           "registry.io/place",
+													isBundle:           true,
+													colocateWithParent: true,
+													haveLocationImage:  true,
+													images: []imageOrBundleDef{
+														{
+															colocateWithParent: true,
+															location:           "other.reg.io/badumtss",
+														},
+													},
+												},
+											},
+										},
+										{
+											colocateWithParent: true,
+											location:           "other.reg.io/yet-another-image",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				assertions: []imgAssertion{
+					{
+						image:                  "registry.io/nested-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle"},
+					},
+					{
+						image:                  "other.reg.io/img1",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/img1"},
+					},
+					{
+						image:                  "some-other.reg.io/img2",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img2"},
+					},
+					{
+						image:                  "some-other.reg.io/img3",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img3"},
+					},
+					{
+						image:                  "some-other.reg.io/img4",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img4"},
+					},
+					{
+						image:                  "some-other.reg.io/img5",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img5"},
+					},
+					{
+						image:                  "some-other.reg.io/img6",
+						orderedListOfLocations: []string{"registry.io/bundle", "some-other.reg.io/img6"},
+					},
+					{
+						image:                  "registry.io/nested-bundle1",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/nested-bundle1"},
+					},
+					{
+						image:                  "other.reg.io/some-other-image",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/some-other-image"},
+					},
+					{
+						image:                  "registry.io/inner-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/inner-bundle"},
+					},
+					{
+						image:                  "other.reg.io/other-image",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/other-image"},
+					},
+					{
+						image:                  "other.reg.io/yet-another-image",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/yet-another-image"},
+					},
+					{
+						image:                  "registry.io/inside-inner-bundle",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/inside-inner-bundle"},
+					},
+					{
+						image:                  "other.reg.io/my-image",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/my-image"},
+					},
+					{
+						image:                  "other.reg.io/your-image",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/your-image"},
+					},
+					{
+						image:                  "registry.io/place",
+						orderedListOfLocations: []string{"registry.io/bundle", "registry.io/place"},
+					},
+					{
+						image:                  "other.reg.io/badumtss",
+						orderedListOfLocations: []string{"registry.io/bundle", "other.reg.io/badumtss"},
+					},
+				},
+			},
+		},
+	}
+	for _, test := range allTests.tests {
+		t.Run(test.description, func(t *testing.T) {
+			tmpfolder, err := os.MkdirTemp("", "")
+			require.NoError(t, err)
+			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
+			defer registryFakeBuilder.CleanUp()
+			t.Cleanup(func() {
+				os.Remove(tmpfolder)
+			})
+			fmt.Println("setup bundle layout:")
+			imagesTree.PrintTree()
+			fmt.Println("============")
+			fmt.Println("expected image locations:")
+			for _, assertion := range test.assertions {
+				fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
+			}
+			fmt.Println("============")
+			fmt.Println("expected image references per bundle:")
+			imagesTree.PrintBundleImageRefs()
+			fmt.Println("============")
+
+			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
+			bundles, imagesRefs, err := subject.AllImagesRefs(6, logger)
+			require.NoError(t, err)
+			runAssertions(t, test.assertions, imagesRefs, imagesTree)
+			checkBundlesPresence(t, bundles, imagesTree)
+
+			logger.Section("ensure that it only uses the locations image", func() {
+				require.Equal(t, 0, fakeImagesLockReader.ReadCallCount())
+			})
+		})
+	}
+
+	t.Run("when 1 bundle does not have locations, it still is able to gather all the images", func(t *testing.T) {
+		testSetup := imageOrBundleDef{
+			location:           "registry.io/bundle",
+			isBundle:           true,
+			colocateWithParent: true,
+			images: []imageOrBundleDef{
+				{
+					location:           "registry.io/nested-bundle",
+					isBundle:           true,
+					colocateWithParent: true,
+					haveLocationImage:  true,
+					images: []imageOrBundleDef{
+						{
+							colocateWithParent: true,
+							location:           "other.reg.io/img1",
+						},
+						{
+							colocateWithParent: true,
+							location:           "some-other.reg.io/img2",
+						},
+					},
+				},
+			},
+		}
+		tmpfolder, err := os.MkdirTemp("", "")
+		require.NoError(t, err)
+		fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, testSetup, logger, tmpfolder)
+		defer registryFakeBuilder.CleanUp()
+		t.Cleanup(func() {
+			os.Remove(tmpfolder)
+		})
+		fmt.Println("setup bundle layout:")
+		imagesTree.PrintTree()
+		fmt.Println("============")
+		fmt.Println("expected image references per bundle:")
+		imagesTree.PrintBundleImageRefs()
+		fmt.Println("============")
+
+		subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
+		bundles, _, err := subject.AllImagesRefs(6, logger)
+		require.NoError(t, err)
+		checkBundlesPresence(t, bundles, imagesTree)
+
+		logger.Section("ensure that when the locations image is not present, it reads the bundle", func() {
+			require.Equal(t, 1, fakeImagesLockReader.ReadCallCount())
+		})
+	})
+}
+
+func handleSetup(t *testing.T, setup imageOrBundleDef, logger *helpers.Logger, tmpFolder string) (*bundlefakes.FakeImagesLockReader, *helpers.FakeTestRegistryBuilder, string, *imageTree) {
 	registryBuilder := helpers.NewFakeRegistry(t, logger)
 	fakeImagesLockReader := &bundlefakes.FakeImagesLockReader{}
 
 	tree := newImageTree()
-	createImagesAndBundles(t, tree, tree.rootNode, setup, registryBuilder)
+	createImagesAndBundles(t, tree, tree.rootNode, setup, registryBuilder, tmpFolder)
 	allImagesLocks := tree.GenerateImagesLocks()
 	fakeImagesLockReader.ReadCalls(func(image regv1.Image) (lockconfig.ImagesLock, error) {
 		digest, err := image.Digest()
@@ -679,22 +1175,24 @@ func handleSetup(t *testing.T, setup imageOrBundleDef, logger *helpers.Logger) (
 	fmt.Printf("top bundle digest: %s\n", tree.TopRef()[0])
 	return fakeImagesLockReader, registryBuilder, tree.TopRef()[0], tree
 }
-func createImagesAndBundles(t *testing.T, imageTree *imageTree, imageNode *imageNode, bundleAndImages imageOrBundleDef, registryBuilder *helpers.FakeTestRegistryBuilder) {
-	parentNode := imageNode
-	if imageNode == imageTree.rootNode {
-		parentNode = imageTree.AddImage(bundleAndImages.location, imageNode.image)
+func createImagesAndBundles(t *testing.T, imageTree *imageTree, imgNode *imageNode, bundleAndImages imageOrBundleDef, registryBuilder *helpers.FakeTestRegistryBuilder, tmpFolder string) {
+	parentNode := imgNode
+	if imgNode == imageTree.rootNode {
+		parentNode = imageTree.AddImage(bundleAndImages.location, imgNode.image)
 		if bundleAndImages.isBundle {
 			bInfo := registryBuilder.WithRandomBundle(bundleAndImages.location)
 			parentNode.imageRef = bInfo.RefDigest
 		}
 	}
 
+	var childNodes []*imageNode
 	for _, image := range bundleAndImages.images {
 		newNode := imageTree.AddImage(image.location, parentNode.image)
+		childNodes = append(childNodes, newNode)
 		if image.isBundle {
 			bInfo := registryBuilder.WithRandomBundle(image.location)
 			newNode.imageRef = bInfo.RefDigest
-			createImagesAndBundles(t, imageTree, newNode, image, registryBuilder)
+			createImagesAndBundles(t, imageTree, newNode, image, registryBuilder, tmpFolder)
 			if image.colocateWithParent && imageTree.rootNode != parentNode {
 				registryBuilder.CopyAllImagesFromRepo(newNode.imageRef, parentNode.imageRef)
 				if image.deleteFromOriginAfterBeingColocated {
@@ -708,15 +1206,32 @@ func createImagesAndBundles(t *testing.T, imageTree *imageTree, imageNode *image
 			}
 		}
 	}
+
+	if bundleAndImages.haveLocationImage {
+		locs := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "Locations",
+			Images:     nil,
+		}
+		tmpFolder, err := os.MkdirTemp(tmpFolder, "")
+		require.NoError(t, err)
+		for _, image := range childNodes {
+			locs.Images = append(locs.Images, bundle.ImageLocation{
+				Image:    image.imageRef,
+				IsBundle: image.IsBundle(),
+			})
+		}
+		registryBuilder.WithLocationsImage(parentNode.imageRef, tmpFolder, locs)
+	}
 }
-func runAssertions(t *testing.T, assertions []imgAssertion, result *bundle.ImagesLock, imagesTree *imageTree) {
-	assert.Len(t, result.ImageRefs(), len(assertions))
+func runAssertions(t *testing.T, assertions []imgAssertion, result []bundle.ImageRef, imagesTree *imageTree) {
+	assert.Len(t, result, len(assertions))
 	for _, expectation := range assertions {
 		foundImg := false
 		expectRepo, err := regname.NewRepository(expectation.image)
 		require.NoError(t, err)
 		expectedOrderedListOfLocations := convertLocationsListToLocalServer(t, imagesTree, expectation)
-		for _, ref := range result.ImageRefs() {
+		for _, ref := range result {
 			refDigest, err := regname.NewDigest(ref.Image)
 			require.NoError(t, err)
 			if refDigest.Context().RepositoryStr() == expectRepo.RepositoryStr() {
@@ -727,6 +1242,38 @@ func runAssertions(t *testing.T, assertions []imgAssertion, result *bundle.Image
 		}
 		if !foundImg {
 			assert.Failf(t, "could not find image", "%s not in the image refs", expectation.image)
+		}
+	}
+}
+func checkBundlesPresence(t *testing.T, result []*bundle.Bundle, imagesTree *imageTree) {
+	assert.Len(t, result, imagesTree.TotalNumberBundles())
+
+	allBundles := imagesTree.GetBundles()
+	if assert.Len(t, result, len(allBundles)) {
+		for _, resultBundle := range result {
+			found := false
+			for _, expectedNode := range allBundles {
+				if isSameImage(t, expectedNode.imageRef, resultBundle.DigestRef()) {
+					resultImagesRef := resultBundle.ImagesRef()
+					expectedImagesRef := expectedNode.GenerateImagesRef()
+					if assert.Lenf(t, resultImagesRef, len(expectedImagesRef), "bundle %s ImagesRef size is not the expected", expectedNode.imageRef) {
+						for _, resultImgRef := range resultImagesRef {
+							foundImgRef := false
+							for _, expectedImgRef := range expectedImagesRef {
+								if resultImgRef.Image == expectedImgRef.Image {
+									foundImgRef = true
+									break
+								}
+							}
+							assert.Truef(t, foundImgRef, "result %s was not in the expected list", resultImgRef.Image)
+						}
+					}
+
+					found = true
+					break
+				}
+			}
+			assert.Truef(t, found, "unable to find bundle %s in the expected", resultBundle.DigestRef())
 		}
 	}
 }
@@ -743,6 +1290,14 @@ func convertLocationsListToLocalServer(t *testing.T, imagesTree *imageTree, imgA
 		result = append(result, digest.Context().RegistryStr()+"/"+expRepo.RepositoryStr()+"@"+digest.DigestStr())
 	}
 	return result
+}
+func isSameImage(t *testing.T, img1DigestRef, img2DigestRef string) bool {
+	img1Digest, err := regname.NewDigest(img1DigestRef)
+	require.NoError(t, err)
+	img2Digest, err := regname.NewDigest(img2DigestRef)
+	require.NoError(t, err)
+
+	return img1Digest.DigestStr() == img2Digest.DigestStr()
 }
 
 type imageTree struct {
@@ -807,14 +1362,25 @@ func (i imageTree) PrintTree() {
 		node.PrintNode(0)
 	}
 }
-func (i imageTree) TotalNumberBundles() int {
-	totalNumberOfBundles := 0
-	for _, node := range i.images {
-		if node.IsBundle() {
-			totalNumberOfBundles++
+func (i imageTree) PrintBundleImageRefs() {
+	for _, bundleNode := range i.GetBundles() {
+		fmt.Printf("%s\n", bundleNode.image)
+		for _, img := range bundleNode.bundleImages {
+			fmt.Printf("  %s\n", img.image)
 		}
 	}
-	return totalNumberOfBundles
+}
+func (i imageTree) TotalNumberBundles() int {
+	return len(i.GetBundles())
+}
+func (i imageTree) GetBundles() []*imageNode {
+	var bundles []*imageNode
+	for _, node := range i.images {
+		if node.IsBundle() {
+			bundles = append(bundles, node)
+		}
+	}
+	return bundles
 }
 
 type imageNode struct {
@@ -845,6 +1411,21 @@ func (i imageNode) GenerateImagesLocks() map[string]lockconfig.ImagesLock {
 
 	allImagesLock[i.imageRef] = localImagesLock
 	return allImagesLock
+}
+func (i imageNode) GenerateImagesRef() bundle.ImagesRef {
+	var allImageRefs bundle.ImagesRef
+	if !i.IsBundle() {
+		return allImageRefs
+	}
+
+	for _, node := range i.bundleImages {
+		allImageRefs.AddImagesRef(bundle.ImageRef{
+			ImageRef: lockconfig.ImageRef{Image: node.imageRef},
+			IsBundle: node.IsBundle(),
+		})
+	}
+
+	return allImageRefs
 }
 func (i imageNode) PrintNode(inc int) {
 	fmt.Printf("%*s%s\n", inc, " ", i.image)

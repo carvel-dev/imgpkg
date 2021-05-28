@@ -9,37 +9,62 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"sync"
 
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
-func (o *Bundle) AllImagesLock(concurrency int) (*ImagesLock, error) {
+func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([]*Bundle, ImagesRef, error) {
 	throttleReq := util.NewThrottle(concurrency)
-	return o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}})
-}
-
-func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages) (*ImagesLock, error) {
-	img, err := o.checkedImage()
+	bundles, imagesLock, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, logger)
 	if err != nil {
-		return nil, err
+		return nil, ImagesRef{}, err
 	}
 
-	imagesLock, err := o.imagesLockReader.Read(img)
+	imagesRef := imagesLock.ImageRefs()
+	// Ensure that the correct IsBundle flag is provided.
+	// This loop needs to happen because we skipped some images for some bundle, and only at this point we have
+	// the full list of ImagesRef created and can fill the gaps inside each bundle
+	for _, bundle := range bundles {
+		for _, ref := range bundle.ImagesRef() {
+			imgRef, found := imagesRef.ImageRef(ref.Image)
+			if !found {
+				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
+			}
+
+			bundle.AddImagesRef(imgRef)
+		}
+	}
+
+	return bundles, imagesRef, err
+}
+
+func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, logger util.LoggerWithLevels) ([]*Bundle, *ImagesLock, error) {
+	img, err := o.checkedImage()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	resultImagesLock := NewImagesLock(lockconfig.ImagesLock{}, o.imgRetriever, o.Repo())
-	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
 
-	errChan := make(chan error, len(imagesLock.Images))
+	imageRefs, err := o.fetchImagesRef(img, resultImagesLock, logger)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bundles := []*Bundle{o}
+
+	errChan := make(chan error, len(imageRefs))
 	mutex := &sync.Mutex{}
 
-	for _, image := range currentImagesLock.ImageRefs() {
+	for _, image := range imageRefs {
+		o.AddImagesRef(image)
+
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
 			continue
@@ -47,7 +72,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		image := image.DeepCopy()
 		go func() {
-			imgsLock, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs)
+			nestedBundles, imgsLock, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs, logger)
 			if err != nil {
 				errChan <- err
 				return
@@ -55,7 +80,12 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 			mutex.Lock()
 			defer mutex.Unlock()
-			resultImagesLock.AddImageRef(imgRef, imgsLock != nil) // imgsLock will be != nil when the image is a bundle
+			if nestedBundles != nil {
+				bundles = append(bundles, nestedBundles...)
+			}
+
+			// Adds Image to the resulting ImagesLock
+			resultImagesLock.AddImageRef(imgRef, nestedBundles != nil) // nestedBundles will be != nil when the image is a bundle
 			if imgsLock != nil {
 				err = resultImagesLock.Merge(imgsLock)
 				if err != nil {
@@ -67,16 +97,70 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		}()
 	}
 
-	for range imagesLock.Images {
+	for range imageRefs {
 		if err := <-errChan; err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return resultImagesLock, nil
+	return bundles, resultImagesLock, nil
 }
 
-func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockconfig.ImageRef, processedImgs *processedImages) (*ImagesLock, lockconfig.ImageRef, error) {
+func (o *Bundle) fetchImagesRef(img regv1.Image, resultImagesLock *ImagesLock, logger util.LoggerWithLevels) (ImagesRef, error) {
+	// Check locations
+	bundleDigestRef, err := regname.NewDigest(o.DigestRef())
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: The Bundle Reference '%s' does not have a digest", o.DigestRef()))
+	}
+
+	var imageRefs ImagesRef
+	locationsConfig, err := NewLocations(logger).Fetch(o.imgRetriever, bundleDigestRef)
+	if err == nil {
+		imageRefs = o.processLocations(resultImagesLock, locationsConfig)
+	} else if _, ok := err.(*LocationsNotFound); !ok {
+		return nil, err
+	} else {
+		imagesLock, err := o.imagesLockReader.Read(img)
+		if err != nil {
+			return nil, err
+		}
+
+		currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+		imageRefs = currentImagesLock.ImageRefs()
+	}
+	return imageRefs, nil
+}
+
+func (o *Bundle) processLocations(resultImagesLock *ImagesLock, locationsConfig ImageLocationsConfig) ImagesRef {
+	var imageRefs ImagesRef
+	for _, image := range locationsConfig.Images {
+		imageRef := ImageRef{
+			ImageRef: lockconfig.ImageRef{
+				Image: image.Image,
+				// We lost the annotations at this point, if this becomes a problem we need to save them somewhere
+			},
+			IsBundle: image.IsBundle,
+		}
+
+		imgParts := strings.Split(image.Image, "@")
+		if len(imgParts) != 2 {
+			panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", image.Image))
+		}
+
+		imageRef.AddLocation(o.Repo() + "@" + imgParts[1])
+		if image.IsBundle {
+			// Add to the list that will check images for this bundle
+			imageRefs.AddImagesRef(imageRef)
+		} else {
+			resultImagesLock.AddImageRef(imageRef.ImageRef, false)
+			o.AddImagesRef(imageRef)
+		}
+	}
+
+	return imageRefs
+}
+
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockconfig.ImageRef, processedImgs *processedImages, levels util.LoggerWithLevels) ([]*Bundle, *ImagesLock, lockconfig.ImageRef, error) {
 	throttleReq.Take()
 	// We need to check where we can find the image we are looking for.
 	// First checks the current bundle repository and if it cannot be found there
@@ -84,7 +168,7 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockcon
 	imgURL, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 	throttleReq.Done()
 	if err != nil {
-		return nil, lockconfig.ImageRef{}, err
+		return nil, nil, lockconfig.ImageRef{}, err
 	}
 	newImgRef := imgRef.DiscardLocationsExcept(imgURL)
 
@@ -94,17 +178,18 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef lockcon
 	isBundle, err := bundle.IsBundle()
 	throttleReq.Done()
 	if err != nil {
-		return nil, lockconfig.ImageRef{}, fmt.Errorf("Checking if '%s' is a bundle: %s", imgRef.Image, err)
+		return nil, nil, lockconfig.ImageRef{}, fmt.Errorf("Checking if '%s' is a bundle: %s", imgRef.Image, err)
 	}
 
 	var imgLock *ImagesLock
+	var nestedBundles []*Bundle
 	if isBundle {
-		imgLock, err = bundle.buildAllImagesLock(throttleReq, processedImgs)
+		nestedBundles, imgLock, err = bundle.buildAllImagesLock(throttleReq, processedImgs, levels)
 		if err != nil {
-			return nil, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
+			return nil, nil, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
 		}
 	}
-	return imgLock, newImgRef, nil
+	return nestedBundles, imgLock, newImgRef, nil
 }
 
 type processedImages struct {

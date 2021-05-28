@@ -17,6 +17,35 @@ type ImageRef struct {
 	lockconfig.ImageRef
 	IsBundle bool
 }
+type ImagesRef []ImageRef
+
+func (i *ImagesRef) AddImagesRef(refs ...ImageRef) {
+	result := *i
+	for _, ref := range refs {
+		found := false
+		for j, imageRef := range result {
+			if imageRef.Image == ref.Image {
+				found = true
+				result[j] = ref
+				break
+			}
+		}
+
+		if !found {
+			result = append(result, ref)
+		}
+	}
+	*i = result
+}
+func (i *ImagesRef) ImageRef(ref string) (ImageRef, bool) {
+	for _, imageRef := range *i {
+		if imageRef.Image == ref {
+			return imageRef, true
+		}
+	}
+
+	return ImageRef{}, false
+}
 
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
 	var imagesRef []ImageRef
@@ -41,10 +70,9 @@ func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
 	}
 }
 
-func (o ImagesLock) ImageRefs() []ImageRef {
+func (o ImagesLock) ImageRefs() ImagesRef {
 	return o.imagesRef
 }
-
 func (o *ImagesLock) Merge(imgLock *ImagesLock) error {
 	for _, image := range imgLock.imagesRef {
 		imgRef := image.DeepCopy()
