@@ -96,24 +96,24 @@ func TestImagesLock_Merge(t *testing.T) {
 			},
 		}
 		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle")
-		require.NoError(t, subject.Merge(imagesLockToMerge))
+		subject.Merge(imagesLockToMerge)
 
 		imagesRefs := subject.ImageRefs()
-		require.Len(t, imagesRefs, 3)
-		require.Equal(t, "original.repo.io/img4@sha256:4322479b268761c699a2b8c09ac6877acdc17d8f2c1ce2a7f5ebc0a8ee754332", imagesRefs[2].Image)
+		require.Len(t, imagesRefs.ImageRefs(), 3)
+		require.Equal(t, "original.repo.io/img4@sha256:4322479b268761c699a2b8c09ac6877acdc17d8f2c1ce2a7f5ebc0a8ee754332", imagesRefs.ImageRefs()[2].Image)
 		expectedLocations := []string{
 			"some.repo.io/bundle@sha256:4322479b268761c699a2b8c09ac6877acdc17d8f2c1ce2a7f5ebc0a8ee754332",
 			"original.repo.io/img4@sha256:4322479b268761c699a2b8c09ac6877acdc17d8f2c1ce2a7f5ebc0a8ee754332",
 		}
-		require.Equal(t, expectedLocations, imagesRefs[2].Locations())
+		require.Equal(t, expectedLocations, imagesRefs.ImageRefs()[2].Locations())
 	})
 
-	t.Run("when images are repeated ignores new image", func(t *testing.T) {
+	t.Run("when images are repeated replaces with new image", func(t *testing.T) {
 		parentImagesLock := lockconfig.ImagesLock{
 			Images: []lockconfig.ImageRef{
 				{
 					Image:       "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
-					Annotations: map[string]string{"will be": "kept"},
+					Annotations: map[string]string{"will be": "removed"},
 				},
 			},
 		}
@@ -123,16 +123,16 @@ func TestImagesLock_Merge(t *testing.T) {
 			Images: []lockconfig.ImageRef{
 				{
 					Image:       "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
-					Annotations: map[string]string{"will not be": "added"},
+					Annotations: map[string]string{"will be": "added"},
 				},
 			},
 		}
 		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle")
-		require.NoError(t, subject.Merge(imagesLockToMerge))
+		subject.Merge(imagesLockToMerge)
 
 		imagesRefs := subject.ImageRefs()
-		require.Len(t, imagesRefs, 1)
-		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imagesRefs[0].Image)
-		assert.Equal(t, map[string]string{"will be": "kept"}, imagesRefs[0].Annotations)
+		require.Len(t, imagesRefs.ImageRefs(), 1)
+		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", imagesRefs.ImageRefs()[0].Image)
+		assert.Equal(t, map[string]string{"will be": "added"}, imagesRefs.ImageRefs()[0].Annotations)
 	})
 }

@@ -62,6 +62,7 @@ func (r Locations) Fetch(registry image.ImagesMetadata, bundleRef name.Digest) (
 	if err != nil {
 		if terr, ok := err.(*transport.Error); ok {
 			if terr.StatusCode == http.StatusNotFound {
+				r.logger.Debugf("did not find Locations OCI Image for bundle: %s\n", bundleRef)
 				return ImageLocationsConfig{}, &LocationsNotFound{image: locRef.Name()}
 			}
 		}

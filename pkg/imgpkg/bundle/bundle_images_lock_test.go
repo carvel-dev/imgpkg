@@ -1224,14 +1224,14 @@ func createImagesAndBundles(t *testing.T, imageTree *imageTree, imgNode *imageNo
 		registryBuilder.WithLocationsImage(parentNode.imageRef, tmpFolder, locs)
 	}
 }
-func runAssertions(t *testing.T, assertions []imgAssertion, result []bundle.ImageRef, imagesTree *imageTree) {
-	assert.Len(t, result, len(assertions))
+func runAssertions(t *testing.T, assertions []imgAssertion, result bundle.ImageRefs, imagesTree *imageTree) {
+	assert.Len(t, result.ImageRefs(), len(assertions))
 	for _, expectation := range assertions {
 		foundImg := false
 		expectRepo, err := regname.NewRepository(expectation.image)
 		require.NoError(t, err)
 		expectedOrderedListOfLocations := convertLocationsListToLocalServer(t, imagesTree, expectation)
-		for _, ref := range result {
+		for _, ref := range result.ImageRefs() {
 			refDigest, err := regname.NewDigest(ref.Image)
 			require.NoError(t, err)
 			if refDigest.Context().RepositoryStr() == expectRepo.RepositoryStr() {
@@ -1254,12 +1254,12 @@ func checkBundlesPresence(t *testing.T, result []*bundle.Bundle, imagesTree *ima
 			found := false
 			for _, expectedNode := range allBundles {
 				if isSameImage(t, expectedNode.imageRef, resultBundle.DigestRef()) {
-					resultImagesRef := resultBundle.ImagesRef()
+					resultImagesRef := resultBundle.ImageRefs()
 					expectedImagesRef := expectedNode.GenerateImagesRef()
-					if assert.Lenf(t, resultImagesRef, len(expectedImagesRef), "bundle %s ImagesRef size is not the expected", expectedNode.imageRef) {
+					if assert.Lenf(t, resultImagesRef, len(expectedImagesRef.ImageRefs()), "bundle %s ImageRefs size is not the expected", expectedNode.imageRef) {
 						for _, resultImgRef := range resultImagesRef {
 							foundImgRef := false
-							for _, expectedImgRef := range expectedImagesRef {
+							for _, expectedImgRef := range expectedImagesRef.ImageRefs() {
 								if resultImgRef.Image == expectedImgRef.Image {
 									foundImgRef = true
 									break
@@ -1412,8 +1412,8 @@ func (i imageNode) GenerateImagesLocks() map[string]lockconfig.ImagesLock {
 	allImagesLock[i.imageRef] = localImagesLock
 	return allImagesLock
 }
-func (i imageNode) GenerateImagesRef() bundle.ImagesRef {
-	var allImageRefs bundle.ImagesRef
+func (i imageNode) GenerateImagesRef() bundle.ImageRefs {
+	var allImageRefs bundle.ImageRefs
 	if !i.IsBundle() {
 		return allImageRefs
 	}

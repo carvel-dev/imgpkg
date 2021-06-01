@@ -114,7 +114,7 @@ func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctl
 				return nil, nil, err
 			}
 
-			for _, img := range imagesRef {
+			for _, img := range imagesRef.ImageRefs() {
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 			}
 
@@ -168,7 +168,7 @@ func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctl
 			return nil, nil, err
 		}
 
-		for _, img := range imagesRef {
+		for _, img := range imagesRef.ImageRefs() {
 			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 		}
 
@@ -178,19 +178,19 @@ func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctl
 	}
 }
 
-func (c *CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImagesRef, error) {
+func (c *CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
 	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
 	isBundle, err := bundle.IsBundle()
 	if err != nil {
-		return nil, nil, ctlbundle.ImagesRef{}, err
+		return nil, nil, ctlbundle.ImageRefs{}, err
 	}
 	if !isBundle {
-		return nil, nil, ctlbundle.ImagesRef{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	}
 
 	nestedBundles, imageRefs, err := bundle.AllImagesRefs(c.Concurrency, c.logger)
 	if err != nil {
-		return nil, nil, ctlbundle.ImagesRef{}, fmt.Errorf("Reading Images from Bundle: %s", err)
+		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Reading Images from Bundle: %s", err)
 	}
 	return bundle, nestedBundles, imageRefs, nil
 }

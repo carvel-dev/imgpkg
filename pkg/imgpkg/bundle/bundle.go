@@ -50,7 +50,7 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) AddImagesRef(refs ...ImageRef) {
+func (o *Bundle) AddImageRefs(refs ...ImageRef) {
 	for _, imageRef := range refs {
 		o.imagesRef[imageRef.Image] = imageRef
 	}
@@ -61,7 +61,7 @@ func (o *Bundle) ImageRef(imageDigest string) (ImageRef, bool) {
 	return ref, found
 }
 
-func (o *Bundle) ImagesRef() []ImageRef {
+func (o *Bundle) ImageRefs() []ImageRef {
 	var imgsRef []ImageRef
 	for _, ref := range o.imagesRef {
 		imgsRef = append(imgsRef, ref)
@@ -85,7 +85,6 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		}
 		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {
 			bundleProcessedImage = image
-			break
 		}
 	}
 
