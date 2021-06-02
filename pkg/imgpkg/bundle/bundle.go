@@ -50,18 +50,18 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) AddImageRefs(refs ...ImageRef) {
+func (o *Bundle) addImageRefs(refs ...ImageRef) {
 	for _, imageRef := range refs {
 		o.imagesRef[imageRef.Image] = imageRef
 	}
 }
 
-func (o *Bundle) ImageRef(imageDigest string) (ImageRef, bool) {
+func (o *Bundle) imageRef(imageDigest string) (ImageRef, bool) {
 	ref, found := o.imagesRef[imageDigest]
 	return ref, found
 }
 
-func (o *Bundle) ImageRefs() []ImageRef {
+func (o *Bundle) imageRefs() []ImageRef {
 	var imgsRef []ImageRef
 	for _, ref := range o.imagesRef {
 		imgsRef = append(imgsRef, ref)
@@ -76,7 +76,7 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	}
 	var bundleProcessedImage imageset.ProcessedImage
 	for _, image := range processedImages.All() {
-		ref, found := o.ImageRef(image.UnprocessedImageRef.DigestRef)
+		ref, found := o.imageRef(image.UnprocessedImageRef.DigestRef)
 		if found {
 			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
 				Image:    ref.Image,

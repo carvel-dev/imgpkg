@@ -1254,21 +1254,6 @@ func checkBundlesPresence(t *testing.T, result []*bundle.Bundle, imagesTree *ima
 			found := false
 			for _, expectedNode := range allBundles {
 				if isSameImage(t, expectedNode.imageRef, resultBundle.DigestRef()) {
-					resultImagesRef := resultBundle.ImageRefs()
-					expectedImagesRef := expectedNode.GenerateImagesRef()
-					if assert.Lenf(t, resultImagesRef, len(expectedImagesRef.ImageRefs()), "bundle %s ImageRefs size is not the expected", expectedNode.imageRef) {
-						for _, resultImgRef := range resultImagesRef {
-							foundImgRef := false
-							for _, expectedImgRef := range expectedImagesRef.ImageRefs() {
-								if resultImgRef.Image == expectedImgRef.Image {
-									foundImgRef = true
-									break
-								}
-							}
-							assert.Truef(t, foundImgRef, "result %s was not in the expected list", resultImgRef.Image)
-						}
-					}
-
 					found = true
 					break
 				}

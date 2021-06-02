@@ -21,7 +21,7 @@ import (
 
 func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
-	bundles, imageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, logger)
+	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, logger)
 	if err != nil {
 		return nil, ImageRefs{}, err
 	}
@@ -30,17 +30,17 @@ func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([
 	// This loop needs to happen because we skipped some images for some bundle, and only at this point we have
 	// the full list of ImageRefs created and can fill the gaps inside each bundle
 	for _, bundle := range bundles {
-		for _, ref := range bundle.ImageRefs() {
-			imgRef, found := imageRefs.Find(ref.Image)
+		for _, ref := range bundle.imageRefs() {
+			imgRef, found := allImageRefs.Find(ref.Image)
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
 			}
 
-			bundle.AddImageRefs(imgRef)
+			bundle.addImageRefs(imgRef)
 		}
 	}
 
-	return bundles, imageRefs, err
+	return bundles, allImageRefs, err
 }
 
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
@@ -49,10 +49,12 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, ImageRefs{}, err
 	}
 
-	imageRefsToProcess, allImageRefs, err := o.fetchImagesRef(img, logger)
+	imageRefsToProcess, processedImageRefs, err := o.fetchImagesRef(img, logger)
 	if err != nil {
 		return nil, ImageRefs{}, err
 	}
+
+	o.addImageRefs(processedImageRefs.ImageRefs()...)
 
 	bundles := []*Bundle{o}
 
@@ -60,7 +62,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		o.AddImageRefs(image)
+		o.addImageRefs(image)
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
@@ -82,11 +84,11 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 			}
 
 			// Adds Image to the resulting ImagesLock
-			allImageRefs.AddImagesRef(ImageRef{
+			processedImageRefs.AddImagesRef(ImageRef{
 				ImageRef: imgRef,
 				IsBundle: nestedBundles != nil, // nestedBundles will be != nil when the image is a bundle
 			})
-			allImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
+			processedImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
 			errChan <- nil
 		}()
 	}
@@ -97,7 +99,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		}
 	}
 
-	return bundles, allImageRefs, nil
+	return bundles, processedImageRefs, nil
 }
 
 func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (ImageRefs, ImageRefs, error) {
@@ -146,7 +148,7 @@ func (o *Bundle) processLocations(imageRefs ImageRefs, locationsConfig ImageLoca
 
 				if !image.IsBundle {
 					// When the image is not a bundle we do not need to process it again.
-					o.AddImageRefs(imgRef)
+					processedImageRefs.AddImagesRef(imgRef)
 				} else {
 					unprocessedImageRefes.AddImagesRef(imgRef)
 				}
