@@ -1092,8 +1092,8 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
 
-			logger.Section("ensure that it only uses the locations image", func() {
-				require.Equal(t, 0, fakeImagesLockReader.ReadCallCount())
+			logger.Section("uses the location image + reads the ImagesLock for each bundle", func() {
+				require.Equal(t, imagesTree.TotalNumberBundles(), fakeImagesLockReader.ReadCallCount())
 			})
 		})
 	}
@@ -1141,8 +1141,8 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		require.NoError(t, err)
 		checkBundlesPresence(t, bundles, imagesTree)
 
-		logger.Section("ensure that when the locations image is not present, it reads the bundle", func() {
-			require.Equal(t, 1, fakeImagesLockReader.ReadCallCount())
+		logger.Section("reads all the bundles ImagesLock", func() {
+			require.Equal(t, imagesTree.TotalNumberBundles(), fakeImagesLockReader.ReadCallCount())
 		})
 	})
 }

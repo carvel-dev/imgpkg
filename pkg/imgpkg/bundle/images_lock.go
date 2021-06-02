@@ -57,6 +57,11 @@ func (i *ImageRefs) Find(ref string) (ImageRef, bool) {
 func (i ImageRefs) ImageRefs() []ImageRef {
 	return i.refs
 }
+func (i ImageRefs) DeepCopy() ImageRefs {
+	var result ImageRefs
+	result.AddImagesRef(i.ImageRefs()...)
+	return result
+}
 
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
 	imageRefs := ImageRefs{}
