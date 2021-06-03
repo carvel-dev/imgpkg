@@ -22,7 +22,7 @@ type Logger interface {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
 	ctlimg.ImagesMetadata
-	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, opts ...regremote.Option) error
+	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
 	WriteImage(regname.Reference, regv1.Image) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
@@ -111,7 +111,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 		return nil, err
 	}
 
-	err = registry.MultiWrite(imageOrIndexesToWrite, i.concurrency)
+	err = registry.MultiWrite(imageOrIndexesToWrite, i.concurrency, nil)
 	if err != nil {
 		return nil, err
 	}

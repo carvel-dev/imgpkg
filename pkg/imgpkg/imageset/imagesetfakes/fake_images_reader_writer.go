@@ -76,12 +76,12 @@ type FakeImagesReaderWriter struct {
 		result1 v1.ImageIndex
 		result2 error
 	}
-	MultiWriteStub        func(map[name.Reference]remote.Taggable, int, ...remote.Option) error
+	MultiWriteStub        func(map[name.Reference]remote.Taggable, int, chan v1.Update) error
 	multiWriteMutex       sync.RWMutex
 	multiWriteArgsForCall []struct {
 		arg1 map[name.Reference]remote.Taggable
 		arg2 int
-		arg3 []remote.Option
+		arg3 chan v1.Update
 	}
 	multiWriteReturns struct {
 		result1 error
@@ -454,20 +454,20 @@ func (fake *FakeImagesReaderWriter) IndexReturnsOnCall(i int, result1 v1.ImageIn
 	}{result1, result2}
 }
 
-func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Taggable, arg2 int, arg3 ...remote.Option) error {
+func (fake *FakeImagesReaderWriter) MultiWrite(arg1 map[name.Reference]remote.Taggable, arg2 int, arg3 chan v1.Update) error {
 	fake.multiWriteMutex.Lock()
 	ret, specificReturn := fake.multiWriteReturnsOnCall[len(fake.multiWriteArgsForCall)]
 	fake.multiWriteArgsForCall = append(fake.multiWriteArgsForCall, struct {
 		arg1 map[name.Reference]remote.Taggable
 		arg2 int
-		arg3 []remote.Option
+		arg3 chan v1.Update
 	}{arg1, arg2, arg3})
 	stub := fake.MultiWriteStub
 	fakeReturns := fake.multiWriteReturns
 	fake.recordInvocation("MultiWrite", []interface{}{arg1, arg2, arg3})
 	fake.multiWriteMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3...)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -481,13 +481,13 @@ func (fake *FakeImagesReaderWriter) MultiWriteCallCount() int {
 	return len(fake.multiWriteArgsForCall)
 }
 
-func (fake *FakeImagesReaderWriter) MultiWriteCalls(stub func(map[name.Reference]remote.Taggable, int, ...remote.Option) error) {
+func (fake *FakeImagesReaderWriter) MultiWriteCalls(stub func(map[name.Reference]remote.Taggable, int, chan v1.Update) error) {
 	fake.multiWriteMutex.Lock()
 	defer fake.multiWriteMutex.Unlock()
 	fake.MultiWriteStub = stub
 }
 
-func (fake *FakeImagesReaderWriter) MultiWriteArgsForCall(i int) (map[name.Reference]remote.Taggable, int, []remote.Option) {
+func (fake *FakeImagesReaderWriter) MultiWriteArgsForCall(i int) (map[name.Reference]remote.Taggable, int, chan v1.Update) {
 	fake.multiWriteMutex.RLock()
 	defer fake.multiWriteMutex.RUnlock()
 	argsForCall := fake.multiWriteArgsForCall[i]

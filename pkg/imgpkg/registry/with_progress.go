@@ -39,12 +39,12 @@ func (w WithProgress) FirstImageExists(digests []string) (string, error) {
 	return w.delegate.FirstImageExists(digests)
 }
 
-func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]remote.Taggable, concurrency int, opts ...remote.Option) error {
+func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]remote.Taggable, concurrency int, _ chan regv1.Update) error {
 	uploadProgress := make(chan regv1.Update)
 	w.logger.Start(uploadProgress)
 	defer w.logger.End()
 
-	return w.delegate.MultiWrite(imageOrIndexesToUpload, concurrency, append(append([]remote.Option{}, opts...), remote.WithProgress(uploadProgress))...)
+	return w.delegate.MultiWrite(imageOrIndexesToUpload, concurrency, uploadProgress)
 }
 
 func (w WithProgress) WriteImage(reference regname.Reference, image regv1.Image) error {
