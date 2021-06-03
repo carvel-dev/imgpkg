@@ -18,24 +18,27 @@ type ProgressLogger interface {
 	End()
 }
 
-func (l ImgpkgLogger) NewProgressBar(prefix, finalMessage string) ProgressLogger {
+func (l ImgpkgLogger) NewProgressBar(logger LoggerWithLevels, finalMessage, errorMessagePrefix string) ProgressLogger {
 	ctx, cancel := context.WithCancel(context.Background())
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		return &ProgressBarLogger{ctx: ctx, cancelFunc: cancel, prefix: prefix, finalMessage: finalMessage}
+		return &ProgressBarLogger{ctx: ctx, cancelFunc: cancel, logger: logger, finalMessage: finalMessage, errorMessagePrefix: errorMessagePrefix}
 	}
 
-	return &ProgressBarNoTTYLogger{prefix: prefix, ctx: ctx, cancelFunc: cancel, finalMessage: finalMessage}
+	return &ProgressBarNoTTYLogger{logger: logger, ctx: ctx, cancelFunc: cancel, finalMessage: finalMessage}
 }
 
 type ProgressBarLogger struct {
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
-	bar          *pb.ProgressBar
-	prefix       string
-	finalMessage string
+	ctx                context.Context
+	cancelFunc         context.CancelFunc
+	bar                *pb.ProgressBar
+	logger             LoggerWithLevels
+	finalMessage       string
+	errorMessagePrefix string
 }
 
 func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
+	// Add a new empty line to separate the progress bar from prior output
+	fmt.Println()
 	l.bar = pb.New64(0).SetUnits(pb.U_BYTES)
 	l.bar.ShowSpeed = true
 	go func() {
@@ -44,6 +47,11 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 			case <-l.ctx.Done():
 				return
 			case update := <-progressChan:
+				if update.Error != nil {
+					l.logger.Errorf("%s: %s\n", l.errorMessagePrefix, update.Error)
+					continue
+				}
+
 				if update.Total == 0 {
 					return
 				}
@@ -60,13 +68,14 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 
 func (l *ProgressBarLogger) End() {
 	l.cancelFunc()
-	l.bar.FinishPrint(fmt.Sprintf("%s%s", l.prefix, l.finalMessage))
+	l.bar.FinishPrint("") // Ensures a new line is added after the progress bar
+	l.logger.Logf("%s", l.finalMessage)
 }
 
 type ProgressBarNoTTYLogger struct {
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
-	prefix       string
+	logger       LoggerWithLevels
 	finalMessage string
 }
 
@@ -84,5 +93,5 @@ func (l *ProgressBarNoTTYLogger) Start(progressChan <-chan regv1.Update) {
 
 func (l *ProgressBarNoTTYLogger) End() {
 	l.cancelFunc()
-	fmt.Printf("%s%s\n", l.prefix, l.finalMessage)
+	l.logger.Logf(l.finalMessage)
 }

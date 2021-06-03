@@ -88,7 +88,7 @@ func (c *CopyOptions) Run() error {
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
 
-	imagesUploaderLogger := logger.NewProgressBar("copy | ", "done uploading images")
+	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 	regWithProgress := registry.NewRegistryWithProgress(reg, imagesUploaderLogger)
 
 	switch {
