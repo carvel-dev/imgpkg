@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	locationsTag string = "%s-%s.locations.imgpkg"
+	locationsTagFmt string = "%s-%s.image-locations.imgpkg"
 )
 
 type LocationsNotFound struct {
@@ -117,7 +117,7 @@ func (r Locations) locationsRefFromBundleRef(bundleRef name.Digest) (name.Tag, e
 		return name.Tag{}, err
 	}
 
-	return tag.Tag(fmt.Sprintf(locationsTag, hash.Algorithm, hash.Hex)), nil
+	return tag.Tag(fmt.Sprintf(locationsTagFmt, hash.Algorithm, hash.Hex)), nil
 }
 
 type locationsSingleLayerReader struct{}
@@ -156,7 +156,7 @@ func (o *locationsSingleLayerReader) Read(img regv1.Image) (ImageLocationsConfig
 		header, err := tarReader.Next()
 		if err != nil {
 			if err == io.EOF {
-				return conf, fmt.Errorf("Expected to find images-locations.yml in location image")
+				return conf, fmt.Errorf("Expected to find image-locations.yml in location image")
 			}
 			return conf, fmt.Errorf("reading tar: %v", err)
 		}
@@ -169,7 +169,7 @@ func (o *locationsSingleLayerReader) Read(img regv1.Image) (ImageLocationsConfig
 
 	bs, err := ioutil.ReadAll(tarReader)
 	if err != nil {
-		return conf, fmt.Errorf("Reading images-locations.yml from layer: %s", err)
+		return conf, fmt.Errorf("Reading image-locations.yml from layer: %s", err)
 	}
 
 	return NewLocationConfigFromBytes(bs)

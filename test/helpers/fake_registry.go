@@ -238,13 +238,13 @@ func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, pa
 func (r *FakeTestRegistryBuilder) WithLocationsImage(bundleRef string, tmpFolder string, config bundle.ImageLocationsConfig) *ImageOrImageIndexWithTarPath {
 	folder, err := os.MkdirTemp(tmpFolder, "locations-img")
 	require.NoError(r.t, err)
-	require.NoError(r.t, config.WriteToPath(filepath.Join(folder, "images-locations.yml")))
+	require.NoError(r.t, config.WriteToPath(filepath.Join(folder, "image-locations.yml")))
 
 	bundleRefDigest, err := name.NewDigest(bundleRef)
 	require.NoError(r.t, err)
 	hash, err := v1.NewHash(bundleRefDigest.DigestStr())
 	require.NoError(r.t, err)
-	locationsImageTag := fmt.Sprintf("%s-%s.locations.imgpkg", hash.Algorithm, hash.Hex)
+	locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", hash.Algorithm, hash.Hex)
 	return r.WithImageFromPath(bundleRefDigest.Context().Tag(locationsImageTag).Name(), folder, nil)
 }
 

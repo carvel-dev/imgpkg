@@ -85,14 +85,12 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 			mutex.Lock()
 			defer mutex.Unlock()
-			if nestedBundles != nil {
-				bundles = append(bundles, nestedBundles...)
-			}
+			bundles = append(bundles, nestedBundles...)
 
 			// Adds Image to the resulting ImagesLock
 			processedImageRefs.AddImagesRef(
 				NewImageRef(imgRef,
-					nestedBundles != nil, // nestedBundles will be != nil when the image is a bundle
+					len(nestedBundles) > 0, // nestedBundles have Bundles when the image is a bundle
 				),
 			)
 			processedImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
@@ -138,17 +136,17 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 func (o *Bundle) processLocations(imageRefs ImageRefs, locationsConfig ImageLocationsConfig) ImageRefs {
 	unprocessedImageRefs := imageRefs.DeepCopy()
 	for _, imgRef := range imageRefs.ImageRefs() {
-		for _, image := range locationsConfig.Images {
-			if image.Image == imgRef.Image {
+		for _, imgLoc := range locationsConfig.Images {
+			if imgLoc.Image == imgRef.Image {
 				// We need to keep all the ImagesLock information and the only added pieces are the new location and
 				// if this image is a bundle or not
 				imgRef := imgRef.DeepCopy()
-				isBundle := image.IsBundle
+				isBundle := imgLoc.IsBundle
 				imgRef.IsBundle = &isBundle
 
-				imgParts := strings.Split(image.Image, "@")
+				imgParts := strings.Split(imgLoc.Image, "@")
 				if len(imgParts) != 2 {
-					panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", image.Image))
+					panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", imgLoc.Image))
 				}
 				imgRef.AddLocation(o.Repo() + "@" + imgParts[1])
 

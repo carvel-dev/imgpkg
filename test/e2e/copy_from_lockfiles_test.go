@@ -317,7 +317,7 @@ images:
 		logger.Section("download the locations file for outer bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, outerBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    nestedBundle + nestedBundleDigest,
@@ -338,7 +338,7 @@ images:
 		logger.Section("download the locations file for nested bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, nestedBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    img1DigestRef,
@@ -359,7 +359,7 @@ images:
 		logger.Section("download the locations file for simple bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, simpleBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    img1DigestRef,

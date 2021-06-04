@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	LocationFilepath   = "images-locations.yml"
-	LocationKind       = "Locations"
+	LocationFilepath   = "image-locations.yml"
+	ImageLocationsKind = "ImageLocations"
 	LocationAPIVersion = "imgpkg.carvel.dev/v1alpha1"
 )
 

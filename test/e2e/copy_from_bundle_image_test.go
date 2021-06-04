@@ -471,7 +471,7 @@ images:
 
 		hash, err := v1.NewHash(bundleDigest[1:])
 		require.NoError(t, err)
-		locationImg := fmt.Sprintf("%s:%s-%s.locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
+		locationImg := fmt.Sprintf("%s:%s-%s.image-locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
 
 		logger.Section("check locations image was created", func() {
 			refs := []string{locationImg}
@@ -482,7 +482,7 @@ images:
 			locationImgFolder := env.Assets.CreateTempFolder("locations-img")
 			env.ImageFactory.Download(locationImg, locationImgFolder)
 
-			locationsFilePath := filepath.Join(locationImgFolder, "images-locations.yml")
+			locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
 			require.FileExists(t, locationsFilePath)
 
 			cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
@@ -490,7 +490,7 @@ images:
 
 			require.Equal(t, bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{{
 					Image: env.Image + imageDigest,
 					// Repository not used for now because all images will be present in the same repository
@@ -582,7 +582,7 @@ images:
 		logger.Section("download the locations file for outer bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, outerBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    nestedBundle + nestedBundleDigest,
@@ -603,7 +603,7 @@ images:
 		logger.Section("download the locations file for nested bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, nestedBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    img1DigestRef,
@@ -624,7 +624,7 @@ images:
 		logger.Section("download the locations file for simple bundle and check it", func() {
 			downloadAndCheckLocationsFile(t, env, simpleBundleDigest[1:], bundle.ImageLocationsConfig{
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
-				Kind:       "Locations",
+				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{
 					{
 						Image:    img1DigestRef,
@@ -639,12 +639,12 @@ images:
 func downloadAndCheckLocationsFile(t *testing.T, env *helpers.Env, bundleDigest string, expectedLocation bundle.ImageLocationsConfig) {
 	hash, err := v1.NewHash(bundleDigest)
 	require.NoError(t, err)
-	locationImg := fmt.Sprintf("%s:%s-%s.locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
+	locationImg := fmt.Sprintf("%s:%s-%s.image-locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
 
 	locationImgFolder := env.Assets.CreateTempFolder("locations-img")
 	env.ImageFactory.Download(locationImg, locationImgFolder)
 
-	locationsFilePath := filepath.Join(locationImgFolder, "images-locations.yml")
+	locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
 	require.FileExists(t, locationsFilePath)
 
 	cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)

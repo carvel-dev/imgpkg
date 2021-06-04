@@ -72,7 +72,7 @@ func (o *Bundle) imageRefs() []ImageRef {
 func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, logger util.LoggerWithLevels) error {
 	locationsCfg := ImageLocationsConfig{
 		APIVersion: LocationAPIVersion,
-		Kind:       LocationKind,
+		Kind:       ImageLocationsKind,
 	}
 	var bundleProcessedImage imageset.ProcessedImage
 	for _, image := range processedImages.All() {

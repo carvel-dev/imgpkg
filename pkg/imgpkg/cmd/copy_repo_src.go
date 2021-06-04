@@ -59,8 +59,8 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	return nil
 }
 
-func (c *CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
-	c.logger.Tracef(fmt.Sprintf("CopyToRepo(%s)\n", repo))
+func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
+	c.logger.Tracef("CopyToRepo(%s)\n", repo)
 	unprocessedImageRefs, bundles, err := c.getSourceImages()
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (c *CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error
 	return processedImages, nil
 }
 
-func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 
 	switch {
@@ -178,7 +178,7 @@ func (c *CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctl
 	}
 }
 
-func (c *CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
+func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
 	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
 	isBundle, err := bundle.IsBundle()
 	if err != nil {
