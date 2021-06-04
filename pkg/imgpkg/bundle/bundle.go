@@ -80,7 +80,7 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		if found {
 			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
 				Image:    ref.Image,
-				IsBundle: ref.IsBundle,
+				IsBundle: *ref.IsBundle,
 			})
 		}
 		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {

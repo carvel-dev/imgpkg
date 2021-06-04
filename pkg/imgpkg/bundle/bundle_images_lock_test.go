@@ -1404,10 +1404,12 @@ func (i imageNode) GenerateImagesRef() bundle.ImageRefs {
 	}
 
 	for _, node := range i.bundleImages {
-		allImageRefs.AddImagesRef(bundle.ImageRef{
-			ImageRef: lockconfig.ImageRef{Image: node.imageRef},
-			IsBundle: node.IsBundle(),
-		})
+		allImageRefs.AddImagesRef(
+			bundle.NewImageRef(
+				lockconfig.ImageRef{Image: node.imageRef},
+				node.IsBundle(),
+			),
+		)
 	}
 
 	return allImageRefs

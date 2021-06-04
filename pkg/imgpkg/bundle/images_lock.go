@@ -15,7 +15,7 @@ import (
 
 type ImageRef struct {
 	lockconfig.ImageRef
-	IsBundle bool
+	IsBundle *bool
 }
 
 func (i ImageRef) DeepCopy() ImageRef {
@@ -23,6 +23,9 @@ func (i ImageRef) DeepCopy() ImageRef {
 		ImageRef: i.ImageRef.DeepCopy(),
 		IsBundle: i.IsBundle,
 	}
+}
+func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
+	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle}
 }
 
 type ImageRefs struct {
@@ -66,7 +69,7 @@ func (i ImageRefs) DeepCopy() ImageRefs {
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
 	imageRefs := ImageRefs{}
 	for _, image := range imagesLock.Images {
-		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: false})
+		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
 	}
 
 	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever}
@@ -98,7 +101,7 @@ func (o *ImagesLock) Merge(imgLock *ImagesLock) {
 }
 
 func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
-	o.imageRefs.AddImagesRef(ImageRef{ImageRef: ref.DeepCopy(), IsBundle: bundle})
+	o.imageRefs.AddImagesRef(NewImageRef(ref.DeepCopy(), bundle))
 }
 
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
