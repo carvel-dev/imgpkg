@@ -26,7 +26,7 @@ func TestLocations(t *testing.T) {
 
 		expectedConfig := bundle.ImageLocationsConfig{
 			APIVersion: "imgpkg.carvel.dev/v1alpha1",
-			Kind:       "Locations",
+			Kind:       "ImageLocations",
 			Images: []bundle.ImageLocation{
 				{
 					Image:    "gcr.io/img1@sha256:acf7795dc91df17e10effee064bd229580a9c34213b4dba578d64768af5d8c51",

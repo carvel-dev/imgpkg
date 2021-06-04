@@ -1210,7 +1210,7 @@ func createImagesAndBundles(t *testing.T, imageTree *imageTree, imgNode *imageNo
 	if bundleAndImages.haveLocationImage {
 		locs := bundle.ImageLocationsConfig{
 			APIVersion: "imgpkg.carvel.dev/v1alpha1",
-			Kind:       "Locations",
+			Kind:       "ImageLocations",
 			Images:     nil,
 		}
 		tmpFolder, err := os.MkdirTemp(tmpFolder, "")
