@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
-	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	plainimg "github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 const (
@@ -29,6 +31,7 @@ type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ctlimg.ImagesMetadata
 	imagesLockReader ImagesLockReader
+	imagesRef        map[string]ImageRef
 }
 
 func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
@@ -36,16 +39,68 @@ func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
 }
 
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
-	return &Bundle{plainImg, imagesMetadata, &singleLayerReader{}}
+	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata, imagesLockReader: &singleLayerReader{}, imagesRef: map[string]ImageRef{}}
 }
 
 func NewBundleWithReader(ref string, imagesMetadata ctlimg.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
-	return &Bundle{plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader}
+	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata), imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader, imagesRef: map[string]ImageRef{}}
 }
 
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
+
+func (o *Bundle) addImageRefs(refs ...ImageRef) {
+	for _, imageRef := range refs {
+		o.imagesRef[imageRef.Image] = imageRef
+	}
+}
+
+func (o *Bundle) imageRef(imageDigest string) (ImageRef, bool) {
+	ref, found := o.imagesRef[imageDigest]
+	return ref, found
+}
+
+func (o *Bundle) imageRefs() []ImageRef {
+	var imgsRef []ImageRef
+	for _, ref := range o.imagesRef {
+		imgsRef = append(imgsRef, ref)
+	}
+	return imgsRef
+}
+
+func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, logger util.LoggerWithLevels) error {
+	locationsCfg := ImageLocationsConfig{
+		APIVersion: LocationAPIVersion,
+		Kind:       ImageLocationsKind,
+	}
+	var bundleProcessedImage imageset.ProcessedImage
+	for _, image := range processedImages.All() {
+		ref, found := o.imageRef(image.UnprocessedImageRef.DigestRef)
+		if found {
+			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
+				Image:    ref.Image,
+				IsBundle: *ref.IsBundle,
+			})
+		}
+		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {
+			bundleProcessedImage = image
+		}
+	}
+
+	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: '%s' have to be a digest", bundleProcessedImage.DigestRef))
+	}
+
+	logger.Debugf("creating Locations OCI Image\n")
+	// Using NewNoopUI because we do not want to have output from this push
+	err = NewLocations(logger).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
@@ -105,7 +160,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
 				ui.BeginLinef("\nNested bundles\n")
 			}
-			bundleDigest, err := name.NewDigest(image.Image)
+			bundleDigest, err := regname.NewDigest(image.Image)
 			if err != nil {
 				return err
 			}
@@ -136,7 +191,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	return nil
 }
 
-func (*Bundle) subBundlePath(bundleDigest name.Digest) string {
+func (*Bundle) subBundlePath(bundleDigest regname.Digest) string {
 	return filepath.Join(ImgpkgDir, BundlesDir, strings.ReplaceAll(bundleDigest.DigestStr(), "sha256:", "sha256-"))
 }
 

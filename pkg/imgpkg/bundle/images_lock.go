@@ -13,52 +13,106 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cppforlife/go-cli-ui/ui.UI
 
+type ImageRef struct {
+	lockconfig.ImageRef
+	IsBundle *bool
+}
+
+func (i ImageRef) DeepCopy() ImageRef {
+	return ImageRef{
+		ImageRef: i.ImageRef.DeepCopy(),
+		IsBundle: i.IsBundle,
+	}
+}
+func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
+	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle}
+}
+
+type ImageRefs struct {
+	refs []ImageRef
+}
+
+func (i *ImageRefs) AddImagesRef(refs ...ImageRef) {
+	for _, ref := range refs {
+		found := false
+		for j, imageRef := range i.refs {
+			if imageRef.Image == ref.Image {
+				found = true
+				i.refs[j] = ref.DeepCopy()
+				break
+			}
+		}
+
+		if !found {
+			i.refs = append(i.refs, ref)
+		}
+	}
+}
+func (i *ImageRefs) Find(ref string) (ImageRef, bool) {
+	for _, imageRef := range i.refs {
+		if imageRef.Image == ref {
+			return imageRef, true
+		}
+	}
+
+	return ImageRef{}, false
+}
+func (i ImageRefs) ImageRefs() []ImageRef {
+	return i.refs
+}
+func (i ImageRefs) DeepCopy() ImageRefs {
+	var result ImageRefs
+	result.AddImagesRef(i.ImageRefs()...)
+	return result
+}
+
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
-	imgsLock := &ImagesLock{imagesLock: imagesLock, imgRetriever: imgRetriever}
+	imageRefs := ImageRefs{}
+	for _, image := range imagesLock.Images {
+		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
+	}
+
+	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever}
 	imgsLock.generateImagesLocations(relativeToRepo)
 	return imgsLock
 }
 
 type ImagesLock struct {
-	imagesLock   lockconfig.ImagesLock
+	imageRefs    ImageRefs
 	imgRetriever ctlimg.ImagesMetadata
 }
 
 func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
-	for i, imgRef := range o.imagesLock.Images {
+	result := ImageRefs{}
+	for _, imgRef := range o.imageRefs.ImageRefs() {
 		imageInBundleRepo := o.imageRelativeToBundle(imgRef.Image, relativeToRepo)
-		o.imagesLock.Images[i].AddLocation(imageInBundleRepo)
+		imgRef.AddLocation(imageInBundleRepo)
+
+		result.AddImagesRef(imgRef)
 	}
+	o.imageRefs = result
 }
 
-func (o ImagesLock) ImageRefs() []lockconfig.ImageRef {
-	return o.imagesLock.Images
+func (o ImagesLock) ImageRefs() ImageRefs {
+	return o.imageRefs
+}
+func (o *ImagesLock) Merge(imgLock *ImagesLock) {
+	o.imageRefs.AddImagesRef(imgLock.imageRefs.ImageRefs()...)
 }
 
-func (o *ImagesLock) Merge(imgLock *ImagesLock) error {
-	for _, image := range imgLock.imagesLock.Images {
-		imgRef := image.DeepCopy()
-		o.imagesLock.AddImageRef(imgRef)
-	}
-
-	return nil
-}
-
-func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef) {
-	o.imagesLock.AddImageRef(ref)
+func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
+	o.imageRefs.AddImagesRef(NewImageRef(ref.DeepCopy(), bundle))
 }
 
 func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
-	imagesLock := lockconfig.ImagesLock{
-		LockVersion: o.imagesLock.LockVersion,
-	}
+	imagesLock := lockconfig.NewEmptyImagesLock()
 
 	skippedLocalization := false
-	for _, imgRef := range o.imagesLock.Images {
+	for _, imgRef := range o.imageRefs.ImageRefs() {
 		foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 		if err != nil {
-			return o.imagesLock, false, err
+			return lockconfig.ImagesLock{}, false, err
 		}
 
 		// If cannot find the image in the bundle repo, will not localize any image
@@ -79,7 +133,7 @@ func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 		imageRefs = []lockconfig.ImageRef{}
 		// Remove the bundle location on all the Images, which is present due to the constructor call to
 		// ImagesLock.generateImagesLocations
-		for _, image := range o.imagesLock.Images {
+		for _, image := range o.imageRefs.ImageRefs() {
 			imageRefs = append(imageRefs, image.DiscardLocationsExcept(image.Image))
 		}
 	}

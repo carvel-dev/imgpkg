@@ -194,7 +194,7 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
 	require.NoError(r.t, err)
 
-	r.updateState(bundleName, bundle, nil, path)
+	r.updateState(bundleName, bundle, nil, path, "")
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
 
@@ -213,7 +213,7 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	})
 	require.NoError(r.t, err, "create image from tar")
 
-	r.updateState(bundleName, bundle, nil, "")
+	r.updateState(bundleName, bundle, nil, "", "")
 
 	digest, err := bundle.Digest()
 	assert.NoError(r.t, err)
@@ -232,25 +232,38 @@ func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, pa
 	fileImage, err := image.NewFileImage(tarballLayer.Name(), labels)
 	require.NoError(r.t, err)
 
-	return r.updateState(imageNameFromTest, fileImage, nil, path)
+	return r.updateState(imageNameFromTest, fileImage, nil, path, "")
+}
+
+func (r *FakeTestRegistryBuilder) WithLocationsImage(bundleRef string, tmpFolder string, config bundle.ImageLocationsConfig) *ImageOrImageIndexWithTarPath {
+	folder, err := os.MkdirTemp(tmpFolder, "locations-img")
+	require.NoError(r.t, err)
+	require.NoError(r.t, config.WriteToPath(filepath.Join(folder, "image-locations.yml")))
+
+	bundleRefDigest, err := name.NewDigest(bundleRef)
+	require.NoError(r.t, err)
+	hash, err := v1.NewHash(bundleRefDigest.DigestStr())
+	require.NoError(r.t, err)
+	locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", hash.Algorithm, hash.Hex)
+	return r.WithImageFromPath(bundleRefDigest.Context().Tag(locationsImageTag).Name(), folder, nil)
 }
 
 func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
 	img, err := random.Image(500, 3)
 	require.NoError(r.t, err, "create image from tar")
 
-	newImg := r.updateState(imageNameFromTest, img, nil, "")
+	newImg := r.updateState(imageNameFromTest, img, nil, "", "")
 	r.logger.Tracef("created image %s\n", newImg.RefDigest)
 	return newImg
 }
 
 func (r *FakeTestRegistryBuilder) WithImage(imageNameFromTest string, image v1.Image) *ImageOrImageIndexWithTarPath {
-	return r.updateState(imageNameFromTest, image, nil, "")
+	return r.updateState(imageNameFromTest, image, nil, "", "")
 }
 
 func (r *FakeTestRegistryBuilder) CopyImage(img ImageOrImageIndexWithTarPath, to string) *ImageOrImageIndexWithTarPath {
 	r.logger.Tracef("copy image %s to %s\n", img.RefDigest, to)
-	return r.updateState(to, img.Image, nil, "")
+	return r.updateState(to, img.Image, nil, "", "")
 }
 
 func (r *FakeTestRegistryBuilder) CopyFromImageRef(imageRef, to string) *ImageOrImageIndexWithTarPath {
@@ -259,7 +272,7 @@ func (r *FakeTestRegistryBuilder) CopyFromImageRef(imageRef, to string) *ImageOr
 	r.logger.Tracef("copying image %s to %s\n", imageRef, to)
 	img, ok := r.images[digest.Context().RepositoryStr()+"@"+digest.DigestStr()]
 	require.True(r.t, ok)
-	return r.updateState(to, img.Image, nil, "")
+	return r.updateState(to, img.Image, nil, "", "")
 }
 
 func (r *FakeTestRegistryBuilder) CopyAllImagesFromRepo(imageRef, to string) {
@@ -277,13 +290,13 @@ func (r *FakeTestRegistryBuilder) CopyAllImagesFromRepo(imageRef, to string) {
 	}
 	for _, img := range imgsToCopy {
 		r.logger.Tracef("copying image %s to %s\n", img.RefDigest, strings.Split(to, "@")[0])
-		r.updateState(to, img.Image, nil, "")
+		r.updateState(to, img.Image, nil, "", img.Tag)
 	}
 }
 
 func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
 	newBundle := *r.images[bundleInfo.BundleName]
-	r.updateState(to, bundleInfo.Image, nil, "")
+	r.updateState(to, bundleInfo.Image, nil, "", "")
 	return BundleInfo{r, newBundle.Image, to, "",
 		newBundle.Digest, newBundle.RefDigest}
 }
@@ -292,7 +305,7 @@ func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) *Image
 	index, err := random.Index(1024, 1, 1)
 	require.NoError(r.t, err)
 
-	return r.updateState(imageName, nil, index, "")
+	return r.updateState(imageName, nil, index, "", "")
 }
 
 func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ...string) {
@@ -303,7 +316,7 @@ func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ..
 		imageWithARestrictedLayer, err := mutate.AppendLayers(r.images[imageName].Image, layer)
 		require.NoErrorf(r.t, err, "add layer: %s", imageName)
 
-		r.updateState(imageName, imageWithARestrictedLayer, r.images[imageName].ImageIndex, r.images[imageName].path)
+		r.updateState(imageName, imageWithARestrictedLayer, r.images[imageName].ImageIndex, r.images[imageName].path, "")
 	}
 }
 
@@ -313,7 +326,7 @@ func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() *ImageOrImage
 
 	r.Image, err = mutate.AppendLayers(r.Image, layer)
 	require.NoError(r.t, err)
-	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path)
+	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path, "")
 }
 
 func (r *FakeTestRegistryBuilder) CleanUp() {
@@ -337,12 +350,12 @@ func (r *FakeTestRegistryBuilder) Host() string {
 	return u.Host
 }
 
-func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string) *ImageOrImageIndexWithTarPath {
+func (r *FakeTestRegistryBuilder) updateState(imageName string, image v1.Image, imageIndex v1.ImageIndex, path string, tagToAdd string) *ImageOrImageIndexWithTarPath {
 	imgName, err := name.ParseReference(imageName)
 	require.NoError(r.t, err)
 
 	// Ignoring the error because the image might not have a tag
-	tagName := ""
+	tagName := tagToAdd
 	tag, err := name.NewTag(imageName)
 	if err == nil {
 		tagName = tag.TagStr()
@@ -377,7 +390,7 @@ func (r *FakeTestRegistryBuilder) WithImageIndex(imageIndexName string, images .
 		})
 	}
 
-	return r.updateState(imageIndexName, nil, index, "")
+	return r.updateState(imageIndexName, nil, index, "", "")
 }
 
 func (r *FakeTestRegistryBuilder) RemoveImage(imageRef string) {

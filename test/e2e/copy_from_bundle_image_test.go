@@ -12,6 +12,8 @@ import (
 	"time"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
@@ -422,11 +424,10 @@ images:
 		})
 
 		logger.Section("copy bundle from the public registry to a different repository", func() {
-			out := imgpkg.Run([]string{"copy",
+			imgpkg.Run([]string{"copy",
 				"--bundle", relocatedBundle + bundleDigest,
 				"--to-repo", relocatedBundle + "-copied",
 			})
-			fmt.Println(out)
 		})
 
 		refs := []string{
@@ -436,6 +437,220 @@ images:
 		}
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
 	})
+
+	t.Run("When copy a simple bundle is preformed it generates image with locations", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		var bundleDigest, imageDigest string
+		logger.Section("create bundle with image", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s%s
+`, env.Image, imageDigest)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+
+			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("copy bundle to repository and generate BundleLock", func() {
+			lockOutputPath := filepath.Join(env.Assets.CreateTempFolder("bundle-lock"), "bundle-relocate-lock.yml")
+			imgpkg.Run([]string{"copy",
+				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag),
+				"--to-repo", env.RelocationRepo,
+				"--lock-output", lockOutputPath},
+			)
+		})
+
+		hash, err := v1.NewHash(bundleDigest[1:])
+		require.NoError(t, err)
+		locationImg := fmt.Sprintf("%s:%s-%s.image-locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
+
+		logger.Section("check locations image was created", func() {
+			refs := []string{locationImg}
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+		})
+
+		logger.Section("download the locations file and check it", func() {
+			locationImgFolder := env.Assets.CreateTempFolder("locations-img")
+			env.ImageFactory.Download(locationImg, locationImgFolder)
+
+			locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+			require.FileExists(t, locationsFilePath)
+
+			cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+			require.NoError(t, err)
+
+			require.Equal(t, bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{{
+					Image: env.Image + imageDigest,
+					// Repository not used for now because all images will be present in the same repository
+					IsBundle: false,
+				}},
+			}, cfg)
+		})
+	})
+
+	t.Run("when copy a bundle that contains a bundle it generates image with locations", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+
+			img1DigestRef = imgRef.Context().Name() + "-img1"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+
+			img2DigestRef = imgRef.Context().Name() + "-img2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+		})
+
+		simpleBundle := imgRef.Context().Name() + "-simple-bundle"
+		simpleBundleDigest := ""
+		logger.Section("create simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", simpleBundle, "-f", bundleDir})
+			simpleBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
+		nestedBundleDigest := ""
+		logger.Section("create nested bundle that contains images and the simple bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
+		outerBundleDigest := ""
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		bundleToCopy := fmt.Sprintf("%s%s", outerBundle, bundleTag)
+		logger.Section("create outer bundle with image, simple bundle and nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+- image: %s
+`, nestedBundle+nestedBundleDigest, img1DigestRef, simpleBundle+simpleBundleDigest)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", bundleToCopy, "-f", bundleDir})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", bundleToCopy,
+				"--to-repo", env.RelocationRepo,
+			},
+			)
+		})
+
+		logger.Section("download the locations file for outer bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, outerBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    nestedBundle + nestedBundleDigest,
+						IsBundle: true,
+					},
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    simpleBundle + simpleBundleDigest,
+						IsBundle: true,
+					},
+				},
+			})
+		})
+
+		logger.Section("download the locations file for nested bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, nestedBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    img2DigestRef,
+						IsBundle: false,
+					},
+					{
+						Image:    simpleBundle + simpleBundleDigest,
+						IsBundle: true,
+					},
+				},
+			})
+		})
+
+		logger.Section("download the locations file for simple bundle and check it", func() {
+			downloadAndCheckLocationsFile(t, env, simpleBundleDigest[1:], bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{
+					{
+						Image:    img1DigestRef,
+						IsBundle: false,
+					},
+				},
+			})
+		})
+	})
+}
+
+func downloadAndCheckLocationsFile(t *testing.T, env *helpers.Env, bundleDigest string, expectedLocation bundle.ImageLocationsConfig) {
+	hash, err := v1.NewHash(bundleDigest)
+	require.NoError(t, err)
+	locationImg := fmt.Sprintf("%s:%s-%s.image-locations.imgpkg", env.RelocationRepo, hash.Algorithm, hash.Hex)
+
+	locationImgFolder := env.Assets.CreateTempFolder("locations-img")
+	env.ImageFactory.Download(locationImg, locationImgFolder)
+
+	locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+	require.FileExists(t, locationsFilePath)
+
+	cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+	require.NoError(t, err)
+
+	assert.Equal(t, expectedLocation, cfg)
 }
 
 func TestCopyBundleUsingTar(t *testing.T) {
