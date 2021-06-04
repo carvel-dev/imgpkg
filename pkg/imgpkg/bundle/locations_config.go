@@ -39,15 +39,25 @@ func NewLocationConfigFromPath(path string) (ImageLocationsConfig, error) {
 func NewLocationConfigFromBytes(data []byte) (ImageLocationsConfig, error) {
 	var lock ImageLocationsConfig
 
-	err := yaml.UnmarshalStrict(data, &lock)
+	err := yaml.Unmarshal(data, &lock)
 	if err != nil {
 		return lock, fmt.Errorf("Unmarshaling image locations config: %s", err)
+	}
+
+	err = lock.Validate()
+	if err != nil {
+		return ImageLocationsConfig{}, err
 	}
 
 	return lock, nil
 }
 
 func (c ImageLocationsConfig) AsBytes() ([]byte, error) {
+	err := c.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	bs, err := yaml.Marshal(c)
 	if err != nil {
 		return nil, fmt.Errorf("Marshaling image locations config: %s", err)
@@ -64,6 +74,18 @@ func (c ImageLocationsConfig) WriteToPath(path string) error {
 	err = ioutil.WriteFile(path, bs, 0600)
 	if err != nil {
 		return fmt.Errorf("Writing image locations config: %s", err)
+	}
+
+	return nil
+}
+
+func (c ImageLocationsConfig) Validate() error {
+	if c.APIVersion != LocationAPIVersion {
+		return fmt.Errorf("Validating apiVersion: Unknown version (known: %s)", LocationAPIVersion)
+	}
+
+	if c.Kind != ImageLocationsKind {
+		return fmt.Errorf("Validating kind: Unknown kind (known: %s)", ImageLocationsKind)
 	}
 
 	return nil
