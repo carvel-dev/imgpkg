@@ -125,7 +125,9 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			defer importThrottle.Done()
 
 			processedImage, err := i.tagAndVerifyItem(item, importRepo, registry)
-			importedImages.Add(processedImage)
+			if err == nil {
+				importedImages.Add(processedImage)
+			}
 			errChVerifyImages <- err
 		}()
 	}
