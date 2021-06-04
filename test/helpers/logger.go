@@ -25,6 +25,18 @@ func (l Logger) Section(msg string, f func()) {
 	f()
 }
 
+func (l Logger) Errorf(msg string, args ...interface{}) {
+	fmt.Printf(msg, args...)
+}
+
+func (l Logger) Warnf(msg string, args ...interface{}) {
+	fmt.Printf(msg, args...)
+}
+
+func (l Logger) Logf(msg string, args ...interface{}) {
+	fmt.Printf(msg, args...)
+}
+
 func (l Logger) Debugf(msg string, args ...interface{}) {
 	fmt.Printf(msg, args...)
 }

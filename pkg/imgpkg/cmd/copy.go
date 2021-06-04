@@ -9,7 +9,6 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
@@ -80,15 +79,17 @@ func (c *CopyOptions) Run() error {
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
 	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributable
 
-	uploadProgress := make(chan regv1.Update)
-	reg, err := registry.NewRegistry(registryOpts, remote.WithProgress(uploadProgress))
+	reg, err := registry.NewRegistry(registryOpts)
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", registryOpts, err)
 	}
 
 	logger := util.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	progressLogger := logger.NewProgressBar("copy | ", uploadProgress)
+	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
+
+	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
+	regWithProgress := registry.NewRegistryWithProgress(reg, imagesUploaderLogger)
 
 	switch {
 	case c.isTarSrc():
@@ -104,14 +105,12 @@ func (c *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-		progressLogger.Start()
-		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, reg)
-		progressLogger.End("done importing images")
+		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
 		if err != nil {
 			return err
 		}
 
-		informUserToUseTheNonDistributableFlagWithDescriptors(prefixedLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		informUserToUseTheNonDistributableFlagWithDescriptors(levelLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 		return c.writeLockOutput(processedImages, reg)
 
 	case c.isRepoSrc():
@@ -124,14 +123,15 @@ func (c *CopyOptions) Run() error {
 			signatureRetriever = signature.NewNoop()
 		}
 
+		levelLogger.LogLevel = util.LogTrace
 		repoSrc := CopyRepoSrc{
-			logger:                  prefixedLogger,
+			logger:                  levelLogger,
 			ImageFlags:              c.ImageFlags,
 			BundleFlags:             c.BundleFlags,
 			LockInputFlags:          c.LockInputFlags,
 			IncludeNonDistributable: c.IncludeNonDistributable,
 
-			registry:           reg,
+			registry:           regWithProgress,
 			imageSet:           imageSet,
 			tarImageSet:        ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
 			Concurrency:        c.Concurrency,
@@ -147,9 +147,7 @@ func (c *CopyOptions) Run() error {
 			return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
 		case c.isRepoDst():
-			progressLogger.Start()
 			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
-			progressLogger.End("done importing images")
 			if err != nil {
 				return err
 			}
@@ -317,7 +315,7 @@ func everyMediaTypeForAnImage(image regv1.Image) []string {
 	return everyMediaType
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includeNonDistributableFlag bool, everyMediaType []string) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(logger util.LoggerWithLevels, includeNonDistributableFlag bool, everyMediaType []string) {
 	noNonDistributableLayers := true
 
 	for _, mediaType := range everyMediaType {
@@ -327,8 +325,8 @@ func informUserToUseTheNonDistributableFlagWithDescriptors(logger Logger, includ
 	}
 
 	if includeNonDistributableFlag && noNonDistributableLayers {
-		logger.WriteStr("Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
+		logger.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		logger.WriteStr("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
+		logger.Warnf("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
 	}
 }

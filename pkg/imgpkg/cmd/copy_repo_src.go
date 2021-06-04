@@ -14,6 +14,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 type SignatureRetriever interface {
@@ -26,7 +27,7 @@ type CopyRepoSrc struct {
 	LockInputFlags          LockInputFlags
 	IncludeNonDistributable bool
 	Concurrency             int
-	logger                  Logger
+	logger                  util.LoggerWithLevels
 	imageSet                ctlimgset.ImageSet
 	tarImageSet             ctlimgset.TarImageSet
 	registry                ctlimgset.ImagesReaderWriter

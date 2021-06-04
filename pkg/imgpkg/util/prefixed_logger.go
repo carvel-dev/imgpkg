@@ -29,6 +29,10 @@ type LoggerPrefixWriter struct {
 	writerLock *sync.Mutex
 }
 
+func (w *LoggerPrefixWriter) Logf(msg string, args ...interface{}) {
+	w.WriteStr(msg, args...)
+}
+
 func (w *LoggerPrefixWriter) Write(data []byte) (int, error) {
 	newData := make([]byte, len(data))
 	copy(newData, data)

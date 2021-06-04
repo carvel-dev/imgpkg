@@ -107,9 +107,23 @@ func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
 	return regremote.Image(overriddenRef, r.opts...)
 }
 
-func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int) error {
+func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
 	return util.Retry(func() error {
-		return regremote.MultiWrite(imageOrIndexesToUpload, append(r.opts, regremote.WithJobs(concurrency))...)
+		lOpts := append(append([]regremote.Option{}, r.opts...), regremote.WithJobs(concurrency))
+
+		// Only use the registry with progress reporting if a channel is provided to this method
+		if updatesCh != nil {
+			uploadProgress := make(chan regv1.Update)
+			lOpts = append(lOpts, regremote.WithProgress(uploadProgress))
+
+			go func() {
+				for update := range uploadProgress {
+					updatesCh <- update
+				}
+			}()
+		}
+
+		return regremote.MultiWrite(imageOrIndexesToUpload, lOpts...)
 	})
 }
 
