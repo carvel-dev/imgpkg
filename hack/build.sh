@@ -2,11 +2,9 @@
 
 set -e -x -u
 
-VERSION="$(git describe --tags | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' || echo 'develop')"
-
 # makes builds reproducible
 export CGO_ENABLED=0
-LDFLAGS="-X github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version=$VERSION -buildid="
+LDFLAGS="-buildid="
 
 go fmt ./cmd/... ./pkg/... ./test/...
 go mod vendor
