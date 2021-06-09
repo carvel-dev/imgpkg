@@ -58,6 +58,17 @@ func NewImagesLockFromBytes(data []byte) (ImagesLock, error) {
 		return lock, fmt.Errorf("Validating images lock: %s", err)
 	}
 
+	// Update the image lock file to use a fully qualified name
+	// i.e. if a user provides ubuntu (short hand for library/ubuntu) in the ImageLock file,
+	// downstream processing will fail when comparing if images match.
+	for i, img := range lock.Images {
+		parsedImageRefName, err := regname.NewDigest(img.Image)
+		if err != nil {
+			return lock, err
+		}
+		lock.Images[i].Image = parsedImageRefName.Name()
+	}
+
 	return lock, nil
 }
 
