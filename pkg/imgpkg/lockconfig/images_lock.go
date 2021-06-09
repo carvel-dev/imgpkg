@@ -64,7 +64,7 @@ func NewImagesLockFromBytes(data []byte) (ImagesLock, error) {
 	for i, img := range lock.Images {
 		parsedImageRefName, err := regname.NewDigest(img.Image)
 		if err != nil {
-			return lock, err
+			panic(fmt.Sprintf("Image reference (%s) is in an invalid format: %s", img.Image, err.Error()))
 		}
 		lock.Images[i].Image = parsedImageRefName.Name()
 	}

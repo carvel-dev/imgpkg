@@ -35,7 +35,6 @@ func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
 			}
-			imgRef = imgRef.DeepCopy()
 			bundle.addImageRefs(imgRef)
 		}
 	}
@@ -61,7 +60,6 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		image = image.DeepCopy()
 		o.addImageRefs(image)
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
