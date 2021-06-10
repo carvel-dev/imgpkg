@@ -94,7 +94,7 @@ func (a *Assertion) ValidateCosignSignature(refs []string) {
 		cmdArgs := []string{"verify", "-key", filepath.Join(a.signatureKeyLocation, "cosign.pub"), ref}
 		a.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
 
-		cmd := exec.Command(filepath.Join(a.signatureKeyLocation, "tmp", "bin", "cosign"), cmdArgs...)
+		cmd := exec.Command(filepath.Join(a.signatureKeyLocation, "bin", "cosign"), cmdArgs...)
 		var stderr, stdout bytes.Buffer
 		cmd.Stderr = &stderr
 		cmd.Stdout = &stdout

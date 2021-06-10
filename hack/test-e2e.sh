@@ -27,7 +27,9 @@ case "${unameOut}" in
 esac
 chmod u+x tmp/bin/cosign
 ## End
-COSIGN_PASSWORD= tmp/bin/cosign generate-key-pair
+pushd ./tmp
+  COSIGN_PASSWORD= bin/cosign generate-key-pair
+popd
 
 $GO test ./test/e2e/ -timeout 60m -test.v $@
 

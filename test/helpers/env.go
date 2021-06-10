@@ -42,13 +42,13 @@ func BuildEnv(t *testing.T) *Env {
 		Assert: Assertion{
 			T:                    t,
 			logger:               logger,
-			signatureKeyLocation: filepath.Dir(imgpkgPath),
+			signatureKeyLocation: filepath.Join(filepath.Dir(imgpkgPath), "tmp"),
 		},
 		Logger: logger,
 		ImageFactory: ImageFactory{
 			Assets:               assets,
 			T:                    t,
-			signatureKeyLocation: filepath.Dir(imgpkgPath),
+			signatureKeyLocation: filepath.Join(filepath.Dir(imgpkgPath), "tmp"),
 			logger:               logger,
 		},
 	}
