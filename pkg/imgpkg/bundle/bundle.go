@@ -58,6 +58,15 @@ func (o *Bundle) addImageRefs(refs ...ImageRef) {
 
 func (o *Bundle) imageRef(imageDigest string) (ImageRef, bool) {
 	ref, found := o.imagesRef[imageDigest]
+	if !found {
+		for _, imgRef := range o.imagesRef {
+			for _, loc := range imgRef.Locations() {
+				if loc == imageDigest {
+					return imgRef, true
+				}
+			}
+		}
+	}
 	return ref, found
 }
 
@@ -86,6 +95,10 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {
 			bundleProcessedImage = image
 		}
+	}
+
+	if len(locationsCfg.Images) != len(o.imagesRef) {
+		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", len(o.imagesRef), len(locationsCfg.Images)))
 	}
 
 	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)

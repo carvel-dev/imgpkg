@@ -11,12 +11,17 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPullImageLockRewrite(t *testing.T) {
+	logger := &helpers.Logger{}
+
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
@@ -31,7 +36,9 @@ images:
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
-	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
+	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
+	bundleDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+
 	imgpkg.Run([]string{"copy", "-b", env.Image, "--to-repo", env.Image})
 
 	pullDir := env.Assets.CreateTempFolder("pull-rewrite-lock")
@@ -39,6 +46,32 @@ images:
 
 	expectedImageRef := env.Image + imageDigestRef
 	env.Assert.AssertImagesLock(filepath.Join(pullDir, ".imgpkg", "images.yml"), []lockconfig.ImageRef{{Image: expectedImageRef}})
+
+	hash, err := v1.NewHash(bundleDigest[1:])
+	require.NoError(t, err)
+	locationImg := fmt.Sprintf("%s:%s-%s.image-locations.imgpkg", env.Image, hash.Algorithm, hash.Hex)
+
+	logger.Section("download the locations file and check it", func() {
+		locationImgFolder := env.Assets.CreateTempFolder("locations-img")
+		env.ImageFactory.Download(locationImg, locationImgFolder)
+
+		locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+		require.FileExists(t, locationsFilePath)
+
+		cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+		require.NoError(t, err)
+
+		require.Equal(t, bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{{
+				Image: "index.docker.io/library/hello-world" + imageDigestRef,
+				// Repository not used for now because all images will be present in the same repository
+				IsBundle: false,
+			}},
+		}, cfg)
+	})
+
 }
 
 func TestPullImageLockRewriteBundleOfBundles(t *testing.T) {

@@ -14,7 +14,13 @@ import (
 	"strings"
 	"testing"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -455,6 +461,188 @@ images:
 	})
 }
 
+func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+	defer fakeRegistry.CleanUp()
+
+	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
+		WithImageRefs([]lockconfig.ImageRef{
+			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+		})
+
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
+		"test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+		{Image: bundleWithOneImages.RefDigest},
+	})
+
+	subject := subject
+	subject.BundleFlags.Bundle = bundleWithNestedBundle.RefDigest
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("A bundle with an image without a qualified image name", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		subject := subject
+		subject.registry = fakeRegistry.Build()
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		processedImages, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 3)
+		processedImageDigest := []string{}
+		for _, processedImage := range processedImages.All() {
+			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+		}
+		assert.ElementsMatch(t, processedImageDigest, []string{
+			destRepo + "@" + bundleWithNestedBundle.Digest,
+			destRepo + "@" + bundleWithOneImages.Digest,
+			destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+		})
+
+		locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
+		refs := []string{locationImg}
+		require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+
+		locationImgFolder := assets.CreateTempFolder("locations")
+		downloadImagesLocation(t, locationImg, locationImgFolder)
+
+		locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+		require.FileExists(t, locationsFilePath)
+
+		cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+		require.NoError(t, err)
+
+		require.Equal(t, bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{{
+				Image: bundleWithOneImages.RefDigest,
+				// Repository not used for now because all images will be present in the same repository
+				IsBundle: true,
+			}},
+		}, cfg)
+
+		locationImg = fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithOneImages.Digest, ":", "-"))
+		refs = []string{locationImg}
+		require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+
+		locationImgFolder = assets.CreateTempFolder("locations")
+		downloadImagesLocation(t, locationImg, locationImgFolder)
+
+		locationsFilePath = filepath.Join(locationImgFolder, "image-locations.yml")
+		require.FileExists(t, locationsFilePath)
+
+		cfg, err = bundle.NewLocationConfigFromPath(locationsFilePath)
+		require.NoError(t, err)
+
+		require.Equal(t, bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{{
+				Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+				IsBundle: false,
+			}},
+		}, cfg)
+	})
+}
+
+func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+	defer fakeRegistry.CleanUp()
+
+	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
+		WithImageRefs([]lockconfig.ImageRef{
+			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+		})
+
+	reference, err := name.ParseReference("hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6")
+	require.NoError(t, err)
+	helloworld, err := remote.Get(reference)
+	require.NoError(t, err)
+	image, err := helloworld.Image()
+	require.NoError(t, err)
+	fakeRegistry.WithImage("library/bundle", image)
+
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
+		"test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+		{Image: bundleWithOneImages.RefDigest},
+	})
+
+	subject := subject
+	subject.BundleFlags.Bundle = bundleWithNestedBundle.RefDigest
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("A bundle with an image without a qualified image name", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		subject := subject
+		subject.registry = fakeRegistry.Build()
+
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+		processedImages, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 3)
+		processedImageDigest := []string{}
+		for _, processedImage := range processedImages.All() {
+			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+		}
+		assert.ElementsMatch(t, processedImageDigest, []string{
+			destRepo + "@" + bundleWithNestedBundle.Digest,
+			destRepo + "@" + bundleWithOneImages.Digest,
+			destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+		})
+
+		locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
+		refs := []string{locationImg}
+		require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+
+		locationImgFolder := assets.CreateTempFolder("locations")
+		downloadImagesLocation(t, locationImg, locationImgFolder)
+
+		locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+		require.FileExists(t, locationsFilePath)
+
+		cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+		require.NoError(t, err)
+
+		require.Equal(t, bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{{
+				Image: bundleWithOneImages.RefDigest,
+				// Repository not used for now because all images will be present in the same repository
+				IsBundle: true,
+			}},
+		}, cfg)
+
+		locationImg = fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithOneImages.Digest, ":", "-"))
+		refs = []string{locationImg}
+		require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+
+		locationImgFolder = assets.CreateTempFolder("locations")
+		downloadImagesLocation(t, locationImg, locationImgFolder)
+
+		locationsFilePath = filepath.Join(locationImgFolder, "image-locations.yml")
+		require.FileExists(t, locationsFilePath)
+
+		cfg, err = bundle.NewLocationConfigFromPath(locationsFilePath)
+		require.NoError(t, err)
+
+		require.Equal(t, bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{{
+				Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+				IsBundle: false,
+			}},
+		}, cfg)
+	})
+}
+
 func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakeDockerhubRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeDockerhubRegistry.CleanUp()
@@ -660,4 +848,27 @@ func doesLayerExistInTarball(t *testing.T, path string, digest regv1.Hash) bool 
 		}
 	}
 	return false
+}
+
+func validateImagesPresenceInRegistry(t *testing.T, refs []string) error {
+	for _, refString := range refs {
+		ref, err := name.ParseReference(refString)
+		require.NoError(t, err)
+		if _, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+			return fmt.Errorf("validating image %s: %v", refString, err)
+		}
+	}
+	return nil
+}
+
+func downloadImagesLocation(t *testing.T, imgRef, location string) {
+	imageReg, err := name.ParseReference(imgRef, name.WeakValidation)
+	require.NoError(t, err)
+	img, err := remote.Image(imageReg, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(t, err)
+
+	output := bytes.NewBufferString("")
+	writerUI := goui.NewWriterUI(output, output, nil)
+	err = ctlimg.NewDirImage(filepath.Join(location), img, writerUI).AsDirectory()
+	require.NoError(t, err)
 }
