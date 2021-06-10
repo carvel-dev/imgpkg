@@ -100,7 +100,6 @@ func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.
 
 	header := &tar.Header{
 		Name:     relPath,
-		Size:     info.Size(),
 		Mode:     0700,        // static
 		ModTime:  time.Time{}, // static
 		Typeflag: tar.TypeDir,
