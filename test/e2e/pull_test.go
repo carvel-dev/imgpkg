@@ -42,7 +42,11 @@ images:
 	imgpkg.Run([]string{"copy", "-b", env.Image, "--to-repo", env.Image})
 
 	pullDir := env.Assets.CreateTempFolder("pull-rewrite-lock")
-	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", pullDir})
+	imgpkg.RunWithOpts([]string{"pull", "-b", env.Image, "-o", pullDir}, helpers.RunOpts{
+		AllowError:   true,
+		StderrWriter: os.Stdout,
+		StdoutWriter: os.Stdout,
+	})
 
 	expectedImageRef := env.Image + imageDigestRef
 	env.Assert.AssertImagesLock(filepath.Join(pullDir, ".imgpkg", "images.yml"), []lockconfig.ImageRef{{Image: expectedImageRef}})
