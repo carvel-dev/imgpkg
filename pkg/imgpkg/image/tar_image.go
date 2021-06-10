@@ -29,9 +29,15 @@ func (i *TarImage) AsFileImage(labels map[string]string) (*FileImage, error) {
 		return nil, err
 	}
 
-	defer tmpFile.Close()
-
 	err = i.createTarball(tmpFile, i.files)
+	if err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return nil, err
+	}
+
+	// Close file explicitly to make sure all data is flushed
+	err = tmpFile.Close()
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
 		return nil, err
