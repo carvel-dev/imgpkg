@@ -283,6 +283,152 @@ kind: ImagesLock
 	})
 }
 
+func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
+	fakeUI := &bundlefakes.FakeUI{}
+	pullNestedBundles := true
+
+	// bundle pushed with older version pulled with newer version
+
+	// bundle with location with nested bundle without location
+
+	// bundle without location with nested bundle with location
+
+	t.Run("bundle referencing another bundle in the same repo updates both bundle's imageslock", func(t *testing.T) {
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
+		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageColocatedWithIcecreamBundle.RefDigest},
+		})
+		relocatedIcecreamBundle := fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", icecreamBundle.Image)
+		relocatedImageInIcecreamBundle := fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", randomImageColocatedWithIcecreamBundle.Image)
+
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: icecreamBundle.RefDigest},
+		})
+
+		locationPath, err := os.MkdirTemp(os.TempDir(), "test-location-path")
+		assert.NoError(t, err)
+		defer os.Remove(locationPath)
+
+		locationForRootBundle := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images:     nil,
+		}
+
+		locationForRootBundle.Images = []bundle.ImageLocation{
+			{
+				Image:    relocatedIcecreamBundle.RefDigest,
+				IsBundle: true,
+			},
+		}
+
+		locationForNestedBundle := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images:     nil,
+		}
+
+		locationForNestedBundle.Images = []bundle.ImageLocation{
+			{
+				Image:    relocatedImageInIcecreamBundle.RefDigest,
+				IsBundle: false,
+			},
+		}
+
+		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
+		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+relocatedIcecreamBundle.Digest, locationPath, locationForNestedBundle)
+
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		assert.NoError(t, err)
+
+		assert.DirExists(t, outputPath)
+		rootBundleImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "images.yml")
+		assert.FileExists(t, rootBundleImagesYmlFile)
+		rootImagesYmlFile, err := os.ReadFile(rootBundleImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, relocatedIcecreamBundle.RefDigest), string(rootImagesYmlFile))
+
+		outputDirImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(relocatedIcecreamBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
+		assert.FileExists(t, outputDirImagesYmlFile)
+		nestedImagesYmlFile, err := os.ReadFile(outputDirImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, relocatedImageInIcecreamBundle.RefDigest), string(nestedImagesYmlFile))
+	})
+
+	t.Run("bundle referencing only images", func(t *testing.T) {
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithRootBundle := fakeRegistry.WithRandomImage("repo/root-bundle")
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/root-bundle", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageColocatedWithRootBundle.RefDigest},
+		})
+
+		locationPath, err := os.MkdirTemp(os.TempDir(), "test-location-path")
+		assert.NoError(t, err)
+		defer os.Remove(locationPath)
+
+		locs := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images:     nil,
+		}
+
+		nestedImageRef := "repo/root-bundle@" + randomImageColocatedWithRootBundle.Digest
+
+		locs.Images = []bundle.ImageLocation{
+			{
+				Image:    fakeRegistry.ReferenceOnTestServer(nestedImageRef),
+				IsBundle: false,
+			},
+		}
+
+		fakeRegistry.WithLocationsImage("repo/root-bundle@"+rootBundle.Digest, locationPath, locs)
+
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
+		assert.NoError(t, err)
+		defer os.Remove(outputPath)
+
+		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		assert.NoError(t, err)
+
+		assert.DirExists(t, outputPath)
+		rootBundleImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "images.yml")
+		assert.FileExists(t, rootBundleImagesYmlFile)
+		rootImagesYmlFile, err := os.ReadFile(rootBundleImagesYmlFile)
+		assert.NoError(t, err)
+
+		assert.Equal(t, fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, fakeRegistry.ReferenceOnTestServer(nestedImageRef)), string(rootImagesYmlFile))
+
+	})
+}
+
 func TestPullBundleOutputToUser(t *testing.T) {
 	pullNestedBundles := false
 

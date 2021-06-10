@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -119,6 +120,14 @@ func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) err
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 }
 
+func imageRelativeToBundle(img, relativeToRepo string) string {
+	imgParts := strings.Split(img, "@")
+	if len(imgParts) != 2 {
+		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", img))
+	}
+	return relativeToRepo + "@" + imgParts[1]
+}
+
 func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string,
 	imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
@@ -142,9 +151,51 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
-	localizedImagesLockToRepo, notLocalizedToBundle, err := NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
+	digest, err := img.Digest()
 	if err != nil {
-		return err
+		panic(err)
+	}
+	nameDigest, err := regname.NewDigest(o.Repo() + "@" + digest.String())
+	if err != nil {
+		panic(err)
+	}
+
+	imageBundles := map[string]bool{}
+
+	logger := util.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("copy | ")
+	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
+
+	localizedImagesLockToRepo := lockconfig.NewEmptyImagesLock()
+	var notLocalizedToBundle bool
+	fetch, err := NewLocations(levelLogger).Fetch(o.imgRetriever, nameDigest)
+	if err != nil {
+		if _, ok := err.(*LocationsNotFound); !ok {
+			return err
+		}
+		localizedImagesLockToRepo, notLocalizedToBundle, err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
+		if err != nil {
+			return err
+		}
+	} else {
+		// TODO: it is possible for locations OCI to have missing images. because of a bug now fixed.
+		localizedImagesLockToRepo.Images = []lockconfig.ImageRef{}
+		imageRefs := []lockconfig.ImageRef{}
+		for _, image := range fetch.Images {
+			var annotations map[string]string
+			for _, imageLockImage := range imagesLock.Images {
+				if imageLockImage.Image == image.Image {
+					annotations = imagesLock.Images[0].Annotations
+					break
+				}
+			}
+			imageRefs = append(imageRefs, lockconfig.ImageRef{
+				Image:       imageRelativeToBundle(image.Image, o.Repo()),
+				Annotations: annotations,
+			})
+			imageBundles[image.Image] = image.IsBundle
+		}
+		localizedImagesLockToRepo.Images = imageRefs
 	}
 
 	if pullNestedBundles {
@@ -157,11 +208,17 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 				continue
 			}
 
-			subBundle := NewBundle(image.Image, o.imgRetriever)
-			isBundle, err := subBundle.IsBundle()
-			if err != nil {
-				return err
+			var isBundle, ok bool
+			var subBundle *Bundle
+			subBundle = NewBundle(image.Image, o.imgRetriever)
+
+			if isBundle, ok = imageBundles[image.Image]; !ok {
+				isBundle, err = subBundle.IsBundle()
+				if err != nil {
+					return err
+				}
 			}
+
 			imagesProcessed[image.Image] = isBundle
 
 			if !isBundle {
