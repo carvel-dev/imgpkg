@@ -305,7 +305,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 		relocatedImageInIcecreamBundle := fakeRegistry.WithImage("repo/bundle-with-collocated-bundles", randomImageColocatedWithIcecreamBundle.Image)
 
 		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
-			{Image: icecreamBundle.RefDigest},
+			{Image: icecreamBundle.RefDigest, Annotations: map[string]string{"hello": "world"}},
 		})
 
 		locationPath, err := os.MkdirTemp(os.TempDir(), "test-location-path")
@@ -320,7 +320,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 
 		locationForRootBundle.Images = []bundle.ImageLocation{
 			{
-				Image:    relocatedIcecreamBundle.RefDigest,
+				Image:    icecreamBundle.RefDigest,
 				IsBundle: true,
 			},
 		}
@@ -333,7 +333,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 
 		locationForNestedBundle.Images = []bundle.ImageLocation{
 			{
-				Image:    relocatedImageInIcecreamBundle.RefDigest,
+				Image:    randomImageColocatedWithIcecreamBundle.RefDigest,
 				IsBundle: false,
 			},
 		}
@@ -358,7 +358,9 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 images:
-- image: %s
+- annotations:
+    hello: world
+  image: %s
 kind: ImagesLock
 `, relocatedIcecreamBundle.RefDigest), string(rootImagesYmlFile))
 
