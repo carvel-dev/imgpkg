@@ -5,7 +5,6 @@ package bundle
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -162,40 +161,10 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	imageBundles := map[string]bool{}
 
-	logger := util.NewLogger(os.Stderr)
-	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-
-	localizedImagesLockToRepo := lockconfig.NewEmptyImagesLock()
-	var notLocalizedToBundle bool
-	fetch, err := NewLocations(levelLogger).Fetch(o.imgRetriever, nameDigest)
+	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock(nameDigest, imageBundles)
 	if err != nil {
-		if _, ok := err.(*LocationsNotFound); !ok {
-			return err
-		}
-		localizedImagesLockToRepo, notLocalizedToBundle, err = NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
-		if err != nil {
-			return err
-		}
-	} else {
-		// TODO: it is possible for locations OCI to have missing images. because of a bug now fixed.
-		localizedImagesLockToRepo.Images = []lockconfig.ImageRef{}
-		imageRefs := []lockconfig.ImageRef{}
-		for _, image := range fetch.Images {
-			var annotations map[string]string
-			for _, imageLockImage := range imagesLock.Images {
-				if imageLockImage.Image == image.Image {
-					annotations = imagesLock.Images[0].Annotations
-					break
-				}
-			}
-			imageRefs = append(imageRefs, lockconfig.ImageRef{
-				Image:       imageRelativeToBundle(image.Image, o.Repo()),
-				Annotations: annotations,
-			})
-			imageBundles[image.Image] = image.IsBundle
-		}
-		localizedImagesLockToRepo.Images = imageRefs
+		return err
 	}
 
 	if pullNestedBundles {

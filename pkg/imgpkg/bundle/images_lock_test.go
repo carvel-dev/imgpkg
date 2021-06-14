@@ -5,10 +5,13 @@ package bundle_test
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -32,13 +35,19 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
+		bundleRefUsedForLocationImage, err := name.NewDigest("some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
+		assert.NoError(t, err)
+
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
+			StatusCode: http.StatusNotFound,
+		})
 		fakeImagesMetadata.FirstImageExistsCalls(func(strings []string) (string, error) {
 			return strings[0], nil
 		})
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		newImagesLock, skipped, err := subject.LocalizeImagesLock(bundleRefUsedForLocationImage, nil)
 		require.NoError(t, err)
 		assert.False(t, skipped)
 
@@ -58,13 +67,19 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
+		bundleRefUsedForLocationImage, err := name.NewDigest("some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80")
+		assert.NoError(t, err)
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
+			StatusCode: http.StatusNotFound,
+		})
+
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
 
 		// Other calls will return the default empty Hash and nil error
 		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock()
+		newImagesLock, skipped, err := subject.LocalizeImagesLock(bundleRefUsedForLocationImage, nil)
 		require.NoError(t, err)
 		assert.True(t, skipped)
 
