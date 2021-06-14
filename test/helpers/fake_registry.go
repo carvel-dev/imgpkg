@@ -34,11 +34,12 @@ import (
 )
 
 type FakeTestRegistryBuilder struct {
-	images map[string]*ImageOrImageIndexWithTarPath
-	server *httptest.Server
-	t      *testing.T
-	auth   authn.Authenticator
-	logger *Logger
+	images          map[string]*ImageOrImageIndexWithTarPath
+	server          *httptest.Server
+	t               *testing.T
+	auth            authn.Authenticator
+	logger          *Logger
+	originalHandler http.Handler
 }
 
 func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
@@ -414,6 +415,32 @@ func (r *FakeTestRegistryBuilder) RemoveByImageRef(imageRef string) {
 	delete(r.images, digest.Context().RepositoryStr())
 }
 
+func (r *FakeTestRegistryBuilder) WithImageStatusCodeRemap(img string, originalStatusCode int, remappedStatusCode int) *FakeTestRegistryBuilder {
+	originalHandler := r.server.Config.Handler
+	r.originalHandler = originalHandler
+
+	r.server.Config.Handler = http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		if strings.Contains(request.URL.Path, fmt.Sprintf("manifests/%s", img)) {
+			customizedWriter := writerWithCustomizedStatusCode{
+				ResponseWriter:     responseWriter,
+				originalStatusCode: originalStatusCode,
+				remappedStatusCode: remappedStatusCode,
+			}
+			originalHandler.ServeHTTP(customizedWriter, request)
+		} else {
+			originalHandler.ServeHTTP(responseWriter, request)
+		}
+	})
+	return r
+}
+
+func (r *FakeTestRegistryBuilder) ResetHandler() *FakeTestRegistryBuilder {
+	if r.originalHandler != nil {
+		r.server.Config.Handler = r.originalHandler
+	}
+	return r
+}
+
 type BundleInfo struct {
 	r          *FakeTestRegistryBuilder
 	Image      v1.Image
@@ -533,4 +560,18 @@ func compress(src string) (*os.File, error) {
 	}
 
 	return tempTarFile, err
+}
+
+type writerWithCustomizedStatusCode struct {
+	http.ResponseWriter
+	originalStatusCode int
+	remappedStatusCode int
+}
+
+func (w writerWithCustomizedStatusCode) WriteHeader(statusCode int) {
+	if statusCode == w.originalStatusCode {
+		w.ResponseWriter.WriteHeader(w.remappedStatusCode)
+	} else {
+		w.ResponseWriter.WriteHeader(statusCode)
+	}
 }
