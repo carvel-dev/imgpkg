@@ -125,7 +125,7 @@ func (i *ImageFactory) SignImage(imgRef string) string {
 	cmdArgs := []string{"sign", "-key", filepath.Join(i.signatureKeyLocation, "cosign.key"), imgRef}
 	i.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
 
-	cmd := exec.Command(filepath.Join(i.signatureKeyLocation, "tmp", "bin", "cosign"), cmdArgs...)
+	cmd := exec.Command("cosign", cmdArgs...)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "COSIGN_PASSWORD=")
