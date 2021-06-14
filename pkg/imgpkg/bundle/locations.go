@@ -30,6 +30,12 @@ type LocationsNotFound struct {
 	image string
 }
 
+var imageNotFoundStatusCode = map[int]struct{}{
+	http.StatusNotFound:     {},
+	http.StatusUnauthorized: {},
+	http.StatusForbidden:    {},
+}
+
 func (n LocationsNotFound) Error() string {
 	return fmt.Sprintf("Locations image in %s could not be found", n.image)
 }
@@ -61,7 +67,7 @@ func (r Locations) Fetch(registry image.ImagesMetadata, bundleRef name.Digest) (
 	img, err := registry.Image(locRef)
 	if err != nil {
 		if terr, ok := err.(*transport.Error); ok {
-			if terr.StatusCode == http.StatusNotFound {
+			if _, ok := imageNotFoundStatusCode[terr.StatusCode]; ok {
 				r.logger.Debugf("did not find Locations OCI Image for bundle: %s\n", bundleRef)
 				return ImageLocationsConfig{}, &LocationsNotFound{image: locRef.Name()}
 			}

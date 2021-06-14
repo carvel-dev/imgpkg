@@ -546,6 +546,42 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			}},
 		}, cfg)
 	})
+
+	knownStatusCodesMeaningImageWasNotFound := []int{404, 401, 403}
+	for _, remappedStatusCode := range knownStatusCodesMeaningImageWasNotFound {
+		t.Run(fmt.Sprintf("A registry that returns %d status codes when an image doesn't exist", remappedStatusCode), func(t *testing.T) {
+			assets := &helpers.Assets{T: t}
+			defer assets.CleanCreatedFolders()
+
+			subject := subject
+			subject.registry = fakeRegistry.Build()
+
+			destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+
+			locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
+			refs := []string{locationImg}
+
+			fakeRegistry.WithImageStatusCodeRemap(fmt.Sprintf("%s.image-locations.imgpkg", strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-")), 404, remappedStatusCode)
+			defer fakeRegistry.ResetHandler()
+
+			processedImages, err := subject.CopyToRepo(destRepo)
+			require.NoError(t, err)
+
+			require.Len(t, processedImages.All(), 3)
+			processedImageDigest := []string{}
+			for _, processedImage := range processedImages.All() {
+				processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+			}
+			assert.ElementsMatch(t, processedImageDigest, []string{
+				destRepo + "@" + bundleWithNestedBundle.Digest,
+				destRepo + "@" + bundleWithOneImages.Digest,
+				destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+			})
+
+			require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+		})
+	}
+
 }
 
 func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
