@@ -161,7 +161,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	imageBundles := map[string]bool{}
 
-	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
+	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), nil)
 	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock(nameDigest, imageBundles)
 	if err != nil {
 		return err

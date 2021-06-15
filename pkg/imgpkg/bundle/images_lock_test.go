@@ -45,7 +45,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		fakeImagesMetadata.FirstImageExistsCalls(func(strings []string) (string, error) {
 			return strings[0], nil
 		})
-		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 
 		newImagesLock, skipped, err := subject.LocalizeImagesLock(bundleRefUsedForLocationImage, nil)
 		require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 			StatusCode: http.StatusNotFound,
 		})
 
-		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 
 		// Other calls will return the default empty Hash and nil error
 		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
@@ -102,7 +102,7 @@ func TestImagesLock_Merge(t *testing.T) {
 			},
 		}
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
-		subject := ctlbundle.NewImagesLock(parentImagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+		subject := ctlbundle.NewImagesLock(parentImagesLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 		imgLock := lockconfig.ImagesLock{
 			Images: []lockconfig.ImageRef{
 				{
@@ -110,7 +110,7 @@ func TestImagesLock_Merge(t *testing.T) {
 				},
 			},
 		}
-		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle")
+		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 		subject.Merge(imagesLockToMerge)
 
 		imagesRefs := subject.ImageRefs()
@@ -133,7 +133,7 @@ func TestImagesLock_Merge(t *testing.T) {
 			},
 		}
 		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
-		subject := ctlbundle.NewImagesLock(parentImagesLock, fakeImagesMetadata, "some.repo.io/bundle")
+		subject := ctlbundle.NewImagesLock(parentImagesLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 		imgLock := lockconfig.ImagesLock{
 			Images: []lockconfig.ImageRef{
 				{
@@ -142,7 +142,7 @@ func TestImagesLock_Merge(t *testing.T) {
 				},
 			},
 		}
-		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle")
+		imagesLockToMerge := ctlbundle.NewImagesLock(imgLock, fakeImagesMetadata, "some.repo.io/bundle", nil)
 		subject.Merge(imagesLockToMerge)
 
 		imagesRefs := subject.ImageRefs()
