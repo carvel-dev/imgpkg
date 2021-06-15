@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -119,14 +120,6 @@ func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) err
 	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 }
 
-func imageRelativeToBundle(img, relativeToRepo string) string {
-	imgParts := strings.Split(img, "@")
-	if len(imgParts) != 2 {
-		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", img))
-	}
-	return relativeToRepo + "@" + imgParts[1]
-}
-
 func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string,
 	imagesProcessed map[string]bool, numSubBundles int) error {
 	img, err := o.checkedImage()
@@ -152,17 +145,29 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	digest, err := img.Digest()
 	if err != nil {
+		//TODO: return error
 		panic(err)
 	}
 	nameDigest, err := regname.NewDigest(o.Repo() + "@" + digest.String())
 	if err != nil {
+		//TODO: return error
 		panic(err)
 	}
 
 	imageBundles := map[string]bool{}
 
-	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), nil)
-	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock(nameDigest, imageBundles)
+	logger := util.NewLogger(os.Stderr)
+	prefixedLogger := logger.NewPrefixedWriter("copy | ")
+	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
+
+	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationFetcher{
+		logger:          levelLogger,
+		imgRetriever:    o.imgRetriever,
+		bundleDigestRef: nameDigest,
+	})
+
+	//TODO: extract out imageBundles map to know whether an image is a bundle. add it to the  LocationFetcher as a function that is cached
+	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock(imageBundles)
 	if err != nil {
 		return err
 	}

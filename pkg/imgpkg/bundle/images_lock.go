@@ -5,13 +5,10 @@ package bundle
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cppforlife/go-cli-ui/ui.UI
@@ -69,6 +66,7 @@ func (i ImageRefs) DeepCopy() ImageRefs {
 	return result
 }
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockLocationConfig
 type ImagesLockLocationConfig interface {
 	Fetch() (ImageLocationsConfig, error)
 }
@@ -136,21 +134,14 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
 	o.imageRefs.AddImagesRef(NewImageRef(ref.DeepCopy(), bundle))
 }
 
-func (o *ImagesLock) LocalizeImagesLock(bundle regname.Digest, imageBundles map[string]bool) (lockconfig.ImagesLock, bool, error) {
+func (o *ImagesLock) LocalizeImagesLock(imageBundles map[string]bool) (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
 	imagesLock := lockconfig.NewEmptyImagesLock()
 
 	skippedLocalization := false
 
-	logger := util.NewLogger(os.Stderr)
-	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-
-	fetch, err := NewLocations(levelLogger).Fetch(o.imgRetriever, bundle)
+	fetch, err := o.imagesLockLocationFetcher.Fetch()
 	if err != nil {
-		if _, ok := err.(*LocationsNotFound); !ok {
-			return lockconfig.ImagesLock{}, false, err
-		}
 		for _, imgRef := range o.imageRefs.ImageRefs() {
 			foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 			if err != nil {
@@ -171,34 +162,29 @@ func (o *ImagesLock) LocalizeImagesLock(bundle regname.Digest, imageBundles map[
 			})
 		}
 
-	} else {
-		// TODO: it is possible for locations OCI to have missing images. because of a bug now fixed.
-		imageRefs := []lockconfig.ImageRef{}
-		for _, image := range fetch.Images {
-			var annotations map[string]string
-			for _, imageLockImage := range o.imageRefs.ImageRefs() {
-				if imageLockImage.Image == image.Image {
-					annotations = imageLockImage.Annotations
-					break
-				}
+		if skippedLocalization {
+			imageRefs = []lockconfig.ImageRef{}
+			// Remove the bundle location on all the Images, which is present due to the constructor call to
+			// ImagesLock.generateImagesLocations
+			for _, image := range o.imageRefs.ImageRefs() {
+				imageRefs = append(imageRefs, image.DiscardLocationsExcept(image.Image))
 			}
-			imageRefs = append(imageRefs, lockconfig.ImageRef{
-				Image:       imageRelativeToBundle(image.Image, bundle.Repository.Name()),
-				Annotations: annotations,
-			})
-			imageBundles[image.Image] = image.IsBundle
 		}
+
 		imagesLock.Images = imageRefs
 		return imagesLock, skippedLocalization, nil
 	}
 
-	if skippedLocalization {
-		imageRefs = []lockconfig.ImageRef{}
-		// Remove the bundle location on all the Images, which is present due to the constructor call to
-		// ImagesLock.generateImagesLocations
-		for _, image := range o.imageRefs.ImageRefs() {
-			imageRefs = append(imageRefs, image.DiscardLocationsExcept(image.Image))
-		}
+	// TODO: it is possible for locations OCI to have missing images. because of a bug now fixed.
+	for _, image := range fetch.Images {
+		imageBundles[image.Image] = image.IsBundle
+	}
+
+	for _, imgRef := range o.imageRefs.ImageRefs() {
+		imageRefs = append(imageRefs, lockconfig.ImageRef{
+			Image:       imgRef.PrimaryLocation(),
+			Annotations: imgRef.Annotations,
+		})
 	}
 
 	imagesLock.Images = imageRefs
