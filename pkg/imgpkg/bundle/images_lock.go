@@ -69,20 +69,49 @@ func (i ImageRefs) DeepCopy() ImageRefs {
 	return result
 }
 
-func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) *ImagesLock {
+type ImagesLockLocationConfig interface {
+	Fetch() (ImageLocationsConfig, error)
+}
+
+func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string, imagesLockLocationConfig ImagesLockLocationConfig) *ImagesLock {
 	imageRefs := ImageRefs{}
 	for _, image := range imagesLock.Images {
 		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
 	}
 
-	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever}
+	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever, imagesLockLocationFetcher: imagesLockLocationConfig}
 	imgsLock.generateImagesLocations(relativeToRepo)
+
 	return imgsLock
 }
 
+func (o *ImagesLock) SyncImageRefs() error {
+	locationsConfig, err := o.imagesLockLocationFetcher.Fetch()
+	if _, ok := err.(*LocationsNotFound); ok {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	for _, imgRef := range o.imageRefs.ImageRefs() {
+		for _, imgLoc := range locationsConfig.Images {
+			if imgLoc.Image == imgRef.Image {
+				// We need to keep all the ImagesLock information and the only added pieces is if this image is a bundle or not
+				isBundle := imgLoc.IsBundle
+				imgRef.IsBundle = &isBundle
+			}
+		}
+	}
+
+	return nil
+}
+
 type ImagesLock struct {
-	imageRefs    ImageRefs
-	imgRetriever ctlimg.ImagesMetadata
+	imageRefs                 ImageRefs
+	imgRetriever              ctlimg.ImagesMetadata
+	imagesLockLocationFetcher ImagesLockLocationConfig
 }
 
 func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
