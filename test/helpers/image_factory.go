@@ -35,7 +35,7 @@ type ImageFactory struct {
 func (i *ImageFactory) ImageDigest(imgRef string) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)
-	img, err := remote.Image(imageRef)
+	img, err := remote.Image(imageRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(i.T, err)
 
 	digest, err := img.Digest()
