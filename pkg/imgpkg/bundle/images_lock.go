@@ -96,7 +96,6 @@ func (o *ImagesLock) SyncImageRefs() error {
 	for _, imgRef := range o.imageRefs.ImageRefs() {
 		for _, imgLoc := range locationsConfig.Images {
 			if imgLoc.Image == imgRef.Image {
-				// We need to keep all the ImagesLock information and the only added pieces is if this image is a bundle or not
 				isBundle := imgLoc.IsBundle
 				imgRef.IsBundle = &isBundle
 			}

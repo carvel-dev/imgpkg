@@ -140,12 +140,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	loggerBuilder := util.NewLogger(uiBlockWriter{ui})
 	locationFetcher := cachedLocationFetcher{
-		LocationFetcher{
+		LocationFetcher: LocationFetcher{
 			logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
 			imgRetriever:    o.imgRetriever,
 			bundleDigestRef: bundleDigestRef,
 		},
-		nil,
+		cachedResult: nil,
 	}
 
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
@@ -166,9 +166,9 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	if pullNestedBundles {
 		imageBundles := map[string]bool{}
-		fetch, err := locationFetcher.Fetch()
+		locationsConfig, err := locationFetcher.Fetch()
 		if err == nil {
-			for _, image := range fetch.Images {
+			for _, image := range locationsConfig.Images {
 				imageBundles[lock.imageRelativeToBundle(image.Image, o.Repo())] = image.IsBundle
 			}
 		}
@@ -275,12 +275,12 @@ func (c cachedLocationFetcher) Fetch() (ImageLocationsConfig, error) {
 	if c.cachedResult != nil {
 		return c.cachedResult.ImageLocationsConfig, c.cachedResult.error
 	}
-	fetch, err := c.LocationFetcher.Fetch()
+	locationsConfig, err := c.LocationFetcher.Fetch()
 	c.cachedResult = &struct {
 		ImageLocationsConfig
 		error
-	}{fetch, err}
-	return fetch, err
+	}{locationsConfig, err}
+	return locationsConfig, err
 }
 
 type uiBlockWriter struct {
