@@ -75,7 +75,7 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 		maxTimeCopyShouldTake = 8 * time.Minute.Nanoseconds()
 	}
 
-	require.Greaterf(t, maxTimeCopyShouldTake, actualTimeTaken, "copying a large bundle took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(maxTimeCopyShouldTake), time.Duration(actualTimeTaken))
+	require.Greaterf(t, maxTimeCopyShouldTake, actualTimeTaken, fmt.Sprintf("copying a large bundle took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(maxTimeCopyShouldTake), time.Duration(actualTimeTaken)))
 }
 
 func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
