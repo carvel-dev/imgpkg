@@ -120,17 +120,13 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations
 	// maybe we can move this functionality to the bundle in the future
-	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationFetcher{
+	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
 		logger:          logger,
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	})
 
-	err = currentImagesLock.SyncImageRefs()
-	if err != nil {
-		return ImageRefs{}, err
-	}
-	return currentImagesLock.ImageRefs(), nil
+	return currentImagesLock.ImageRefs()
 }
 
 func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, processedImgs *processedImages, levels util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
@@ -234,12 +230,12 @@ func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error)
 	return lockconfig.NewImagesLockFromBytes(bs)
 }
 
-type LocationFetcher struct {
+type LocationsConfig struct {
 	logger          util.LoggerWithLevels
 	imgRetriever    ctlimg.ImagesMetadata
 	bundleDigestRef regname.Digest
 }
 
-func (l LocationFetcher) Fetch() (ImageLocationsConfig, error) {
+func (l LocationsConfig) Config() (ImageLocationsConfig, error) {
 	return NewLocations(l.logger).Fetch(l.imgRetriever, l.bundleDigestRef)
 }

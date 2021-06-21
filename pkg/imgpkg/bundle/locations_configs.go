@@ -40,7 +40,7 @@ func (n LocationsNotFound) Error() string {
 	return fmt.Sprintf("Locations image in %s could not be found", n.image)
 }
 
-type Locations struct {
+type LocationsConfigs struct {
 	reader LocationImageReader
 	logger util.LoggerWithLevels
 }
@@ -49,15 +49,15 @@ type LocationImageReader interface {
 	Read(img regv1.Image) (ImageLocationsConfig, error)
 }
 
-func NewLocations(logger util.LoggerWithLevels) *Locations {
+func NewLocations(logger util.LoggerWithLevels) *LocationsConfigs {
 	return NewLocationsWithReader(&locationsSingleLayerReader{}, logger)
 }
 
-func NewLocationsWithReader(reader LocationImageReader, logger util.LoggerWithLevels) *Locations {
-	return &Locations{reader: reader, logger: logger}
+func NewLocationsWithReader(reader LocationImageReader, logger util.LoggerWithLevels) *LocationsConfigs {
+	return &LocationsConfigs{reader: reader, logger: logger}
 }
 
-func (r Locations) Fetch(registry image.ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
+func (r LocationsConfigs) Fetch(registry image.ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
 	r.logger.Tracef("fetching Locations OCI Images for bundle: %s\n", bundleRef)
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {
@@ -84,7 +84,7 @@ func (r Locations) Fetch(registry image.ImagesMetadata, bundleRef name.Digest) (
 	return cfg, err
 }
 
-func (r Locations) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, ui ui.UI) error {
+func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, ui ui.UI) error {
 	r.logger.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
 
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
@@ -112,7 +112,7 @@ func (r Locations) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config 
 	return nil
 }
 
-func (r Locations) locationsRefFromBundleRef(bundleRef name.Digest) (name.Tag, error) {
+func (r LocationsConfigs) locationsRefFromBundleRef(bundleRef name.Digest) (name.Tag, error) {
 	hash, err := regv1.NewHash(bundleRef.DigestStr())
 	if err != nil {
 		return name.Tag{}, err

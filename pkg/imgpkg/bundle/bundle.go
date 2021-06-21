@@ -139,15 +139,6 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	}
 
 	loggerBuilder := util.NewLogger(uiBlockWriter{ui})
-	locationFetcher := cachedLocationFetcher{
-		LocationFetcher{
-			logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
-			imgRetriever:    o.imgRetriever,
-			bundleDigestRef: bundleDigestRef,
-		},
-		nil,
-	}
-
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting bundle into directory: %s", err)
@@ -158,42 +149,39 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
-	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), locationFetcher)
-	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock()
+	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
+		logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
+		imgRetriever:    o.imgRetriever,
+		bundleDigestRef: bundleDigestRef,
+	})
+	bundleImgRefs, localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock()
 	if err != nil {
 		return err
 	}
 
 	if pullNestedBundles {
-		imageBundles := map[string]bool{}
-		fetch, err := locationFetcher.Fetch()
-		if err == nil {
-			for _, image := range fetch.Images {
-				imageBundles[lock.imageRelativeToBundle(image.Image, o.Repo())] = image.IsBundle
-			}
-		}
-
-		for _, image := range localizedImagesLockToRepo.Images {
-			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+		for _, bundleImgRef := range bundleImgRefs.ImageRefs() {
+			if isBundle, alreadyProcessedImage := imagesProcessed[bundleImgRef.Image]; alreadyProcessedImage {
 				if isBundle {
-					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
+					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", bundleImgRef.Image)
 					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
 				}
 				continue
 			}
 
-			var isBundle, ok bool
-			var subBundle *Bundle
-			subBundle = NewBundle(image.Image, o.imgRetriever)
+			subBundle := NewBundle(bundleImgRef.Image, o.imgRetriever)
 
-			if isBundle, ok = imageBundles[image.Image]; !ok {
+			var isBundle bool
+			if bundleImgRef.IsBundle != nil {
+				isBundle = *bundleImgRef.IsBundle
+			} else {
 				isBundle, err = subBundle.IsBundle()
 				if err != nil {
 					return err
 				}
 			}
 
-			imagesProcessed[image.Image] = isBundle
+			imagesProcessed[bundleImgRef.Image] = isBundle
 
 			if !isBundle {
 				continue
@@ -204,7 +192,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
 				ui.BeginLinef("\nNested bundles\n")
 			}
-			bundleDigest, err := regname.NewDigest(image.Image)
+			bundleDigest, err := regname.NewDigest(bundleImgRef.Image)
 			if err != nil {
 				return err
 			}
@@ -261,26 +249,6 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		panic("Unreachable")
 	}
 	return img, err
-}
-
-type cachedLocationFetcher struct {
-	LocationFetcher
-	cachedResult *struct {
-		ImageLocationsConfig
-		error
-	}
-}
-
-func (c cachedLocationFetcher) Fetch() (ImageLocationsConfig, error) {
-	if c.cachedResult != nil {
-		return c.cachedResult.ImageLocationsConfig, c.cachedResult.error
-	}
-	fetch, err := c.LocationFetcher.Fetch()
-	c.cachedResult = &struct {
-		ImageLocationsConfig
-		error
-	}{fetch, err}
-	return fetch, err
 }
 
 type uiBlockWriter struct {
