@@ -134,14 +134,16 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
 	o.imageRefs.AddImagesRef(NewImageRef(ref.DeepCopy(), bundle))
 }
 
-func (o *ImagesLock) LocalizeImagesLock(imageBundles map[string]bool) (lockconfig.ImagesLock, bool, error) {
+func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
 	imagesLock := lockconfig.NewEmptyImagesLock()
 
-	skippedLocalization := false
-
-	fetch, err := o.imagesLockLocationFetcher.Fetch()
+	_, err := o.imagesLockLocationFetcher.Fetch()
+	// location fetcher was unable to get the Location OCI. Either it is missing or there was an error fetching it
+	// Either way, revert back to checking if each image has been relocated to determine whether bundle should be Localized
 	if err != nil {
+		skippedLocalization := false
+
 		for _, imgRef := range o.imageRefs.ImageRefs() {
 			foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 			if err != nil {
@@ -175,11 +177,6 @@ func (o *ImagesLock) LocalizeImagesLock(imageBundles map[string]bool) (lockconfi
 		return imagesLock, skippedLocalization, nil
 	}
 
-	// TODO: it is possible for locations OCI to have missing images. because of a bug now fixed.
-	for _, image := range fetch.Images {
-		imageBundles[image.Image] = image.IsBundle
-	}
-
 	for _, imgRef := range o.imageRefs.ImageRefs() {
 		imageRefs = append(imageRefs, lockconfig.ImageRef{
 			Image:       imgRef.PrimaryLocation(),
@@ -188,7 +185,7 @@ func (o *ImagesLock) LocalizeImagesLock(imageBundles map[string]bool) (lockconfi
 	}
 
 	imagesLock.Images = imageRefs
-	return imagesLock, skippedLocalization, nil
+	return imagesLock, false, nil
 }
 
 func (o *ImagesLock) imageRelativeToBundle(img, relativeToRepo string) string {
