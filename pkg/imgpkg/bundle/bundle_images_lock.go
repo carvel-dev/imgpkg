@@ -106,16 +106,6 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	return bundles, processedImageRefs, nil
 }
 
-type LocationFetcher struct {
-	logger          util.LoggerWithLevels
-	imgRetriever    ctlimg.ImagesMetadata
-	bundleDigestRef regname.Digest
-}
-
-func (l LocationFetcher) Fetch() (ImageLocationsConfig, error) {
-	return NewLocations(l.logger).Fetch(l.imgRetriever, l.bundleDigestRef)
-}
-
 func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (ImageRefs, error) {
 	bundleDigestRef, err := regname.NewDigest(o.DigestRef())
 	if err != nil {
@@ -242,4 +232,14 @@ func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error)
 	}
 
 	return lockconfig.NewImagesLockFromBytes(bs)
+}
+
+type LocationFetcher struct {
+	logger          util.LoggerWithLevels
+	imgRetriever    ctlimg.ImagesMetadata
+	bundleDigestRef regname.Digest
+}
+
+func (l LocationFetcher) Fetch() (ImageLocationsConfig, error) {
+	return NewLocations(l.logger).Fetch(l.imgRetriever, l.bundleDigestRef)
 }

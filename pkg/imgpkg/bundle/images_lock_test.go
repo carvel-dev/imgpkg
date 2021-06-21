@@ -48,7 +48,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		})
 		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle", config)
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock(nil)
+		newImagesLock, skipped, err := subject.LocalizeImagesLock()
 		require.NoError(t, err)
 		assert.False(t, skipped)
 
@@ -78,7 +78,7 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		// Other calls will return the default empty Hash and nil error
 		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
 
-		newImagesLock, skipped, err := subject.LocalizeImagesLock(nil)
+		newImagesLock, skipped, err := subject.LocalizeImagesLock()
 		require.NoError(t, err)
 		assert.True(t, skipped)
 
