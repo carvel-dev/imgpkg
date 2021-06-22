@@ -10,8 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.5.0
 	github.com/mattn/go-isatty v0.0.13
 	github.com/mattn/go-runewidth v0.0.12 // indirect
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
-	github.com/onsi/gomega v1.10.4 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
