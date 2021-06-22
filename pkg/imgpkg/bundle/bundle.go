@@ -158,44 +158,36 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
-	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), locationFetcher)
-	localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock()
+	imageRefs := NewImageRefsFromLock(imagesLock)
+	imageRefsLocalized, err := imageRefs.LocalizeAndFindImages(o.imgRetriever, locationFetcher, o.Repo())
 	if err != nil {
-		return err
+		return fmt.Errorf("Localizing images: %s", err)
 	}
 
 	if pullNestedBundles {
-		imageBundles := map[string]bool{}
-		locationsConfig, err := locationFetcher.Fetch()
-		if err == nil {
-			for _, image := range locationsConfig.Images {
-				imageBundles[lock.imageRelativeToBundle(image.Image, o.Repo())] = image.IsBundle
-			}
-		}
-
-		for _, image := range localizedImagesLockToRepo.Images {
-			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+		for _, imgRef := range imageRefsLocalized.ImageRefs() {
+			if isBundle, alreadyProcessedImage := imagesProcessed[imgRef.Image]; alreadyProcessedImage {
 				if isBundle {
-					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
+					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", imgRef.Image)
 					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
 				}
 				continue
 			}
 
-			var isBundle, ok bool
-			var subBundle *Bundle
-			subBundle = NewBundle(image.Image, o.imgRetriever)
+			imgRef := imgRef.DeepCopy()
+			subBundle := NewBundle(imgRef.PrimaryLocation(), o.imgRetriever)
 
-			if isBundle, ok = imageBundles[image.Image]; !ok {
-				isBundle, err = subBundle.IsBundle()
+			if imgRef.IsBundle == nil {
+				isBundle, err := subBundle.IsBundle()
 				if err != nil {
 					return err
 				}
+				imgRef.IsBundle = &isBundle
 			}
 
-			imagesProcessed[image.Image] = isBundle
+			imagesProcessed[imgRef.Image] = *imgRef.IsBundle
 
-			if !isBundle {
+			if !*imgRef.IsBundle {
 				continue
 			}
 
@@ -204,7 +196,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
 				ui.BeginLinef("\nNested bundles\n")
 			}
-			bundleDigest, err := regname.NewDigest(image.Image)
+			bundleDigest, err := regname.NewDigest(imgRef.Image)
 			if err != nil {
 				return err
 			}
@@ -221,12 +213,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	}
 
 	imagesLockUI.BeginLinef("\nLocating image lock file images...\n")
-	if notLocalizedToBundle {
+	if !imageRefsLocalized.CollocatedWithBundle() {
 		imagesLockUI.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 	} else {
 		imagesLockUI.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
 
-		err := localizedImagesLockToRepo.WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
+		err := imageRefsLocalized.ImagesLock().WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 		if err != nil {
 			return fmt.Errorf("Rewriting image lock file: %s", err)
 		}

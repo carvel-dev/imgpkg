@@ -19,9 +19,27 @@ type ImageRef struct {
 }
 
 func (i ImageRef) DeepCopy() ImageRef {
+	var isBundle *bool
+	if i.IsBundle != nil {
+		tmp := *i.IsBundle
+		isBundle = &tmp
+	}
+
 	return ImageRef{
 		ImageRef: i.ImageRef.DeepCopy(),
-		IsBundle: i.IsBundle,
+		IsBundle: isBundle,
+	}
+}
+func (i ImageRef) DiscardLocationsExcept(viableLocation string) ImageRef {
+	var isBundle *bool
+	if i.IsBundle != nil {
+		tmp := *i.IsBundle
+		isBundle = &tmp
+	}
+
+	return ImageRef{
+		ImageRef: i.ImageRef.DiscardLocationsExcept(viableLocation),
+		IsBundle: isBundle,
 	}
 }
 func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
@@ -29,7 +47,22 @@ func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
 }
 
 type ImageRefs struct {
-	refs []ImageRef
+	refs                       []ImageRef
+	imagesCollocatedWithBundle *bool
+}
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockLocationConfig
+type ImagesLockLocationConfig interface {
+	Fetch() (ImageLocationsConfig, error)
+}
+
+func NewImageRefsFromLock(imagesLock lockconfig.ImagesLock) ImageRefs {
+	imageRefs := ImageRefs{}
+	for _, image := range imagesLock.Images {
+		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
+	}
+
+	return imageRefs
 }
 
 func (i *ImageRefs) AddImagesRef(refs ...ImageRef) {
@@ -63,134 +96,115 @@ func (i ImageRefs) ImageRefs() []ImageRef {
 func (i ImageRefs) DeepCopy() ImageRefs {
 	var result ImageRefs
 	result.AddImagesRef(i.ImageRefs()...)
+	imagesCollocatedWithBundle := *i.imagesCollocatedWithBundle
+	result.imagesCollocatedWithBundle = &imagesCollocatedWithBundle
 	return result
 }
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockLocationConfig
-type ImagesLockLocationConfig interface {
-	Fetch() (ImageLocationsConfig, error)
-}
-
-func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string, imagesLockLocationConfig ImagesLockLocationConfig) *ImagesLock {
-	imageRefs := ImageRefs{}
-	for _, image := range imagesLock.Images {
-		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
-	}
-
-	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever, imagesLockLocationFetcher: imagesLockLocationConfig}
-	imgsLock.generateImagesLocations(relativeToRepo)
-
-	return imgsLock
-}
-
-func (o *ImagesLock) SyncImageRefs() error {
-	locationsConfig, err := o.imagesLockLocationFetcher.Fetch()
-	if _, ok := err.(*LocationsNotFound); ok {
-		return nil
-	}
-
+func (i ImageRefs) LocalizeAndFindImages(imgRetriever ctlimg.ImagesMetadata, imagesLockLocationConfig ImagesLockLocationConfig, relativeToRepo string) (ImageRefs, error) {
+	imgRefs, err := i.LocalizeToBundle(imagesLockLocationConfig, relativeToRepo)
 	if err != nil {
-		return err
+		return ImageRefs{}, err
 	}
 
-	for _, imgRef := range o.imageRefs.ImageRefs() {
-		for _, imgLoc := range locationsConfig.Images {
-			if imgLoc.Image == imgRef.Image {
-				isBundle := imgLoc.IsBundle
-				imgRef.IsBundle = &isBundle
+	newStuff, err := imgRefs.imageRefsFound(imgRetriever)
+	if err != nil {
+		return ImageRefs{}, err
+	}
+
+	imagesCollocatedWithBundle := newStuff.CollocatedWithBundle()
+	if !imagesCollocatedWithBundle {
+		i.imagesCollocatedWithBundle = &imagesCollocatedWithBundle
+		return i.DeepCopy(), nil
+	}
+
+	return newStuff, nil
+}
+func (i ImageRefs) LocalizeToBundle(imagesLockLocationConfig ImagesLockLocationConfig, relativeToRepo string) (ImageRefs, error) {
+	locationsFound := true
+	locationsConfig, err := imagesLockLocationConfig.Fetch()
+	if err != nil {
+		if _, ok := err.(*LocationsNotFound); !ok {
+			return ImageRefs{}, err
+		}
+
+		locationsFound = false
+	}
+
+	imageRefs := ImageRefs{}
+
+	for _, imgRef := range i.refs {
+		imgRef := imgRef.DeepCopy()
+		if locationsFound {
+			for _, imgLoc := range locationsConfig.Images {
+				if imgLoc.Image == imgRef.Image {
+					isBundle := imgLoc.IsBundle
+					imgRef.IsBundle = &isBundle
+				}
 			}
 		}
-	}
-
-	return nil
-}
-
-type ImagesLock struct {
-	imageRefs                 ImageRefs
-	imgRetriever              ctlimg.ImagesMetadata
-	imagesLockLocationFetcher ImagesLockLocationConfig
-}
-
-func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
-	result := ImageRefs{}
-	for _, imgRef := range o.imageRefs.ImageRefs() {
-		imageInBundleRepo := o.imageRelativeToBundle(imgRef.Image, relativeToRepo)
+		imageInBundleRepo := i.imageRelativeToBundle(imgRef.Image, relativeToRepo)
 		imgRef.AddLocation(imageInBundleRepo)
 
-		result.AddImagesRef(imgRef)
+		imageRefs.AddImagesRef(imgRef)
 	}
-	o.imageRefs = result
+
+	return imageRefs, nil
 }
-
-func (o ImagesLock) ImageRefs() ImageRefs {
-	return o.imageRefs
+func (i ImageRefs) imageRelativeToBundle(img, relativeToRepo string) string {
+	imgParts := strings.Split(img, "@")
+	if len(imgParts) != 2 {
+		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", img))
+	}
+	return relativeToRepo + "@" + imgParts[1]
 }
-func (o *ImagesLock) Merge(imgLock *ImagesLock) {
-	o.imageRefs.AddImagesRef(imgLock.imageRefs.ImageRefs()...)
-}
+func (i ImageRefs) imageRefsFound(imgRetriever ctlimg.ImagesMetadata) (ImageRefs, error) {
+	if i.imagesCollocatedWithBundle != nil {
+		return i.DeepCopy(), nil
+	}
 
-func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
-	o.imageRefs.AddImagesRef(NewImageRef(ref.DeepCopy(), bundle))
-}
-
-func (o *ImagesLock) LocalizeImagesLock() (lockconfig.ImagesLock, bool, error) {
-	var imageRefs []lockconfig.ImageRef
-	imagesLock := lockconfig.NewEmptyImagesLock()
-
-	_, err := o.imagesLockLocationFetcher.Fetch()
-	// location fetcher was unable to get the Location OCI. Either it is missing or there was an error fetching it
-	// Either way, revert back to checking if each image has been relocated to determine whether bundle should be Localized
-	if err != nil {
-		skippedLocalization := false
-
-		for _, imgRef := range o.imageRefs.ImageRefs() {
-			foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
+	imageRefs := ImageRefs{}
+	imagesCollocatedWithBundle := true
+	for _, imgRef := range i.refs {
+		imgRef := imgRef.DeepCopy()
+		if imgRef.IsBundle == nil {
+			foundImg, err := imgRetriever.FirstImageExists(imgRef.Locations())
 			if err != nil {
-				return lockconfig.ImagesLock{}, false, err
+				return ImageRefs{}, err
 			}
 
 			// If cannot find the image in the bundle repo, will not localize any image
 			// We assume that the bundle was not copied to the bundle location,
 			// so there we cannot localize any image
 			if foundImg != imgRef.PrimaryLocation() {
-				skippedLocalization = true
+				imagesCollocatedWithBundle = false
 				break
 			}
 
-			imageRefs = append(imageRefs, lockconfig.ImageRef{
-				Image:       foundImg,
-				Annotations: imgRef.Annotations,
-			})
+			imgRef = imgRef.DiscardLocationsExcept(foundImg)
 		}
 
-		if skippedLocalization {
-			imageRefs = []lockconfig.ImageRef{}
-			// Remove the bundle location on all the Images, which is present due to the constructor call to
-			// ImagesLock.generateImagesLocations
-			for _, image := range o.imageRefs.ImageRefs() {
-				imageRefs = append(imageRefs, image.DiscardLocationsExcept(image.Image))
-			}
-		}
-
-		imagesLock.Images = imageRefs
-		return imagesLock, skippedLocalization, nil
+		imageRefs.AddImagesRef(imgRef)
 	}
 
-	for _, imgRef := range o.imageRefs.ImageRefs() {
-		imageRefs = append(imageRefs, lockconfig.ImageRef{
-			Image:       imgRef.PrimaryLocation(),
-			Annotations: imgRef.Annotations,
-		})
+	if !imagesCollocatedWithBundle {
+		i.imagesCollocatedWithBundle = &imagesCollocatedWithBundle
+		return i.DeepCopy(), nil
 	}
 
-	imagesLock.Images = imageRefs
-	return imagesLock, false, nil
+	imageRefs.imagesCollocatedWithBundle = &imagesCollocatedWithBundle
+
+	return imageRefs, nil
 }
-
-func (o *ImagesLock) imageRelativeToBundle(img, relativeToRepo string) string {
-	imgParts := strings.Split(img, "@")
-	if len(imgParts) != 2 {
-		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", img))
+func (i ImageRefs) CollocatedWithBundle() bool {
+	if i.imagesCollocatedWithBundle == nil {
+		return false
 	}
-	return relativeToRepo + "@" + imgParts[1]
+	return *i.imagesCollocatedWithBundle
+}
+func (i ImageRefs) ImagesLock() lockconfig.ImagesLock {
+	imgLock := lockconfig.NewEmptyImagesLock()
+	for _, ref := range i.refs {
+		imgLock.AddImageRef(ref.ImageRef)
+	}
+	return imgLock
 }
