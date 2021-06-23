@@ -10,6 +10,6 @@ then
     GO=richgo
 fi
 
-$GO test ./pkg/... -test.v $@
+$GO test -race ./pkg/... -test.v $@
 
 echo UNIT SUCCESS

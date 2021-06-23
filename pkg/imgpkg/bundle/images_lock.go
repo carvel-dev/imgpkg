@@ -6,6 +6,7 @@ package bundle
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -30,9 +31,19 @@ func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
 
 type ImageRefs struct {
 	refs []ImageRef
+	*sync.Mutex
+}
+
+func NewImageRefs() ImageRefs {
+	return ImageRefs{
+		Mutex: &sync.Mutex{},
+	}
 }
 
 func (i *ImageRefs) AddImagesRef(refs ...ImageRef) {
+	i.Lock()
+	defer i.Unlock()
+
 	for _, ref := range refs {
 		found := false
 		for j, imageRef := range i.refs {
@@ -61,7 +72,7 @@ func (i ImageRefs) ImageRefs() []ImageRef {
 	return i.refs
 }
 func (i ImageRefs) DeepCopy() ImageRefs {
-	var result ImageRefs
+	var result = NewImageRefs()
 	result.AddImagesRef(i.ImageRefs()...)
 	return result
 }
@@ -80,7 +91,7 @@ type ImagesLockLocationsConfig interface {
 }
 
 func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesMetadata, relativeToRepo string, imagesLockLocationConfig ImagesLockLocationsConfig) *ImagesLock {
-	imageRefs := ImageRefs{}
+	imageRefs := NewImageRefs()
 	for _, image := range imagesLock.Images {
 		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
 	}
@@ -98,7 +109,8 @@ type ImagesLock struct {
 }
 
 func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
-	result := ImageRefs{}
+	result := NewImageRefs()
+
 	for _, imgRef := range o.imageRefs.ImageRefs() {
 		imageInBundleRepo := o.imageRelativeToBundle(imgRef.Image, relativeToRepo)
 		imgRef.AddLocation(imageInBundleRepo)
@@ -143,7 +155,7 @@ func (o *ImagesLock) AddImageRef(ref lockconfig.ImageRef, bundle bool) {
 
 func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, bool, error) {
 	var imageRefs []lockconfig.ImageRef
-	bundleImageRefs := ImageRefs{}
+	bundleImageRefs := NewImageRefs()
 	imagesLock := lockconfig.NewEmptyImagesLock()
 
 	refs, err := o.ImageRefs()
@@ -185,7 +197,7 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 
 		if skippedLocalization {
 			imageRefs = []lockconfig.ImageRef{}
-			bundleImageRefs = ImageRefs{}
+			bundleImageRefs = NewImageRefs()
 			// Remove the bundle location on all the Images, which is present due to the constructor call to
 			// ImagesLock.generateImagesLocations
 			for _, image := range o.imageRefs.ImageRefs() {
