@@ -9,12 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
@@ -120,41 +120,13 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations
 	// maybe we can move this functionality to the bundle in the future
-	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo())
-	imageRefsToProcess := currentImagesLock.ImageRefs()
+	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
+		logger:          logger,
+		imgRetriever:    o.imgRetriever,
+		bundleDigestRef: bundleDigestRef,
+	})
 
-	locationsConfig, err := NewLocations(logger).Fetch(o.imgRetriever, bundleDigestRef)
-	if err == nil {
-		imageRefsToProcess = o.processLocations(imageRefsToProcess, locationsConfig)
-	} else if _, ok := err.(*LocationsNotFound); !ok {
-		return ImageRefs{}, err
-	}
-	return imageRefsToProcess, nil
-}
-
-func (o *Bundle) processLocations(imageRefs ImageRefs, locationsConfig ImageLocationsConfig) ImageRefs {
-	unprocessedImageRefs := imageRefs.DeepCopy()
-	for _, imgRef := range imageRefs.ImageRefs() {
-		for _, imgLoc := range locationsConfig.Images {
-			if imgLoc.Image == imgRef.Image {
-				// We need to keep all the ImagesLock information and the only added pieces are the new location and
-				// if this image is a bundle or not
-				imgRef := imgRef.DeepCopy()
-				isBundle := imgLoc.IsBundle
-				imgRef.IsBundle = &isBundle
-
-				imgParts := strings.Split(imgLoc.Image, "@")
-				if len(imgParts) != 2 {
-					panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", imgLoc.Image))
-				}
-				imgRef.AddLocation(o.Repo() + "@" + imgParts[1])
-
-				unprocessedImageRefs.AddImagesRef(imgRef)
-			}
-		}
-	}
-
-	return unprocessedImageRefs
+	return currentImagesLock.ImageRefs()
 }
 
 func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, processedImgs *processedImages, levels util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
@@ -256,4 +228,14 @@ func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error)
 	}
 
 	return lockconfig.NewImagesLockFromBytes(bs)
+}
+
+type LocationsConfig struct {
+	logger          util.LoggerWithLevels
+	imgRetriever    ctlimg.ImagesMetadata
+	bundleDigestRef regname.Digest
+}
+
+func (l LocationsConfig) Config() (ImageLocationsConfig, error) {
+	return NewLocations(l.logger).Fetch(l.imgRetriever, l.bundleDigestRef)
 }

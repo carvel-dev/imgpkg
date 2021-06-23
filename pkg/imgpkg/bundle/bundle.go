@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -132,6 +133,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		ui.BeginLinef("Pulling nested bundle '%s'\n", o.DigestRef())
 	}
 
+	bundleDigestRef, err := regname.NewDigest(o.plainImg.DigestRef())
+	if err != nil {
+		return err
+	}
+
+	loggerBuilder := util.NewLogger(uiBlockWriter{ui})
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
 		return fmt.Errorf("Extracting bundle into directory: %s", err)
@@ -142,27 +149,39 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
-	localizedImagesLockToRepo, notLocalizedToBundle, err := NewImagesLock(imagesLock, o.imgRetriever, o.Repo()).LocalizeImagesLock()
+	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
+		logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
+		imgRetriever:    o.imgRetriever,
+		bundleDigestRef: bundleDigestRef,
+	})
+	bundleImgRefs, localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock()
 	if err != nil {
 		return err
 	}
 
 	if pullNestedBundles {
-		for _, image := range localizedImagesLockToRepo.Images {
-			if isBundle, alreadyProcessedImage := imagesProcessed[image.Image]; alreadyProcessedImage {
+		for _, bundleImgRef := range bundleImgRefs.ImageRefs() {
+			if isBundle, alreadyProcessedImage := imagesProcessed[bundleImgRef.Image]; alreadyProcessedImage {
 				if isBundle {
-					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", image.Image)
+					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", bundleImgRef.Image)
 					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
 				}
 				continue
 			}
 
-			subBundle := NewBundle(image.Image, o.imgRetriever)
-			isBundle, err := subBundle.IsBundle()
-			if err != nil {
-				return err
+			subBundle := NewBundle(bundleImgRef.Image, o.imgRetriever)
+
+			var isBundle bool
+			if bundleImgRef.IsBundle != nil {
+				isBundle = *bundleImgRef.IsBundle
+			} else {
+				isBundle, err = subBundle.IsBundle()
+				if err != nil {
+					return err
+				}
 			}
-			imagesProcessed[image.Image] = isBundle
+
+			imagesProcessed[bundleImgRef.Image] = isBundle
 
 			if !isBundle {
 				continue
@@ -173,7 +192,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
 				ui.BeginLinef("\nNested bundles\n")
 			}
-			bundleDigest, err := regname.NewDigest(image.Image)
+			bundleDigest, err := regname.NewDigest(bundleImgRef.Image)
 			if err != nil {
 				return err
 			}
@@ -230,4 +249,15 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 		panic("Unreachable")
 	}
 	return img, err
+}
+
+type uiBlockWriter struct {
+	ui goui.UI
+}
+
+var _ io.Writer = uiBlockWriter{}
+
+func (w uiBlockWriter) Write(p []byte) (n int, err error) {
+	w.ui.PrintBlock(p)
+	return len(p), nil
 }
