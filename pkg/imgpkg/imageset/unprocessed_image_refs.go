@@ -6,6 +6,7 @@ package imageset
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 )
@@ -17,15 +18,18 @@ type UnprocessedImageRef struct {
 
 type UnprocessedImageRefs struct {
 	imgRefs map[UnprocessedImageRef]struct{}
+	sync.Mutex
 }
 
 func NewUnprocessedImageRefs() *UnprocessedImageRefs {
-	return &UnprocessedImageRefs{map[UnprocessedImageRef]struct{}{}}
+	return &UnprocessedImageRefs{imgRefs: map[UnprocessedImageRef]struct{}{}}
 }
 
 func (i *UnprocessedImageRefs) Add(imgRef UnprocessedImageRef) {
 	imgRef.Validate()
 
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 	i.imgRefs[imgRef] = struct{}{}
 }
 

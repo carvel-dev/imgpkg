@@ -53,7 +53,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, ImageRefs{}, err
 	}
 
-	processedImageRefs := ImageRefs{}
+	processedImageRefs := NewImageRefs()
 	bundles := []*Bundle{o}
 
 	errChan := make(chan error, len(imageRefsToProcess.ImageRefs()))
