@@ -94,6 +94,81 @@ func TestImagesLock_LocalizeImagesLock(t *testing.T) {
 		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", bundleImgRefs.ImageRefs()[0].PrimaryLocation())
 		assert.Equal(t, "some.repo.io/img2@sha256:45f3926bca9fc42adb650fef2a41250d77841dde49afc8adc7c0c633b3d5f27a", bundleImgRefs.ImageRefs()[1].PrimaryLocation())
 	})
+
+	t.Run("When one images is present twice without locations OCI Image, it returns the ImagesLock with both images", func(t *testing.T) {
+		imagesLock := lockconfig.ImagesLock{
+			Images: []lockconfig.ImageRef{
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+					Annotations: map[string]string{
+						"annot": "1",
+					},
+				},
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+					Annotations: map[string]string{
+						"annot": "2",
+					},
+				},
+			},
+		}
+		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
+			StatusCode: http.StatusNotFound,
+		})
+
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle", config)
+
+		// Other calls will return the default empty Hash and nil error
+		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
+
+		_, newImagesLock, _, err := subject.LocalizeImagesLock()
+		require.NoError(t, err)
+
+		require.Len(t, newImagesLock.Images, 2)
+		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[0].PrimaryLocation())
+		assert.Equal(t, "1", newImagesLock.Images[0].Annotations["annot"])
+		assert.Equal(t, "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[1].PrimaryLocation())
+		assert.Equal(t, "2", newImagesLock.Images[1].Annotations["annot"])
+	})
+
+	t.Run("When one images is present twice with locations OCI Image, it returns the ImagesLock with both images", func(t *testing.T) {
+		imagesLock := lockconfig.ImagesLock{
+			Images: []lockconfig.ImageRef{
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+					Annotations: map[string]string{
+						"annot": "1",
+					},
+				},
+				{
+					Image: "some.repo.io/img1@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80",
+					Annotations: map[string]string{
+						"annot": "2",
+					},
+				},
+			},
+		}
+		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
+			StatusCode: http.StatusOK,
+		})
+		config.FetchReturns(ctlbundle.ImageLocationsConfig{}, nil)
+
+		subject := ctlbundle.NewImagesLock(imagesLock, fakeImagesMetadata, "some.repo.io/bundle", config)
+
+		// Other calls will return the default empty Hash and nil error
+		fakeImagesMetadata.DigestReturnsOnCall(1, regv1.Hash{}, errors.New("not found"))
+
+		_, newImagesLock, _, err := subject.LocalizeImagesLock()
+		require.NoError(t, err)
+
+		require.Len(t, newImagesLock.Images, 2)
+		assert.Equal(t, "some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[0].PrimaryLocation())
+		assert.Equal(t, "1", newImagesLock.Images[0].Annotations["annot"])
+		assert.Equal(t, "some.repo.io/bundle@sha256:27fde5fa39e3c97cb1e5dabfb664784b605a592d5d2df5482d744742efebba80", newImagesLock.Images[1].PrimaryLocation())
+		assert.Equal(t, "2", newImagesLock.Images[1].Annotations["annot"])
+	})
 }
 
 func TestImagesLock_Merge(t *testing.T) {

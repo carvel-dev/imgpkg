@@ -96,7 +96,7 @@ func NewImagesLock(imagesLock lockconfig.ImagesLock, imgRetriever ctlimg.ImagesM
 		imageRefs.AddImagesRef(ImageRef{ImageRef: image, IsBundle: nil})
 	}
 
-	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever, imagesLockLocationsConfig: imagesLockLocationConfig}
+	imgsLock := &ImagesLock{imageRefs: imageRefs, imgRetriever: imgRetriever, imagesLockLocationsConfig: imagesLockLocationConfig, imagesLock: imagesLock}
 	imgsLock.generateImagesLocations(relativeToRepo)
 
 	return imgsLock
@@ -106,6 +106,7 @@ type ImagesLock struct {
 	imageRefs                 ImageRefs
 	imgRetriever              ctlimg.ImagesMetadata
 	imagesLockLocationsConfig ImagesLockLocationsConfig
+	imagesLock                lockconfig.ImagesLock
 }
 
 func (o *ImagesLock) generateImagesLocations(relativeToRepo string) {
@@ -158,9 +159,9 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 	bundleImageRefs := NewImageRefs()
 	imagesLock := lockconfig.NewEmptyImagesLock()
 
-	refs, err := o.ImageRefs()
+	err := o.syncImageRefs()
 	if err != nil {
-		return bundleImageRefs, lockconfig.ImagesLock{}, false, err
+		return ImageRefs{}, lockconfig.ImagesLock{}, false, err
 	}
 
 	_, err = o.imagesLockLocationsConfig.Config()
@@ -169,7 +170,12 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 	if err != nil {
 		skippedLocalization := false
 
-		for _, imgRef := range refs.ImageRefs() {
+		for _, img := range o.imagesLock.Images {
+			imgRef, ok := o.imageRefs.Find(img.Image)
+			if !ok {
+				panic(fmt.Errorf("Internal inconsistency: '%s' could not be found", img.Image))
+			}
+
 			foundImg, err := o.imgRetriever.FirstImageExists(imgRef.Locations())
 			if err != nil {
 				return bundleImageRefs, lockconfig.ImagesLock{}, false, err
@@ -185,7 +191,7 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 
 			lockImgRef := lockconfig.ImageRef{
 				Image:       foundImg,
-				Annotations: imgRef.Annotations,
+				Annotations: img.Annotations,
 			}
 
 			imageRefs = append(imageRefs, lockImgRef)
@@ -200,13 +206,16 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 			bundleImageRefs = NewImageRefs()
 			// Remove the bundle location on all the Images, which is present due to the constructor call to
 			// ImagesLock.generateImagesLocations
-			for _, image := range o.imageRefs.ImageRefs() {
-				lockImgRef := image.DiscardLocationsExcept(image.Image)
+			for _, image := range o.imagesLock.Images {
+				imgRef, ok := o.imageRefs.Find(image.Image)
+				if !ok {
+					panic(fmt.Errorf("Internal inconsistency: '%s' could not be found", image.Image))
+				}
 
-				imageRefs = append(imageRefs, lockImgRef)
+				imageRefs = append(imageRefs, image)
 				bundleImageRefs.AddImagesRef(ImageRef{
-					ImageRef: lockImgRef,
-					IsBundle: image.IsBundle,
+					ImageRef: image,
+					IsBundle: imgRef.IsBundle,
 				})
 			}
 		}
@@ -216,10 +225,15 @@ func (o *ImagesLock) LocalizeImagesLock() (ImageRefs, lockconfig.ImagesLock, boo
 	}
 
 	// Location OCI for bundle was found. Assume that images in images.yml have been relocated to the dst repo.
-	for _, imgRef := range refs.ImageRefs() {
+	for _, img := range o.imagesLock.Images {
+		imgRef, ok := o.imageRefs.Find(img.Image)
+		if !ok {
+			panic(fmt.Errorf("Internal inconsistency: '%s' could not be found", img.Image))
+		}
+
 		lockImgRef := lockconfig.ImageRef{
 			Image:       imgRef.PrimaryLocation(),
-			Annotations: imgRef.Annotations,
+			Annotations: img.Annotations,
 		}
 
 		imageRefs = append(imageRefs, lockImgRef)
