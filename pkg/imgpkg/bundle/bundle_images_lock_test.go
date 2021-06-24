@@ -1225,6 +1225,7 @@ func createImagesAndBundles(t *testing.T, imageTree *imageTree, imgNode *imageNo
 	}
 }
 func runAssertions(t *testing.T, assertions []imgAssertion, result bundle.ImageRefs, imagesTree *imageTree) {
+	t.Helper()
 	assert.Len(t, result.ImageRefs(), len(assertions))
 	for _, expectation := range assertions {
 		foundImg := false

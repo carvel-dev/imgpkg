@@ -149,18 +149,22 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return err
 	}
 
-	lock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
+	bundleImageRefs, err := NewImageRefs(imagesLock, LocationsConfig{
 		logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	})
-	bundleImgRefs, localizedImagesLockToRepo, notLocalizedToBundle, err := lock.LocalizeImagesLock()
+	if err != nil {
+		return err
+	}
+
+	isRelocatedToBundle, err := bundleImageRefs.UpdateRelativeToRepo(o.imgRetriever, o.Repo())
 	if err != nil {
 		return err
 	}
 
 	if pullNestedBundles {
-		for _, bundleImgRef := range bundleImgRefs.ImageRefs() {
+		for _, bundleImgRef := range bundleImageRefs.ImageRefs() {
 			if isBundle, alreadyProcessedImage := imagesProcessed[bundleImgRef.Image]; alreadyProcessedImage {
 				if isBundle {
 					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", bundleImgRef.Image)
@@ -169,7 +173,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 				continue
 			}
 
-			subBundle := NewBundle(bundleImgRef.Image, o.imgRetriever)
+			subBundle := NewBundle(bundleImgRef.PrimaryLocation(), o.imgRetriever)
 
 			var isBundle bool
 			if bundleImgRef.IsBundle != nil {
@@ -209,12 +213,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	}
 
 	imagesLockUI.BeginLinef("\nLocating image lock file images...\n")
-	if notLocalizedToBundle {
+	if !isRelocatedToBundle {
 		imagesLockUI.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 	} else {
 		imagesLockUI.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
 
-		err := localizedImagesLockToRepo.WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
+		err := bundleImageRefs.ImagesLock().WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 		if err != nil {
 			return fmt.Errorf("Rewriting image lock file: %s", err)
 		}
