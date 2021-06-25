@@ -117,14 +117,24 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
-	return o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
-}
-
-func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string,
-	imagesProcessed map[string]bool, numSubBundles int) error {
-	img, err := o.checkedImage()
+	isRootBundleRelocated, err := o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 	if err != nil {
 		return err
+	}
+
+	ui.BeginLinef("\nLocating image lock file images...\n")
+	if isRootBundleRelocated {
+		ui.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
+	} else {
+		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
+	}
+	return nil
+}
+
+func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) (bool, error) {
+	img, err := o.checkedImage()
+	if err != nil {
+		return false, err
 	}
 
 	if o.rootBundle(bundlePath) {
@@ -135,18 +145,18 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 
 	bundleDigestRef, err := regname.NewDigest(o.plainImg.DigestRef())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	loggerBuilder := util.NewLogger(uiBlockWriter{ui})
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
-		return fmt.Errorf("Extracting bundle into directory: %s", err)
+		return false, fmt.Errorf("Extracting bundle into directory: %s", err)
 	}
 
 	imagesLock, err := lockconfig.NewImagesLockFromPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	bundleImageRefs, err := NewImageRefs(imagesLock, LocationsConfig{
@@ -155,12 +165,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		bundleDigestRef: bundleDigestRef,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	isRelocatedToBundle, err := bundleImageRefs.UpdateRelativeToRepo(o.imgRetriever, o.Repo())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if pullNestedBundles {
@@ -181,7 +191,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			} else {
 				isBundle, err = subBundle.IsBundle()
 				if err != nil {
-					return err
+					return false, err
 				}
 			}
 
@@ -198,33 +208,23 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			}
 			bundleDigest, err := regname.NewDigest(bundleImgRef.Image)
 			if err != nil {
-				return err
+				return false, err
 			}
-			err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			_, err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
 			if err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 
-	imagesLockUI := ui
-	if !o.rootBundle(bundlePath) {
-		imagesLockUI = goui.NewNoopUI()
-	}
-
-	imagesLockUI.BeginLinef("\nLocating image lock file images...\n")
-	if !isRelocatedToBundle {
-		imagesLockUI.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
-	} else {
-		imagesLockUI.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
-
+	if isRelocatedToBundle {
 		err := bundleImageRefs.ImagesLock().WriteToPath(filepath.Join(baseOutputPath, bundlePath, ImgpkgDir, ImagesLockFile))
 		if err != nil {
-			return fmt.Errorf("Rewriting image lock file: %s", err)
+			return false, fmt.Errorf("Rewriting image lock file: %s", err)
 		}
 	}
 
-	return nil
+	return isRelocatedToBundle, nil
 }
 
 func (*Bundle) subBundlePath(bundleDigest regname.Digest) string {

@@ -47,6 +47,7 @@ func (i *ImageRef) replaceImageRepo(relativeToRepo string) string {
 type ImageRefs struct {
 	refs                 []ImageRef
 	imageLocationsConfig *ImageLocationsConfig
+	originalImagesLock   lockconfig.ImagesLock
 
 	*sync.Mutex
 }
@@ -59,7 +60,8 @@ func NewEmptyImageRefs() ImageRefs {
 
 func NewImageRefs(imagesLock lockconfig.ImagesLock, imagesLockLocationConfig ImagesLockLocationsConfig) (ImageRefs, error) {
 	imageRefs := ImageRefs{
-		Mutex: &sync.Mutex{},
+		Mutex:              &sync.Mutex{},
+		originalImagesLock: imagesLock,
 	}
 	for _, lockImgRef := range imagesLock.Images {
 		imageRefs.AddImagesRef(ImageRef{
@@ -145,9 +147,18 @@ func (i *ImageRefs) MarkAsBundle(image string, isBundle bool) {
 }
 func (i ImageRefs) ImagesLock() lockconfig.ImagesLock {
 	imgLock := lockconfig.NewEmptyImagesLock()
-	for _, ref := range i.refs {
-		imgLock.AddImageRef(ref.ImageRef)
+	for _, originalImg := range i.originalImagesLock.Images {
+		ref, found := i.Find(originalImg.Image)
+		if !found {
+			panic(fmt.Errorf("Internal inconsistency: '%s' could not be found", originalImg.Image))
+		}
+
+		imgLock.Images = append(imgLock.Images, lockconfig.ImageRef{
+			Image:       ref.PrimaryLocation(),
+			Annotations: originalImg.Annotations,
+		})
 	}
+
 	return imgLock
 }
 func (i ImageRefs) ImageRefs() []ImageRef {
