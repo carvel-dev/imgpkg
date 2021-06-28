@@ -36,6 +36,15 @@ archives:
       linux: Linux
       windows: Windows
       amd64: x86_64
+  - id: imgpkg-zip
+    format: zip
+    files:
+      - none*
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      amd64: x86_64
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
@@ -81,3 +90,95 @@ changelog:
     exclude:
       - '^docs:'
       - typo
+brews:
+  -
+    # Name template of the recipe
+    # Default to project name
+    name: imgpkg
+
+    # IDs of the archives to use.
+    # Defaults to all.
+    ids:
+      - imgpkg-zip
+
+    tap:
+      owner: vmware-tanzu
+      name: carvel-imgpkg
+
+    # Template for the url which is determined by the given Token (github or gitlab)
+    # Default for github is "https://github.com/<repo_owner>/<repo_name>/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    # url_template: "https://github.com/<repo_owner>/<repo_name>/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+
+    # Allows you to set a custom download strategy. Note that you'll need
+    # to implement the strategy and add it to your tap repository.
+    # Example: https://docs.brew.sh/Formula-Cookbook#specifying-the-download-strategy-explicitly
+    # Default is empty.
+    # download_strategy: CurlDownloadStrategy
+
+    # Allows you to add a custom require_relative at the top of the formula template
+    # Default is empty
+    custom_require: ""
+
+    # Git author used to commit to the repository.
+    commit_author:
+      name: goreleaserbot
+      email: carvel@vmware.com
+
+    # Folder inside the repository to put the formula.
+    # Default is the root folder.
+    folder: Formula
+
+    # Caveats for the user of your binary.
+    # Default is empty.
+    caveats: ""
+
+    # Your app's homepage.
+    # Default is empty.
+    homepage: "https://carvel.dev/imgpkg/"
+
+    # Template of your app's description.
+    # Default is empty.
+    description: "Imgpkg"
+
+    # SPDX identifier of your app's license.
+    # Default is empty.
+    license: ""
+
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # formula - instead, the formula file will be stored on the dist folder only,
+    # leaving the responsibility of publishing it to the user.
+    # If set to auto, the release will not be uploaded to the homebrew tap
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    # Default is false.
+    skip_upload: true
+
+    # Custom block for brew.
+    # Can be used to specify alternate downloads for devel or head releases.
+    # Default is empty.
+    custom_block: ""
+
+    # Packages your package depends on.
+    dependencies: []
+
+    # Packages that conflict with your package.
+    conflicts: []
+
+    # Specify for packages that run as a service.
+    # Default is empty.
+    plist: ""
+
+    # So you can `brew test` your formula.
+    # Default is empty.
+    test: |
+      system "#{bin}/imgpkg", "version"
+
+    # Custom install script for brew.
+    # Default is 'bin.install "program"'.
+    install: |
+      system "mv imgpkg-* imgpkg"
+      bin.install "imgpkg"
+
+    # Custom post_install script for brew.
+    # Could be used to do any additional work after the "install" script
+    # Default is empty.
+    post_install: ""

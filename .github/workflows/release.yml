@@ -98,3 +98,31 @@ jobs:
           ${{steps.get-checksums-from-draft-release.outputs.result}}
           EOF
           )
+
+      - name: imgpkg Formula
+        id: get-homebrew-formula
+        run: |
+          echo 'HOMEBREW_FORMULA<<EOF' >> $GITHUB_ENV
+          cat ./dist/imgpkg.rb | sed 's/"/\\"/g' >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+          repository: vmware-tanzu/homebrew-carvel
+          ref: develop
+      - name: Update homebrew
+        run: |
+          cat ./imgpkg.rb
+          echo "${{ env.HOMEBREW_FORMULA }}" > ./imgpkg.rb
+          cat ./imgpkg.rb
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+        with:
+          author_name: "k8slt"
+          author_email: "klt@groups.vmware.com"
+          repository: "vmware-tanzu/homebrew-carvel"
+          branch: "imgpkg-homebrew"
+          force: true
+          github_token: ${{ secrets.HOMEBREW_TOKEN }}
