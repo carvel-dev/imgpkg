@@ -45,7 +45,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 		fakeImagesMetadata.FirstImageExistsCalls(func(strings []string) (string, error) {
 			return strings[0], nil
 		})
-		subject, err := ctlbundle.NewImageRefs(imagesLock, config)
+		subject, err := ctlbundle.NewImageRefsFromImagesLock(imagesLock, config)
 		require.NoError(t, err)
 
 		colocated, err := subject.UpdateRelativeToRepo(fakeImagesMetadata, "some.repo.io/bundle")
@@ -78,7 +78,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 			StatusCode: http.StatusNotFound,
 		})
 
-		subject, err := ctlbundle.NewImageRefs(imagesLock, config)
+		subject, err := ctlbundle.NewImageRefsFromImagesLock(imagesLock, config)
 		require.NoError(t, err)
 
 		// Other calls will return the default empty Hash and nil error
@@ -122,7 +122,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 			StatusCode: http.StatusNotFound,
 		})
 
-		subject, err := ctlbundle.NewImageRefs(imagesLock, config)
+		subject, err := ctlbundle.NewImageRefsFromImagesLock(imagesLock, config)
 		require.NoError(t, err)
 
 		// Other calls will return the default empty Hash and nil error
@@ -164,7 +164,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 		})
 		config.FetchReturns(ctlbundle.ImageLocationsConfig{}, nil)
 
-		subject, err := ctlbundle.NewImageRefs(imagesLock, config)
+		subject, err := ctlbundle.NewImageRefsFromImagesLock(imagesLock, config)
 		require.NoError(t, err)
 
 		// Other calls will return the default empty Hash and nil error

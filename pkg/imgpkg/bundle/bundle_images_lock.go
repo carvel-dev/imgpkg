@@ -53,7 +53,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, ImageRefs{}, err
 	}
 
-	processedImageRefs := NewEmptyImageRefs()
+	processedImageRefs := NewImageRefs()
 	bundles := []*Bundle{o}
 
 	errChan := make(chan error, len(imageRefsToProcess.ImageRefs()))
@@ -120,7 +120,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations
 	// maybe we can move this functionality to the bundle in the future
-	refs, err := NewImageRefs(imagesLock, LocationsConfig{
+	refs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
 		logger:          logger,
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
@@ -129,7 +129,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 		return ImageRefs{}, err
 	}
 
-	refs.LocalizeToBundle(o.Repo())
+	refs.LocalizeToRepo(o.Repo())
 
 	return refs, nil
 }

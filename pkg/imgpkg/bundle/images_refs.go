@@ -26,42 +26,35 @@ func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
 }
 
 func (i ImageRef) DeepCopy() ImageRef {
+	var isBundle *bool
+	if i.IsBundle != nil {
+		tmp := *i.IsBundle
+		isBundle = &tmp
+	}
 	return ImageRef{
 		ImageRef: i.ImageRef.DeepCopy(),
-		IsBundle: i.IsBundle,
+		IsBundle: isBundle,
 	}
-}
-func (i *ImageRef) updateRepo(relativeToRepo string) *ImageRef {
-	i.Image = i.replaceImageRepo(relativeToRepo)
-	return i
-}
-func (i *ImageRef) replaceImageRepo(relativeToRepo string) string {
-	imgParts := strings.Split(i.Image, "@")
-	if len(imgParts) != 2 {
-		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", i.Image))
-	}
-	updatedRepo := relativeToRepo + "@" + imgParts[1]
-	return updatedRepo
 }
 
 type ImageRefs struct {
 	refs                 []ImageRef
 	imageLocationsConfig *ImageLocationsConfig
-	originalImagesLock   lockconfig.ImagesLock
+	originalImagesLock   *lockconfig.ImagesLock
 
-	*sync.Mutex
+	refsLock *sync.Mutex
 }
 
-func NewEmptyImageRefs() ImageRefs {
+func NewImageRefs() ImageRefs {
 	return ImageRefs{
-		Mutex: &sync.Mutex{},
+		refsLock: &sync.Mutex{},
 	}
 }
 
-func NewImageRefs(imagesLock lockconfig.ImagesLock, imagesLockLocationConfig ImagesLockLocationsConfig) (ImageRefs, error) {
+func NewImageRefsFromImagesLock(imagesLock lockconfig.ImagesLock, imageRefsLocationConfig ImageRefLocationsConfig) (ImageRefs, error) {
 	imageRefs := ImageRefs{
-		Mutex:              &sync.Mutex{},
-		originalImagesLock: imagesLock,
+		refsLock:           &sync.Mutex{},
+		originalImagesLock: &imagesLock,
 	}
 	for _, lockImgRef := range imagesLock.Images {
 		imageRefs.AddImagesRef(ImageRef{
@@ -70,35 +63,37 @@ func NewImageRefs(imagesLock lockconfig.ImagesLock, imagesLockLocationConfig Ima
 		})
 	}
 
-	err := imageRefs.syncImageRefsWithLocationConfig(imagesLockLocationConfig)
+	err := imageRefs.syncImageRefsWithLocationConfig(imageRefsLocationConfig)
 	if err != nil {
 		return ImageRefs{}, err
 	}
 	return imageRefs, nil
 }
 
-func (i *ImageRefs) LocalizeToBundle(relativeToRepo string) {
-	for _, imgRef := range i.refs {
-		imgRef.AddLocation(imgRef.replaceImageRepo(relativeToRepo))
-		i.AddImagesRef(imgRef)
+func (i *ImageRefs) LocalizeToRepo(relativeToRepo string) {
+	i.refsLock.Lock()
+	defer i.refsLock.Unlock()
+
+	for j, imgRef := range i.refs {
+		i.refs[j].AddLocation(replaceImageRepo(imgRef.Image, relativeToRepo))
 	}
 }
 
 func (i *ImageRefs) UpdateRelativeToRepo(imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) (bool, error) {
 	if i.imageLocationsConfig != nil {
-		i.LocalizeToBundle(relativeToRepo)
+		i.LocalizeToRepo(relativeToRepo)
 		return true, nil
 	}
 
 	for _, ref := range i.refs {
-		image, err := name.ParseReference(ref.updateRepo(relativeToRepo).Image)
+		image, err := name.ParseReference(replaceImageRepo(ref.Image, relativeToRepo))
 		if err != nil {
 			return false, err
 		}
 		_, err = imgRetriever.Digest(image)
 		if err != nil {
 			if terr, ok := err.(*transport.Error); ok {
-				if _, ok := imageNotFoundStatusCode[terr.StatusCode]; ok {
+				if i.imageIsNotFound(terr) {
 					return false, nil
 				}
 			}
@@ -106,13 +101,14 @@ func (i *ImageRefs) UpdateRelativeToRepo(imgRetriever ctlimg.ImagesMetadata, rel
 		}
 	}
 
-	i.LocalizeToBundle(relativeToRepo)
+	i.LocalizeToRepo(relativeToRepo)
 
 	return true, nil
 }
+
 func (i *ImageRefs) AddImagesRef(refs ...ImageRef) {
-	i.Lock()
-	defer i.Unlock()
+	i.refsLock.Lock()
+	defer i.refsLock.Unlock()
 
 	for _, ref := range refs {
 		found := false
@@ -125,27 +121,40 @@ func (i *ImageRefs) AddImagesRef(refs ...ImageRef) {
 		}
 
 		if !found {
-			i.refs = append(i.refs, ref)
+			i.refs = append(i.refs, ref.DeepCopy())
 		}
 	}
 }
+
 func (i *ImageRefs) Find(ref string) (ImageRef, bool) {
+	i.refsLock.Lock()
+	defer i.refsLock.Unlock()
+
 	for _, imageRef := range i.refs {
 		if imageRef.Image == ref {
-			return imageRef, true
+			return imageRef.DeepCopy(), true
 		}
 	}
 
 	return ImageRef{}, false
 }
+
 func (i *ImageRefs) MarkAsBundle(image string, isBundle bool) {
+	i.refsLock.Lock()
+	defer i.refsLock.Unlock()
+
 	for j, ref := range i.refs {
 		if ref.Image == image {
 			i.refs[j].IsBundle = &isBundle
 		}
 	}
 }
+
 func (i ImageRefs) ImagesLock() lockconfig.ImagesLock {
+	if i.originalImagesLock == nil {
+		panic("Internal inconsistency: ImagesLock was not provided")
+	}
+
 	imgLock := lockconfig.NewEmptyImagesLock()
 	for _, originalImg := range i.originalImagesLock.Images {
 		ref, found := i.Find(originalImg.Image)
@@ -161,10 +170,21 @@ func (i ImageRefs) ImagesLock() lockconfig.ImagesLock {
 
 	return imgLock
 }
+
 func (i ImageRefs) ImageRefs() []ImageRef {
-	return i.refs
+	var refsCopy []ImageRef
+	for _, ref := range i.refs {
+		refsCopy = append(refsCopy, ref.DeepCopy())
+	}
+	return refsCopy
 }
-func (i *ImageRefs) syncImageRefsWithLocationConfig(imagesLockLocationConfig ImagesLockLocationsConfig) error {
+
+func (i *ImageRefs) imageIsNotFound(terr *transport.Error) bool {
+	_, ok := imageNotFoundStatusCode[terr.StatusCode]
+	return ok
+}
+
+func (i *ImageRefs) syncImageRefsWithLocationConfig(imagesLockLocationConfig ImageRefLocationsConfig) error {
 	locationsConfig, err := imagesLockLocationConfig.Config()
 	if _, ok := err.(*LocationsNotFound); ok {
 		return nil
@@ -182,7 +202,16 @@ func (i *ImageRefs) syncImageRefsWithLocationConfig(imagesLockLocationConfig Ima
 	return nil
 }
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockLocationConfig
-type ImagesLockLocationsConfig interface {
+func replaceImageRepo(imageName string, relativeToRepo string) string {
+	imgParts := strings.Split(imageName, "@")
+	if len(imgParts) != 2 {
+		panic(fmt.Sprintf("Internal inconsistency: The provided image URL '%s' does not contain a digest", imageName))
+	}
+	updatedRepo := relativeToRepo + "@" + imgParts[1]
+	return updatedRepo
+}
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImageRefLocationsConfig
+type ImageRefLocationsConfig interface {
 	Config() (ImageLocationsConfig, error)
 }

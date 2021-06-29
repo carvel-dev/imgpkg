@@ -104,4 +104,4 @@ func (fake *FakeImagesLockLocationConfig) recordInvocation(key string, args []in
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ bundle.ImagesLockLocationsConfig = new(FakeImagesLockLocationConfig)
+var _ bundle.ImageRefLocationsConfig = new(FakeImagesLockLocationConfig)

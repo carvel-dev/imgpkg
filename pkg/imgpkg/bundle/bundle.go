@@ -159,7 +159,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return false, err
 	}
 
-	bundleImageRefs, err := NewImageRefs(imagesLock, LocationsConfig{
+	bundleImageRefs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
 		logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
