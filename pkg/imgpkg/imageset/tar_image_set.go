@@ -23,7 +23,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger) TarImageS
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
+func (i TarImageSet) Export(bundleUnprocessedImageRef *UnprocessedImageRef, foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
 	ids, err := i.imageSet.Export(foundImages, registry)
 	if err != nil {
 		return nil, err
@@ -46,18 +46,45 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 	i.logger.WriteStr("writing layers...\n")
 
 	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
+	if bundleUnprocessedImageRef != nil {
+		for i, descriptor := range ids.Descriptors() {
+			if descriptor.Image != nil {
+				for _, ref := range descriptor.Image.Refs {
+					if ref == bundleUnprocessedImageRef.DigestRef {
+						ids.Descriptors()[i].Image.Labels = map[string]interface{}{"main.bundle": "true"}
+					}
+				}
+			}
+		}
+	}
 
 	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck).Write()
 }
 
 func (i *TarImageSet) Import(path string,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImage, *ProcessedImages, error) {
 
-	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
+	bundleUnprocessedImageRef, imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)
-	return processedImages, err
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var bundleProcessedImageRef *ProcessedImage
+	if bundleUnprocessedImageRef != nil {
+		processedImg, ok := processedImages.FindByURL(UnprocessedImageRef{
+			DigestRef: bundleUnprocessedImageRef.Refs[0],
+			Tag:       bundleUnprocessedImageRef.Tag,
+		})
+		if !ok {
+			panic(fmt.Errorf("Internal inconsistency: Unable to find bundle after processing"))
+		}
+		bundleProcessedImageRef = &processedImg
+	}
+
+	return bundleProcessedImageRef, processedImages, err
 }

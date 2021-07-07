@@ -109,7 +109,20 @@ bundle:
 		require.NoError(t, err)
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
+
+		// assert that tarball manifest.json labels the outer bundle
+		assertTarballLabelsOuterBundle(imageTarPath, subject.BundleFlags.Bundle, t)
 	})
+}
+
+func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
+	path := imagetar.NewTarReader(imageTarPath)
+	outerBundle, _, err := path.Read()
+	assert.NoError(t, err)
+
+	assert.NotNil(t, outerBundle)
+	assert.Equal(t, outerBundleRef, outerBundle.Refs[0])
+
 }
 
 func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
@@ -382,7 +395,7 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
+		_, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
@@ -419,7 +432,7 @@ bundle:
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
+		_, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
@@ -455,7 +468,7 @@ images:
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, err = subject.CopyToRepo(destRepo)
+		_, _, err = subject.CopyToRepo(destRepo)
 		require.Error(t, err)
 		assert.EqualError(t, err, "Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
 	})
@@ -487,7 +500,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
+		_, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
@@ -564,7 +577,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			fakeRegistry.WithImageStatusCodeRemap(fmt.Sprintf("%s.image-locations.imgpkg", strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-")), 404, remappedStatusCode)
 			defer fakeRegistry.ResetHandler()
 
-			processedImages, err := subject.CopyToRepo(destRepo)
+			_, processedImages, err := subject.CopyToRepo(destRepo)
 			require.NoError(t, err)
 
 			require.Len(t, processedImages.All(), 3)
@@ -618,7 +631,7 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedImages, err := subject.CopyToRepo(destRepo)
+		_, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
@@ -703,7 +716,7 @@ func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakeDockerhubRegistry.Build()
 
 	t.Run("Images are copied from fake-registry and not from the bundle's ImagesLockFile registry (index.docker.io)", func(t *testing.T) {
-		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
+		_, processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
 		require.NoError(t, err, "expected copy command to succeed")
 
 		require.Len(t, processedImages.All(), 2)
@@ -732,7 +745,7 @@ bundle:
 		subject.BundleFlags.Bundle = ""
 		subject.LockInputFlags.LockFilePath = bundleLockTempDir
 
-		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
+		_, processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
 		require.NoError(t, err, "expected copy command to succeed")
 
 		require.Len(t, processedImages.All(), 2)
@@ -759,7 +772,7 @@ func TestToRepoImage(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 		subject.IncludeNonDistributable = true
 
-		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
+		_, _, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
 		if err != nil {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
@@ -796,7 +809,7 @@ images:
 		subject.LockInputFlags.LockFilePath = lockFile.Name()
 		subject.registry = fakeRegistry.Build()
 
-		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		_, processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if err != nil {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
@@ -819,7 +832,7 @@ var _ SignatureRetriever = new(fakeSignatureRetriever)
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 	path := imagetar.NewTarReader(imageTarPath)
-	imageOrIndex, err := path.Read()
+	_, imageOrIndex, err := path.Read()
 	require.NoError(t, err)
 
 	for _, imageInManifest := range imageOrIndex {
@@ -838,7 +851,7 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 
 func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testing.T) {
 	path := imagetar.NewTarReader(imageTarPath)
-	imageOrIndex, err := path.Read()
+	_, imageOrIndex, err := path.Read()
 	if err != nil {
 		t.Fatalf("Expected to read the image tar: %s", err)
 	}

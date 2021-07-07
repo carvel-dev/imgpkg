@@ -142,7 +142,7 @@ images:
 
 	t.Run("when Copying bundle that contains a bundle it is successful", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath, L: helpers.Logger{LogLevel: helpers.LogTrace}}
 
 		imgRef, err := regname.ParseReference(env.Image)
 		require.NoError(t, err)
@@ -212,10 +212,13 @@ images:
 			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
+		tmpFolder := env.Assets.CreateTempFolder("imgpkg-lock-output")
+		outputBundleLock := filepath.Join(tmpFolder, "output.lock.yml")
 		logger.Section("copy bundle to repository", func() {
 			imgpkg.Run([]string{"copy",
 				"--lock", lockFile,
-				"--to-repo", env.RelocationRepo},
+				"--to-repo", env.RelocationRepo,
+				"--lock-output", outputBundleLock},
 			)
 		})
 
@@ -229,7 +232,10 @@ images:
 				env.RelocationRepo + outerBundleDigest,
 			}
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(refs))
+		})
 
+		logger.Section("ensure the correct digest is added to the bundle lock", func() {
+			env.Assert.AssertBundleLock(outputBundleLock, env.RelocationRepo+outerBundleDigest, bundleTag[1:])
 		})
 	})
 

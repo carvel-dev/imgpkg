@@ -17,23 +17,32 @@ func NewTarReader(path string) TarReader {
 	return TarReader{path}
 }
 
-func (r TarReader) Read() ([]imagedesc.ImageOrIndex, error) {
+func (r TarReader) Read() (*imagedesc.ImageDescriptor, []imagedesc.ImageOrIndex, error) {
 	file := tarFile{r.path}
 
 	manifestFile, err := file.Chunk("manifest.json").Open()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	manifestBytes, err := ioutil.ReadAll(manifestFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptorsFromBytes(manifestBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return imagedesc.NewDescribedReader(ids, file).Read(), nil
+	var mainBundle *imagedesc.ImageDescriptor
+	for _, descriptor := range ids.Descriptors() {
+		if descriptor.Image != nil {
+			if _, found := descriptor.Image.Labels["main.bundle"]; found {
+				mainBundle = descriptor.Image
+			}
+		}
+	}
+
+	return mainBundle, imagedesc.NewDescribedReader(ids, file).Read(), nil
 }

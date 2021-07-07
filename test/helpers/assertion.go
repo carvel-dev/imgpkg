@@ -28,7 +28,7 @@ type Assertion struct {
 
 func (a *Assertion) ImagesDigestIsOnTar(tarFilePath string, imagesDigestRef ...string) {
 	a.T.Helper()
-	imagesOrIndexes, err := imagetar.NewTarReader(tarFilePath).Read()
+	_, imagesOrIndexes, err := imagetar.NewTarReader(tarFilePath).Read()
 	require.NoError(a.T, err)
 
 	for _, imageOrIndex := range imagesOrIndexes {
