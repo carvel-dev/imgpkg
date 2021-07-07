@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"time"
@@ -222,25 +221,13 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 		}
 	}
 
-	// Copied from https://github.com/golang/go/blob/release-branch.go1.12/src/net/http/transport.go#L42-L53
-	// We want to use the DefaultTransport but change its TLSClientConfig. There
-	// isn't a clean way to do this yet: https://github.com/golang/go/issues/26013
-	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		// Use the cert pool with k8s cert bundle appended.
-		TLSClientConfig: &tls.Config{
-			RootCAs:            pool,
-			InsecureSkipVerify: (opts.VerifyCerts == false),
-		},
-	}, nil
+	clonedDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
+	clonedDefaultTransport.ForceAttemptHTTP2 = false
+	clonedDefaultTransport.ResponseHeaderTimeout = 10 * time.Second
+	clonedDefaultTransport.TLSClientConfig = &tls.Config{
+		RootCAs:            pool,
+		InsecureSkipVerify: opts.VerifyCerts == false,
+	}
+
+	return clonedDefaultTransport, nil
 }
