@@ -105,13 +105,13 @@ func (c *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
+		bundleProcessedImageRef, processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
 		if err != nil {
 			return err
 		}
 
 		informUserToUseTheNonDistributableFlagWithDescriptors(levelLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
-		return c.writeLockOutput(processedImages, reg)
+		return c.writeLockOutput(bundleProcessedImageRef, processedImages, reg)
 
 	case c.isRepoSrc():
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
@@ -146,28 +146,27 @@ func (c *CopyOptions) Run() error {
 			return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
 		case c.isRepoDst():
-			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
+			bundleProcessedImageRef, processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
 			if err != nil {
 				return err
 			}
-			return c.writeLockOutput(processedImages, reg)
+			return c.writeLockOutput(bundleProcessedImageRef, processedImages, reg)
 		}
 	}
 	panic("Unreachable")
 }
 
-func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
+func (c *CopyOptions) writeLockOutput(bundleProcessedImage *ctlimgset.ProcessedImage, processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
 	var foundBundle *bundle.Bundle
-	for _, item := range processedImages.All() {
-		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
-		bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
-
-		ok, err := bundle.IsBundle()
+	if bundleProcessedImage != nil {
+		plainImg := plainimage.NewFetchedPlainImageWithTag(bundleProcessedImage.DigestRef, bundleProcessedImage.UnprocessedImageRef.Tag, bundleProcessedImage.Image, bundleProcessedImage.ImageIndex)
+		foundBundle = bundle.NewBundleFromPlainImage(plainImg, registry)
+		ok, err := foundBundle.IsBundle()
 		if err != nil {
-			return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
+			return fmt.Errorf("Check if '%s' is bundle: %s", bundleProcessedImage.DigestRef, err)
 		}
-		if ok {
-			foundBundle = bundle
+		if !ok {
+			panic(fmt.Errorf("Internal inconsistency: '%s' should be a bundle but it is not", bundleProcessedImage.DigestRef))
 		}
 	}
 

@@ -64,7 +64,11 @@ type ImageDescriptor struct {
 	Config   ConfigDescriptor
 	Manifest ManifestDescriptor
 	Tag      string
+
+	Labels map[string]interface{}
 }
+
+//TODO: test backwards compat. i.e. new imgpkg creates tar, read by an old imgpkg
 
 type ImageLayerDescriptor struct {
 	MediaType string
