@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -410,5 +412,16 @@ func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) string {
 	require.NoError(t, err)
 
 	hostPort := strings.ReplaceAll(string(output), "'", "")
-	return fmt.Sprintf("localhost:%s/repo/airgapped-image", strings.ReplaceAll(hostPort, "\n", ""))
+
+	registryURL := fmt.Sprintf("localhost:%s", strings.ReplaceAll(hostPort, "\n", ""))
+	registry, err := name.NewRegistry(registryURL)
+	require.NoError(t, err)
+
+	err = util.Retry(func() error {
+		_, err = remote.Catalog(context.Background(), registry)
+		return err
+	})
+	require.NoError(t, err)
+
+	return fmt.Sprintf("%s/repo/airgapped-image", registryURL)
 }
