@@ -860,6 +860,88 @@ images:
 	})
 }
 
+func TestCopyBundleUsingLockFileAsInput(t *testing.T) {
+	logger := helpers.Logger{}
+	t.Run("Writing a bundle lockfile uses the 'root' bundle as the reference", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		testDir := env.Assets.CreateTempFolder("nested-bundles-tar-test")
+		tarFilePath := filepath.Join(testDir, "bundle.tar")
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = imgRef.Context().Name() + "-imgpkg-debug"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+
+			img2DigestRef = imgRef.Context().Name() + "-imgpkg-debug2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+		})
+
+		nestedBundle := imgRef.Context().Name() + "-imgpkg-test"
+		nestedBundleDigest := ""
+		logger.Section("create nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+  annotations:
+    kbld.carvel.dev/id: basic-image
+- image: %s
+  annotations:
+    kbld.carvel.dev/id: basic-image
+`, img1DigestRef, img2DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		outerBundle := imgRef.Context().Name() + "-imgpkg-debug-staging"
+		outerBundleDigest := ""
+
+		tempLockDirectory := env.Assets.CreateTempFolder("pushed-lock-file")
+
+		logger.Section("create outer bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+  annotations:  
+    kbld.carvel.dev/id: basic-bundle
+- image: %s
+  annotations:
+    kbld.carvel.dev/id: basic-image
+`, nestedBundle+nestedBundleDigest, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle + ":1.0", "-f", bundleDir, "--lock-output", filepath.Join(tempLockDirectory, "staging.lock")})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		logger.Section("export full bundle to tar", func() {
+			imgpkg.Run([]string{"copy", "--lock", filepath.Join(tempLockDirectory, "staging.lock"), "--to-tar", tarFilePath})
+		})
+
+		lockFilePath := filepath.Join(testDir, "relocate-from-tar-lock.yml")
+		logger.Section("import bundle to new repository", func() {
+			relocationRepo := env.RelocationRepo + "-imgpkg-debug-release"
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", relocationRepo, "--lock-output", lockFilePath})
+			relocatedRef := fmt.Sprintf("%s%s", relocationRepo, outerBundleDigest)
+
+			env.Assert.AssertBundleLock(lockFilePath, relocatedRef, "1.0")
+		})
+	})
+}
+
 func TestCopyErrorsWhenCopyBundleUsingImageFlag(t *testing.T) {
 	logger := helpers.Logger{}
 	t.Run("when trying to copy a bundle using the -i flag, it fails", func(t *testing.T) {

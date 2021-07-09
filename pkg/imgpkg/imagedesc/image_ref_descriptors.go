@@ -293,6 +293,26 @@ func (ids *ImageRefDescriptors) buildRef(otherRef regname.Reference, digest stri
 	return newRef
 }
 
+func (ids *ImageRefDescriptors) SetLabel(label map[string]interface{}, bundleRefToUpdate string) error {
+	foundBundleToUpdate := false
+	for i, desc := range ids.descs {
+		if desc.Image != nil {
+			for _, ref := range desc.Image.Refs {
+				if ref == bundleRefToUpdate {
+					ids.descs[i].Image.Labels = label
+					foundBundleToUpdate = true
+				}
+			}
+		}
+	}
+
+	if !foundBundleToUpdate {
+		return fmt.Errorf("unable to find %s to update label", bundleRefToUpdate)
+	}
+
+	return nil
+}
+
 type errRegistry struct {
 	delegate Registry
 }
