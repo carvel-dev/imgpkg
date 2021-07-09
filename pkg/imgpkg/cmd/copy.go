@@ -168,6 +168,19 @@ func (c *CopyOptions) writeLockOutput(bundleProcessedImage *ctlimgset.ProcessedI
 		if !ok {
 			panic(fmt.Errorf("Internal inconsistency: '%s' should be a bundle but it is not", bundleProcessedImage.DigestRef))
 		}
+	} else {
+		for _, item := range processedImages.All() {
+			plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
+			bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
+
+			ok, err := bundle.IsBundle()
+			if err != nil {
+				return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
+			}
+			if ok {
+				return fmt.Errorf("Unable to determine correct root bundle to use for lock-output. hint: if copying from a tarball, try re-generating the tarball")
+			}
+		}
 	}
 
 	if c.LockOutputFlags.LockFilePath != "" {
