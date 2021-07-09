@@ -110,19 +110,8 @@ bundle:
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
 
-		// assert that tarball manifest.json labels the outer bundle
 		assertTarballLabelsOuterBundle(imageTarPath, subject.BundleFlags.Bundle, t)
 	})
-}
-
-func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
-	path := imagetar.NewTarReader(imageTarPath)
-	outerBundle, _, err := path.Read()
-	assert.NoError(t, err)
-
-	assert.NotNil(t, outerBundle)
-	assert.Equal(t, outerBundleRef, outerBundle.Refs[0])
-
 }
 
 func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
@@ -395,7 +384,7 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, processedImages, err := subject.CopyToRepo(destRepo)
+		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
@@ -410,6 +399,7 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 			destRepo + "@" + randomImage2.Digest,
 		})
 
+		assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
 	})
 
 	t.Run("When recursive bundle is enabled and a lock file is provided, it copies every image to repo", func(t *testing.T) {
@@ -432,7 +422,7 @@ bundle:
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, processedImages, err := subject.CopyToRepo(destRepo)
+		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
@@ -446,7 +436,7 @@ bundle:
 			destRepo + "@" + randomImage.Digest,
 			destRepo + "@" + randomImage2.Digest,
 		})
-
+		assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
 	})
 
 	t.Run("When recursive bundle is enabled and an images lock file is provided, it returns an error message to the user", func(t *testing.T) {
@@ -500,7 +490,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, processedImages, err := subject.CopyToRepo(destRepo)
+		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
@@ -513,6 +503,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			destRepo + "@" + bundleWithOneImages.Digest,
 			destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 		})
+		assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
 
 		locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
 		refs := []string{locationImg}
@@ -577,7 +568,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			fakeRegistry.WithImageStatusCodeRemap(fmt.Sprintf("%s.image-locations.imgpkg", strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-")), 404, remappedStatusCode)
 			defer fakeRegistry.ResetHandler()
 
-			_, processedImages, err := subject.CopyToRepo(destRepo)
+			processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
 			require.NoError(t, err)
 
 			require.Len(t, processedImages.All(), 3)
@@ -590,6 +581,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 				destRepo + "@" + bundleWithOneImages.Digest,
 				destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 			})
+			assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
 
 			require.NoError(t, validateImagesPresenceInRegistry(t, refs))
 		})
@@ -631,7 +623,7 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, processedImages, err := subject.CopyToRepo(destRepo)
+		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
@@ -644,6 +636,7 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 			destRepo + "@" + bundleWithOneImages.Digest,
 			destRepo + "@" + "sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 		})
+		assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
 
 		locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
 		refs := []string{locationImg}
@@ -809,7 +802,7 @@ images:
 		subject.LockInputFlags.LockFilePath = lockFile.Name()
 		subject.registry = fakeRegistry.Build()
 
-		_, processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		processedBundle, processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if err != nil {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
@@ -818,6 +811,8 @@ images:
 
 		assert.Equal(t, image1.RefDigest, processedImages.All()[1].UnprocessedImageRef.DigestRef)
 		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
+		assert.Nil(t, processedBundle)
+
 	})
 }
 
@@ -832,7 +827,7 @@ var _ SignatureRetriever = new(fakeSignatureRetriever)
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 	path := imagetar.NewTarReader(imageTarPath)
-	_, imageOrIndex, err := path.Read()
+	imageOrIndex, err := path.Read()
 	require.NoError(t, err)
 
 	for _, imageInManifest := range imageOrIndex {
@@ -851,7 +846,7 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 
 func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testing.T) {
 	path := imagetar.NewTarReader(imageTarPath)
-	_, imageOrIndex, err := path.Read()
+	imageOrIndex, err := path.Read()
 	if err != nil {
 		t.Fatalf("Expected to read the image tar: %s", err)
 	}
@@ -878,6 +873,17 @@ func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testin
 			}
 		}
 	}
+
+}
+
+func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
+	tarReader := imagetar.NewTarReader(imageTarPath)
+	imageReferencesFound, err := tarReader.FindByLabelKey("root.bundle")
+	assert.NoError(t, err)
+
+	assert.NotNil(t, imageReferencesFound)
+	assert.Len(t, imageReferencesFound, 1)
+	assert.Equal(t, outerBundleRef, imageReferencesFound[0].Refs[0])
 
 }
 

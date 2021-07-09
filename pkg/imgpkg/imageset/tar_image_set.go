@@ -13,6 +13,8 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
 
+const rootBundleLabelKey string = "root.bundle"
+
 type TarImageSet struct {
 	imageSet    ImageSet
 	concurrency int
@@ -47,14 +49,9 @@ func (i TarImageSet) Export(bundleUnprocessedImageRef *UnprocessedImageRef, foun
 
 	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
 	if bundleUnprocessedImageRef != nil {
-		for i, descriptor := range ids.Descriptors() {
-			if descriptor.Image != nil {
-				for _, ref := range descriptor.Image.Refs {
-					if ref == bundleUnprocessedImageRef.DigestRef {
-						ids.Descriptors()[i].Image.Labels = map[string]interface{}{"main.bundle": "true"}
-					}
-				}
-			}
+		err := ids.SetLabel(map[string]interface{}{rootBundleLabelKey: ""}, bundleUnprocessedImageRef.DigestRef)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -64,9 +61,19 @@ func (i TarImageSet) Export(bundleUnprocessedImageRef *UnprocessedImageRef, foun
 func (i *TarImageSet) Import(path string,
 	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImage, *ProcessedImages, error) {
 
-	bundleUnprocessedImageRef, imgOrIndexes, err := imagetar.NewTarReader(path).Read()
+	reader := imagetar.NewTarReader(path)
+	imgOrIndexes, err := reader.Read()
 	if err != nil {
 		return nil, nil, err
+	}
+
+	rootBundleImageDesc, err := reader.FindByLabelKey(rootBundleLabelKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(rootBundleImageDesc) > 1 {
+		panic(fmt.Sprintf("Internal inconsistency: The tarball contains multiple images marked as %s", rootBundleLabelKey))
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)
@@ -75,10 +82,10 @@ func (i *TarImageSet) Import(path string,
 	}
 
 	var bundleProcessedImageRef *ProcessedImage
-	if bundleUnprocessedImageRef != nil {
+	if len(rootBundleImageDesc) == 1 {
 		processedImg, ok := processedImages.FindByURL(UnprocessedImageRef{
-			DigestRef: bundleUnprocessedImageRef.Refs[0],
-			Tag:       bundleUnprocessedImageRef.Tag,
+			DigestRef: rootBundleImageDesc[0].Refs[0],
+			Tag:       rootBundleImageDesc[0].Tag,
 		})
 		if !ok {
 			panic(fmt.Errorf("Internal inconsistency: Unable to find bundle after processing"))
