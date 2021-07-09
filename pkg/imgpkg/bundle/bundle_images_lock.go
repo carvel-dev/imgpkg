@@ -120,13 +120,18 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, logger util.LoggerWithLevels) (
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations
 	// maybe we can move this functionality to the bundle in the future
-	currentImagesLock := NewImagesLock(imagesLock, o.imgRetriever, o.Repo(), LocationsConfig{
+	refs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
 		logger:          logger,
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	})
+	if err != nil {
+		return ImageRefs{}, err
+	}
 
-	return currentImagesLock.ImageRefs()
+	refs.LocalizeToRepo(o.Repo())
+
+	return refs, nil
 }
 
 func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, processedImgs *processedImages, levels util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
