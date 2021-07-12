@@ -878,7 +878,7 @@ func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testin
 
 func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
 	tarReader := imagetar.NewTarReader(imageTarPath)
-	imageReferencesFound, err := tarReader.FindByLabelKey("root.bundle")
+	imageReferencesFound, err := tarReader.FindByLabelKey("dev.carvel.imgpkg.copy.root-bundle")
 	assert.NoError(t, err)
 
 	assert.NotNil(t, imageReferencesFound)
