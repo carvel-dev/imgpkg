@@ -13,7 +13,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
 
-const rootBundleLabelKey string = "root.bundle"
+const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 
 type TarImageSet struct {
 	imageSet    ImageSet
