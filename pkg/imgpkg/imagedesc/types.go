@@ -19,6 +19,8 @@ type RegistryRemoteImage interface {
 type ImageOrIndex struct {
 	Image *ImageWithRef
 	Index *ImageIndexWithRef
+
+	Labels map[string]string
 }
 
 type ImageWithRef interface {
@@ -55,6 +57,8 @@ type ImageIndexDescriptor struct {
 	Digest    string
 	Raw       string
 	Tag       string
+
+	Labels map[string]string
 }
 
 type ImageDescriptor struct {
@@ -65,7 +69,7 @@ type ImageDescriptor struct {
 	Manifest ManifestDescriptor
 	Tag      string
 
-	Labels map[string]interface{}
+	Labels map[string]string
 }
 
 type ImageLayerDescriptor struct {

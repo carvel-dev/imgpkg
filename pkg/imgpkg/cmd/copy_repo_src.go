@@ -35,7 +35,7 @@ type CopyRepoSrc struct {
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
-	bundleUnprocessedImageRef, unprocessedImageRefs, _, err := c.getSourceImages()
+	unprocessedImageRefs, _, err := c.getSourceImages()
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 		unprocessedImageRefs.Add(signature)
 	}
 
-	ids, err := c.tarImageSet.Export(bundleUnprocessedImageRef, unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
+	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}
@@ -59,17 +59,17 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	return nil
 }
 
-func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImage, *ctlimgset.ProcessedImages, error) {
+func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.logger.Tracef("CopyToRepo(%s)\n", repo)
-	bundleUnprocessedImageRef, unprocessedImageRefs, bundles, err := c.getSourceImages()
+	unprocessedImageRefs, bundles, err := c.getSourceImages()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	c.logger.Debugf("fetching signatures\n")
 	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	for _, signature := range signatures.All() {
 		unprocessedImageRefs.Add(signature)
@@ -77,42 +77,33 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImage, *ctlimg
 
 	importRepo, err := regname.NewRepository(repo)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Building import repository ref: %s", err)
+		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
 	c.logger.Debugf("copy the fetched images\n")
 	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	for _, bundle := range bundles {
 		if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
-			return nil, nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
 		}
 	}
 	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
-	var bundleProcessedImageRef *ctlimgset.ProcessedImage
-	if bundleUnprocessedImageRef != nil {
-		processedImg, ok := processedImages.FindByURL(*bundleUnprocessedImageRef)
-		if !ok {
-			panic(fmt.Errorf("Internal inconsistency: Unable to find bundle after processing"))
-		}
-		bundleProcessedImageRef = &processedImg
-	}
-
-	return bundleProcessedImageRef, processedImages, nil
+	return processedImages, nil
 }
 
-func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRef, *ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 
 	switch {
 	case c.LockInputFlags.LockFilePath != "":
 		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		switch {
@@ -120,20 +111,22 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRef, *ctlimgs
 			c.logger.Tracef("get images from BundleLock file\n")
 			_, bundles, imagesRef, err := c.getBundleImageRefs(bundleLock.Bundle.Image)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, err
 			}
 
 			for _, img := range imagesRef.ImageRefs() {
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 			}
 
-			bundleUnprocessedRef := ctlimgset.UnprocessedImageRef{
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
 				DigestRef: bundleLock.Bundle.Image,
 				Tag:       bundleLock.Bundle.Tag,
-			}
-			unprocessedImageRefs.Add(bundleUnprocessedRef)
+				Labels: map[string]string{
+					rootBundleLabelKey: "",
+				},
+			})
 
-			return &bundleUnprocessedRef, unprocessedImageRefs, bundles, nil
+			return unprocessedImageRefs, bundles, nil
 
 		case imagesLock != nil:
 			c.logger.Tracef("get images from ImagesLock file\n")
@@ -142,15 +135,15 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRef, *ctlimgs
 
 				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 				if err != nil {
-					return nil, nil, nil, err
+					return nil, nil, err
 				}
 				if ok {
-					return nil, nil, nil, fmt.Errorf("Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
+					return nil, nil, fmt.Errorf("Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
 				}
 
 				unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef()})
 			}
-			return nil, unprocessedImageRefs, nil, nil
+			return unprocessedImageRefs, nil, nil
 
 		default:
 			panic("Unreachable")
@@ -162,30 +155,35 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRef, *ctlimgs
 
 		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		if ok {
-			return nil, nil, nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+			return nil, nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: plainImg.DigestRef(), Tag: plainImg.Tag()})
-		return nil, unprocessedImageRefs, nil, nil
+		return unprocessedImageRefs, nil, nil
 
 	default:
 		c.logger.Tracef("copy bundle\n")
 		bundle, allBundles, imagesRef, err := c.getBundleImageRefs(c.BundleFlags.Bundle)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		for _, img := range imagesRef.ImageRefs() {
 			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
 		}
 
-		bundleUnprocessedRef := ctlimgset.UnprocessedImageRef{DigestRef: bundle.DigestRef(), Tag: bundle.Tag()}
-		unprocessedImageRefs.Add(bundleUnprocessedRef)
+		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
+			DigestRef: bundle.DigestRef(),
+			Tag:       bundle.Tag(),
+			Labels: map[string]string{
+				rootBundleLabelKey: "",
+			}},
+		)
 
-		return &bundleUnprocessedRef, unprocessedImageRefs, allBundles, nil
+		return unprocessedImageRefs, allBundles, nil
 	}
 }
 

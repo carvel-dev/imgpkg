@@ -17,26 +17,6 @@ func NewTarReader(path string) TarReader {
 	return TarReader{path}
 }
 
-func (r TarReader) FindByLabelKey(key string) ([]*imagedesc.ImageDescriptor, error) {
-	var foundImageDescriptors []*imagedesc.ImageDescriptor
-
-	file := tarFile{r.path}
-
-	ids, err := r.getIdsFromManifest(file)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, descriptor := range ids.Descriptors() {
-		if descriptor.Image != nil {
-			if _, found := descriptor.Image.Labels[key]; found {
-				foundImageDescriptors = append(foundImageDescriptors, descriptor.Image)
-			}
-		}
-	}
-	return foundImageDescriptors, nil
-}
-
 func (r TarReader) Read() ([]imagedesc.ImageOrIndex, error) {
 	file := tarFile{r.path}
 
