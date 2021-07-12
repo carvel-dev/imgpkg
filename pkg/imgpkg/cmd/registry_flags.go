@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"os"
+	"time"
 
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
@@ -19,6 +20,8 @@ type RegistryFlags struct {
 	Password string
 	Token    string
 	Anon     bool
+
+	ResponseHeaderTimeout time.Duration
 }
 
 func (r *RegistryFlags) Set(cmd *cobra.Command) {
@@ -30,6 +33,8 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&r.Password, "registry-password", "", "Set password for auth ($IMGPKG_PASSWORD)")
 	cmd.Flags().StringVar(&r.Token, "registry-token", "", "Set token for auth ($IMGPKG_TOKEN)")
 	cmd.Flags().BoolVar(&r.Anon, "registry-anon", false, "Set anonymous auth ($IMGPKG_ANON)")
+
+	cmd.Flags().DurationVar(&r.ResponseHeaderTimeout, "registry-response-header-timeout", 30*time.Second, "Maximum time to allow a request to wait for a server's response headers from the registry (ms|s|m|h)")
 }
 
 func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
@@ -42,6 +47,8 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		Password: r.Password,
 		Token:    r.Token,
 		Anon:     r.Anon,
+
+		ResponseHeaderTimeout: r.ResponseHeaderTimeout,
 	}
 
 	if len(opts.Username) == 0 {

@@ -29,6 +29,8 @@ type Opts struct {
 	Password string
 	Token    string
 	Anon     bool
+
+	ResponseHeaderTimeout time.Duration
 }
 
 type Registry struct {
@@ -223,7 +225,7 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 
 	clonedDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
 	clonedDefaultTransport.ForceAttemptHTTP2 = false
-	clonedDefaultTransport.ResponseHeaderTimeout = 10 * time.Second
+	clonedDefaultTransport.ResponseHeaderTimeout = opts.ResponseHeaderTimeout
 	clonedDefaultTransport.TLSClientConfig = &tls.Config{
 		RootCAs:            pool,
 		InsecureSkipVerify: opts.VerifyCerts == false,
