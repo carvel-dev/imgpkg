@@ -441,6 +441,15 @@ func (r *FakeTestRegistryBuilder) ResetHandler() *FakeTestRegistryBuilder {
 	return r
 }
 
+func (r *FakeTestRegistryBuilder) WithCustomHandler(handler http.HandlerFunc) {
+	parentHandler := r.server.Config.Handler
+
+	r.server.Config.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		handler(writer, request)
+		parentHandler.ServeHTTP(writer, request)
+	})
+}
+
 type BundleInfo struct {
 	r          *FakeTestRegistryBuilder
 	Image      v1.Image

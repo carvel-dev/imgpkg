@@ -4,7 +4,9 @@
 package e2e
 
 import (
+	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,4 +170,31 @@ images:
 		assert.NoError(t, err)
 		assert.Equal(t, helpers.ImagesYAML, string(innerBundleImagesYmlContent))
 	})
+}
+
+func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
+	logger := &helpers.Logger{}
+
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	registry := helpers.NewFakeRegistry(t, logger)
+	image := registry.WithRandomImage("random-image")
+	registry.Build()
+	defer registry.ResetHandler()
+
+	registry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) {
+		time.Sleep(5 * time.Second)
+	})
+
+	actualErrOut := bytes.NewBufferString("")
+	outDir := env.Assets.CreateTempFolder("bundle-annotation")
+	imgpkg.RunWithOpts([]string{"pull", "--registry-response-header-timeout", "1s", "-i", image.RefDigest, "-o", outDir}, helpers.RunOpts{
+		AllowError:   true,
+		StdoutWriter: actualErrOut,
+		StderrWriter: actualErrOut,
+	})
+
+	assert.Contains(t, actualErrOut.String(), "timeout awaiting response headers")
 }
