@@ -36,7 +36,10 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	}
 
 	// TODO bash completion
-	cmd.SetOutput(uiBlockWriter{o.ui}) // setting output for cmd.Help()
+	// setting output for cmd.Help()
+	blockWriter := uiBlockWriter{o.ui}
+	cmd.SetOut(blockWriter)
+	cmd.SetErr(blockWriter)
 
 	o.UIFlags.Set(cmd)
 
