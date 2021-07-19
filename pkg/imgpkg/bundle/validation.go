@@ -3,6 +3,8 @@
 
 package bundle
 
+import "strings"
+
 type notABundleError struct {
 }
 
@@ -21,6 +23,10 @@ func IsNotBundleError(err error) bool {
 func (o *Bundle) IsBundle() (bool, error) {
 	img, err := o.plainImg.Fetch()
 	if err != nil {
+		//TODO: make design changes to accomodate a bundle giving an imageindex to a plainimage.
+		if strings.Contains(err.Error(), "but found an ImageIndex") {
+			return false, nil
+		}
 		return false, err
 	}
 

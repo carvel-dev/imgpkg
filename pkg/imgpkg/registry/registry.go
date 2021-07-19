@@ -82,6 +82,14 @@ func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 	return regremote.Get(overriddenRef, r.opts...)
 }
 
+func (r Registry) Head(ref regname.Reference) (*regv1.Descriptor, error) {
+	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.Head(overriddenRef, r.opts...)
+}
+
 func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {

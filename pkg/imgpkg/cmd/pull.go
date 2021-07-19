@@ -88,7 +88,11 @@ func (po *PullOptions) Run() error {
 		return nil
 
 	case len(po.ImageFlags.Image) > 0:
-		plainImg := plainimage.NewPlainImage(po.ImageFlags.Image, reg)
+		plainImg, err := plainimage.MustNewPlainImage(po.ImageFlags.Image, reg)
+		if err != nil {
+			return err
+		}
+
 		ok, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 		if err != nil {
 			return err

@@ -166,7 +166,7 @@ func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages
 	processedImageRootBundle := c.findProcessedImageRootBundle(processedImages)
 
 	if processedImageRootBundle != nil {
-		plainImg := plainimage.NewFetchedPlainImageWithTag(processedImageRootBundle.DigestRef, processedImageRootBundle.UnprocessedImageRef.Tag, processedImageRootBundle.Image, processedImageRootBundle.ImageIndex)
+		plainImg := plainimage.NewFetchedPlainImageWithTag(processedImageRootBundle.DigestRef, processedImageRootBundle.UnprocessedImageRef.Tag, processedImageRootBundle.Image)
 		foundBundle := bundle.NewBundleFromPlainImage(plainImg, registry)
 		ok, err := foundBundle.IsBundle()
 		if err != nil {
@@ -210,7 +210,7 @@ func (c *CopyOptions) findProcessedImageRootBundle(processedImages *ctlimgset.Pr
 
 func (c *CopyOptions) informUserIfTarballNeedsToBeRecreated(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
 	for _, item := range processedImages.All() {
-		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
+		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image)
 		bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
 
 		ok, err := bundle.IsBundle()

@@ -23,6 +23,10 @@ func (w WithProgress) Get(reference regname.Reference) (*remote.Descriptor, erro
 	return w.delegate.Get(reference)
 }
 
+func (w WithProgress) Head(reference regname.Reference) (*regv1.Descriptor, error) {
+	return w.delegate.Head(reference)
+}
+
 func (w WithProgress) Digest(reference regname.Reference) (regv1.Hash, error) {
 	return w.delegate.Digest(reference)
 }

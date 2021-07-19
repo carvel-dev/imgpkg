@@ -37,19 +37,6 @@ type FakeImagesMetadataWriter struct {
 		result1 string
 		result2 error
 	}
-	GenericStub        func(name.Reference) (v1.Descriptor, error)
-	genericMutex       sync.RWMutex
-	genericArgsForCall []struct {
-		arg1 name.Reference
-	}
-	genericReturns struct {
-		result1 v1.Descriptor
-		result2 error
-	}
-	genericReturnsOnCall map[int]struct {
-		result1 v1.Descriptor
-		result2 error
-	}
 	GetStub        func(name.Reference) (*remote.Descriptor, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
@@ -61,6 +48,19 @@ type FakeImagesMetadataWriter struct {
 	}
 	getReturnsOnCall map[int]struct {
 		result1 *remote.Descriptor
+		result2 error
+	}
+	HeadStub        func(name.Reference) (*v1.Descriptor, error)
+	headMutex       sync.RWMutex
+	headArgsForCall []struct {
+		arg1 name.Reference
+	}
+	headReturns struct {
+		result1 *v1.Descriptor
+		result2 error
+	}
+	headReturnsOnCall map[int]struct {
+		result1 *v1.Descriptor
 		result2 error
 	}
 	ImageStub        func(name.Reference) (v1.Image, error)
@@ -238,70 +238,6 @@ func (fake *FakeImagesMetadataWriter) FirstImageExistsReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
-func (fake *FakeImagesMetadataWriter) Generic(arg1 name.Reference) (v1.Descriptor, error) {
-	fake.genericMutex.Lock()
-	ret, specificReturn := fake.genericReturnsOnCall[len(fake.genericArgsForCall)]
-	fake.genericArgsForCall = append(fake.genericArgsForCall, struct {
-		arg1 name.Reference
-	}{arg1})
-	stub := fake.GenericStub
-	fakeReturns := fake.genericReturns
-	fake.recordInvocation("Generic", []interface{}{arg1})
-	fake.genericMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeImagesMetadataWriter) GenericCallCount() int {
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
-	return len(fake.genericArgsForCall)
-}
-
-func (fake *FakeImagesMetadataWriter) GenericCalls(stub func(name.Reference) (v1.Descriptor, error)) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = stub
-}
-
-func (fake *FakeImagesMetadataWriter) GenericArgsForCall(i int) name.Reference {
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
-	argsForCall := fake.genericArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeImagesMetadataWriter) GenericReturns(result1 v1.Descriptor, result2 error) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = nil
-	fake.genericReturns = struct {
-		result1 v1.Descriptor
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesMetadataWriter) GenericReturnsOnCall(i int, result1 v1.Descriptor, result2 error) {
-	fake.genericMutex.Lock()
-	defer fake.genericMutex.Unlock()
-	fake.GenericStub = nil
-	if fake.genericReturnsOnCall == nil {
-		fake.genericReturnsOnCall = make(map[int]struct {
-			result1 v1.Descriptor
-			result2 error
-		})
-	}
-	fake.genericReturnsOnCall[i] = struct {
-		result1 v1.Descriptor
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *FakeImagesMetadataWriter) Get(arg1 name.Reference) (*remote.Descriptor, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
@@ -362,6 +298,70 @@ func (fake *FakeImagesMetadataWriter) GetReturnsOnCall(i int, result1 *remote.De
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 *remote.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadataWriter) Head(arg1 name.Reference) (*v1.Descriptor, error) {
+	fake.headMutex.Lock()
+	ret, specificReturn := fake.headReturnsOnCall[len(fake.headArgsForCall)]
+	fake.headArgsForCall = append(fake.headArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	stub := fake.HeadStub
+	fakeReturns := fake.headReturns
+	fake.recordInvocation("Head", []interface{}{arg1})
+	fake.headMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesMetadataWriter) HeadCallCount() int {
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
+	return len(fake.headArgsForCall)
+}
+
+func (fake *FakeImagesMetadataWriter) HeadCalls(stub func(name.Reference) (*v1.Descriptor, error)) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = stub
+}
+
+func (fake *FakeImagesMetadataWriter) HeadArgsForCall(i int) name.Reference {
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
+	argsForCall := fake.headArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesMetadataWriter) HeadReturns(result1 *v1.Descriptor, result2 error) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = nil
+	fake.headReturns = struct {
+		result1 *v1.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesMetadataWriter) HeadReturnsOnCall(i int, result1 *v1.Descriptor, result2 error) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = nil
+	if fake.headReturnsOnCall == nil {
+		fake.headReturnsOnCall = make(map[int]struct {
+			result1 *v1.Descriptor
+			result2 error
+		})
+	}
+	fake.headReturnsOnCall[i] = struct {
+		result1 *v1.Descriptor
 		result2 error
 	}{result1, result2}
 }
@@ -563,10 +563,10 @@ func (fake *FakeImagesMetadataWriter) Invocations() map[string][][]interface{} {
 	defer fake.digestMutex.RUnlock()
 	fake.firstImageExistsMutex.RLock()
 	defer fake.firstImageExistsMutex.RUnlock()
-	fake.genericMutex.RLock()
-	defer fake.genericMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
 	fake.imageMutex.RLock()
 	defer fake.imageMutex.RUnlock()
 	fake.indexMutex.RLock()

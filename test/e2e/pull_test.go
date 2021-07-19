@@ -198,3 +198,27 @@ func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
 
 	assert.Contains(t, actualErrOut.String(), "timeout awaiting response headers")
 }
+
+func TestPullImageIndexShouldError(t *testing.T) {
+	logger := &helpers.Logger{}
+
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	registry := helpers.NewFakeRegistry(t, logger)
+	imageIndex := registry.WithARandomImageIndex("random-image-index", 3)
+	registry.Build()
+	defer registry.ResetHandler()
+
+	pullDir := env.Assets.CreateTempFolder("pull-rewrite-lock")
+	out := bytes.NewBufferString("")
+	_, err := imgpkg.RunWithOpts([]string{"pull", "--tty", "-i", imageIndex.RefDigest, "-o", pullDir}, helpers.RunOpts{
+		AllowError:   true,
+		StderrWriter: out,
+		StdoutWriter: out,
+	})
+
+	assert.Error(t, err)
+	assert.Contains(t, out.String(), "Only accepts images as a PlainImage")
+}

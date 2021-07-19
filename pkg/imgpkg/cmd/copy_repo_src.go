@@ -131,7 +131,10 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlb
 		case imagesLock != nil:
 			c.logger.Tracef("get images from ImagesLock file\n")
 			for _, img := range imagesLock.Images {
-				plainImg := plainimage.NewPlainImage(img.Image, c.registry)
+				plainImg, err := plainimage.MustNewPlainImage(img.Image, c.registry)
+				if err != nil {
+					return nil, nil, err
+				}
 
 				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 				if err != nil {
@@ -151,7 +154,10 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlb
 
 	case c.ImageFlags.Image != "":
 		c.logger.Tracef("copy single image\n")
-		plainImg := plainimage.NewPlainImage(c.ImageFlags.Image, c.registry)
+		plainImg, err := plainimage.MustNewPlainImage(c.ImageFlags.Image, c.registry)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 		if err != nil {

@@ -303,58 +303,70 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 }
 
 func TestToTarImageIndex(t *testing.T) {
-	imageName := "library/image"
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
-	fakeRegistry.WithARandomImageIndex(imageName)
+	imageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", 3)
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
 	subject.ImageFlags = ImageFlags{
-		fakeRegistry.ReferenceOnTestServer(imageName),
+		imageIndex.RefDigest,
 	}
 	subject.registry = fakeRegistry.Build()
 
-	t.Run("Tar should contain every layer", func(t *testing.T) {
+	t.Run("should fail with an error message", func(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
 		err := subject.CopyToTar(imageTarPath)
-		if err != nil {
-			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
-		}
-
-		assertTarballContainsEveryLayer(t, imageTarPath)
+		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
 	})
-	t.Run("When Include-non-distributable-layers flag is provided the tarball should contain every layer", func(t *testing.T) {
+}
+
+func TestToRepoImageIndex(t *testing.T) {
+	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+	randomImageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", 3)
+	defer fakeRegistry.CleanUp()
+	subject := subject
+	subject.ImageFlags = ImageFlags{
+		randomImageIndex.RefDigest,
+	}
+	destinationImageName := "library/copied-img"
+
+	t.Run("should fail with an error message", func(t *testing.T) {
 		subject := subject
-		subject.IncludeNonDistributable = true
+		subject.registry = fakeRegistry.Build()
 
-		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
-		defer os.Remove(imageTarPath)
-
-		err := subject.CopyToTar(imageTarPath)
-		if err != nil {
-			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
-		}
-
-		assertTarballContainsEveryLayer(t, imageTarPath)
+		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
 	})
-	t.Run("When Include-non-distributable-layers flag is provided a warning message should be printed", func(t *testing.T) {
-		stdOut.Reset()
+
+	t.Run("with an ImagesLock file should fail with an error message", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		imageIndexRefDigest := fakeRegistry.WithARandomImageIndex("library/image-2", 3).RefDigest
+		imageLockYAML := fmt.Sprintf(`apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+  annotations:
+    my-annotation: first-image
+- image: %s
+  annotations:
+    my-annotation: second-image
+`, randomImageIndex.RefDigest, imageIndexRefDigest)
+		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+
+		require.NoError(t, err)
+		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		require.NoError(t, err)
+
 		subject := subject
-		subject.IncludeNonDistributable = true
+		subject.LockInputFlags.LockFilePath = lockFile.Name()
+		subject.registry = fakeRegistry.Build()
 
-		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
-		defer os.Remove(imageTarPath)
-
-		err := subject.CopyToTar(imageTarPath)
-		if err != nil {
-			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
-		}
-
-		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n") {
-			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
-		}
+		_, err = subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
 	})
 }
 
@@ -839,6 +851,7 @@ images:
 		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
 
 	})
+
 }
 
 type fakeSignatureRetriever struct {

@@ -8,12 +8,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCopyTarSrc(t *testing.T) {
+	logger := helpers.Logger{}
+
 	t.Run("When a tar contains an ImageIndex", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
@@ -21,7 +25,7 @@ func TestCopyTarSrc(t *testing.T) {
 
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
-		imageIndex := fakeRegistry.WithARandomImageIndex("repo/imageindex")
+		imageIndex := fakeRegistry.WithARandomImageIndex("repo/imageindex", 3)
 		bundleInfo := fakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
 			{Image: imageIndex.RefDigest},
 		})
@@ -32,6 +36,24 @@ func TestCopyTarSrc(t *testing.T) {
 		tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
 		imgpkg.Run([]string{"copy", "-b", bundleInfo.RefDigest, "--to-tar", tempBundleTarFile})
 		imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", fakeRegistry.ReferenceOnTestServer("copied-bundle")})
+
+		logger.Section("assert ImageIndex were written to dest repo", func() {
+			imageIndexRef, err := name.NewDigest(fakeRegistry.ReferenceOnTestServer("copied-bundle") + "@" + imageIndex.Digest)
+			assert.NoError(t, err)
+			imageIndexGet, err := remote.Get(imageIndexRef)
+			assert.NoError(t, err)
+
+			index, err := imageIndexGet.ImageIndex()
+			assert.NoError(t, err)
+			manifest, err := index.IndexManifest()
+			assert.NoError(t, err)
+			for _, descriptor := range manifest.Manifests {
+				digest, err := name.NewDigest(fakeRegistry.ReferenceOnTestServer("copied-bundle") + "@" + descriptor.Digest.String())
+				assert.NoError(t, err)
+				_, err = remote.Head(digest)
+				assert.NoError(t, err)
+			}
+		})
 	})
 
 	t.Run("When a tar contains an ImageIndex that contains an image with a non-distributable layer", func(t *testing.T) {

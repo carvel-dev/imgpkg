@@ -20,16 +20,37 @@ type PlainImage struct {
 	parsedDigest string
 
 	fetchedImage regv1.Image
-	fetchedIndex regv1.ImageIndex
+}
+
+func MustNewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) (*PlainImage, error) {
+	err := assertPlainImageRefIsAnImage(ref, imagesMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPlainImage(ref, imagesMetadata), nil
 }
 
 func NewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) *PlainImage {
 	return &PlainImage{ref: ref, registry: imagesMetadata}
 }
 
-func NewFetchedPlainImageWithTag(digestRef string, tag string,
-	fetchedImage regv1.Image, fetchedIndex regv1.ImageIndex) *PlainImage {
+func assertPlainImageRefIsAnImage(ref string, imagesMetadata ctlimg.ImagesMetadata) error {
+	plainImageRef, err := regname.ParseReference(ref)
+	if err != nil {
+		return err
+	}
+	head, err := imagesMetadata.Head(plainImageRef)
+	if err != nil {
+		return err
+	}
+	if !head.MediaType.IsImage() {
+		return fmt.Errorf("Only accepts images as a PlainImage")
+	}
+	return nil
+}
 
+func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
 	parsedDigestRef, err := regname.NewDigest(digestRef)
 	if err != nil {
 		panic(fmt.Sprintf("Expected valid Digest Ref: %s", err))
@@ -49,7 +70,6 @@ func NewFetchedPlainImageWithTag(digestRef string, tag string,
 		parsedRef:    parsedRef,
 		parsedDigest: parsedDigestRef.DigestStr(),
 		fetchedImage: fetchedImage,
-		fetchedIndex: fetchedIndex,
 	}
 }
 
@@ -86,12 +106,6 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return i.fetchedImage, nil
 	}
 
-	// Decide to return nil here because in our use case we know that prefetched indexes are not used
-	// by imgpkg(eg: for determining if an image is a bundle or not)
-	if i.fetchedIndex != nil {
-		return nil, nil
-	}
-
 	i.parsedRef, err = regname.ParseReference(i.ref, regname.WeakValidation)
 	if err != nil {
 		return nil, err
@@ -100,6 +114,10 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 	imgs, err := ctlimg.NewImages(i.parsedRef, i.registry).Images()
 	if err != nil {
 		return nil, fmt.Errorf("Collecting images: %s", err)
+	}
+
+	if len(imgs) > 1 {
+		return nil, fmt.Errorf("Expected to fetch an Image, but found an ImageIndex")
 	}
 
 	if len(imgs) == 0 {
