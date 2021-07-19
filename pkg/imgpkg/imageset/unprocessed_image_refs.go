@@ -25,7 +25,7 @@ func (u UnprocessedImageRef) Key() string {
 type UnprocessedImageRefs struct {
 	imgRefs map[string]UnprocessedImageRef
 
-	sync.Mutex
+	lock sync.Mutex
 }
 
 func NewUnprocessedImageRefs() *UnprocessedImageRefs {
@@ -35,8 +35,8 @@ func NewUnprocessedImageRefs() *UnprocessedImageRefs {
 func (i *UnprocessedImageRefs) Add(imgRef UnprocessedImageRef) {
 	imgRef.Validate()
 
-	i.Mutex.Lock()
-	defer i.Mutex.Unlock()
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	i.imgRefs[imgRef.Key()] = imgRef
 }
 
@@ -45,8 +45,8 @@ func (i *UnprocessedImageRefs) Length() int {
 }
 
 func (i *UnprocessedImageRefs) All() []UnprocessedImageRef {
-	i.Mutex.Lock()
-	defer i.Mutex.Unlock()
+	i.lock.Lock()
+	defer i.lock.Unlock()
 
 	var result []UnprocessedImageRef
 	for _, imgRef := range i.imgRefs {
