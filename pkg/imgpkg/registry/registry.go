@@ -109,6 +109,17 @@ func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
 }
 
 func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
+	overriddenImageOrIndexesToUploadRef := map[regname.Reference]regremote.Taggable{}
+
+	for ref, taggable := range imageOrIndexesToUpload {
+		overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
+		if err != nil {
+			return err
+		}
+
+		overriddenImageOrIndexesToUploadRef[overriddenRef] = taggable
+	}
+
 	return util.Retry(func() error {
 		lOpts := append(append([]regremote.Option{}, r.opts...), regremote.WithJobs(concurrency))
 
@@ -124,7 +135,7 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 			}()
 		}
 
-		return regremote.MultiWrite(imageOrIndexesToUpload, lOpts...)
+		return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, lOpts...)
 	})
 }
 
