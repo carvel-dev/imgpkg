@@ -28,7 +28,7 @@ func NewDefaultImgpkgCmd(ui *ui.ConfUI) *cobra.Command {
 func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "imgpkg",
-		Short:             "imgpkg stores files as Docker images",
+		Short:             "imgpkg creates an immutable OCI artifact suitable for containing configuration and images used in that configuration",
 		SilenceErrors:     true,
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
