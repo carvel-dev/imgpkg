@@ -20,6 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
+
 type CopyOptions struct {
 	ImageFlags      ImageFlags
 	BundleFlags     BundleFlags
@@ -105,13 +107,13 @@ func (c *CopyOptions) Run() error {
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-		bundleProcessedImageRef, processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
+		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
 		if err != nil {
 			return err
 		}
 
 		informUserToUseTheNonDistributableFlagWithDescriptors(levelLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
-		return c.writeLockOutput(bundleProcessedImageRef, processedImages, reg)
+		return c.writeLockOutput(processedImages, reg)
 
 	case c.isRepoSrc():
 		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
@@ -146,48 +148,78 @@ func (c *CopyOptions) Run() error {
 			return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
 		case c.isRepoDst():
-			bundleProcessedImageRef, processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
+			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
 			if err != nil {
 				return err
 			}
-			return c.writeLockOutput(bundleProcessedImageRef, processedImages, reg)
+			return c.writeLockOutput(processedImages, reg)
 		}
 	}
 	panic("Unreachable")
 }
 
-func (c *CopyOptions) writeLockOutput(bundleProcessedImage *ctlimgset.ProcessedImage, processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
-	var foundBundle *bundle.Bundle
-	if bundleProcessedImage != nil {
-		plainImg := plainimage.NewFetchedPlainImageWithTag(bundleProcessedImage.DigestRef, bundleProcessedImage.UnprocessedImageRef.Tag, bundleProcessedImage.Image, bundleProcessedImage.ImageIndex)
-		foundBundle = bundle.NewBundleFromPlainImage(plainImg, registry)
+func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
+	if c.LockOutputFlags.LockFilePath == "" {
+		return nil
+	}
+
+	processedImageRootBundle := c.findProcessedImageRootBundle(processedImages)
+
+	if processedImageRootBundle != nil {
+		plainImg := plainimage.NewFetchedPlainImageWithTag(processedImageRootBundle.DigestRef, processedImageRootBundle.UnprocessedImageRef.Tag, processedImageRootBundle.Image, processedImageRootBundle.ImageIndex)
+		foundBundle := bundle.NewBundleFromPlainImage(plainImg, registry)
 		ok, err := foundBundle.IsBundle()
 		if err != nil {
-			return fmt.Errorf("Check if '%s' is bundle: %s", bundleProcessedImage.DigestRef, err)
+			return fmt.Errorf("Check if '%s' is bundle: %s", processedImageRootBundle.DigestRef, err)
 		}
 		if !ok {
-			panic(fmt.Errorf("Internal inconsistency: '%s' should be a bundle but it is not", bundleProcessedImage.DigestRef))
+			panic(fmt.Errorf("Internal inconsistency: '%s' should be a bundle but it is not", processedImageRootBundle.DigestRef))
 		}
-	} else {
-		for _, item := range processedImages.All() {
-			plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
-			bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
 
-			ok, err := bundle.IsBundle()
-			if err != nil {
-				return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
+		return c.writeBundleLockOutput(foundBundle)
+	}
+
+	// if the tarball was created with an older version (prior to assign a label to the root bundle) and it contains a bundle
+	// then return an error to the user informing them to recreate the tarball, since we don't know which is the root bundle.
+	err := c.informUserIfTarballNeedsToBeRecreated(processedImages, registry)
+	if err != nil {
+		return err
+	}
+
+	return c.writeImagesLockOutput(processedImages)
+}
+
+func (c *CopyOptions) findProcessedImageRootBundle(processedImages *ctlimgset.ProcessedImages) *ctlimgset.ProcessedImage {
+	var bundleProcessedImage *ctlimgset.ProcessedImage
+
+	for _, processedImage := range processedImages.All() {
+		if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+			if bundleProcessedImage != nil {
+				panic("Internal inconsistency: expected only 1 root bundle")
 			}
-			if ok {
-				return fmt.Errorf("Unable to determine correct root bundle to use for lock-output. hint: if copying from a tarball, try re-generating the tarball")
+			bundleProcessedImage = &ctlimgset.ProcessedImage{
+				UnprocessedImageRef: processedImage.UnprocessedImageRef,
+				DigestRef:           processedImage.DigestRef,
+				Image:               processedImage.Image,
+				ImageIndex:          processedImage.ImageIndex,
 			}
 		}
 	}
+	return bundleProcessedImage
+}
 
-	if c.LockOutputFlags.LockFilePath != "" {
-		if foundBundle != nil {
-			return c.writeBundleLockOutput(foundBundle)
+func (c *CopyOptions) informUserIfTarballNeedsToBeRecreated(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
+	for _, item := range processedImages.All() {
+		plainImg := plainimage.NewFetchedPlainImageWithTag(item.DigestRef, item.UnprocessedImageRef.Tag, item.Image, item.ImageIndex)
+		bundle := bundle.NewBundleFromPlainImage(plainImg, registry)
+
+		ok, err := bundle.IsBundle()
+		if err != nil {
+			return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
 		}
-		return c.writeImagesLockOutput(processedImages)
+		if ok {
+			return fmt.Errorf("Unable to determine correct root bundle to use for lock-output. hint: if copying from a tarball, try re-generating the tarball")
+		}
 	}
 	return nil
 }

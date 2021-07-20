@@ -28,8 +28,9 @@ type Registry interface {
 }
 
 type Metadata struct {
-	Ref regname.Reference
-	Tag string
+	Ref    regname.Reference
+	Tag    string
+	Labels map[string]string
 }
 
 type ImageRefDescriptors struct {
@@ -118,6 +119,7 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref Metadata, regDesc regv1.Desc
 		MediaType: string(regDesc.MediaType),
 		Digest:    regDesc.Digest.String(),
 		Tag:       ref.Tag,
+		Labels:    ref.Labels,
 	}
 
 	imgIndex, err := ids.registry.Index(ref.Ref)
@@ -139,13 +141,13 @@ func (ids *ImageRefDescriptors) buildImageIndex(ref Metadata, regDesc regv1.Desc
 
 	for _, manDesc := range imgIndexManifest.Manifests {
 		if ids.isImageIndex(manDesc) {
-			imgIndexTd, err := ids.buildImageIndex(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag}, manDesc)
+			imgIndexTd, err := ids.buildImageIndex(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag, ref.Labels}, manDesc)
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
 			td.Indexes = append(td.Indexes, imgIndexTd)
 		} else {
-			imgTd, err := ids.buildImage(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag})
+			imgTd, err := ids.buildImage(Metadata{ids.buildRef(ref.Ref, manDesc.Digest.String()), ref.Tag, ref.Labels})
 			if err != nil {
 				return ImageIndexDescriptor{}, err
 			}
@@ -199,7 +201,8 @@ func (ids *ImageRefDescriptors) buildImage(ref Metadata) (ImageDescriptor, error
 			Digest:    manifestDigest.String(),
 			Raw:       string(manifestBlob),
 		},
-		Tag: ref.Tag,
+		Tag:    ref.Tag,
+		Labels: ref.Labels,
 	}
 
 	layers, err := img.Layers()
@@ -291,26 +294,6 @@ func (ids *ImageRefDescriptors) buildRef(otherRef regname.Reference, digest stri
 		panic(fmt.Sprintf("Building new ref"))
 	}
 	return newRef
-}
-
-func (ids *ImageRefDescriptors) SetLabel(label map[string]interface{}, bundleRefToUpdate string) error {
-	foundBundleToUpdate := false
-	for i, desc := range ids.descs {
-		if desc.Image != nil {
-			for _, ref := range desc.Image.Refs {
-				if ref == bundleRefToUpdate {
-					ids.descs[i].Image.Labels = label
-					foundBundleToUpdate = true
-				}
-			}
-		}
-	}
-
-	if !foundBundleToUpdate {
-		return fmt.Errorf("unable to find %s to update label", bundleRefToUpdate)
-	}
-
-	return nil
 }
 
 type errRegistry struct {

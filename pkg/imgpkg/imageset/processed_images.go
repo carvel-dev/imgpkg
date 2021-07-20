@@ -20,26 +20,30 @@ type ProcessedImage struct {
 	ImageIndex regv1.ImageIndex
 }
 
-type ProcessedImages struct {
-	imgs     map[UnprocessedImageRef]ProcessedImage
-	imgsLock sync.Mutex
+func (p ProcessedImage) Key() string {
+	return p.UnprocessedImageRef.Key()
 }
 
-func (i ProcessedImage) Validate() {
-	_, err := regname.NewDigest(i.DigestRef)
+func (p ProcessedImage) Validate() {
+	_, err := regname.NewDigest(p.DigestRef)
 	if err != nil {
 		panic(fmt.Sprintf("Digest need to be provided: %s", err))
 	}
 
-	if i.Image == nil && i.ImageIndex == nil {
+	if p.Image == nil && p.ImageIndex == nil {
 		panic("Either Image or ImageIndex must be provided")
 	}
 
-	i.UnprocessedImageRef.Validate()
+	p.UnprocessedImageRef.Validate()
+}
+
+type ProcessedImages struct {
+	imgs     map[string]ProcessedImage
+	imgsLock sync.Mutex
 }
 
 func NewProcessedImages() *ProcessedImages {
-	return &ProcessedImages{imgs: map[UnprocessedImageRef]ProcessedImage{}}
+	return &ProcessedImages{imgs: map[string]ProcessedImage{}}
 }
 
 func (i *ProcessedImages) Add(img ProcessedImage) {
@@ -47,14 +51,15 @@ func (i *ProcessedImages) Add(img ProcessedImage) {
 	defer i.imgsLock.Unlock()
 
 	img.Validate()
-	i.imgs[img.UnprocessedImageRef] = img
+
+	i.imgs[img.UnprocessedImageRef.Key()] = img
 }
 
 func (i *ProcessedImages) FindByURL(unprocessedImageURL UnprocessedImageRef) (ProcessedImage, bool) {
 	i.imgsLock.Lock()
 	defer i.imgsLock.Unlock()
 
-	img, found := i.imgs[unprocessedImageURL]
+	img, found := i.imgs[unprocessedImageURL.Key()]
 	return img, found
 }
 

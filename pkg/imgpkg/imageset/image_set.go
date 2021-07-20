@@ -64,7 +64,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 		}
 
 		i.logger.WriteStr("will export %s\n", img.DigestRef)
-		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag})
+		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag, Labels: img.Labels})
 	}
 
 	ids, err := imagedesc.NewImageRefDescriptors(refs, imagesMetadata)
@@ -234,7 +234,7 @@ func (i *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regn
 		regImageIndex = *item.Index
 	}
 	return ProcessedImage{
-		UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag()},
+		UnprocessedImageRef: UnprocessedImageRef{existingRef.Name(), item.Tag(), item.Labels},
 		DigestRef:           importDigestRef.Name(),
 		Image:               regImage,
 		ImageIndex:          regImageIndex,

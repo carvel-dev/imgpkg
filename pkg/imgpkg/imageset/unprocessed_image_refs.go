@@ -14,23 +14,30 @@ import (
 type UnprocessedImageRef struct {
 	DigestRef string
 	Tag       string
+
+	Labels map[string]string
+}
+
+func (u UnprocessedImageRef) Key() string {
+	return u.DigestRef + ":" + u.Tag
 }
 
 type UnprocessedImageRefs struct {
-	imgRefs map[UnprocessedImageRef]struct{}
-	sync.Mutex
+	imgRefs map[string]UnprocessedImageRef
+
+	lock sync.Mutex
 }
 
 func NewUnprocessedImageRefs() *UnprocessedImageRefs {
-	return &UnprocessedImageRefs{imgRefs: map[UnprocessedImageRef]struct{}{}}
+	return &UnprocessedImageRefs{imgRefs: map[string]UnprocessedImageRef{}}
 }
 
 func (i *UnprocessedImageRefs) Add(imgRef UnprocessedImageRef) {
 	imgRef.Validate()
 
-	i.Mutex.Lock()
-	defer i.Mutex.Unlock()
-	i.imgRefs[imgRef] = struct{}{}
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	i.imgRefs[imgRef.Key()] = imgRef
 }
 
 func (i *UnprocessedImageRefs) Length() int {
@@ -38,10 +45,14 @@ func (i *UnprocessedImageRefs) Length() int {
 }
 
 func (i *UnprocessedImageRefs) All() []UnprocessedImageRef {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+
 	var result []UnprocessedImageRef
-	for imgRef := range i.imgRefs {
+	for _, imgRef := range i.imgRefs {
 		result = append(result, imgRef)
 	}
+
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].DigestRef < result[j].DigestRef
 	})

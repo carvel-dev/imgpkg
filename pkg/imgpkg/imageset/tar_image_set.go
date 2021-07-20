@@ -13,8 +13,6 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 )
 
-const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
-
 type TarImageSet struct {
 	imageSet    ImageSet
 	concurrency int
@@ -25,7 +23,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger) TarImageS
 	return TarImageSet{imageSet, concurrency, logger}
 }
 
-func (i TarImageSet) Export(bundleUnprocessedImageRef *UnprocessedImageRef, foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
+func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
 	ids, err := i.imageSet.Export(foundImages, registry)
 	if err != nil {
 		return nil, err
@@ -48,50 +46,21 @@ func (i TarImageSet) Export(bundleUnprocessedImageRef *UnprocessedImageRef, foun
 	i.logger.WriteStr("writing layers...\n")
 
 	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
-	if bundleUnprocessedImageRef != nil {
-		err := ids.SetLabel(map[string]interface{}{rootBundleLabelKey: ""}, bundleUnprocessedImageRef.DigestRef)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck).Write()
 }
 
-func (i *TarImageSet) Import(path string,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImage, *ProcessedImages, error) {
-
+func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 	reader := imagetar.NewTarReader(path)
 	imgOrIndexes, err := reader.Read()
 	if err != nil {
-		return nil, nil, err
-	}
-
-	rootBundleImageDesc, err := reader.FindByLabelKey(rootBundleLabelKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(rootBundleImageDesc) > 1 {
-		panic(fmt.Sprintf("Internal inconsistency: The tarball contains multiple images marked as %s", rootBundleLabelKey))
+		return nil, err
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	var bundleProcessedImageRef *ProcessedImage
-	if len(rootBundleImageDesc) == 1 {
-		processedImg, ok := processedImages.FindByURL(UnprocessedImageRef{
-			DigestRef: rootBundleImageDesc[0].Refs[0],
-			Tag:       rootBundleImageDesc[0].Tag,
-		})
-		if !ok {
-			panic(fmt.Errorf("Internal inconsistency: Unable to find bundle after processing"))
-		}
-		bundleProcessedImageRef = &processedImg
-	}
-
-	return bundleProcessedImageRef, processedImages, err
+	return processedImages, err
 }

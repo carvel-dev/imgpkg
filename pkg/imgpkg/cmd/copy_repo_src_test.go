@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -384,13 +385,18 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
+		processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
+
+		var processedBundle imageset.ProcessedImage
 		processedImageDigest := []string{}
 		for _, processedImage := range processedImages.All() {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+				processedBundle = processedImage
+			}
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
 			destRepo + "@" + bundleWithNestedBundle.Digest,
@@ -422,13 +428,18 @@ bundle:
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
+		processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 4)
+
+		var processedBundle imageset.ProcessedImage
 		processedImageDigest := []string{}
 		for _, processedImage := range processedImages.All() {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+				processedBundle = processedImage
+			}
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
 			destRepo + "@" + bundleWithNestedBundle.Digest,
@@ -458,7 +469,7 @@ images:
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		_, _, err = subject.CopyToRepo(destRepo)
+		_, err = subject.CopyToRepo(destRepo)
 		require.Error(t, err)
 		assert.EqualError(t, err, "Unable to copy bundles using an Images Lock file (hint: Create a bundle with these images)")
 	})
@@ -490,13 +501,17 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
+		processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
+		var processedBundle imageset.ProcessedImage
 		processedImageDigest := []string{}
 		for _, processedImage := range processedImages.All() {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+				processedBundle = processedImage
+			}
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
 			destRepo + "@" + bundleWithNestedBundle.Digest,
@@ -568,13 +583,19 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			fakeRegistry.WithImageStatusCodeRemap(fmt.Sprintf("%s.image-locations.imgpkg", strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-")), 404, remappedStatusCode)
 			defer fakeRegistry.ResetHandler()
 
-			processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
+			processedImages, err := subject.CopyToRepo(destRepo)
 			require.NoError(t, err)
 
 			require.Len(t, processedImages.All(), 3)
+
+			var processedBundle imageset.ProcessedImage
 			processedImageDigest := []string{}
 			for _, processedImage := range processedImages.All() {
 				processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+
+				if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+					processedBundle = processedImage
+				}
 			}
 			assert.ElementsMatch(t, processedImageDigest, []string{
 				destRepo + "@" + bundleWithNestedBundle.Digest,
@@ -623,13 +644,18 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
-		processedBundle, processedImages, err := subject.CopyToRepo(destRepo)
+		processedImages, err := subject.CopyToRepo(destRepo)
 		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 3)
+
+		var processedBundle imageset.ProcessedImage
 		processedImageDigest := []string{}
 		for _, processedImage := range processedImages.All() {
 			processedImageDigest = append(processedImageDigest, processedImage.DigestRef)
+			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+				processedBundle = processedImage
+			}
 		}
 		assert.ElementsMatch(t, processedImageDigest, []string{
 			destRepo + "@" + bundleWithNestedBundle.Digest,
@@ -709,7 +735,7 @@ func TestToRepoBundleWithMultipleRegistries(t *testing.T) {
 	fakeDockerhubRegistry.Build()
 
 	t.Run("Images are copied from fake-registry and not from the bundle's ImagesLockFile registry (index.docker.io)", func(t *testing.T) {
-		_, processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
+		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
 		require.NoError(t, err, "expected copy command to succeed")
 
 		require.Len(t, processedImages.All(), 2)
@@ -738,7 +764,7 @@ bundle:
 		subject.BundleFlags.Bundle = ""
 		subject.LockInputFlags.LockFilePath = bundleLockTempDir
 
-		_, processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
+		processedImages, err := subject.CopyToRepo(fakePrivateRegistry.ReferenceOnTestServer(destinationBundleName))
 		require.NoError(t, err, "expected copy command to succeed")
 
 		require.Len(t, processedImages.All(), 2)
@@ -765,7 +791,7 @@ func TestToRepoImage(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 		subject.IncludeNonDistributable = true
 
-		_, _, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
+		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
 		if err != nil {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
@@ -802,7 +828,7 @@ images:
 		subject.LockInputFlags.LockFilePath = lockFile.Name()
 		subject.registry = fakeRegistry.Build()
 
-		processedBundle, processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if err != nil {
 			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
 		}
@@ -811,7 +837,6 @@ images:
 
 		assert.Equal(t, image1.RefDigest, processedImages.All()[1].UnprocessedImageRef.DigestRef)
 		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
-		assert.Nil(t, processedBundle)
 
 	})
 }
@@ -878,13 +903,18 @@ func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testin
 
 func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
 	tarReader := imagetar.NewTarReader(imageTarPath)
-	imageReferencesFound, err := tarReader.FindByLabelKey("dev.carvel.imgpkg.copy.root-bundle")
+	imageOrIndices, err := tarReader.Read()
 	assert.NoError(t, err)
+	var imageReferencesFound []imagedesc.ImageOrIndex
+	for _, imageOrIndex := range imageOrIndices {
+		if _, ok := imageOrIndex.Labels["dev.carvel.imgpkg.copy.root-bundle"]; ok {
+			imageReferencesFound = append(imageReferencesFound, imageOrIndex)
+		}
+	}
 
 	assert.NotNil(t, imageReferencesFound)
 	assert.Len(t, imageReferencesFound, 1)
-	assert.Equal(t, outerBundleRef, imageReferencesFound[0].Refs[0])
-
+	assert.Equal(t, outerBundleRef, imageReferencesFound[0].Ref())
 }
 
 func doesLayerExistInTarball(t *testing.T, path string, digest regv1.Hash) bool {
