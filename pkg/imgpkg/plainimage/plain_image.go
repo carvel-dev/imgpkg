@@ -117,7 +117,7 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 	}
 
 	if len(imgs) > 1 {
-		return nil, fmt.Errorf("Expected to fetch an Image, but found an ImageIndex")
+		return nil, notAnImageError{}
 	}
 
 	if len(imgs) == 0 {
@@ -154,4 +154,19 @@ func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
 	}
 
 	return nil
+}
+
+func IsNotAnImageError(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(notAnImageError)
+	return ok
+}
+
+type notAnImageError struct {
+}
+
+func (n notAnImageError) Error() string {
+	return "Not an image"
 }

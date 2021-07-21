@@ -3,7 +3,9 @@
 
 package bundle
 
-import "strings"
+import (
+	plainimg "github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+)
 
 type notABundleError struct {
 }
@@ -23,8 +25,7 @@ func IsNotBundleError(err error) bool {
 func (o *Bundle) IsBundle() (bool, error) {
 	img, err := o.plainImg.Fetch()
 	if err != nil {
-		//TODO: make design changes to accomodate a bundle giving an imageindex to a plainimage.
-		if strings.Contains(err.Error(), "but found an ImageIndex") {
+		if plainimg.IsNotAnImageError(err) {
 			return false, nil
 		}
 		return false, err
