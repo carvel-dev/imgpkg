@@ -9,7 +9,6 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	regname "github.com/google/go-containerregistry/pkg/name"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
 )
@@ -21,8 +20,6 @@ type TagListOptions struct {
 	RegistryFlags RegistryFlags
 	Digests       bool
 }
-
-var _ ctlimg.ImagesMetadata = registry.Registry{}
 
 func NewTagListOptions(ui ui.UI) *TagListOptions {
 	return &TagListOptions{ui: ui}

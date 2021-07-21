@@ -30,20 +30,20 @@ type ImagesLockReader interface {
 
 type Bundle struct {
 	plainImg         *plainimg.PlainImage
-	imgRetriever     ctlimg.ImagesMetadata
+	imgRetriever     imageset.ImagesMetadata
 	imagesLockReader ImagesLockReader
 	imagesRef        map[string]ImageRef
 }
 
-func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+func NewBundle(ref string, imagesMetadata imageset.ImagesMetadata) *Bundle {
 	return NewBundleWithReader(ref, imagesMetadata, &singleLayerReader{})
 }
 
-func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata imageset.ImagesMetadata) *Bundle {
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata, imagesLockReader: &singleLayerReader{}, imagesRef: map[string]ImageRef{}}
 }
 
-func NewBundleWithReader(ref string, imagesMetadata ctlimg.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+func NewBundleWithReader(ref string, imagesMetadata imageset.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
 	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata), imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader, imagesRef: map[string]ImageRef{}}
 }
 

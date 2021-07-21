@@ -9,12 +9,18 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
+type ImagesDescriptor interface {
+	Get(regname.Reference) (*regremote.Descriptor, error)
+	Head(regname.Reference) (*regv1.Descriptor, error)
+}
+
 type PlainImage struct {
 	ref      string
-	registry ctlimg.ImagesMetadata
+	registry ImagesDescriptor
 
 	parsedRef    regname.Reference
 	parsedDigest string
@@ -22,31 +28,34 @@ type PlainImage struct {
 	fetchedImage regv1.Image
 }
 
-func MustNewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) (*PlainImage, error) {
-	err := assertPlainImageRefIsAnImage(ref, imagesMetadata)
+func MustNewPlainImage(ref string, imagesDescriptor ImagesDescriptor) (*PlainImage, error) {
+	err := assertPlainImageRefIsAnImage(ref, imagesDescriptor)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewPlainImage(ref, imagesMetadata), nil
+	return NewPlainImage(ref, imagesDescriptor), nil
 }
 
-func NewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) *PlainImage {
-	return &PlainImage{ref: ref, registry: imagesMetadata}
+func NewPlainImage(ref string, imagesDescriptor ImagesDescriptor) *PlainImage {
+	return &PlainImage{ref: ref, registry: imagesDescriptor}
 }
 
-func assertPlainImageRefIsAnImage(ref string, imagesMetadata ctlimg.ImagesMetadata) error {
+func assertPlainImageRefIsAnImage(ref string, imagesDescriptor ImagesDescriptor) error {
 	plainImageRef, err := regname.ParseReference(ref)
 	if err != nil {
 		return err
 	}
-	head, err := imagesMetadata.Head(plainImageRef)
+
+	imageDescriptor, err := imagesDescriptor.Head(plainImageRef)
 	if err != nil {
 		return err
 	}
-	if !head.MediaType.IsImage() {
-		return fmt.Errorf("Only accepts images as a PlainImage")
+
+	if !imageDescriptor.MediaType.IsImage() {
+		return fmt.Errorf("Expected an Image but got: %s", string(imageDescriptor.MediaType))
 	}
+
 	return nil
 }
 
@@ -111,20 +120,19 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return nil, err
 	}
 
-	imgs, err := ctlimg.NewImages(i.parsedRef, i.registry).Images()
+	imgDescriptor, err := i.registry.Get(i.parsedRef)
 	if err != nil {
-		return nil, fmt.Errorf("Collecting images: %s", err)
+		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
-	if len(imgs) > 1 {
+	if !imgDescriptor.MediaType.IsImage() {
 		return nil, notAnImageError{}
 	}
 
-	if len(imgs) == 0 {
-		return nil, fmt.Errorf("Expected to find at least one image, but found none")
+	i.fetchedImage, err = imgDescriptor.Image()
+	if err != nil {
+		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
-
-	i.fetchedImage = imgs[0]
 
 	digest, err := i.fetchedImage.Digest()
 	if err != nil {

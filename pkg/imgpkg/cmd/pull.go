@@ -8,7 +8,6 @@ import (
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
@@ -25,8 +24,6 @@ type PullOptions struct {
 	BundleRecursiveFlags BundleRecursiveFlags
 	OutputPath           string
 }
-
-var _ ctlimg.ImagesMetadata = registry.Registry{}
 
 func NewPullOptions(ui ui.UI) *PullOptions {
 	return &PullOptions{ui: ui}
