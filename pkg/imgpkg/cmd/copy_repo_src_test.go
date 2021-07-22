@@ -319,7 +319,7 @@ func TestToTarImageIndex(t *testing.T) {
 
 		err := subject.CopyToTar(imageTarPath)
 		if assert.Error(t, err) {
-			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+			assert.Equal(t, "Unable to copy non-images (such as ImageIndexes)", err.Error())
 		}
 	})
 }
@@ -340,7 +340,7 @@ func TestToRepoImageIndex(t *testing.T) {
 
 		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if assert.Error(t, err) {
-			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+			assert.Equal(t, "Unable to copy non-images (such as ImageIndexes)", err.Error())
 		}
 	})
 
@@ -371,7 +371,7 @@ images:
 
 		_, err = subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if assert.Error(t, err) {
-			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+			assert.Contains(t, err.Error(), "Unable to copy non-images (such as ImageIndexes) using an Images Lock file")
 		}
 	})
 }

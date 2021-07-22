@@ -10,6 +10,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
@@ -19,8 +20,7 @@ type ImagesDescriptor interface {
 }
 
 type PlainImage struct {
-	ref      string
-	registry ImagesDescriptor
+	imagesDescriptor ImagesDescriptor
 
 	parsedRef    regname.Reference
 	parsedDigest string
@@ -28,35 +28,13 @@ type PlainImage struct {
 	fetchedImage regv1.Image
 }
 
-func MustNewPlainImage(ref string, imagesDescriptor ImagesDescriptor) (*PlainImage, error) {
-	err := assertPlainImageRefIsAnImage(ref, imagesDescriptor)
+func NewPlainImage(ref string, imgDescriptor ImagesDescriptor) *PlainImage {
+	parsedRef, err := regname.ParseReference(ref, regname.WeakValidation)
 	if err != nil {
-		return nil, err
+		panic(fmt.Sprintf("Expected valid Tag Ref: %s", err))
 	}
 
-	return NewPlainImage(ref, imagesDescriptor), nil
-}
-
-func NewPlainImage(ref string, imagesDescriptor ImagesDescriptor) *PlainImage {
-	return &PlainImage{ref: ref, registry: imagesDescriptor}
-}
-
-func assertPlainImageRefIsAnImage(ref string, imagesDescriptor ImagesDescriptor) error {
-	plainImageRef, err := regname.ParseReference(ref)
-	if err != nil {
-		return err
-	}
-
-	imageDescriptor, err := imagesDescriptor.Head(plainImageRef)
-	if err != nil {
-		return err
-	}
-
-	if !imageDescriptor.MediaType.IsImage() {
-		return fmt.Errorf("Expected an Image but got: %s", string(imageDescriptor.MediaType))
-	}
-
-	return nil
+	return &PlainImage{parsedRef: parsedRef, imagesDescriptor: imgDescriptor}
 }
 
 func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
@@ -115,18 +93,13 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return i.fetchedImage, nil
 	}
 
-	i.parsedRef, err = regname.ParseReference(i.ref, regname.WeakValidation)
-	if err != nil {
-		return nil, err
-	}
-
-	imgDescriptor, err := i.registry.Get(i.parsedRef)
+	imgDescriptor, err := i.imagesDescriptor.Get(i.parsedRef)
 	if err != nil {
 		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
 	if !imgDescriptor.MediaType.IsImage() {
-		return nil, notAnImageError{}
+		return nil, notAnImageError{imgDescriptor.MediaType}
 	}
 
 	i.fetchedImage, err = imgDescriptor.Image()
@@ -142,6 +115,22 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 	i.parsedDigest = digest.String()
 
 	return i.fetchedImage, nil
+}
+
+func (i *PlainImage) IsImage() (bool, error) {
+	img, err := i.Fetch()
+	if img == nil && err == nil {
+		panic("Unreachable code")
+	}
+
+	if err != nil {
+		if IsNotAnImageError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
@@ -173,8 +162,9 @@ func IsNotAnImageError(err error) bool {
 }
 
 type notAnImageError struct {
+	mediaType types.MediaType
 }
 
 func (n notAnImageError) Error() string {
-	return "Not an image"
+	return fmt.Sprintf("Expected an Image but got: %s", n.mediaType)
 }

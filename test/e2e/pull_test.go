@@ -220,5 +220,5 @@ func TestPullImageIndexShouldError(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, out.String(), "Expected an Image but got: application/vnd.oci.image.index.v1+json")
+	assert.Contains(t, out.String(), "Unable to pull non-images (such as ImageIndexes)")
 }

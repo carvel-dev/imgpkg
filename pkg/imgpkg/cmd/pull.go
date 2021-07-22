@@ -85,9 +85,14 @@ func (po *PullOptions) Run() error {
 		return nil
 
 	case len(po.ImageFlags.Image) > 0:
-		plainImg, err := plainimage.MustNewPlainImage(po.ImageFlags.Image, reg)
+		plainImg := plainimage.NewPlainImage(po.ImageFlags.Image, reg)
+		isImage, err := plainImg.IsImage()
 		if err != nil {
 			return err
+		}
+
+		if !isImage {
+			return fmt.Errorf("Unable to pull non-images (such as ImageIndexes)")
 		}
 
 		ok, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
