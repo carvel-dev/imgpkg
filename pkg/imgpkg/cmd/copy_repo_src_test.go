@@ -318,7 +318,9 @@ func TestToTarImageIndex(t *testing.T) {
 		defer os.Remove(imageTarPath)
 
 		err := subject.CopyToTar(imageTarPath)
-		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
+		if assert.Error(t, err) {
+			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+		}
 	})
 }
 
@@ -337,7 +339,9 @@ func TestToRepoImageIndex(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
+		if assert.Error(t, err) {
+			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+		}
 	})
 
 	t.Run("with an ImagesLock file should fail with an error message", func(t *testing.T) {
@@ -366,7 +370,9 @@ images:
 		subject.registry = fakeRegistry.Build()
 
 		_, err = subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		assert.Error(t, err, "ImageIndex is not an acceptable input... think of a good error message")
+		if assert.Error(t, err) {
+			assert.Equal(t, "Expected an Image but got: application/vnd.oci.image.index.v1+json", err.Error())
+		}
 	})
 }
 
