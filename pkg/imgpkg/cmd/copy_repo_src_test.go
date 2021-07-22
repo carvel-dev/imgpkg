@@ -319,7 +319,7 @@ func TestToTarImageIndex(t *testing.T) {
 
 		err := subject.CopyToTar(imageTarPath)
 		if assert.Error(t, err) {
-			assert.Equal(t, "Unable to copy non-images (such as ImageIndexes)", err.Error())
+			assert.Equal(t, "Unable to copy non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)", err.Error())
 		}
 	})
 }
@@ -340,7 +340,7 @@ func TestToRepoImageIndex(t *testing.T) {
 
 		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
 		if assert.Error(t, err) {
-			assert.Equal(t, "Unable to copy non-images (such as ImageIndexes)", err.Error())
+			assert.Equal(t, "Unable to copy non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)", err.Error())
 		}
 	})
 
