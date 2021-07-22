@@ -14,7 +14,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
@@ -237,7 +236,7 @@ func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error)
 
 type LocationsConfig struct {
 	logger          util.LoggerWithLevels
-	imgRetriever    imageset.ImagesMetadata
+	imgRetriever    ImagesMetadata
 	bundleDigestRef regname.Digest
 }
 

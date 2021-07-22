@@ -17,7 +17,6 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
@@ -57,7 +56,7 @@ func NewLocationsWithReader(reader LocationImageReader, logger util.LoggerWithLe
 	return &LocationsConfigs{reader: reader, logger: logger}
 }
 
-func (r LocationsConfigs) Fetch(registry imageset.ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
+func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
 	r.logger.Tracef("fetching Locations OCI Images for bundle: %s\n", bundleRef)
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {

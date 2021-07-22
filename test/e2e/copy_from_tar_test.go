@@ -25,7 +25,8 @@ func TestCopyTarSrc(t *testing.T) {
 
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
-		imageIndex := fakeRegistry.WithARandomImageIndex("repo/imageindex", 3)
+		var expectedNumOfImagesInImageIndex int64 = 3
+		imageIndex := fakeRegistry.WithARandomImageIndex("repo/imageindex", expectedNumOfImagesInImageIndex)
 		bundleInfo := fakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
 			{Image: imageIndex.RefDigest},
 		})
@@ -47,6 +48,7 @@ func TestCopyTarSrc(t *testing.T) {
 			assert.NoError(t, err)
 			manifest, err := index.IndexManifest()
 			assert.NoError(t, err)
+			assert.Len(t, manifest.Manifests, int(expectedNumOfImagesInImageIndex))
 			for _, descriptor := range manifest.Manifests {
 				digest, err := name.NewDigest(fakeRegistry.ReferenceOnTestServer("copied-bundle") + "@" + descriptor.Digest.String())
 				assert.NoError(t, err)

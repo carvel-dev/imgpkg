@@ -16,7 +16,6 @@ import (
 
 type ImagesDescriptor interface {
 	Get(regname.Reference) (*regremote.Descriptor, error)
-	Head(regname.Reference) (*regv1.Descriptor, error)
 }
 
 type PlainImage struct {
