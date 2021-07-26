@@ -118,11 +118,43 @@ jobs:
           echo "${{ env.HOMEBREW_FORMULA }}" > ./imgpkg.rb
           cat ./imgpkg.rb
       - name: Commit & Push changes
-        uses: actions-js/push@master
         with:
-          author_name: "k8slt"
-          author_email: "klt@groups.vmware.com"
-          repository: "vmware-tanzu/homebrew-carvel"
-          branch: "imgpkg-homebrew"
-          force: true
-          github_token: ${{ secrets.HOMEBREW_TOKEN }}
+          AUTHOR_NAME: "k8slt"
+          AUTHOR_EMAIL: "klt@groups.vmware.com"
+          REPOSITORY: "vmware-tanzu/homebrew-carvel"
+          BRANCH: "imgpkg-homebrew"
+          FORCE: true
+          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          set -e
+
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          AUTHOR_EMAIL=${AUTHOR_EMAIL:-'github-actions[bot]@users.noreply.github.com'}
+          AUTHOR_NAME=${AUTHOR_NAME:-'github-actions[bot]'}
+          MESSAGE=${MESSAGE:-"chore: autopublish ${timestamp}"}
+          BRANCH=${BRANCH:-develop}
+          FORCE=${FORCE:-false}
+          REPOSITORY=${REPOSITORY:-$GITHUB_REPOSITORY}
+
+          echo "Push to branch $BRANCH";
+          [ -z "${GITHUB_TOKEN}" ] && {
+              echo 'Missing input "github_token: ${{ secrets.GITHUB_TOKEN }}".';
+              exit 1;
+          };
+
+          if ${FORCE}; then
+              _FORCE_OPTION='--force'
+          fi
+
+          remote_repo="https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
+
+          git config http.sslVerify false
+          git config --local user.email "${AUTHOR_EMAIL}"
+          git config --local user.name "${AUTHOR_NAME}"
+
+          git add -A
+
+          git commit -m "{$MESSAGE}" $_EMPTY || exit 0
+
+          git push "${remote_repo}" HEAD:"${BRANCH}" --follow-tags $_FORCE_OPTION;
