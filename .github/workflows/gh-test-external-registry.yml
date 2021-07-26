@@ -1,6 +1,9 @@
 name: test-gh-external-registries
 
 on:
+  push:
+    branches:
+      - develop
   pull_request_target:
     types: [opened, reopened, synchronize]
 permissions:
