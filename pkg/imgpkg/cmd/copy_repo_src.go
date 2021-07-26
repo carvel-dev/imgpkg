@@ -132,14 +132,6 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlb
 			c.logger.Tracef("get images from ImagesLock file\n")
 			for _, img := range imagesLock.Images {
 				plainImg := plainimage.NewPlainImage(img.Image, c.registry)
-				isImage, err := plainImg.IsImage()
-				if err != nil {
-					return nil, nil, err
-				}
-
-				if !isImage {
-					return nil, nil, fmt.Errorf("Unable to copy non-images (such as ImageIndexes) using an Images Lock file. The non-image reference is: %s", img.Image)
-				}
 
 				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 				if err != nil {
@@ -160,14 +152,6 @@ func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlb
 	case c.ImageFlags.Image != "":
 		c.logger.Tracef("copy single image\n")
 		plainImg := plainimage.NewPlainImage(c.ImageFlags.Image, c.registry)
-		isImage, err := plainImg.IsImage()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if !isImage {
-			return nil, nil, fmt.Errorf("Unable to copy non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)")
-		}
 
 		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
 		if err != nil {

@@ -92,7 +92,7 @@ func (po *PullOptions) Run() error {
 		}
 
 		if !isImage {
-			return fmt.Errorf("Unable to pull non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)")
+			return fmt.Errorf("Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
 		}
 
 		ok, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()

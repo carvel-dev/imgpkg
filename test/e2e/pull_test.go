@@ -220,5 +220,5 @@ func TestPullImageIndexShouldError(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, out.String(), "Unable to pull non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)")
+	assert.Contains(t, out.String(), "Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
 }

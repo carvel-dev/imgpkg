@@ -304,7 +304,8 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 
 func TestToTarImageIndex(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
-	imageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", 3)
+	numOfImagesForImageIndex := int64(3)
+	imageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", numOfImagesForImageIndex)
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
@@ -313,20 +314,21 @@ func TestToTarImageIndex(t *testing.T) {
 	}
 	subject.registry = fakeRegistry.Build()
 
-	t.Run("should fail with an error message", func(t *testing.T) {
+	t.Run("Tar should contain every layer", func(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
 		err := subject.CopyToTar(imageTarPath)
-		if assert.Error(t, err) {
-			assert.Equal(t, "Unable to copy non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)", err.Error())
-		}
+		assert.NoError(t, err)
+
+		assertTarballContainsEveryImageInImageIndex(t, imageTarPath, int(numOfImagesForImageIndex))
 	})
 }
 
 func TestToRepoImageIndex(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
-	randomImageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", 3)
+	expectedNumOfImagesForImgIndex := int64(3)
+	randomImageIndex := fakeRegistry.WithARandomImageIndex("library/imageindex", expectedNumOfImagesForImgIndex)
 	defer fakeRegistry.CleanUp()
 	subject := subject
 	subject.ImageFlags = ImageFlags{
@@ -334,31 +336,31 @@ func TestToRepoImageIndex(t *testing.T) {
 	}
 	destinationImageName := "library/copied-img"
 
-	t.Run("should fail with an error message", func(t *testing.T) {
+	t.Run("should copy every image to repo", func(t *testing.T) {
 		subject := subject
 		subject.registry = fakeRegistry.Build()
 
-		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		if assert.Error(t, err) {
-			assert.Equal(t, "Unable to copy non-images, such as ImageIndexes. (hint: provide a specific digest to the image instead)", err.Error())
-		}
+		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		assert.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 1)
+		manifest, err := processedImages.All()[0].ImageIndex.IndexManifest()
+		assert.NoError(t, err)
+		require.Len(t, manifest.Manifests, int(expectedNumOfImagesForImgIndex))
 	})
 
-	t.Run("with an ImagesLock file should fail with an error message", func(t *testing.T) {
+	t.Run("with an ImagesLock file should copy every image to repo", func(t *testing.T) {
 		assets := &helpers.Assets{T: t}
 		defer assets.CleanCreatedFolders()
 
-		imageIndexRefDigest := fakeRegistry.WithARandomImageIndex("library/image-2", 3).RefDigest
+		imageIndexRefDigest := fakeRegistry.WithARandomImageIndex("library/image-2", expectedNumOfImagesForImgIndex).RefDigest
 		imageLockYAML := fmt.Sprintf(`apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
   annotations:
-    my-annotation: first-image
-- image: %s
-  annotations:
-    my-annotation: second-image
-`, randomImageIndex.RefDigest, imageIndexRefDigest)
+    my-annotation: image-index
+`, imageIndexRefDigest)
 		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
 
 		require.NoError(t, err)
@@ -369,10 +371,13 @@ images:
 		subject.LockInputFlags.LockFilePath = lockFile.Name()
 		subject.registry = fakeRegistry.Build()
 
-		_, err = subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Unable to copy non-images (such as ImageIndexes) using an Images Lock file")
-		}
+		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
+		assert.NoError(t, err)
+
+		require.Len(t, processedImages.All(), 1)
+		manifest, err := processedImages.All()[0].ImageIndex.IndexManifest()
+		assert.NoError(t, err)
+		require.Len(t, manifest.Manifests, int(expectedNumOfImagesForImgIndex))
 	})
 }
 
@@ -875,6 +880,10 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 	require.NoError(t, err)
 
 	for _, imageInManifest := range imageOrIndex {
+		if imageInManifest.Index != nil {
+			continue
+		}
+
 		layers, err := (*imageInManifest.Image).Layers()
 		require.NoError(t, err)
 
@@ -885,6 +894,22 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 			assert.Truef(t, doesLayerExistInTarball(t, imageTarPath, digest), "did not find the expected layer [%s]",
 				digest)
 		}
+	}
+}
+
+func assertTarballContainsEveryImageInImageIndex(t *testing.T, imageTarPath string, numOfImagesForImageIndex int) {
+	path := imagetar.NewTarReader(imageTarPath)
+	imageOrIndex, err := path.Read()
+	require.NoError(t, err)
+
+	require.Len(t, imageOrIndex, 1)
+	index := *(imageOrIndex[0].Index)
+	require.NotNil(t, index)
+	manifest, err := index.IndexManifest()
+	require.NoError(t, err)
+	require.Len(t, manifest.Manifests, numOfImagesForImageIndex)
+	for _, imgManifest := range manifest.Manifests {
+		doesLayerExistInTarball(t, imageTarPath, imgManifest.Digest)
 	}
 }
 

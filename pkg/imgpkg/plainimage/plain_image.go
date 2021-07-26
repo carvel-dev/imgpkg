@@ -21,6 +21,7 @@ type ImagesDescriptor interface {
 type PlainImage struct {
 	imagesDescriptor ImagesDescriptor
 
+	unparsedRef  string
 	parsedRef    regname.Reference
 	parsedDigest string
 
@@ -28,15 +29,14 @@ type PlainImage struct {
 }
 
 func NewPlainImage(ref string, imgDescriptor ImagesDescriptor) *PlainImage {
-	parsedRef, err := regname.ParseReference(ref, regname.WeakValidation)
-	if err != nil {
-		panic(fmt.Sprintf("Expected valid Tag Ref: %s", err))
-	}
-
-	return &PlainImage{parsedRef: parsedRef, imagesDescriptor: imgDescriptor}
+	return &PlainImage{unparsedRef: ref, imagesDescriptor: imgDescriptor}
 }
 
 func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
+	if fetchedImage == nil {
+		panic("Expected a pre-fetched image")
+	}
+
 	parsedDigestRef, err := regname.NewDigest(digestRef)
 	if err != nil {
 		panic(fmt.Sprintf("Expected valid Digest Ref: %s", err))
@@ -92,12 +92,18 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return i.fetchedImage, nil
 	}
 
+	i.parsedRef, err = regname.ParseReference(i.unparsedRef, regname.WeakValidation)
+	if err != nil {
+		return nil, err
+	}
+
 	imgDescriptor, err := i.imagesDescriptor.Get(i.parsedRef)
 	if err != nil {
 		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
 	if !imgDescriptor.MediaType.IsImage() {
+		i.parsedDigest = imgDescriptor.Digest.String()
 		return nil, notAnImageError{imgDescriptor.MediaType}
 	}
 
