@@ -7,22 +7,22 @@ on:
 
 jobs:
   goreleaser:
+    outputs:
+      HOMEBREW_FORMULA: ${{ steps.get-homebrew-formula.outputs.HOMEBREW_FORMULA }}
+
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      -
-        name: Set up Go
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.17.0
-      -
-        name: Run GoReleaser
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@5e15885530fb01d81d1f24e8a6f54ebbd0fed7eb
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -30,9 +30,7 @@ jobs:
           args: release --rm-dist --debug
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      -
-        uses: actions/github-script@v4
+      - uses: actions/github-script@v4
         id: get-checksums-from-draft-release
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -83,8 +81,7 @@ jobs:
             ${checksums['imgpkg-linux-amd64']}  ./imgpkg-linux-amd64
             ${checksums['imgpkg-windows-amd64.exe']}  ./imgpkg-windows-amd64.exe`
 
-      -
-        name: verify uploaded artifacts
+      - name: verify uploaded artifacts
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
@@ -99,26 +96,35 @@ jobs:
           EOF
           )
 
-      - name: imgpkg Formula
-        id: get-homebrew-formula
-        run: |
-          echo 'HOMEBREW_FORMULA<<EOF' >> $GITHUB_ENV
-          cat ./dist/imgpkg.rb | sed 's/"/\\"/g' >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
 
+      - name: Upload imgpkg Formula
+        uses: actions/upload-artifact@v1
+        with:
+          name: homebrew-formula
+          path: ./dist/imgpkg.rb
+
+  homebrew:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
           repository: vmware-tanzu/homebrew-carvel
           ref: develop
+      - name: Download updated homebrew formula
+        uses: actions/download-artifact@v1
+        with:
+          name: homebrew-formula
       - name: Update homebrew
         run: |
           cat ./imgpkg.rb
-          echo "${{ env.HOMEBREW_FORMULA }}" > ./imgpkg.rb
+          cat homebrew-formula/imgpkg.rb > ./imgpkg.rb
+          rm -rf ./homebrew-formula
           cat ./imgpkg.rb
       - name: Commit & Push changes
-        with:
+        env:
           AUTHOR_NAME: "k8slt"
           AUTHOR_EMAIL: "klt@groups.vmware.com"
           REPOSITORY: "vmware-tanzu/homebrew-carvel"
@@ -133,11 +139,15 @@ jobs:
           AUTHOR_EMAIL=${AUTHOR_EMAIL:-'github-actions[bot]@users.noreply.github.com'}
           AUTHOR_NAME=${AUTHOR_NAME:-'github-actions[bot]'}
           MESSAGE=${MESSAGE:-"chore: autopublish ${timestamp}"}
-          BRANCH=${BRANCH:-develop}
           FORCE=${FORCE:-false}
           REPOSITORY=${REPOSITORY:-$GITHUB_REPOSITORY}
 
           echo "Push to branch $BRANCH";
+          [ -z "${BRANCH}" ] && {
+            echo 'Missing branch';
+            exit 1;
+          };
+
           [ -z "${GITHUB_TOKEN}" ] && {
               echo 'Missing input "github_token: ${{ secrets.GITHUB_TOKEN }}".';
               exit 1;
