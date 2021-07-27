@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 )
 
@@ -79,7 +78,7 @@ func (i *ImageRefs) LocalizeToRepo(relativeToRepo string) {
 	}
 }
 
-func (i *ImageRefs) UpdateRelativeToRepo(imgRetriever ctlimg.ImagesMetadata, relativeToRepo string) (bool, error) {
+func (i *ImageRefs) UpdateRelativeToRepo(imgRetriever ImagesMetadata, relativeToRepo string) (bool, error) {
 	if i.imageLocationsConfig != nil {
 		i.LocalizeToRepo(relativeToRepo)
 		return true, nil

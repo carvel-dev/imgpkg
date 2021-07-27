@@ -9,26 +9,33 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
-type PlainImage struct {
-	ref      string
-	registry ctlimg.ImagesMetadata
+type ImagesDescriptor interface {
+	Get(regname.Reference) (*regremote.Descriptor, error)
+}
 
+type PlainImage struct {
+	imagesDescriptor ImagesDescriptor
+
+	unparsedRef  string
 	parsedRef    regname.Reference
 	parsedDigest string
 
 	fetchedImage regv1.Image
-	fetchedIndex regv1.ImageIndex
 }
 
-func NewPlainImage(ref string, imagesMetadata ctlimg.ImagesMetadata) *PlainImage {
-	return &PlainImage{ref: ref, registry: imagesMetadata}
+func NewPlainImage(ref string, imgDescriptor ImagesDescriptor) *PlainImage {
+	return &PlainImage{unparsedRef: ref, imagesDescriptor: imgDescriptor}
 }
 
-func NewFetchedPlainImageWithTag(digestRef string, tag string,
-	fetchedImage regv1.Image, fetchedIndex regv1.ImageIndex) *PlainImage {
+func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
+	if fetchedImage == nil {
+		panic("Expected a pre-fetched image")
+	}
 
 	parsedDigestRef, err := regname.NewDigest(digestRef)
 	if err != nil {
@@ -49,7 +56,6 @@ func NewFetchedPlainImageWithTag(digestRef string, tag string,
 		parsedRef:    parsedRef,
 		parsedDigest: parsedDigestRef.DigestStr(),
 		fetchedImage: fetchedImage,
-		fetchedIndex: fetchedIndex,
 	}
 }
 
@@ -86,27 +92,25 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return i.fetchedImage, nil
 	}
 
-	// Decide to return nil here because in our use case we know that prefetched indexes are not used
-	// by imgpkg(eg: for determining if an image is a bundle or not)
-	if i.fetchedIndex != nil {
-		return nil, nil
-	}
-
-	i.parsedRef, err = regname.ParseReference(i.ref, regname.WeakValidation)
+	i.parsedRef, err = regname.ParseReference(i.unparsedRef, regname.WeakValidation)
 	if err != nil {
 		return nil, err
 	}
 
-	imgs, err := ctlimg.NewImages(i.parsedRef, i.registry).Images()
+	imgDescriptor, err := i.imagesDescriptor.Get(i.parsedRef)
 	if err != nil {
-		return nil, fmt.Errorf("Collecting images: %s", err)
+		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
-	if len(imgs) == 0 {
-		return nil, fmt.Errorf("Expected to find at least one image, but found none")
+	if !imgDescriptor.MediaType.IsImage() {
+		i.parsedDigest = imgDescriptor.Digest.String()
+		return nil, notAnImageError{imgDescriptor.MediaType}
 	}
 
-	i.fetchedImage = imgs[0]
+	i.fetchedImage, err = imgDescriptor.Image()
+	if err != nil {
+		return nil, fmt.Errorf("Fetching image: %s", err)
+	}
 
 	digest, err := i.fetchedImage.Digest()
 	if err != nil {
@@ -116,6 +120,22 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 	i.parsedDigest = digest.String()
 
 	return i.fetchedImage, nil
+}
+
+func (i *PlainImage) IsImage() (bool, error) {
+	img, err := i.Fetch()
+	if img == nil && err == nil {
+		panic("Unreachable code")
+	}
+
+	if err != nil {
+		if IsNotAnImageError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
@@ -136,4 +156,20 @@ func (i *PlainImage) Pull(outputPath string, ui ui.UI) error {
 	}
 
 	return nil
+}
+
+func IsNotAnImageError(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(notAnImageError)
+	return ok
+}
+
+type notAnImageError struct {
+	mediaType types.MediaType
+}
+
+func (n notAnImageError) Error() string {
+	return fmt.Sprintf("Expected an Image but got: %s", n.mediaType)
 }

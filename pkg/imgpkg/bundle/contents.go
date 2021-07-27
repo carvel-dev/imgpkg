@@ -12,7 +12,6 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
 
@@ -29,7 +28,7 @@ type Contents struct {
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadataWriter
 type ImagesMetadataWriter interface {
-	ctlimg.ImagesMetadata
+	ImagesMetadata
 	WriteImage(regname.Reference, regv1.Image) error
 }
 

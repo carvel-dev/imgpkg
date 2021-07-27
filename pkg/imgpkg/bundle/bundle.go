@@ -12,6 +12,7 @@ import (
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
@@ -28,22 +29,29 @@ type ImagesLockReader interface {
 	Read(img regv1.Image) (lockconfig.ImagesLock, error)
 }
 
+type ImagesMetadata interface {
+	Get(regname.Reference) (*regremote.Descriptor, error)
+	Image(regname.Reference) (regv1.Image, error)
+	Digest(regname.Reference) (regv1.Hash, error)
+	FirstImageExists(digests []string) (string, error)
+}
+
 type Bundle struct {
 	plainImg         *plainimg.PlainImage
-	imgRetriever     ctlimg.ImagesMetadata
+	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
 	imagesRef        map[string]ImageRef
 }
 
-func NewBundle(ref string, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+func NewBundle(ref string, imagesMetadata ImagesMetadata) *Bundle {
 	return NewBundleWithReader(ref, imagesMetadata, &singleLayerReader{})
 }
 
-func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ctlimg.ImagesMetadata) *Bundle {
+func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata) *Bundle {
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata, imagesLockReader: &singleLayerReader{}, imagesRef: map[string]ImageRef{}}
 }
 
-func NewBundleWithReader(ref string, imagesMetadata ctlimg.ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+func NewBundleWithReader(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
 	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata), imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader, imagesRef: map[string]ImageRef{}}
 }
 

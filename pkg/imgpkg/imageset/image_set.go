@@ -10,7 +10,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
@@ -19,9 +18,18 @@ type Logger interface {
 	WriteStr(str string, args ...interface{}) error
 }
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadata
+type ImagesMetadata interface {
+	Get(regname.Reference) (*regremote.Descriptor, error)
+	Digest(regname.Reference) (regv1.Hash, error)
+	Index(regname.Reference) (regv1.ImageIndex, error)
+	Image(regname.Reference) (regv1.Image, error)
+	FirstImageExists(digests []string) (string, error)
+}
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
-	ctlimg.ImagesMetadata
+	ImagesMetadata
 	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
 	WriteImage(regname.Reference, regv1.Image) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
@@ -50,7 +58,7 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 }
 
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
-	imagesMetadata ctlimg.ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
+	imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
 	i.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
 	defer func() { i.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
@@ -317,7 +325,7 @@ func (i *ImageSet) verifyTagDigest(
 	return nil
 }
 
-func getResolvedImageURL(tagRef string, registry ctlimg.ImagesMetadata) (string, error) {
+func getResolvedImageURL(tagRef string, registry ImagesMetadata) (string, error) {
 	tag, err := regname.NewTag(tagRef, regname.WeakValidation)
 	if err != nil {
 		return "", err

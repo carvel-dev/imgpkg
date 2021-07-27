@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image/imagefakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset/imagesetfakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 			},
 		}
 
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -73,7 +73,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -117,7 +117,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -158,7 +158,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagefakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusOK,
 		})

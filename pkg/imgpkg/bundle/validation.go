@@ -3,6 +3,10 @@
 
 package bundle
 
+import (
+	plainimg "github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+)
+
 type notABundleError struct {
 }
 
@@ -21,6 +25,9 @@ func IsNotBundleError(err error) bool {
 func (o *Bundle) IsBundle() (bool, error) {
 	img, err := o.plainImg.Fetch()
 	if err != nil {
+		if plainimg.IsNotAnImageError(err) {
+			return false, nil
+		}
 		return false, err
 	}
 

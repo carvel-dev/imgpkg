@@ -50,6 +50,19 @@ type FakeImagesReaderWriter struct {
 		result1 *remote.Descriptor
 		result2 error
 	}
+	HeadStub        func(name.Reference) (*v1.Descriptor, error)
+	headMutex       sync.RWMutex
+	headArgsForCall []struct {
+		arg1 name.Reference
+	}
+	headReturns struct {
+		result1 *v1.Descriptor
+		result2 error
+	}
+	headReturnsOnCall map[int]struct {
+		result1 *v1.Descriptor
+		result2 error
+	}
 	ImageStub        func(name.Reference) (v1.Image, error)
 	imageMutex       sync.RWMutex
 	imageArgsForCall []struct {
@@ -322,6 +335,70 @@ func (fake *FakeImagesReaderWriter) GetReturnsOnCall(i int, result1 *remote.Desc
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 *remote.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) Head(arg1 name.Reference) (*v1.Descriptor, error) {
+	fake.headMutex.Lock()
+	ret, specificReturn := fake.headReturnsOnCall[len(fake.headArgsForCall)]
+	fake.headArgsForCall = append(fake.headArgsForCall, struct {
+		arg1 name.Reference
+	}{arg1})
+	stub := fake.HeadStub
+	fakeReturns := fake.headReturns
+	fake.recordInvocation("Head", []interface{}{arg1})
+	fake.headMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesReaderWriter) HeadCallCount() int {
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
+	return len(fake.headArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) HeadCalls(stub func(name.Reference) (*v1.Descriptor, error)) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) HeadArgsForCall(i int) name.Reference {
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
+	argsForCall := fake.headArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) HeadReturns(result1 *v1.Descriptor, result2 error) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = nil
+	fake.headReturns = struct {
+		result1 *v1.Descriptor
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) HeadReturnsOnCall(i int, result1 *v1.Descriptor, result2 error) {
+	fake.headMutex.Lock()
+	defer fake.headMutex.Unlock()
+	fake.HeadStub = nil
+	if fake.headReturnsOnCall == nil {
+		fake.headReturnsOnCall = make(map[int]struct {
+			result1 *v1.Descriptor
+			result2 error
+		})
+	}
+	fake.headReturnsOnCall[i] = struct {
+		result1 *v1.Descriptor
 		result2 error
 	}{result1, result2}
 }
@@ -712,6 +789,8 @@ func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	defer fake.firstImageExistsMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.headMutex.RLock()
+	defer fake.headMutex.RUnlock()
 	fake.imageMutex.RLock()
 	defer fake.imageMutex.RUnlock()
 	fake.indexMutex.RLock()

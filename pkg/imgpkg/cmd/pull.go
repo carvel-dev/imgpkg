@@ -8,7 +8,6 @@ import (
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
@@ -25,8 +24,6 @@ type PullOptions struct {
 	BundleRecursiveFlags BundleRecursiveFlags
 	OutputPath           string
 }
-
-var _ ctlimg.ImagesMetadata = registry.Registry{}
 
 func NewPullOptions(ui ui.UI) *PullOptions {
 	return &PullOptions{ui: ui}
@@ -89,6 +86,15 @@ func (po *PullOptions) Run() error {
 
 	case len(po.ImageFlags.Image) > 0:
 		plainImg := plainimage.NewPlainImage(po.ImageFlags.Image, reg)
+		isImage, err := plainImg.IsImage()
+		if err != nil {
+			return err
+		}
+
+		if !isImage {
+			return fmt.Errorf("Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
+		}
+
 		ok, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 		if err != nil {
 			return err

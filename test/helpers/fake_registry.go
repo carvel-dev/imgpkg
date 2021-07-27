@@ -302,8 +302,8 @@ func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to stri
 		newBundle.Digest, newBundle.RefDigest}
 }
 
-func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string) *ImageOrImageIndexWithTarPath {
-	index, err := random.Index(1024, 1, 1)
+func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string, numImages int64) *ImageOrImageIndexWithTarPath {
+	index, err := random.Index(1024, 1, numImages)
 	require.NoError(r.t, err)
 
 	return r.updateState(imageName, nil, index, "", "")
