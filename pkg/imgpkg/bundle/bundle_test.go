@@ -12,9 +12,13 @@ import (
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 )
@@ -778,5 +782,60 @@ Nested bundles
 
 Locating image lock file images...
 One or more images not found in bundle repo; skipping lock file update`, icecreamWithSingleBundle.RefDigest, icecreamBundle.RefDigest, applesBundle.RefDigest), output.String())
+	})
+}
+
+func TestNoteCopy(t *testing.T) {
+	t.Run("should not re-upload locations-oci if it already exists. This is to accomodate registries with immutable tags", func(t *testing.T) {
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
+
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageColocatedWithIcecreamBundle.RefDigest},
+		})
+
+		locationPath, err := os.MkdirTemp(os.TempDir(), "test-location-path")
+		assert.NoError(t, err)
+		defer os.Remove(locationPath)
+
+		locationForRootBundle := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{
+				{
+					Image: "some-image-ref-not-matching-root-bundle-resulting-in-diff-sha",
+				},
+			},
+		}
+
+		originalLocationOCI := fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
+
+		reg := fakeRegistry.Build()
+		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
+
+		processedImages := imageset.NewProcessedImages()
+		processedImages.Add(imageset.ProcessedImage{
+			UnprocessedImageRef: imageset.UnprocessedImageRef{
+				DigestRef: rootBundle.RefDigest,
+			},
+			DigestRef: rootBundle.RefDigest,
+			Image:     rootBundle.Image,
+		})
+
+		err = subject.NoteCopy(processedImages, reg, &helpers.Logger{LogLevel: helpers.LogDebug})
+		assert.NoError(t, err)
+
+		rootBundleHash, err := regv1.NewHash(rootBundle.Digest)
+		assert.NoError(t, err)
+		locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", rootBundleHash.Algorithm, rootBundleHash.Hex)
+
+		expectedLocationRef, err := name.ParseReference(fakeRegistry.ReferenceOnTestServer("repo/bundle-with-collocated-bundles:" + locationsImageTag))
+		assert.NoError(t, err)
+		actualLocationDigest, err := reg.Digest(expectedLocationRef)
+		assert.NoError(t, err)
+
+		assert.Equal(t, actualLocationDigest.String(), originalLocationOCI.Digest)
 	})
 }

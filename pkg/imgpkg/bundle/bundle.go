@@ -117,11 +117,17 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 
 	logger.Debugf("creating Locations OCI Image\n")
 	// Using NewNoopUI because we do not want to have output from this push
-	err = NewLocations(logger).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
-	if err != nil {
-		return err
+
+	locations := NewLocations(logger)
+	_, err = locations.Fetch(reg, destinationRef)
+	if _, ok := err.(*LocationsNotFound); ok {
+		err = locations.Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+		if err != nil {
+			return err
+		}
 	}
-	return nil
+
+	return err
 }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
