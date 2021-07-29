@@ -66,19 +66,19 @@ func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
 func (o *Bundle) updateCachedImageRef(ref ImageRef) {
-	o.cachedImageRefs[ref.Image] = ref
+	o.cachedImageRefs[ref.Image] = ref.DeepCopy()
 }
 
 func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 	ref, found := o.cachedImageRefs[digestRef]
 	if found {
-		return ref, true
+		return ref.DeepCopy(), true
 	}
 
 	for _, imgRef := range o.cachedImageRefs {
 		for _, loc := range imgRef.Locations() {
 			if loc == digestRef {
-				return imgRef, true
+				return imgRef.DeepCopy(), true
 			}
 		}
 	}
@@ -89,7 +89,7 @@ func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 func (o *Bundle) allCachedImageRefs() []ImageRef {
 	var imgsRef []ImageRef
 	for _, ref := range o.cachedImageRefs {
-		imgsRef = append(imgsRef, ref)
+		imgsRef = append(imgsRef, ref.DeepCopy())
 	}
 	return imgsRef
 }
