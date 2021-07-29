@@ -20,6 +20,7 @@ import (
 
 func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
+
 	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, logger)
 	if err != nil {
 		return nil, ImageRefs{}, err
@@ -29,12 +30,12 @@ func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([
 	// This loop needs to happen because we skipped some images for some bundle, and only at this point we have
 	// the full list of ImageRefs created and can fill the gaps inside each bundle
 	for _, bundle := range bundles {
-		for _, ref := range bundle.imageRefs() {
+		for _, ref := range bundle.allCachedImageRefs() {
 			imgRef, found := allImageRefs.Find(ref.Image)
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
 			}
-			bundle.addImageRefs(imgRef)
+			bundle.updateCachedImageRef(imgRef)
 		}
 	}
 
@@ -42,6 +43,8 @@ func (o *Bundle) AllImagesRefs(concurrency int, logger util.LoggerWithLevels) ([
 }
 
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
+	o.cachedImageRefs = map[string]ImageRef{}
+
 	img, err := o.checkedImage()
 	if err != nil {
 		return nil, ImageRefs{}, err
@@ -59,7 +62,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		o.addImageRefs(image)
+		o.updateCachedImageRef(image)
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
