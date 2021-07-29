@@ -119,15 +119,37 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	// Using NewNoopUI because we do not want to have output from this push
 
 	locations := NewLocations(logger)
-	_, err = locations.Fetch(reg, destinationRef)
-	if _, ok := err.(*LocationsNotFound); ok {
-		err = locations.Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
-		if err != nil {
-			return err
-		}
+	err = locations.Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+	if err != nil {
+		return o.debugFriendlyError(locations, reg, destinationRef, err, locationsCfg)
 	}
 
-	return err
+	return nil
+}
+
+func (o *Bundle) debugFriendlyError(locations *LocationsConfigs, reg ImagesMetadataWriter, destinationRef regname.Digest, err error, locationsCfg ImageLocationsConfig) error {
+	existingLocationsCfg, debugLocationErr := locations.Fetch(reg, destinationRef)
+	if debugLocationErr != nil {
+		return err
+	}
+
+	attemptedLocationCfgUploadBytes, debugLocationErr := locationsCfg.AsBytes()
+	if debugLocationErr != nil {
+		return err
+	}
+	existingLocationCfgUploadBytes, debugLocationErr := existingLocationsCfg.AsBytes()
+	if debugLocationErr != nil {
+		return err
+	}
+
+	return fmt.Errorf(`Unable to write location oci: %s
+location oci already uploaded contents: >>>
+%s
+<<<
+attempted to write oci contents: >>>
+%s
+<<<`,
+		err, existingLocationCfgUploadBytes, attemptedLocationCfgUploadBytes)
 }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {

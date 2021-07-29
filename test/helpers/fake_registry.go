@@ -19,8 +19,9 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
 	regregistry "github.com/google/go-containerregistry/pkg/registry"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -432,6 +433,31 @@ func (r *FakeTestRegistryBuilder) WithImageStatusCodeRemap(img string, originalS
 		}
 	})
 	return r
+}
+
+func (r *FakeTestRegistryBuilder) WithImmutableTags(repo string, imgTag string) *FakeTestRegistryBuilder {
+	originalHandler := r.server.Config.Handler
+	r.originalHandler = originalHandler
+
+	r.server.Config.Handler = http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		if request.Method == "PUT" && strings.Contains(request.URL.Path, fmt.Sprintf("v2/%s/manifests/%s", repo, imgTag)) {
+			reference, err := regname.ParseReference(r.ReferenceOnTestServer(repo + ":" + imgTag))
+			assert.NoError(r.t, err)
+			refImage, _ := regremote.Get(reference, regremote.WithAuth(r.auth))
+
+			if refImage != nil {
+				responseWriter.WriteHeader(500)
+				_, err := responseWriter.Write([]byte("re-writing image is not allowed"))
+				assert.NoError(r.t, err)
+			} else {
+				originalHandler.ServeHTTP(responseWriter, request)
+			}
+		} else {
+			originalHandler.ServeHTTP(responseWriter, request)
+		}
+	})
+	return r
+
 }
 
 func (r *FakeTestRegistryBuilder) ResetHandler() *FakeTestRegistryBuilder {

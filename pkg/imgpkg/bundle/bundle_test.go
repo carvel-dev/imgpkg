@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
-	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
@@ -786,7 +786,7 @@ One or more images not found in bundle repo; skipping lock file update`, icecrea
 }
 
 func TestNoteCopy(t *testing.T) {
-	t.Run("should not re-upload locations-oci if it already exists. This is to accomodate registries with immutable tags", func(t *testing.T) {
+	t.Run("should print more error info on re-upload if locations-oci already exists.", func(t *testing.T) {
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
@@ -810,10 +810,20 @@ func TestNoteCopy(t *testing.T) {
 			},
 		}
 
-		originalLocationOCI := fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
-
+		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
 		reg := fakeRegistry.Build()
+
+		rootBundleHash, err := regv1.NewHash(rootBundle.Digest)
+		assert.NoError(t, err)
+
+		locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", rootBundleHash.Algorithm, rootBundleHash.Hex)
+		fakeRegistry.WithImmutableTags("repo/bundle-with-collocated-bundles", locationsImageTag)
+		defer fakeRegistry.ResetHandler()
+
+		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
+		_, _, err = subject.AllImagesRefs(1, logger)
+		assert.NoError(t, err)
 
 		processedImages := imageset.NewProcessedImages()
 		processedImages.Add(imageset.ProcessedImage{
@@ -823,19 +833,36 @@ func TestNoteCopy(t *testing.T) {
 			DigestRef: rootBundle.RefDigest,
 			Image:     rootBundle.Image,
 		})
+		processedImages.Add(imageset.ProcessedImage{
+			UnprocessedImageRef: imageset.UnprocessedImageRef{
+				DigestRef: randomImageColocatedWithIcecreamBundle.RefDigest,
+			},
+			DigestRef: randomImageColocatedWithIcecreamBundle.RefDigest,
+			Image:     randomImageColocatedWithIcecreamBundle.Image,
+		})
 
-		err = subject.NoteCopy(processedImages, reg, &helpers.Logger{LogLevel: helpers.LogDebug})
-		assert.NoError(t, err)
+		err = subject.NoteCopy(processedImages, reg, logger)
+		if assert.Error(t, err) {
+			rx := `Unable to write location oci: pushing locations image to '127.0.0.1:.*/repo/bundle-with-collocated-bundles:sha256-.*.image-locations.imgpkg'.*
+location oci already uploaded contents: >>>
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: some-image-ref-not-matching-root-bundle-resulting-in-diff-sha
+  isBundle: false
+kind: ImageLocations
 
-		rootBundleHash, err := regv1.NewHash(rootBundle.Digest)
-		assert.NoError(t, err)
-		locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", rootBundleHash.Algorithm, rootBundleHash.Hex)
+<<<
+attempted to write oci contents: >>>
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: 127.0.0.1:.*/icecream/bundle@sha256:.*
+  isBundle: false
+kind: ImageLocations
 
-		expectedLocationRef, err := name.ParseReference(fakeRegistry.ReferenceOnTestServer("repo/bundle-with-collocated-bundles:" + locationsImageTag))
-		assert.NoError(t, err)
-		actualLocationDigest, err := reg.Digest(expectedLocationRef)
-		assert.NoError(t, err)
-
-		assert.Equal(t, actualLocationDigest.String(), originalLocationOCI.Digest)
+<<<`
+			assert.Regexp(t, regexp.MustCompile(rx), err.Error())
+		}
 	})
 }
