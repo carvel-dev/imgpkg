@@ -40,7 +40,11 @@ type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
-	imagesRef        map[string]ImageRef
+
+	// cachedImageRefs stores set of ImageRefs that were
+	// discovered as part of reading the bundle.
+	// Includes refs only directly referenced by the bundle.
+	cachedImageRefs map[string]ImageRef
 }
 
 func NewBundle(ref string, imagesMetadata ImagesMetadata) *Bundle {
@@ -48,40 +52,43 @@ func NewBundle(ref string, imagesMetadata ImagesMetadata) *Bundle {
 }
 
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata) *Bundle {
-	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata, imagesLockReader: &singleLayerReader{}, imagesRef: map[string]ImageRef{}}
+	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
+		imagesLockReader: &singleLayerReader{}}
 }
 
 func NewBundleWithReader(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
-	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata), imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader, imagesRef: map[string]ImageRef{}}
+	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata),
+		imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader}
 }
 
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) addImageRefs(refs ...ImageRef) {
-	for _, imageRef := range refs {
-		o.imagesRef[imageRef.Image] = imageRef
-	}
+func (o *Bundle) updateCachedImageRef(ref ImageRef) {
+	o.cachedImageRefs[ref.Image] = ref
 }
 
-func (o *Bundle) imageRef(imageDigest string) (ImageRef, bool) {
-	ref, found := o.imagesRef[imageDigest]
-	if !found {
-		for _, imgRef := range o.imagesRef {
-			for _, loc := range imgRef.Locations() {
-				if loc == imageDigest {
-					return imgRef, true
-				}
+func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
+	ref, found := o.cachedImageRefs[digestRef]
+	if found {
+		return ref, true
+	}
+
+	for _, imgRef := range o.cachedImageRefs {
+		for _, loc := range imgRef.Locations() {
+			if loc == digestRef {
+				return imgRef, true
 			}
 		}
 	}
-	return ref, found
+
+	return ImageRef{}, false
 }
 
-func (o *Bundle) imageRefs() []ImageRef {
+func (o *Bundle) allCachedImageRefs() []ImageRef {
 	var imgsRef []ImageRef
-	for _, ref := range o.imagesRef {
+	for _, ref := range o.cachedImageRefs {
 		imgsRef = append(imgsRef, ref)
 	}
 	return imgsRef
@@ -94,7 +101,7 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	}
 	var bundleProcessedImage imageset.ProcessedImage
 	for _, image := range processedImages.All() {
-		ref, found := o.imageRef(image.UnprocessedImageRef.DigestRef)
+		ref, found := o.findCachedImageRef(image.UnprocessedImageRef.DigestRef)
 		if found {
 			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
 				Image:    ref.Image,
@@ -106,8 +113,8 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		}
 	}
 
-	if len(locationsCfg.Images) != len(o.imagesRef) {
-		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", len(o.imagesRef), len(locationsCfg.Images)))
+	if len(locationsCfg.Images) != len(o.cachedImageRefs) {
+		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", len(o.cachedImageRefs), len(locationsCfg.Images)))
 	}
 
 	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)
