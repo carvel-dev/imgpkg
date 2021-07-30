@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 )
@@ -778,5 +782,87 @@ Nested bundles
 
 Locating image lock file images...
 One or more images not found in bundle repo; skipping lock file update`, icecreamWithSingleBundle.RefDigest, icecreamBundle.RefDigest, applesBundle.RefDigest), output.String())
+	})
+}
+
+func TestNoteCopy(t *testing.T) {
+	t.Run("should print more error info on re-upload if locations-oci already exists.", func(t *testing.T) {
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		randomImageColocatedWithIcecreamBundle := fakeRegistry.WithRandomImage("icecream/bundle")
+
+		rootBundle := fakeRegistry.WithBundleFromPath("repo/bundle-with-collocated-bundles", "test_assets/bundle_icecream_with_single_bundle").WithImageRefs([]lockconfig.ImageRef{
+			{Image: randomImageColocatedWithIcecreamBundle.RefDigest},
+		})
+
+		locationPath, err := os.MkdirTemp(os.TempDir(), "test-location-path")
+		assert.NoError(t, err)
+		defer os.Remove(locationPath)
+
+		locationForRootBundle := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{
+				{
+					Image: "some-image-ref-not-matching-root-bundle-resulting-in-diff-sha",
+				},
+			},
+		}
+
+		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
+		reg := fakeRegistry.Build()
+
+		rootBundleHash, err := regv1.NewHash(rootBundle.Digest)
+		assert.NoError(t, err)
+
+		locationsImageTag := fmt.Sprintf("%s-%s.image-locations.imgpkg", rootBundleHash.Algorithm, rootBundleHash.Hex)
+		fakeRegistry.WithImmutableTags("repo/bundle-with-collocated-bundles", locationsImageTag)
+		defer fakeRegistry.ResetHandler()
+
+		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
+		_, _, err = subject.AllImagesRefs(1, logger)
+		assert.NoError(t, err)
+
+		processedImages := imageset.NewProcessedImages()
+		processedImages.Add(imageset.ProcessedImage{
+			UnprocessedImageRef: imageset.UnprocessedImageRef{
+				DigestRef: rootBundle.RefDigest,
+			},
+			DigestRef: rootBundle.RefDigest,
+			Image:     rootBundle.Image,
+		})
+		processedImages.Add(imageset.ProcessedImage{
+			UnprocessedImageRef: imageset.UnprocessedImageRef{
+				DigestRef: randomImageColocatedWithIcecreamBundle.RefDigest,
+			},
+			DigestRef: randomImageColocatedWithIcecreamBundle.RefDigest,
+			Image:     randomImageColocatedWithIcecreamBundle.Image,
+		})
+
+		err = subject.NoteCopy(processedImages, reg, logger)
+		if assert.Error(t, err) {
+			rx := `Unable to write location oci: pushing locations image to '127.0.0.1:.*/repo/bundle-with-collocated-bundles:sha256-.*.image-locations.imgpkg'.*
+location oci already uploaded contents: >>>
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: some-image-ref-not-matching-root-bundle-resulting-in-diff-sha
+  isBundle: false
+kind: ImageLocations
+
+<<<
+attempted to write oci contents: >>>
+---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: 127.0.0.1:.*/icecream/bundle@sha256:.*
+  isBundle: false
+kind: ImageLocations
+
+<<<`
+			assert.Regexp(t, regexp.MustCompile(rx), err.Error())
+		}
 	})
 }
