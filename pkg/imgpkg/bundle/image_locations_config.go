@@ -6,6 +6,7 @@ package bundle
 import (
 	"fmt"
 	"io/ioutil"
+	"sort"
 
 	"sigs.k8s.io/yaml"
 )
@@ -57,6 +58,13 @@ func (c ImageLocationsConfig) AsBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure images are sorted deterministically based on content
+	// within this structure so that it's not influenced by outside
+	// factors (such as source image locations)
+	sort.Slice(c.Images, func(i, j int) bool {
+		return c.Images[i].Image < c.Images[j].Image
+	})
 
 	bs, err := yaml.Marshal(c)
 	if err != nil {

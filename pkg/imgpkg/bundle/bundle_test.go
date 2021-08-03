@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -786,7 +785,7 @@ One or more images not found in bundle repo; skipping lock file update`, icecrea
 }
 
 func TestNoteCopy(t *testing.T) {
-	t.Run("should print more error info on re-upload if locations-oci already exists.", func(t *testing.T) {
+	t.Run("should succeed if ImageLocations image already exists and immutable error is returned", func(t *testing.T) {
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
@@ -842,27 +841,6 @@ func TestNoteCopy(t *testing.T) {
 		})
 
 		err = subject.NoteCopy(processedImages, reg, logger)
-		if assert.Error(t, err) {
-			rx := `Unable to write location oci: pushing locations image to '127.0.0.1:.*/repo/bundle-with-collocated-bundles:sha256-.*.image-locations.imgpkg'.*
-location oci already uploaded contents: >>>
----
-apiVersion: imgpkg.carvel.dev/v1alpha1
-images:
-- image: some-image-ref-not-matching-root-bundle-resulting-in-diff-sha
-  isBundle: false
-kind: ImageLocations
-
-<<<
-attempted to write oci contents: >>>
----
-apiVersion: imgpkg.carvel.dev/v1alpha1
-images:
-- image: 127.0.0.1:.*/icecream/bundle@sha256:.*
-  isBundle: false
-kind: ImageLocations
-
-<<<`
-			assert.Regexp(t, regexp.MustCompile(rx), err.Error())
-		}
+		assert.NoError(t, err)
 	})
 }
