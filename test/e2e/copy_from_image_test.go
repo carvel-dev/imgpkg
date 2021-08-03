@@ -124,7 +124,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		})
 		require.Error(t, err)
 
-		assert.Regexp(t, "Error: file sha256\\-.*\\.tar\\.gz not found in tar\\. hint: This may be because when copying to a tarball, the --include-non-distributable-layers flag should have been provided.", stdOutWriter.String())
+		assert.Regexp(t, "Error: file sha256\\-.*\\.tar\\.gz not found in tar.*(hint: This may be because when copying to a tarball, the --include-non-distributable-layers flag should have been provided.)", stdOutWriter.String())
 	})
 }
 
@@ -160,8 +160,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 
 	logger.Section("copying from a repo (the image in the repo does *not* include the NDL) to a tarball. We expect NDL to be copied into the tarball", func() {
 		imgpkg.Run([]string{"copy", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable-layers"})
-
-		require.NotContains(t, stdOutWriter.String(), "hint: This may be because when copying to a tarball, the --include-non-distributable-layers flag should have been provided")
+		require.NotContains(t, stdOutWriter.String(), "--include-non-distributable-layers")
 	})
 }
 

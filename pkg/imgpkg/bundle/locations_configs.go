@@ -58,27 +58,29 @@ func NewLocationsWithReader(reader LocationImageReader, logger util.LoggerWithLe
 }
 
 func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
-	r.logger.Tracef("fetching Locations OCI Images for bundle: %s\n", bundleRef)
+	r.logger.Tracef("Fetching Locations OCI Images for bundle: %s\n", bundleRef)
+
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {
-		return ImageLocationsConfig{}, fmt.Errorf("calculating locations image tag: %s", err)
+		return ImageLocationsConfig{}, fmt.Errorf("Calculating locations image tag: %s", err)
 	}
 
 	img, err := registry.Image(locRef)
 	if err != nil {
 		if terr, ok := err.(*transport.Error); ok {
 			if _, ok := imageNotFoundStatusCode[terr.StatusCode]; ok {
-				r.logger.Debugf("did not find Locations OCI Image for bundle: %s\n", bundleRef)
+				r.logger.Debugf("Did not find Locations OCI Image for bundle: %s\n", bundleRef)
 				return ImageLocationsConfig{}, &LocationsNotFound{image: locRef.Name()}
 			}
 		}
-		return ImageLocationsConfig{}, fmt.Errorf("fetching location image: %s", err)
+		return ImageLocationsConfig{}, fmt.Errorf("Fetching location image: %s", err)
 	}
 
-	r.logger.Tracef("reading the Locations configuration file\n")
+	r.logger.Tracef("Reading the locations configuration file\n")
+
 	cfg, err := r.reader.Read(img)
 	if err != nil {
-		return ImageLocationsConfig{}, fmt.Errorf("reading fetched location image: %s", err)
+		return ImageLocationsConfig{}, fmt.Errorf("Reading fetched location image: %s", err)
 	}
 
 	return cfg, err
@@ -89,7 +91,7 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {
-		return fmt.Errorf("calculating locations image tag: %s", err)
+		return fmt.Errorf("Calculating locations image tag: %s", err)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "imgpkg-bundle-locations")
@@ -103,7 +105,7 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 		return err
 	}
 
-	r.logger.Tracef("pushing image\n")
+	r.logger.Tracef("Pushing image\n")
 
 	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg, ui)
 	if err != nil {
@@ -184,7 +186,7 @@ func (o *locationsSingleLayerReader) Read(img regv1.Image) (ImageLocationsConfig
 			if err == io.EOF {
 				return conf, fmt.Errorf("Expected to find image-locations.yml in location image")
 			}
-			return conf, fmt.Errorf("reading tar: %v", err)
+			return conf, fmt.Errorf("Reading tar: %v", err)
 		}
 
 		basename := filepath.Base(header.Name)

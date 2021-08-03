@@ -27,7 +27,7 @@ func TestSignatureRetriever_Signatures(t *testing.T) {
 			if res, ok := availableResults[digest.DigestStr()]; ok {
 				return res, nil
 			}
-			return imageset.UnprocessedImageRef{}, signature.NotFound{}
+			return imageset.UnprocessedImageRef{}, signature.NotFoundErr{}
 		})
 
 		args := imageset.NewUnprocessedImageRefs()

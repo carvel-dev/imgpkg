@@ -48,7 +48,7 @@ func TestCosign_Signature(t *testing.T) {
 		_, err = subject.Signature(imgDigest)
 		require.Error(t, err)
 
-		_, ok := err.(signature.NotFound)
+		_, ok := err.(signature.NotFoundErr)
 		require.True(t, ok)
 	})
 }

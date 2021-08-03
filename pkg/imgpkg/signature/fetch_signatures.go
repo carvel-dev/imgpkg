@@ -17,22 +17,10 @@ type Finder interface {
 	Signature(reference name.Digest) (imageset.UnprocessedImageRef, error)
 }
 
-type NotFound struct {
-}
+type NotFoundErr struct{}
 
-func (s NotFound) Error() string {
+func (s NotFoundErr) Error() string {
 	return "signature not found"
-}
-
-type Noop struct {
-}
-
-func NewNoop() *Noop {
-	return &Noop{}
-}
-
-func (n Noop) Fetch(*imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
-	return imageset.NewUnprocessedImageRefs(), nil
 }
 
 type Signatures struct {
@@ -52,12 +40,13 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 
 	throttle := util.NewThrottle(s.concurrency)
 	var wg errgroup.Group
+
 	for _, ref := range images.All() {
 		ref := ref //copy
 		wg.Go(func() error {
 			imgDigest, err := name.NewDigest(ref.DigestRef)
 			if err != nil {
-				return fmt.Errorf("signatures for: %s: %s", ref.DigestRef, err)
+				return fmt.Errorf("Parsing '%s': %s", ref.DigestRef, err)
 			}
 
 			throttle.Take()
@@ -65,8 +54,8 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 
 			signature, err := s.signatureFinder.Signature(imgDigest)
 			if err != nil {
-				if _, ok := err.(NotFound); !ok {
-					return fmt.Errorf("unable to get signature for image '%s': %s", imgDigest.Name(), err)
+				if _, ok := err.(NotFoundErr); !ok {
+					return fmt.Errorf("Fetching signature for image '%s': %s", imgDigest.Name(), err)
 				}
 				return nil
 			}
@@ -79,4 +68,12 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 	err := wg.Wait()
 
 	return signatures, err
+}
+
+type Noop struct{}
+
+func NewNoop() *Noop { return &Noop{} }
+
+func (n Noop) Fetch(*imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
+	return imageset.NewUnprocessedImageRefs(), nil
 }
