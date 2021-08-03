@@ -9,6 +9,7 @@ github.com/containerd/stargz-snapshotter/estargz/errorutil
 github.com/cppforlife/cobrautil
 # github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
 ## explicit
+github.com/cppforlife/go-cli-ui/errors
 github.com/cppforlife/go-cli-ui/ui
 github.com/cppforlife/go-cli-ui/ui/table
 github.com/cppforlife/go-cli-ui/ui/test
