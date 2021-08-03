@@ -50,6 +50,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 
 	tagCmd := NewTagCmd()
 	tagCmd.AddCommand(NewTagListCmd(NewTagListOptions(o.ui)))
+	tagCmd.AddCommand(NewTagResolveCmd(NewTagResolveOptions(o.ui)))
 	cmd.AddCommand(tagCmd)
 
 	// Last one runs first
