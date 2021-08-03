@@ -42,12 +42,14 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
+	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry,
+		imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+	informUserToUseTheNonDistributableFlagWithDescriptors(
+		c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return nil
 }
@@ -77,7 +79,9 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
 		}
 	}
-	informUserToUseTheNonDistributableFlagWithDescriptors(c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+
+	informUserToUseTheNonDistributableFlagWithDescriptors(
+		c.logger, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }
