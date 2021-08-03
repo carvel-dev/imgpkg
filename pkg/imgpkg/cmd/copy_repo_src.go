@@ -35,18 +35,11 @@ type CopyRepoSrc struct {
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
-	unprocessedImageRefs, _, err := c.getSourceImages()
+	c.logger.Tracef("CopyToTar\n")
+
+	unprocessedImageRefs, _, err := c.getAllSourceImages()
 	if err != nil {
 		return err
-	}
-
-	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
-	if err != nil {
-		return err
-	}
-
-	for _, signature := range signatures.All() {
-		unprocessedImageRefs.Add(signature)
 	}
 
 	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
@@ -61,18 +54,10 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 
 func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.logger.Tracef("CopyToRepo(%s)\n", repo)
-	unprocessedImageRefs, bundles, err := c.getSourceImages()
-	if err != nil {
-		return nil, err
-	}
 
-	c.logger.Debugf("fetching signatures\n")
-	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
+	unprocessedImageRefs, bundles, err := c.getAllSourceImages()
 	if err != nil {
 		return nil, err
-	}
-	for _, signature := range signatures.All() {
-		unprocessedImageRefs.Add(signature)
 	}
 
 	importRepo, err := regname.NewRepository(repo)
@@ -80,7 +65,8 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	c.logger.Debugf("copy the fetched images\n")
+	c.logger.Debugf("Copy the fetched images\n")
+
 	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 	if err != nil {
 		return nil, err
@@ -96,7 +82,27 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	return processedImages, nil
 }
 
-func (c CopyRepoSrc) getSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+func (c CopyRepoSrc) getAllSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+	unprocessedImageRefs, bundles, err := c.getProvidedSourceImages()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	c.logger.Debugf("Fetching signatures\n")
+
+	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, signature := range signatures.All() {
+		unprocessedImageRefs.Add(signature)
+	}
+
+	return unprocessedImageRefs, bundles, nil
+}
+
+func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 
 	switch {
