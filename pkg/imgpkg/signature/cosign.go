@@ -15,12 +15,12 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/signature/cosign"
 )
 
-func NewCosign(reg registry.Registry) *Cosign {
-	return &Cosign{registry: reg}
-}
-
 type Cosign struct {
 	registry registry.Registry
+}
+
+func NewCosign(reg registry.Registry) *Cosign {
+	return &Cosign{registry: reg}
 }
 
 func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef, error) {
@@ -33,14 +33,16 @@ func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok {
 			if transportErr.StatusCode == http.StatusNotFound {
-				return imageset.UnprocessedImageRef{}, NotFound{}
+				return imageset.UnprocessedImageRef{}, NotFoundErr{}
 			}
 		}
 		return imageset.UnprocessedImageRef{}, err
 	}
 
-	sigDigestRef := imageRef.Digest(sigDigest.String())
-	return imageset.UnprocessedImageRef{DigestRef: sigDigestRef.Name(), Tag: sigTagRef.TagStr()}, nil
+	return imageset.UnprocessedImageRef{
+		DigestRef: imageRef.Digest(sigDigest.String()).Name(),
+		Tag:       sigTagRef.TagStr(),
+	}, nil
 }
 
 func (c Cosign) signatureTag(reference regname.Digest) (regname.Tag, error) {
