@@ -34,7 +34,8 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 	}
 	o.ImageFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
-	cmd.Flags().BoolVar(&o.Digests, "digests", true, "Include digests")
+	// Too slow to resolve each tag to digest individually (no bulk API).
+	cmd.Flags().BoolVar(&o.Digests, "digests", false, "Include digests")
 	return cmd
 }
 
@@ -54,13 +55,16 @@ func (t *TagListOptions) Run() error {
 		return err
 	}
 
+	digestHeader := uitable.NewHeader("Digest")
+	digestHeader.Hidden = !t.Digests
+
 	table := uitable.Table{
 		Title:   "Tags",
 		Content: "tags",
 
 		Header: []uitable.Header{
 			uitable.NewHeader("Name"),
-			uitable.NewHeader("Digest"),
+			digestHeader,
 		},
 
 		SortBy: []uitable.ColumnSort{
