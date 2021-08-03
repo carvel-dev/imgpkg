@@ -22,20 +22,39 @@ func TestTagList(t *testing.T) {
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", env.Assets.SimpleAppDir()})
 	tag2Digest := helpers.ExtractDigest(t, out)
 
-	out = imgpkg.Run([]string{"tag", "list", "-i", env.Image, "--json"})
-	resp := uitest.JSONUIFromBytes(t, []byte(out))
-
 	expectedTags := map[string]string{"tag1": tag1Digest, "tag2": tag2Digest}
 
-	for name, digest := range expectedTags {
-		var found bool
-		for _, row := range resp.Tables[0].Rows {
-			if row["name"] == name {
-				found = true
-				require.Equal(t, row["digest"], digest)
-				break
+	{ // Without digests
+		out := imgpkg.Run([]string{"tag", "list", "-i", env.Image, "--json"})
+		resp := uitest.JSONUIFromBytes(t, []byte(out))
+
+		for name := range expectedTags {
+			var found bool
+			for _, row := range resp.Tables[0].Rows {
+				if row["name"] == name {
+					found = true
+					require.Equal(t, "", row["digest"])
+					break
+				}
 			}
+			require.Truef(t, found, "Expected to find tag '%s'", name)
 		}
-		require.Truef(t, found, "Expected to find tag '%s'", name)
+	}
+
+	{ // With digests
+		out := imgpkg.Run([]string{"tag", "list", "-i", env.Image, "--digests=true", "--json"})
+		resp := uitest.JSONUIFromBytes(t, []byte(out))
+
+		for name, digest := range expectedTags {
+			var found bool
+			for _, row := range resp.Tables[0].Rows {
+				if row["name"] == name {
+					found = true
+					require.Equal(t, digest, row["digest"])
+					break
+				}
+			}
+			require.Truef(t, found, "Expected to find tag '%s'", name)
+		}
 	}
 }

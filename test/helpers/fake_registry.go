@@ -443,11 +443,12 @@ func (r *FakeTestRegistryBuilder) WithImmutableTags(repo string, imgTag string) 
 		if request.Method == "PUT" && strings.Contains(request.URL.Path, fmt.Sprintf("v2/%s/manifests/%s", repo, imgTag)) {
 			reference, err := regname.ParseReference(r.ReferenceOnTestServer(repo + ":" + imgTag))
 			assert.NoError(r.t, err)
-			refImage, _ := regremote.Get(reference, regremote.WithAuth(r.auth))
 
+			refImage, _ := regremote.Get(reference, regremote.WithAuth(r.auth))
 			if refImage != nil {
 				responseWriter.WriteHeader(500)
-				_, err := responseWriter.Write([]byte("re-writing image is not allowed"))
+				// Include word "immutable" to be similar to other registries
+				_, err := responseWriter.Write([]byte("re-writing image is not allowed -- immutable tag"))
 				assert.NoError(r.t, err)
 			} else {
 				originalHandler.ServeHTTP(responseWriter, request)
@@ -457,7 +458,6 @@ func (r *FakeTestRegistryBuilder) WithImmutableTags(repo string, imgTag string) 
 		}
 	})
 	return r
-
 }
 
 func (r *FakeTestRegistryBuilder) ResetHandler() *FakeTestRegistryBuilder {

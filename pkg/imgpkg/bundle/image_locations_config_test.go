@@ -38,3 +38,33 @@ images:
 		require.NoError(t, err)
 	})
 }
+
+func TestImageLocationsConfigAsBytes(t *testing.T) {
+	t.Run("AsBytes produces deterministic result", func(t *testing.T) {
+		locs := bundle.ImageLocationsConfig{
+			APIVersion: "imgpkg.carvel.dev/v1alpha1",
+			Kind:       "ImageLocations",
+			Images: []bundle.ImageLocation{
+				{Image: "z@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0", IsBundle: false},
+				{Image: "a@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0", IsBundle: true},
+				{Image: "b@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0", IsBundle: true},
+			},
+		}
+
+		expectedOut := `---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: a@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+  isBundle: true
+- image: b@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+  isBundle: true
+- image: z@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
+  isBundle: false
+kind: ImageLocations
+`
+
+		bs, err := locs.AsBytes()
+		require.NoError(t, err)
+		require.Equal(t, string(bs), expectedOut)
+	})
+}

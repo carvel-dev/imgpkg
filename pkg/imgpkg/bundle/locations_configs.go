@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -103,9 +104,29 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 	}
 
 	r.logger.Tracef("pushing image\n")
+
 	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg, ui)
 	if err != nil {
-		return fmt.Errorf("pushing locations image to '%s': %s", locRef.Name(), err)
+		// Immutable tag errors within registries are not standardized.
+		// Assume word "immutable" would be present in most cases.
+		// Example:
+		//    TAG_INVALID: The image tag 'sha256-81c592...289f6.image-locations.imgpkg'
+		//    already exists and cannot be overwritten because the repository is immutable
+		if strings.Contains(err.Error(), "immutable") {
+			if _, fetchErr := r.Fetch(reg, bundleRef); fetchErr == nil {
+				// Ignore failed write if existing ImageLocations record is present.
+				// (ImageLocations should be used as a cache and not an authoritative record.)
+				// Failure to write may happen if:
+				// - registry has immutable tags functionality _and_ we are modifying tag to a new digest
+				//   which means that existing ImageLocations record does not match new record.
+				//   That may happen if we have previously written an "incorrect" record (e.g. due to a bug)
+				//   or because we changed format of ImageLocations record.
+				// imgpkg should be backwards compatible to read previously written ImageLocations
+				// hence write of a new ImageLocations is best-effort.
+				return nil
+			}
+		}
+		return fmt.Errorf("Pushing locations image to '%s': %s", locRef.Name(), err)
 	}
 
 	return nil
