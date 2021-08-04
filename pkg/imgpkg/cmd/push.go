@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -50,6 +51,10 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (po *PushOptions) Run() error {
+	if strings.HasPrefix(po.BundleFlags.Bundle, "https://") || strings.HasPrefix(po.BundleFlags.Bundle, "http://") {
+		fmt.Println("Warning: You probably didn't mean to specify transport protocol as part of your bundle (http(s)://)")
+		panic(po.BundleFlags.Bundle)
+	}
 	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
