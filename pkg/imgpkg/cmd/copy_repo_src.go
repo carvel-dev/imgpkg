@@ -25,13 +25,15 @@ type CopyRepoSrc struct {
 	ImageFlags              ImageFlags
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
+	TarFlags                TarFlags
 	IncludeNonDistributable bool
 	Concurrency             int
-	logger                  util.LoggerWithLevels
-	imageSet                ctlimgset.ImageSet
-	tarImageSet             ctlimgset.TarImageSet
-	registry                ctlimgset.ImagesReaderWriter
-	signatureRetriever      SignatureRetriever
+
+	logger             util.LoggerWithLevels
+	imageSet           ctlimgset.ImageSet
+	tarImageSet        ctlimgset.TarImageSet
+	registry           ctlimgset.ImagesReaderWriter
+	signatureRetriever SignatureRetriever
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
@@ -57,17 +59,31 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.logger.Tracef("CopyToRepo(%s)\n", repo)
 
-	unprocessedImageRefs, bundles, err := c.getAllSourceImages()
-	if err != nil {
-		return nil, err
-	}
-
 	importRepo, err := regname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	c.logger.Debugf("Copy the fetched images\n")
+	if c.TarFlags.IsSrc() {
+		if c.TarFlags.IsDst() {
+			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
+		}
+
+		processedImages, err := c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		if err != nil {
+			return nil, err
+		}
+
+		informUserToUseTheNonDistributableFlagWithDescriptors(
+			c.logger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+
+		return processedImages, nil
+	}
+
+	unprocessedImageRefs, bundles, err := c.getAllSourceImages()
+	if err != nil {
+		return nil, err
+	}
 
 	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 	if err != nil {

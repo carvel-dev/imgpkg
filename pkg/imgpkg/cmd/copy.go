@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -31,7 +30,8 @@ type CopyOptions struct {
 	RegistryFlags   RegistryFlags
 	SignatureFlags  SignatureFlags
 
-	RepoDst                 string
+	RepoDst string
+
 	Concurrency             int
 	IncludeNonDistributable bool
 }
@@ -93,69 +93,50 @@ func (c *CopyOptions) Run() error {
 	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 	regWithProgress := registry.NewRegistryWithProgress(reg, imagesUploaderLogger)
 
+	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+
+	var signatureRetriever SignatureRetriever
+	if c.SignatureFlags.CopyCosignSignatures {
+		signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), c.Concurrency)
+	} else {
+		signatureRetriever = signature.NewNoop()
+	}
+
+	repoSrc := CopyRepoSrc{
+		ImageFlags:              c.ImageFlags,
+		BundleFlags:             c.BundleFlags,
+		LockInputFlags:          c.LockInputFlags,
+		TarFlags:                c.TarFlags,
+		IncludeNonDistributable: c.IncludeNonDistributable,
+
+		logger:             levelLogger,
+		registry:           regWithProgress,
+		imageSet:           imageSet,
+		tarImageSet:        ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
+		Concurrency:        c.Concurrency,
+		signatureRetriever: signatureRetriever,
+	}
+
 	switch {
-	case c.isTarSrc():
-		if c.isTarDst() {
+	case c.TarFlags.IsDst():
+		if c.TarFlags.IsSrc() {
 			return fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
-
-		importRepo, err := regname.NewRepository(c.RepoDst)
-		if err != nil {
-			return fmt.Errorf("Building import repository ref: %s", err)
+		if c.LockOutputFlags.LockFilePath != "" {
+			return fmt.Errorf("Cannot output lock file with tar destination")
 		}
+		return repoSrc.CopyToTar(c.TarFlags.TarDst)
 
-		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
-		tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
-
-		processedImages, err := tarImageSet.Import(c.TarFlags.TarSrc, importRepo, regWithProgress)
+	case c.isRepoDst():
+		processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
 		if err != nil {
 			return err
 		}
-
-		informUserToUseTheNonDistributableFlagWithDescriptors(levelLogger, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 		return c.writeLockOutput(processedImages, reg)
 
-	case c.isRepoSrc():
-		imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
-
-		var signatureRetriever SignatureRetriever
-		if c.SignatureFlags.CopyCosignSignatures {
-			signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), c.Concurrency)
-		} else {
-			signatureRetriever = signature.NewNoop()
-		}
-
-		repoSrc := CopyRepoSrc{
-			logger:                  levelLogger,
-			ImageFlags:              c.ImageFlags,
-			BundleFlags:             c.BundleFlags,
-			LockInputFlags:          c.LockInputFlags,
-			IncludeNonDistributable: c.IncludeNonDistributable,
-
-			registry:           regWithProgress,
-			imageSet:           imageSet,
-			tarImageSet:        ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
-			Concurrency:        c.Concurrency,
-			signatureRetriever: signatureRetriever,
-		}
-
-		switch {
-		case c.isTarDst():
-			if c.LockOutputFlags.LockFilePath != "" {
-				return fmt.Errorf("cannot output lock file with tar destination")
-			}
-
-			return repoSrc.CopyToTar(c.TarFlags.TarDst)
-
-		case c.isRepoDst():
-			processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
-			if err != nil {
-				return err
-			}
-			return c.writeLockOutput(processedImages, reg)
-		}
+	default:
+		panic("Unreachable")
 	}
-	panic("Unreachable")
 }
 
 func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, registry registry.Registry) error {
@@ -236,18 +217,11 @@ func (c *CopyOptions) informUserIfTarballNeedsToBeRecreated(processedImages *ctl
 	return nil
 }
 
-func (c *CopyOptions) isTarSrc() bool { return c.TarFlags.TarSrc != "" }
-
-func (c *CopyOptions) isRepoSrc() bool {
-	return c.ImageFlags.Image != "" || c.BundleFlags.Bundle != "" || c.LockInputFlags.LockFilePath != ""
-}
-
-func (c *CopyOptions) isTarDst() bool  { return c.TarFlags.TarDst != "" }
 func (c *CopyOptions) isRepoDst() bool { return c.RepoDst != "" }
 
 func (c *CopyOptions) hasOneDst() bool {
 	repoSet := c.isRepoDst()
-	tarSet := c.isTarDst()
+	tarSet := c.TarFlags.IsDst()
 	return (repoSet || tarSet) && !(repoSet && tarSet)
 }
 
