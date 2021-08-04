@@ -89,11 +89,10 @@ func (c *CopyOptions) Run() error {
 	logger := util.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-
 	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
-	regWithProgress := registry.NewRegistryWithProgress(reg, imagesUploaderLogger)
 
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
 	var signatureRetriever SignatureRetriever
 	if c.SignatureFlags.CopyCosignSignatures {
@@ -108,12 +107,12 @@ func (c *CopyOptions) Run() error {
 		LockInputFlags:          c.LockInputFlags,
 		TarFlags:                c.TarFlags,
 		IncludeNonDistributable: c.IncludeNonDistributable,
+		Concurrency:             c.Concurrency,
 
 		logger:             levelLogger,
-		registry:           regWithProgress,
+		registry:           registry.NewRegistryWithProgress(reg, imagesUploaderLogger),
 		imageSet:           imageSet,
-		tarImageSet:        ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger),
-		Concurrency:        c.Concurrency,
+		tarImageSet:        tarImageSet,
 		signatureRetriever: signatureRetriever,
 	}
 
