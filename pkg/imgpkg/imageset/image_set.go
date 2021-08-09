@@ -53,7 +53,10 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 		return nil, nil, err
 	}
 
-	images, err := i.Import(imagedesc.NewDescribedReader(ids, ids).Read(), importRepo, registry)
+	imgOrIndexes := imagedesc.NewDescribedReader(ids, ids).Read()
+
+	images, err := i.Import(imgOrIndexes, importRepo, registry)
+
 	return images, ids, err
 }
 

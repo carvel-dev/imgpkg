@@ -51,8 +51,7 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 }
 
 func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
-	reader := imagetar.NewTarReader(path)
-	imgOrIndexes, err := reader.Read()
+	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
 		return nil, err
 	}

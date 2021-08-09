@@ -28,7 +28,6 @@ func TestNoDest(t *testing.T) {
 	if !strings.Contains(err.Error(), "Expected either --to-tar or --to-repo") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
-
 }
 
 func TestMultiSrc(t *testing.T) {
@@ -40,7 +39,6 @@ func TestMultiSrc(t *testing.T) {
 	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --tar as a source") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
-
 }
 
 func TestNoSrc(t *testing.T) {
@@ -52,7 +50,6 @@ func TestNoSrc(t *testing.T) {
 	if !strings.Contains(err.Error(), "Expected either --lock, --bundle (-b), --image (-i), or --tar as a source") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
-
 }
 
 func TestTarSrcWithTarDst(t *testing.T) {
