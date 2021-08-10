@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,4 +74,19 @@ func createServer(handler func(w http.ResponseWriter, r *http.Request)) *httptes
 		handler(w, r)
 		w.Write(response)
 	}))
+}
+
+func TestRegistry_Get(t *testing.T) {
+	t.Run("when Ref includes protocol it errors", func(t *testing.T) {
+		subject, err := registry.NewRegistry(registry.Opts{})
+		require.NoError(t, err)
+
+		ref, err := name.NewTag("https://docker.whatever/whoever/etc")
+		require.NoError(t, err)
+		_, err = subject.Get(ref)
+		assert.Error(t, err)
+		assert.True(t,
+			strings.Contains(err.Error(), "should not include https://"),
+			fmt.Sprintf("error returned from Get was expected to be about protocol but was: %v", err))
+	})
 }

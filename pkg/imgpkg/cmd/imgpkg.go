@@ -4,9 +4,7 @@
 package cmd
 
 import (
-	"fmt"
 	"io"
-	"regexp"
 
 	"github.com/cppforlife/cobrautil"
 	"github.com/cppforlife/go-cli-ui/ui"
@@ -65,21 +63,6 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	}))
 
 	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(cobrautil.ResolveFlagsForCmd))
-
-	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(func(cmd *cobra.Command, args []string) error {
-		protocolMatcher := regexp.MustCompile(`^https*://`)
-
-		bundleFlag := cmd.Flag("bundle")
-		if bundleFlag != nil && protocolMatcher.MatchString(bundleFlag.Value.String()) {
-			return fmt.Errorf("bundle flag %v starts with protocol: remove http(s):// from bundle", bundleFlag.Value)
-		}
-
-		imageFlag := cmd.Flag("image")
-		if imageFlag != nil && protocolMatcher.MatchString(imageFlag.Value.String()) {
-			return fmt.Errorf("image flag %v starts with protocol: remove http(s):// from image", imageFlag.Value)
-		}
-		return nil
-	}))
 
 	// Completion command have to be added after the VisitCommands
 	// This due to the ReconfigureLeafCmds that we do not want to have enforced for the completion

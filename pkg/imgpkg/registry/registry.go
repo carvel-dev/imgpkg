@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -74,7 +75,18 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	}, nil
 }
 
+func validateRef(ref regname.Reference) error {
+	protocolMatcher := regexp.MustCompile(`^(https?://)`)
+	if match := protocolMatcher.FindString(ref.String()); len(match) > 0 {
+		return fmt.Errorf("Reference %v should not include %v protocol prefix", ref, match)
+	}
+	return nil
+}
+
 func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+	if err := validateRef(ref); err != nil {
+		return nil, err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
@@ -83,6 +95,9 @@ func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 }
 
 func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
+	if err := validateRef(ref); err != nil {
+		return regv1.Hash{}, err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return regv1.Hash{}, err
@@ -100,6 +115,9 @@ func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 }
 
 func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
+	if err := validateRef(ref); err != nil {
+		return nil, err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
@@ -112,6 +130,9 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 	overriddenImageOrIndexesToUploadRef := map[regname.Reference]regremote.Taggable{}
 
 	for ref, taggable := range imageOrIndexesToUpload {
+		if err := validateRef(ref); err != nil {
+			return err
+		}
 		overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 		if err != nil {
 			return err
@@ -140,6 +161,9 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 }
 
 func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
+	if err := validateRef(ref); err != nil {
+		return err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
@@ -156,6 +180,9 @@ func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 }
 
 func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
+	if err := validateRef(ref); err != nil {
+		return nil, err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
@@ -164,6 +191,9 @@ func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 }
 
 func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
+	if err := validateRef(ref); err != nil {
+		return err
+	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
