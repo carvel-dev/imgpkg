@@ -88,5 +88,15 @@ func TestRegistry_Get(t *testing.T) {
 		assert.True(t,
 			strings.Contains(err.Error(), "should not include https://"),
 			fmt.Sprintf("error returned from Get was expected to be about protocol but was: %v", err))
+
+		// same as above but with no 's' after http
+		ref, err = name.NewTag("http://docker.whatever/whoever/etc")
+		require.NoError(t, err)
+		_, err = subject.Get(ref)
+		assert.Error(t, err)
+		assert.True(t,
+			strings.Contains(err.Error(), "should not include http://"),
+			fmt.Sprintf("error returned from Get was expected to be about protocol but was: %v", err))
 	})
+
 }

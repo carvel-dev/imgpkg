@@ -75,16 +75,8 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	}, nil
 }
 
-func validateRef(ref regname.Reference) error {
-	protocolMatcher := regexp.MustCompile(`^(https?://)`)
-	if match := protocolMatcher.FindString(ref.String()); len(match) > 0 {
-		return fmt.Errorf("Reference %v should not include %v protocol prefix", ref, match)
-	}
-	return nil
-}
-
 func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -95,7 +87,7 @@ func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 }
 
 func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return regv1.Hash{}, err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -115,7 +107,7 @@ func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 }
 
 func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -130,7 +122,7 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 	overriddenImageOrIndexesToUploadRef := map[regname.Reference]regremote.Taggable{}
 
 	for ref, taggable := range imageOrIndexesToUpload {
-		if err := validateRef(ref); err != nil {
+		if err := r.validateRef(ref); err != nil {
 			return err
 		}
 		overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -161,7 +153,7 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 }
 
 func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -180,7 +172,7 @@ func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 }
 
 func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -191,7 +183,7 @@ func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 }
 
 func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
-	if err := validateRef(ref); err != nil {
+	if err := r.validateRef(ref); err != nil {
 		return err
 	}
 	overriddenRef, err := regname.ParseReference(ref.String(), r.refOpts...)
@@ -210,6 +202,9 @@ func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 }
 
 func (r Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
+	if err := r.validateRef(ref); err != nil {
+		return err
+	}
 	overriddenRef, err := regname.NewTag(ref.String(), r.refOpts...)
 	if err != nil {
 		return err
@@ -273,4 +268,13 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 	}
 
 	return clonedDefaultTransport, nil
+}
+
+var protocolMatcher *regexp.Regexp = regexp.MustCompile(`\Ahttps?://`)
+
+func (Registry) validateRef(ref regname.Reference) error {
+	if match := protocolMatcher.FindString(ref.String()); len(match) > 0 {
+		return fmt.Errorf("Reference '%s' should not include %v protocol prefix", ref, match)
+	}
+	return nil
 }
