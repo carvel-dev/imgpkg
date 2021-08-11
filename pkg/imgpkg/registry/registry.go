@@ -270,11 +270,11 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 	return clonedDefaultTransport, nil
 }
 
-var protocolMatcher *regexp.Regexp = regexp.MustCompile(`\Ahttps?://`)
+var protocolMatcher = regexp.MustCompile(`\Ahttps?://`)
 
 func (Registry) validateRef(ref regname.Reference) error {
 	if match := protocolMatcher.FindString(ref.String()); len(match) > 0 {
-		return fmt.Errorf("Reference '%s' should not include %v protocol prefix", ref, match)
+		return fmt.Errorf("Reference '%s' should not include %s protocol prefix", ref, match)
 	}
 	return nil
 }
