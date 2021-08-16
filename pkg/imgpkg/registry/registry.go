@@ -16,7 +16,6 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 type Opts struct {
@@ -133,23 +132,8 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 		overriddenImageOrIndexesToUploadRef[overriddenRef] = taggable
 	}
 
-	return util.Retry(func() error {
-		lOpts := append(append([]regremote.Option{}, r.opts...), regremote.WithJobs(concurrency))
-
-		// Only use the registry with progress reporting if a channel is provided to this method
-		if updatesCh != nil {
-			uploadProgress := make(chan regv1.Update)
-			lOpts = append(lOpts, regremote.WithProgress(uploadProgress))
-
-			go func() {
-				for update := range uploadProgress {
-					updatesCh <- update
-				}
-			}()
-		}
-
-		return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, lOpts...)
-	})
+	lOpts := append(append([]regremote.Option{}, r.opts...), regremote.WithJobs(concurrency), regremote.WithProgress(updatesCh))
+	return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, lOpts...)
 }
 
 func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
@@ -161,9 +145,7 @@ func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.Write(overriddenRef, img, r.opts...)
-	})
+	err = regremote.Write(overriddenRef, img, r.opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
 	}
@@ -191,9 +173,7 @@ func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.WriteIndex(overriddenRef, idx, r.opts...)
-	})
+	err = regremote.WriteIndex(overriddenRef, idx, r.opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
 	}
@@ -210,9 +190,7 @@ func (r Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.Tag(overriddenRef, taggagle, r.opts...)
-	})
+	err = regremote.Tag(overriddenRef, taggagle, r.opts...)
 	if err != nil {
 		return fmt.Errorf("Tagging image: %s", err)
 	}
