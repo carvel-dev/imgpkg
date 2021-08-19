@@ -91,11 +91,20 @@ jobs:
           # pull registry for e2e tests that require a locally running docker registry. i.e. airgapped env tests
           docker pull registry:2
 
+          function cleanup {
+            set +e
+            {
+              gcloud auth activate-service-account --key-file <(echo "$GCR_PASSWORD")
+              gcloud config set project cf-k8s-lifecycle-tooling-klt > /dev/null
+              gcloud container images list --filter=$GITHUB_RUN_ID | while read img; do
+                gcloud container images list-tags $img --format='get(digest)' | while read img_sha_to_delete; do
+                  gcloud container images delete "${img}@${img_sha_to_delete}" --force-delete-tags --quiet
+                done
+              done
+            } > /dev/null
+          }
+
+          trap cleanup EXIT
+
           ./hack/test-all.sh
 
-          gcloud auth activate-service-account --key-file <(echo "$GCR_PASSWORD")
-          gcloud container images list --filter=$GITHUB_RUN_ID | while read img; do
-            gcloud container images list-tags $img --format='get(digest)' | while read img_sha_to_delete; do
-              gcloud container images delete "${img}@${img_sha_to_delete}" --force-delete-tags --quiet
-            done
-          done
