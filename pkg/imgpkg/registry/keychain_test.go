@@ -3,16 +3,38 @@
 package registry_test
 
 import (
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/stretchr/testify/assert"
+	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
+	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+
+	"k8s.io/legacy-cloud-providers/gce/gcpcredential"
 )
+
+var registryURL string
+
+func TestMain(m *testing.M) {
+	var server *httptest.Server
+	registryURL, server = registerGCPProvider()
+	defer server.Close()
+
+	os.Exit(m.Run())
+}
 
 func TestAuthProvidedViaCLI(t *testing.T) {
 	cliOptions := registry.KeychainOpts{}
@@ -203,6 +225,23 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 	})
 }
 
+func TestAuthProvidedViaGCP(t *testing.T) {
+	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
+		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", registryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "foo", authorization.Username)
+		assert.Equal(t, "bar", authorization.Password)
+	})
+}
+
 func TestOrderingOfAuthOpts(t *testing.T) {
 	t.Run("When no auth are provided, use anon", func(t *testing.T) {
 		cliOptions := registry.KeychainOpts{}
@@ -339,4 +378,61 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			Password: "pass-env",
 		}), auth)
 	})
+}
+
+func registerGCPProvider() (string, *httptest.Server) {
+	registryURL := "imgpkg-testing.kubernetes.carvel"
+	email := "foo@bar.baz"
+	username := "foo"
+	password := "bar" // Fake value for testing.
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	sampleDockerConfig := fmt.Sprintf(`{
+   "https://%s": {
+     "email": %q,
+     "auth": %q
+   }
+}`, registryURL, email, auth)
+	const probeEndpoint = "/computeMetadata/v1/"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only serve the one metadata key.
+		if probeEndpoint == r.URL.Path {
+			w.WriteHeader(http.StatusOK)
+		} else if strings.HasSuffix(gcpcredential.DockerConfigKey, r.URL.Path) {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintln(w, sampleDockerConfig)
+		} else {
+			http.Error(w, "", http.StatusNotFound)
+		}
+	}))
+
+	// Make a transport that reroutes all traffic to the example server
+	transport := utilnet.SetTransportDefaults(&http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL + req.URL.Path)
+		},
+	})
+
+	provider := &gcp.DockerConfigKeyProvider{
+		MetadataProvider: gcp.MetadataProvider{Client: &http.Client{Transport: transport}},
+	}
+
+	credentialprovider.RegisterCredentialProvider("TEST-google-dockercfg-TEST",
+		&credentialprovider.CachingDockerConfigProvider{
+			Provider: alwaysEnabledProvier{provider},
+			Lifetime: 60 * time.Second,
+		})
+	return registryURL, server
+}
+
+type alwaysEnabledProvier struct {
+	provider credentialprovider.DockerConfigProvider
+}
+
+func (a alwaysEnabledProvier) Enabled() bool {
+	return true
+}
+
+func (a alwaysEnabledProvier) Provide(image string) credentialprovider.DockerConfig {
+	return a.provider.Provide(image)
 }
