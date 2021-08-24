@@ -21,8 +21,12 @@ func TestAuthErr(t *testing.T) {
 
 	var stderrBs bytes.Buffer
 
+	registry := helpers.NewFakeRegistry(t, env.Logger)
+	registry.WithBasicAuth("some-user", "some-password")
+	defer registry.CleanUp()
+
 	_, err := imgpkg.RunWithOpts([]string{
-		"pull", "-i", "index.docker.io/k8slt/imgpkg-test", "-o", outputDir,
+		"pull", "-i", registry.ReferenceOnTestServer("imgpkg-test"), "-o", outputDir,
 		"--registry-username", "incorrect-user",
 		"--registry-password", "incorrect-password",
 	}, helpers.RunOpts{AllowError: true, StderrWriter: &stderrBs})
