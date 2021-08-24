@@ -3,12 +3,14 @@
 package registry
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	regname "github.com/google/go-containerregistry/pkg/name"
 )
 
@@ -20,7 +22,11 @@ type KeychainOpts struct {
 }
 
 func Keychain(keychainOpts KeychainOpts, environFunc func() []string) regauthn.Keychain {
-	return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, customRegistryKeychain{opts: keychainOpts})
+	k8sKeychain, err := k8schain.NewFromPullSecrets(context.Background(), nil)
+	if err != nil {
+		panic(err.Error())
+	}
+	return regauthn.NewMultiKeychain(k8sKeychain, &envKeychain{environFunc: environFunc}, customRegistryKeychain{opts: keychainOpts})
 }
 
 var _ regauthn.Keychain = &envKeychain{}
