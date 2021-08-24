@@ -43,11 +43,11 @@ func (i *ImageFactory) ImageDigest(imgRef string) string {
 	return digest.String()
 }
 
-func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string) string {
+func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string, mediaType types.MediaType) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)
 
-	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
+	layer, err := random.Layer(1024, mediaType)
 	require.NoError(i.T, err)
 	digest, err := layer.Digest()
 	require.NoError(i.T, err)

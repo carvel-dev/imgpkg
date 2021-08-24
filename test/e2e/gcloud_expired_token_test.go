@@ -22,6 +22,8 @@ func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
+	airgappedRepo := startRegistryForAirgapTesting(t, env)
+
 	// create generic image
 	imageLockYAML := `---
 apiVersion: imgpkg.carvel.dev/v1alpha1
@@ -52,7 +54,7 @@ images:
 
 	// copy via output file
 	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
-	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", env.RelocationRepo, "--lock-output", lockOutputPath}, helpers.RunOpts{
+	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", airgappedRepo, "--lock-output", lockOutputPath}, helpers.RunOpts{
 		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
 	})
 	require.NoError(t, err)
@@ -76,6 +78,7 @@ func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers
 	require.NoError(t, err)
 
 	dockerConfigJSONMap["credHelpers"] = map[string]string{"gcr.io": "gcloud-race-condition-db-error"}
+	delete(dockerConfigJSONMap["auths"].(map[string]interface{}), "gcr.io")
 
 	dockerConfigJSONContents, err := json.Marshal(dockerConfigJSONMap)
 	require.NoError(t, err)

@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
@@ -73,7 +74,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		testDir := env.Assets.CreateTempFolder("image-to-tar")
 		tarFilePath := filepath.Join(testDir, "image.tar")
 
-		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo, types.OCIUncompressedRestrictedLayer)
 
 		repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
 		var stdOutWriter bytes.Buffer
@@ -107,7 +108,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		testDir := env.Assets.CreateTempFolder("image-to-tar")
 		tarFilePath := filepath.Join(testDir, "image.tar")
 
-		env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo)
+		env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo, types.OCIUncompressedRestrictedLayer)
 
 		repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
 		var stdOutWriter bytes.Buffer
@@ -139,7 +140,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 		testDir := env.Assets.CreateTempFolder("image-to-tar")
 		tarFilePath = filepath.Join(testDir, "image.tar")
 
-		env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+		env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo, types.OCIUncompressedRestrictedLayer)
 	})
 
 	repoToCopyName := env.RelocationRepo + "-include-non-distributable-layers-1"
@@ -178,7 +179,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			testDir := env.Assets.CreateTempFolder("image-to-tar")
 			tarFilePath = filepath.Join(testDir, "image.tar")
 
-			nonDistributableLayerDigest = env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo)
+			nonDistributableLayerDigest = env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo, types.OCIUncompressedRestrictedLayer)
 		})
 		imageDigest := fmt.Sprintf("@%s", env.ImageFactory.ImageDigest(env.RelocationRepo))
 
@@ -204,48 +205,58 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 		imgpkg.Run([]string{"pull", "-i", repoToCopyName + imageDigest, "--output", env.Assets.CreateTempFolder("pulled-image")})
 	})
 
-	t.Run("Without --include-non-distributable-layers flag and image contains a non-distributable layer should only copy distributable layers and print a warning message", func(t *testing.T) {
-		env := helpers.BuildEnv(t)
-		airgappedRepo := startRegistryForAirgapTesting(t, env)
+	for _, mediaType := range []types.MediaType{types.OCIUncompressedRestrictedLayer, types.DockerForeignLayer} {
+		t.Run(fmt.Sprintf("Without --include-non-distributable-layers flag and image contains a non-distributable layer should only copy distributable layers and print a warning message (Using MediaType %s)", mediaType), func(t *testing.T) {
+			env := helpers.BuildEnv(t)
+			if mediaType == types.OCIUncompressedRestrictedLayer && strings.HasPrefix(env.RelocationRepo, "gcr.io") {
+				t.Skip("Skipping this test due gcr.io limitation.")
+			}
 
-		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
-		defer env.Cleanup()
+			if mediaType == types.DockerForeignLayer && strings.HasPrefix(env.RelocationRepo, "index.docker.io") {
+				t.Skip("Skipping this test due dockerhub limitation.")
+			}
 
-		repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
+			airgappedRepo := startRegistryForAirgapTesting(t, env)
 
-		var tarFilePath, nonDistributableLayerDigest string
-		logger.Section("Create Image With Non Distributable Layer", func() {
-			testDir := env.Assets.CreateTempFolder("image-to-tar")
-			tarFilePath = filepath.Join(testDir, "image.tar")
+			imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+			defer env.Cleanup()
 
-			nonDistributableLayerDigest = env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo)
+			repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
+
+			var tarFilePath, nonDistributableLayerDigest string
+			logger.Section("Create Image With Non Distributable Layer", func() {
+				testDir := env.Assets.CreateTempFolder("image-to-tar")
+				tarFilePath = filepath.Join(testDir, "image.tar")
+
+				nonDistributableLayerDigest = env.ImageFactory.PushImageWithANonDistributableLayer(airgappedRepo, mediaType)
+			})
+
+			logger.Section("Create tar from Image", func() {
+				imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
+			})
+
+			stopRegistryForAirgapTesting(t, env)
+
+			var stdOutWriter bytes.Buffer
+			imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
+				StdoutWriter: &stdOutWriter,
+				StderrWriter: &stdOutWriter,
+			})
+
+			logger.Section("Check that non distributable layer was not copied", func() {
+				require.Contains(t, stdOutWriter.String(), "Skipped layer due to it being non-distributable.")
+
+				digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
+				require.NoError(t, err)
+
+				layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+				require.NoError(t, err)
+
+				_, err = layer.Compressed()
+				require.Error(t, err)
+			})
 		})
-
-		logger.Section("Create tar from Image", func() {
-			imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
-		})
-
-		stopRegistryForAirgapTesting(t, env)
-
-		var stdOutWriter bytes.Buffer
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
-			StdoutWriter: &stdOutWriter,
-			StderrWriter: &stdOutWriter,
-		})
-
-		logger.Section("Check that non distributable layer was not copied", func() {
-			require.Contains(t, stdOutWriter.String(), "Skipped layer due to it being non-distributable.")
-
-			digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
-			require.NoError(t, err)
-
-			layer, err := remote.Layer(digestOfNonDistributableLayer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-			require.NoError(t, err)
-
-			_, err = layer.Compressed()
-			require.Error(t, err)
-		})
-	})
+	}
 
 	t.Run("With --lock-output flag should generate a valid ImageLock file", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
