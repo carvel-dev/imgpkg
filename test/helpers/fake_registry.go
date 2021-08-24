@@ -106,6 +106,7 @@ func (r *FakeTestRegistryBuilder) WithBasicAuth(username string, password string
 		usernameFromReq, passwordFromReq, ok := request.BasicAuth()
 		if usernameFromReq != username || passwordFromReq != password || !ok {
 			writer.WriteHeader(401)
+			writer.Write([]byte("incorrect username or password"))
 			return
 		}
 

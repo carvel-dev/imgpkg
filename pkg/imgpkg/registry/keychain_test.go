@@ -257,7 +257,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		assert.Equal(t, authn.Anonymous, auth)
 	})
 
-	t.Run("When user creds is provided via cli and env variables are provided, use env creds", func(t *testing.T) {
+	t.Run("env creds > cli user/pass", func(t *testing.T) {
 		cliOptions := registry.KeychainOpts{
 			Username: "user-cli",
 			Password: "pass-cli",
@@ -283,7 +283,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		}), auth)
 	})
 
-	t.Run("When anon is provided via cli and env variables are provided, use env creds", func(t *testing.T) {
+	t.Run("env creds > cli anon", func(t *testing.T) {
 		cliOptions := registry.KeychainOpts{
 			Anon: true,
 		}
@@ -308,7 +308,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		}), auth)
 	})
 
-	t.Run("When anon is provided via cli and aut is provide via config.json, use anon", func(t *testing.T) {
+	t.Run("cli anon > config.json", func(t *testing.T) {
 		cliOptions := registry.KeychainOpts{
 			Anon: true,
 		}
@@ -340,7 +340,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		assert.Equal(t, authn.Anonymous, auth)
 	})
 
-	t.Run("When env variables and default keychain are provided, use env auth", func(t *testing.T) {
+	t.Run("env > config.json", func(t *testing.T) {
 		tempConfigJSONDir, err := ioutil.TempDir(os.TempDir(), "test-default-keychain")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempConfigJSONDir)
