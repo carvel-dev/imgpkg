@@ -26,7 +26,7 @@ func Keychain(keychainOpts KeychainOpts, environFunc func() []string) regauthn.K
 	if err != nil {
 		panic(err.Error())
 	}
-	return regauthn.NewMultiKeychain(k8sKeychain, &envKeychain{environFunc: environFunc}, customRegistryKeychain{opts: keychainOpts})
+	return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, k8sKeychain, customRegistryKeychain{opts: keychainOpts})
 }
 
 var _ regauthn.Keychain = &envKeychain{}
