@@ -26,11 +26,13 @@ import (
 	"k8s.io/legacy-cloud-providers/gce/gcpcredential"
 )
 
-var registryURL string
+var gcpRegistryURL string
+var gcpRegistryUsername string
+var gcpRegistryPassword string
 
 func TestMain(m *testing.M) {
 	var server *httptest.Server
-	registryURL, server = registerGCPProvider()
+	gcpRegistryURL, server = registerGCPProvider()
 	defer server.Close()
 
 	os.Exit(m.Run())
@@ -229,7 +231,7 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
 		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
 
-		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", registryURL))
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
 
 		auth, err := keychain.Resolve(resource)
@@ -255,6 +257,29 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, authn.Anonymous, auth)
+	})
+
+	t.Run("env creds > iaas", func(t *testing.T) {
+		cliOptions := registry.KeychainOpts{}
+
+		envVars := []string{
+			"IMGPKG_REGISTRY_USERNAME=user-env",
+			"IMGPKG_REGISTRY_PASSWORD=pass-env",
+			fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", gcpRegistryURL),
+		}
+
+		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "user-env", authorization.Username)
+		assert.Equal(t, "pass-env", authorization.Password)
 	})
 
 	t.Run("env creds > cli user/pass", func(t *testing.T) {
@@ -308,39 +333,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 		}), auth)
 	})
 
-	t.Run("cli anon > config.json", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
-			Anon: true,
-		}
-
-		tempConfigJSONDir, err := ioutil.TempDir(os.TempDir(), "test-default-keychain")
-		assert.NoError(t, err)
-		defer os.RemoveAll(tempConfigJSONDir)
-		assert.NoError(t, os.Setenv("DOCKER_CONFIG", tempConfigJSONDir))
-		defer os.Unsetenv("DOCKER_CONFIG")
-
-		err = ioutil.WriteFile(filepath.Join(tempConfigJSONDir, "config.json"), []byte(`{
-  "auths" : {
-    "http://some.fake.registry/v1/" : {
-		"username": "user-config-json",
-		"password": "pass-config-json"
-    }
-  }
-}`), os.ModePerm)
-		assert.NoError(t, err)
-
-		keychain := registry.Keychain(cliOptions, func() []string { return nil })
-
-		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
-		assert.NoError(t, err)
-
-		auth, err := keychain.Resolve(resource)
-		assert.NoError(t, err)
-
-		assert.Equal(t, authn.Anonymous, auth)
-	})
-
-	t.Run("env > config.json", func(t *testing.T) {
+	t.Run("env creds > config.json", func(t *testing.T) {
 		tempConfigJSONDir, err := ioutil.TempDir(os.TempDir(), "test-default-keychain")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempConfigJSONDir)
@@ -378,14 +371,89 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			Password: "pass-env",
 		}), auth)
 	})
+
+	t.Run("iaas creds > cli anon", func(t *testing.T) {
+		cliOptions := registry.KeychainOpts{
+			Anon: true,
+		}
+
+		envVars := []string{}
+
+		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, gcpRegistryUsername, authorization.Username)
+		assert.Equal(t, gcpRegistryPassword, authorization.Password)
+	})
+
+	t.Run("iaas creds > cli user/pass", func(t *testing.T) {
+		cliOptions := registry.KeychainOpts{
+			Username: "user-cli",
+			Password: "pass-cli",
+		}
+
+		envVars := []string{}
+
+		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, gcpRegistryUsername, authorization.Username)
+		assert.Equal(t, gcpRegistryPassword, authorization.Password)
+	})
+
+	t.Run("cli anon > config.json", func(t *testing.T) {
+		cliOptions := registry.KeychainOpts{
+			Anon: true,
+		}
+
+		tempConfigJSONDir, err := ioutil.TempDir(os.TempDir(), "test-default-keychain")
+		assert.NoError(t, err)
+		defer os.RemoveAll(tempConfigJSONDir)
+		assert.NoError(t, os.Setenv("DOCKER_CONFIG", tempConfigJSONDir))
+		defer os.Unsetenv("DOCKER_CONFIG")
+
+		err = ioutil.WriteFile(filepath.Join(tempConfigJSONDir, "config.json"), []byte(`{
+  "auths" : {
+    "http://some.fake.registry/v1/" : {
+		"username": "user-config-json",
+		"password": "pass-config-json"
+    }
+  }
+}`), os.ModePerm)
+		assert.NoError(t, err)
+
+		keychain := registry.Keychain(cliOptions, func() []string { return nil })
+
+		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		assert.Equal(t, authn.Anonymous, auth)
+	})
 }
 
 func registerGCPProvider() (string, *httptest.Server) {
 	registryURL := "imgpkg-testing.kubernetes.carvel"
 	email := "foo@bar.baz"
-	username := "foo"
-	password := "bar" // Fake value for testing.
-	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	gcpRegistryUsername = "foo"
+	gcpRegistryPassword = "bar"
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", gcpRegistryUsername, gcpRegistryPassword)))
 	sampleDockerConfig := fmt.Sprintf(`{
    "https://%s": {
      "email": %q,
@@ -422,6 +490,7 @@ func registerGCPProvider() (string, *httptest.Server) {
 			Provider: alwaysEnabledProvier{provider},
 			Lifetime: 60 * time.Second,
 		})
+
 	return registryURL, server
 }
 
