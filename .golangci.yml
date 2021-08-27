@@ -1,7 +1,7 @@
 linters:
   enable:
     - goheader
-    - golint
+    - revive
     - deadcode
     - unused
     - staticcheck
@@ -19,3 +19,5 @@ linters-settings:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-use-default: false
+  new-from-rev: 01ef727b5a403cf1df143adbf699aa0de2c765d9
