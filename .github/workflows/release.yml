@@ -96,6 +96,43 @@ jobs:
           EOF
           )
 
+      - name: generate homebrew formula
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -e -x
+          VERSION=`echo ${{ github.ref }}  | grep -Eo '[0-9].*'`
+
+          IMGPKG_DARWIN_AMD64=$(grep 'imgpkg-darwin-amd64' <<< "${{steps.get-checksums-from-draft-release.outputs.result}}" | awk '{print $1}')
+          IMGPKG_LINUX_AMD64=$(grep 'imgpkg-linux-amd64' <<< "${{steps.get-checksums-from-draft-release.outputs.result}}" | awk '{print $1}')
+
+          cat <<EOF > ./dist/imgpkg.rb
+          class Imgpkg < Formula
+            desc "Imgpkg"
+            homepage "https://carvel.dev/imgpkg/"
+            version "v${VERSION}"
+
+            on_macos do
+              url "https://github.com/vmware-tanzu/carvel-imgpkg/releases/download/v${VERSION}/imgpkg-darwin-amd64"
+              sha256 "$IMGPKG_DARWIN_AMD64"
+            end
+
+            elsif OS.linux?
+              url "https://github.com/vmware-tanzu/carvel-imgpkg/releases/download/v${VERSION}/imgpkg-linux-amd64"
+              sha256 "$IMGPKG_LINUX_AMD64"
+            end
+
+            depends_on :arch => :x86_64
+
+            def install
+              bin.install stable.url.split("/")[-1] => "imgpkg"
+            end
+
+            test do
+              system "#{bin}/imgpkg", "version"
+            end
+          end
+          EOF
+          cat ./dist/imgpkg.rb
 
       - name: Upload imgpkg Formula
         uses: actions/upload-artifact@v1
