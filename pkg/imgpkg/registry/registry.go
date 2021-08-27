@@ -16,6 +16,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 )
 
 type Opts struct {
@@ -52,7 +53,7 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
 		regremote.WithAuthFromKeychain(Keychain(
-			KeychainOpts{
+			auth.KeychainOpts{
 				Username: opts.Username,
 				Password: opts.Password,
 				Token:    opts.Token,

@@ -18,7 +18,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -29,6 +31,9 @@ import (
 var gcpRegistryURL string
 var gcpRegistryUsername string
 var gcpRegistryPassword string
+var blockingDockerProvider *blockingProvider
+
+// TODO: feature flag - disable iaas auth
 
 func TestMain(m *testing.M) {
 	var server *httptest.Server
@@ -38,8 +43,45 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestAuthProvidedViaGCP(t *testing.T) {
+	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "foo", authorization.Username)
+		assert.Equal(t, "bar", authorization.Password)
+	})
+
+	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
+		blockingDockerProvider = registerBlockingProvider()
+
+		defer func() {
+			close(blockingDockerProvider.shouldStopBlocking)
+		}()
+
+		require.Eventually(t, func() bool {
+			keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+
+			resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+			assert.NoError(t, err)
+
+			_, err = keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			return true
+		}, 20*time.Second, 1*time.Second)
+	})
+}
+
 func TestAuthProvidedViaCLI(t *testing.T) {
-	cliOptions := registry.KeychainOpts{}
+	cliOptions := auth.KeychainOpts{}
 
 	t.Run("When username and password is provided", func(t *testing.T) {
 		opts := cliOptions
@@ -96,7 +138,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -115,7 +157,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -133,7 +175,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -156,7 +198,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME_1=localhost:1111",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:1111/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -180,7 +222,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"SOMETHING_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -213,7 +255,7 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -227,26 +269,9 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 	})
 }
 
-func TestAuthProvidedViaGCP(t *testing.T) {
-	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
-
-		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
-		assert.NoError(t, err)
-
-		auth, err := keychain.Resolve(resource)
-		assert.NoError(t, err)
-
-		authorization, err := auth.Authorization()
-		assert.NoError(t, err)
-		assert.Equal(t, "foo", authorization.Username)
-		assert.Equal(t, "bar", authorization.Password)
-	})
-}
-
 func TestOrderingOfAuthOpts(t *testing.T) {
 	t.Run("When no auth are provided, use anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		keychain := registry.Keychain(cliOptions, func() []string { return nil })
 
@@ -260,7 +285,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > iaas", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		envVars := []string{
 			"IMGPKG_REGISTRY_USERNAME=user-env",
@@ -283,7 +308,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > cli user/pass", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Username: "user-cli",
 			Password: "pass-cli",
 		}
@@ -309,7 +334,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > cli anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 
@@ -350,7 +375,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		envVars := []string{
 			"IMGPKG_REGISTRY_USERNAME=user-env",
@@ -373,7 +398,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("iaas creds > cli anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 
@@ -394,7 +419,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("iaas creds > cli user/pass", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Username: "user-cli",
 			Password: "pass-cli",
 		}
@@ -416,7 +441,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("cli anon > config.json", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 
@@ -487,21 +512,48 @@ func registerGCPProvider() (string, *httptest.Server) {
 
 	credentialprovider.RegisterCredentialProvider("TEST-google-dockercfg-TEST",
 		&credentialprovider.CachingDockerConfigProvider{
-			Provider: alwaysEnabledProvier{provider},
+			Provider: alwaysEnabledProvider{provider},
 			Lifetime: 60 * time.Second,
 		})
 
 	return registryURL, server
 }
 
-type alwaysEnabledProvier struct {
+func registerBlockingProvider() *blockingProvider {
+	blockingTestProvider := &blockingProvider{
+		shouldStopBlocking: make(chan struct{}),
+	}
+	credentialprovider.RegisterCredentialProvider("TEST-blocking-dockercfg-TEST",
+		&credentialprovider.CachingDockerConfigProvider{
+			Provider: blockingTestProvider,
+		})
+
+	return blockingTestProvider
+}
+
+type alwaysEnabledProvider struct {
 	provider credentialprovider.DockerConfigProvider
 }
 
-func (a alwaysEnabledProvier) Enabled() bool {
+func (a alwaysEnabledProvider) Enabled() bool {
 	return true
 }
 
-func (a alwaysEnabledProvier) Provide(image string) credentialprovider.DockerConfig {
+func (a alwaysEnabledProvider) Provide(image string) credentialprovider.DockerConfig {
 	return a.provider.Provide(image)
+}
+
+type blockingProvider struct {
+	shouldStopBlocking chan struct{}
+}
+
+func (a *blockingProvider) Enabled() bool {
+	select {
+	case <-a.shouldStopBlocking:
+		return true
+	}
+}
+
+func (a blockingProvider) Provide(image string) credentialprovider.DockerConfig {
+	return credentialprovider.DockerConfig{}
 }
