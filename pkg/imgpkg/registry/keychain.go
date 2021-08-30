@@ -18,7 +18,7 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) regau
 	var ok = make(chan struct{})
 
 	go func() {
-		iaasKeychain = auth.NewIaasKeychain()
+		iaasKeychain = auth.NewIaasKeychain(environFunc)
 		close(ok)
 	}()
 
