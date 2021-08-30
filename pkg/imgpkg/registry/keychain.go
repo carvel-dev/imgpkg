@@ -11,12 +11,12 @@ import (
 // It enforces an order, where the keychains that contain credentials for a specific target take precedence over
 // keychains that contain credentials for 'any' target. i.e. env keychain takes precedence over the custom keychain.
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
-func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) regauthn.Keychain {
+func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (regauthn.Keychain, error) {
+	//TODO: use context.Deadline
 	iaasKeychain, err := auth.NewIaasKeychain(environFunc)
 	if err != nil {
-		//TODO: handle error
-		panic(err.Error())
+		return nil, err
 	}
 
-	return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts})
+	return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts}), nil
 }

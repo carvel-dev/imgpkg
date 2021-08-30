@@ -50,16 +50,23 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 		refOpts = append(refOpts, regname.Insecure)
 	}
 
+	keychain, err := Keychain(
+		auth.KeychainOpts{
+			Username: opts.Username,
+			Password: opts.Password,
+			Token:    opts.Token,
+			Anon:     opts.Anon,
+		},
+		os.Environ)
+
+	if err != nil {
+		//TODO: handle error
+		panic(err.Error())
+	}
+
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(Keychain(
-			auth.KeychainOpts{
-				Username: opts.Username,
-				Password: opts.Password,
-				Token:    opts.Token,
-				Anon:     opts.Anon,
-			},
-			os.Environ),
+		regremote.WithAuthFromKeychain(keychain,
 		),
 	}
 	if opts.IncludeNonDistributableLayers {

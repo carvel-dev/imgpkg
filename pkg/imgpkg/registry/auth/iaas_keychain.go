@@ -32,8 +32,7 @@ func NewIaasKeychain(environFunc func() []string) (authn.Keychain, error) {
 
 		enableIaasAuth, err := strconv.ParseBool(pieces[1])
 		if err != nil {
-			//TODO: add logging that env variable value was not boolean
-			return nil, err
+			return nil, fmt.Errorf("Expected a bool value (true, false). Got %s: %v", pieces[1], err)
 		}
 
 		if !enableIaasAuth {
@@ -45,22 +44,19 @@ func NewIaasKeychain(environFunc func() []string) (authn.Keychain, error) {
 
 	var keyring credentialprovider.DockerKeyring
 	ok := make(chan struct{})
+
 	go func() {
 		keyring = credentialprovider.NewDockerKeyring()
 		close(ok)
 	}()
-	timeout := time.After(15 * time.Second)
 
 	select {
 	case <-ok:
 		return &keychain{
 			keyring: keyring,
 		}, nil
-	case <-timeout:
-		//TODO: add logging that timeout occurred
-		return &keychain{
-			keyring: noOpDockerKeyring{},
-		}, nil
+	case <-time.After(15 * time.Second):
+		return nil, fmt.Errorf("Timeout occurred trying to enable iaas provider")
 	}
 }
 
