@@ -25,7 +25,7 @@ func TestFeatureFlagValues(t *testing.T) {
 	})
 }
 
-func TestTimeout(t *testing.T) {
+func TestTimeoutWhenEnablingProvider(t *testing.T) {
 	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
 		blockingDockerProvider := registerBlockingProvider()
 

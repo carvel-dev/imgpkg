@@ -75,7 +75,6 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 		assert.Equal(t, "", authorization.Username)
 		assert.Equal(t, "", authorization.Password)
 	})
-
 }
 
 func TestAuthProvidedViaCLI(t *testing.T) {
