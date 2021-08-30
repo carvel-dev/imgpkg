@@ -3,6 +3,8 @@
 package registry
 
 import (
+	"context"
+
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 )
@@ -12,8 +14,7 @@ import (
 // keychains that contain credentials for 'any' target. i.e. env keychain takes precedence over the custom keychain.
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
 func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (regauthn.Keychain, error) {
-	//TODO: use context.Deadline
-	iaasKeychain, err := auth.NewIaasKeychain(environFunc)
+	iaasKeychain, err := auth.NewIaasKeychain(context.Background(), environFunc)
 	if err != nil {
 		return nil, err
 	}

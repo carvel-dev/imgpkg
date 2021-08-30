@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -19,7 +20,7 @@ const (
 )
 
 // NewIaasKeychain implements an authn.Keychain interface by using credentials provided by the iaas metadata services
-func NewIaasKeychain(environFunc func() []string) (authn.Keychain, error) {
+func NewIaasKeychain(ctx context.Context, environFunc func() []string) (authn.Keychain, error) {
 	for _, env := range environFunc() {
 		pieces := strings.SplitN(env, "=", 2)
 		if len(pieces) != 2 {
@@ -50,12 +51,15 @@ func NewIaasKeychain(environFunc func() []string) (authn.Keychain, error) {
 		close(ok)
 	}()
 
+	timeout, cancelFunc := context.WithTimeout(ctx, 15*time.Second)
+	defer cancelFunc()
+
 	select {
 	case <-ok:
 		return &keychain{
 			keyring: keyring,
 		}, nil
-	case <-time.After(15 * time.Second):
+	case <-timeout.Done():
 		return nil, fmt.Errorf("Timeout occurred trying to enable iaas provider")
 	}
 }
