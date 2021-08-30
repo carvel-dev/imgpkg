@@ -30,7 +30,6 @@ import (
 var gcpRegistryURL string
 var gcpRegistryUsername string
 var gcpRegistryPassword string
-var blockingDockerProvider *blockingProvider
 
 func TestMain(m *testing.M) {
 	var server *httptest.Server
@@ -77,22 +76,6 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 		assert.Equal(t, "", authorization.Password)
 	})
 
-	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
-		blockingDockerProvider = registerBlockingProvider()
-
-		defer func() {
-			close(blockingDockerProvider.shouldStopBlocking)
-		}()
-
-		require.Eventually(t, func() bool {
-			_, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
-			if assert.Error(t, err) {
-				assert.Equal(t, "Timeout occurred trying to enable iaas provider", err.Error())
-			}
-
-			return true
-		}, 20*time.Second, 1*time.Second)
-	})
 }
 
 func TestAuthProvidedViaCLI(t *testing.T) {
@@ -551,17 +534,6 @@ func registerGCPProvider() (string, *httptest.Server) {
 	return registryURL, server
 }
 
-func registerBlockingProvider() *blockingProvider {
-	blockingTestProvider := &blockingProvider{
-		shouldStopBlocking: make(chan struct{}),
-	}
-	credentialprovider.RegisterCredentialProvider("TEST-blocking-dockercfg-TEST",
-		&credentialprovider.CachingDockerConfigProvider{
-			Provider: blockingTestProvider,
-		})
-
-	return blockingTestProvider
-}
 
 type alwaysEnabledProvider struct {
 	provider credentialprovider.DockerConfigProvider
@@ -573,19 +545,4 @@ func (a alwaysEnabledProvider) Enabled() bool {
 
 func (a alwaysEnabledProvider) Provide(image string) credentialprovider.DockerConfig {
 	return a.provider.Provide(image)
-}
-
-type blockingProvider struct {
-	shouldStopBlocking chan struct{}
-}
-
-func (a *blockingProvider) Enabled() bool {
-	select {
-	case <-a.shouldStopBlocking:
-		return true
-	}
-}
-
-func (a blockingProvider) Provide(image string) credentialprovider.DockerConfig {
-	return credentialprovider.DockerConfig{}
 }
