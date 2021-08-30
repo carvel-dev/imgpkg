@@ -5,14 +5,41 @@ package auth
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 )
 
+const (
+	enableIaasAuthEnvKey = "IMGPKG_ENABLE_IAAS_AUTH"
+)
+
 // NewIaasKeychain implements an authn.Keychain interface by using credentials provided by the iaas metadata services
-func NewIaasKeychain() authn.Keychain {
+func NewIaasKeychain(environFunc func() []string) authn.Keychain {
+	for _, env := range environFunc() {
+		pieces := strings.SplitN(env, "=", 2)
+		if len(pieces) != 2 {
+			continue
+		}
+
+		if pieces[0] != enableIaasAuthEnvKey {
+			continue
+		}
+
+		enableIaasAuth, err := strconv.ParseBool(pieces[1])
+		if err != nil {
+			panic(err.Error())
+		}
+
+		if !enableIaasAuth {
+			return &keychain{
+				keyring: noOpDockerKeyring{},
+			}
+		}
+	}
 	return &keychain{
 		keyring: credentialprovider.NewDockerKeyring(),
 	}
@@ -61,4 +88,10 @@ func (kc *keychain) Resolve(target authn.Resource) (authn.Authenticator, error) 
 		kc:    kc,
 		image: image,
 	}, nil
+}
+
+type noOpDockerKeyring struct{}
+
+func (n noOpDockerKeyring) Lookup(image string) ([]credentialprovider.AuthConfig, bool) {
+	return nil, false
 }

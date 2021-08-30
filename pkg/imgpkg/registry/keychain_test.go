@@ -24,7 +24,6 @@ import (
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
-
 	"k8s.io/legacy-cloud-providers/gce/gcpcredential"
 )
 
@@ -57,6 +56,25 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "foo", authorization.Username)
 		assert.Equal(t, "bar", authorization.Password)
+	})
+
+	t.Run("Should be able to disable Iaas providers via env", func(t *testing.T) {
+		envVars := []string{
+			"IMGPKG_ENABLE_IAAS_AUTH=false",
+		}
+
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "", authorization.Username)
+		assert.Equal(t, "", authorization.Password)
 	})
 
 	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
