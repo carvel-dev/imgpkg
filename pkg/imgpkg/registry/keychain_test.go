@@ -534,7 +534,6 @@ func registerGCPProvider() (string, *httptest.Server) {
 	return registryURL, server
 }
 
-
 type alwaysEnabledProvider struct {
 	provider credentialprovider.DockerConfigProvider
 }
