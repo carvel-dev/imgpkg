@@ -1,3 +1,6 @@
+// Copyright 2020 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package auth
 
 import (
@@ -17,7 +20,7 @@ func TestFeatureFlagValues(t *testing.T) {
 		})
 
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Expected a bool value (true, false). Got non-bool-value")
+			assert.Contains(t, err.Error(), "Expected IMGPKG_ENABLE_IAAS_AUTH to contain a boolean value (true, false). Got non-bool-value")
 		}
 	})
 }

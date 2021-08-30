@@ -58,16 +58,13 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 			Anon:     opts.Anon,
 		},
 		os.Environ)
-
 	if err != nil {
-		//TODO: handle error
-		panic(err.Error())
+		return Registry{}, err
 	}
 
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(keychain,
-		),
+		regremote.WithAuthFromKeychain(keychain),
 	}
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)

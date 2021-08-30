@@ -33,7 +33,7 @@ func NewIaasKeychain(ctx context.Context, environFunc func() []string) (authn.Ke
 
 		enableIaasAuth, err := strconv.ParseBool(pieces[1])
 		if err != nil {
-			return nil, fmt.Errorf("Expected a bool value (true, false). Got %s: %v", pieces[1], err)
+			return nil, fmt.Errorf("Expected IMGPKG_ENABLE_IAAS_AUTH to contain a boolean value (true, false). Got %s: %v", pieces[1], err)
 		}
 
 		if !enableIaasAuth {
