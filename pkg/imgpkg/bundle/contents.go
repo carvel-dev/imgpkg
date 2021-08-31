@@ -113,7 +113,7 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 
 		msg := fmt.Sprintf("This directory is not a bundle. It it is missing %s", imgpkgPath)
 		if len(imgpkgDirs) > 0 {
-			msg = fmt.Sprintf("This directory constains multiple bundle definitions. Only a single instance of %s can be provided and instead these were provided %s", imgpkgPath, strings.Join(imgpkgDirs, ", "))
+			msg = fmt.Sprintf("This directory contains multiple bundle definitions. Only a single instance of %s can be provided and instead these were provided %s", imgpkgPath, strings.Join(imgpkgDirs, ", "))
 		}
 
 		return bundleValidationError{msg}

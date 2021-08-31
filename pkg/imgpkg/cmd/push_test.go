@@ -56,7 +56,7 @@ func TestMultiImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	if !strings.Contains(err.Error(), "This directory constains multiple bundle definitions. Only a single instance of .imgpkg/images.yml can be provided") {
+	if !strings.Contains(err.Error(), "This directory contains multiple bundle definitions. Only a single instance of .imgpkg/images.yml can be provided") {
 		t.Fatalf("Expected error to contain message about multiple .imgpkg dirs, got: %s", err)
 	}
 }
