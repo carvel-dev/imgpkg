@@ -413,9 +413,13 @@ var shouldRetry retry.Predicate = func(err error) bool {
 	// Various failure modes here, as we're often reading from and writing to
 	// the network.
 	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.EPIPE) {
-		logs.Warn.Printf("retrying %v", err)
+		println("retrying from ggcr %+v", err)
 		return true
 	}
+	if err != nil {
+		println(fmt.Sprintf("not retrying from ggcr %+v", err))
+	}
+
 	return false
 }
 
@@ -424,7 +428,7 @@ var backoff = retry.Backoff{
 	Duration: 1.0 * time.Second,
 	Factor:   3.0,
 	Jitter:   0.1,
-	Steps:    3,
+	Steps:    6,
 }
 
 // uploadOne performs a complete upload of a single layer.

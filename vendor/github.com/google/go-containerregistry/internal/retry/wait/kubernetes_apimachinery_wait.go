@@ -20,6 +20,7 @@ package wait
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -110,7 +111,14 @@ func (b *Backoff) Step() time.Duration {
 // In case (1) the returned error is what the condition function returned.
 // In all other cases, ErrWaitTimeout is returned.
 func ExponentialBackoff(backoff Backoff, condition ConditionFunc) error {
+	i := 0
+	println(fmt.Sprintf("ExponentialBackoff == %v", backoff))
+
 	for backoff.Steps > 0 {
+		if i > 0 {
+			println(fmt.Sprintf("GGCR CALLING condition() attempt ===> %d", i))
+		}
+		i++
 		if ok, err := condition(); err != nil || ok {
 			return err
 		}

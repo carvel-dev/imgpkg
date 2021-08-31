@@ -88,7 +88,12 @@ func (e *Error) responseErr() string {
 
 // Temporary returns whether the request that preceded the error is temporary.
 func (e *Error) Temporary() bool {
-	if len(e.Errors) == 0 {
+	println(fmt.Sprintf("Temporary --> STATUS CODE %v ====> errors == %+v", e.StatusCode, e.Errors))
+	println(fmt.Sprintf("temporaryStatusCodes", temporaryStatusCodes))
+
+
+	if (e.StatusCode < http.StatusBadRequest || e.StatusCode >= http.StatusInternalServerError) || len(e.Errors) == 0 {
+		println("TRYING TEMP STATUS CODE")
 		_, ok := temporaryStatusCodes[e.StatusCode]
 		return ok
 	}
@@ -193,5 +198,6 @@ func CheckError(resp *http.Response, codes ...int) error {
 	structuredError.StatusCode = resp.StatusCode
 	structuredError.request = resp.Request
 
+	println(fmt.Sprintf("STRUCTRED ERROR FROM RESP ===> %v", resp))
 	return structuredError
 }

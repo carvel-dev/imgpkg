@@ -42,6 +42,11 @@ func IsTemporary(err error) bool {
 	if te, ok := err.(temporary); ok && te.Temporary() {
 		return true
 	}
+
+	if err != nil {
+		println(fmt.Sprintf("not retrying TRANSPORT from ggcr %+v", err))
+	}
+
 	return false
 }
 
@@ -67,6 +72,7 @@ func Retry(f func() error, p Predicate, backoff wait.Backoff) (err error) {
 	condition := func() (bool, error) {
 		err = f()
 		if p(err) {
+			println(fmt.Sprintf("retrying error at transport"))
 			return false, nil
 		}
 		return true, err
