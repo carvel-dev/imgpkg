@@ -133,7 +133,7 @@ func TestBundleDirectoryErrors(t *testing.T) {
 		{
 			name:            "no bundle",
 			createBundleDir: false,
-			expectedError:   "This directory is not a bundle. It it is missing .imgpkg/images.yml",
+			expectedError:   "This directory is not a bundle. It is missing .imgpkg/images.yml",
 		},
 	}
 
