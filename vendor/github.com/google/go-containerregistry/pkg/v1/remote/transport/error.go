@@ -92,7 +92,7 @@ func (e *Error) Temporary() bool {
 	println(fmt.Sprintf("temporaryStatusCodes", temporaryStatusCodes))
 
 
-	if (e.StatusCode < http.StatusBadRequest || e.StatusCode >= http.StatusInternalServerError) || len(e.Errors) == 0 {
+	if len(e.Errors) == 0 {
 		println("TRYING TEMP STATUS CODE")
 		_, ok := temporaryStatusCodes[e.StatusCode]
 		return ok
@@ -199,5 +199,6 @@ func CheckError(resp *http.Response, codes ...int) error {
 	structuredError.request = resp.Request
 
 	println(fmt.Sprintf("STRUCTRED ERROR FROM RESP ===> %v", resp))
+	println(fmt.Sprintf("STRUCTRED BODY ERROR FROM RESP ===> %v", string(b)))
 	return structuredError
 }
