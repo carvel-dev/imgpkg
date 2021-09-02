@@ -88,12 +88,7 @@ func (e *Error) responseErr() string {
 
 // Temporary returns whether the request that preceded the error is temporary.
 func (e *Error) Temporary() bool {
-	println(fmt.Sprintf("Temporary --> STATUS CODE %v ====> errors == %+v", e.StatusCode, e.Errors))
-	println(fmt.Sprintf("temporaryStatusCodes", temporaryStatusCodes))
-
-
 	if len(e.Errors) == 0 {
-		println("TRYING TEMP STATUS CODE")
 		_, ok := temporaryStatusCodes[e.StatusCode]
 		return ok
 	}
@@ -159,12 +154,14 @@ const (
 	DeniedErrorCode              ErrorCode = "DENIED"
 	UnsupportedErrorCode         ErrorCode = "UNSUPPORTED"
 	TooManyRequestsErrorCode     ErrorCode = "TOOMANYREQUESTS"
+	UnknownErrorCode             ErrorCode = "UNKNOWN"
 )
 
 // TODO: Include other error types.
 var temporaryErrorCodes = map[ErrorCode]struct{}{
 	BlobUploadInvalidErrorCode: {},
 	TooManyRequestsErrorCode:   {},
+	UnknownErrorCode:       {},
 }
 
 var temporaryStatusCodes = map[int]struct{}{
@@ -172,6 +169,7 @@ var temporaryStatusCodes = map[int]struct{}{
 	http.StatusInternalServerError: {},
 	http.StatusBadGateway:          {},
 	http.StatusServiceUnavailable:  {},
+	http.StatusGatewayTimeout:      {},
 }
 
 // CheckError returns a structured error if the response status is not in codes.
@@ -198,7 +196,5 @@ func CheckError(resp *http.Response, codes ...int) error {
 	structuredError.StatusCode = resp.StatusCode
 	structuredError.request = resp.Request
 
-	println(fmt.Sprintf("STRUCTRED ERROR FROM RESP ===> %v", resp))
-	println(fmt.Sprintf("STRUCTRED BODY ERROR FROM RESP ===> %v", string(b)))
 	return structuredError
 }
