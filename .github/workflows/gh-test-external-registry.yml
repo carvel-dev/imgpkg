@@ -35,8 +35,8 @@ jobs:
         persist-credentials: false
     - name: Run Tests
       env:
-        IMGPKG_E2E_IMAGE: "dev.registry.pivotal.io/imgpkg/github-action-test-relocation"
-        IMGPKG_E2E_RELOCATION_REPO: "dev.registry.pivotal.io/imgpkg/github-action-imgpkg-test"
+        IMGPKG_E2E_IMAGE: "dev.registry.tanzu.vmware.com/imgpkg/github-action-test-relocation"
+        IMGPKG_E2E_RELOCATION_REPO: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test"
         TanzuNetDevUsername: ${{ secrets.TanzuNetDevUsername }}
         TanzuNetDevPassword: ${{ secrets.TanzuNetDevPassword }}
       run: |
@@ -50,7 +50,7 @@ jobs:
         export PATH="$PATH:$GOPATH/bin"
         cd src/github.com/${{ github.repository }}
 
-        docker login dev.registry.pivotal.io -u "$TanzuNetDevUsername" -p "$TanzuNetDevPassword"
+        docker login dev.registry.tanzu.vmware.com -u "$TanzuNetDevUsername" -p "$TanzuNetDevPassword"
         # pull registry for e2e tests that require a locally running docker registry. i.e. airgapped env tests
         docker pull registry:2
 
