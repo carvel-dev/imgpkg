@@ -39,6 +39,13 @@ Check out which organizations are using and contributing to Carvel: [Adopter's l
 
 ## Development
 
+Build the code with
+
+```bash
+./hack/build.sh
+```
+
+Run every test with a local registry (requires Docker)
 ```bash
 ./hack/test-all-local-registry.sh 5000
 ```
