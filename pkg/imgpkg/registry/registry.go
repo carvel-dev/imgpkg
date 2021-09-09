@@ -6,16 +6,21 @@ package registry
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
+	"syscall"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/logs"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -63,16 +68,27 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	}
 
 	regRemoteOptions := []regremote.Option{
-		regremote.WithTransport(httpTran),
-		regremote.WithRetryHTTPBackoff(regremote.Backoff{
-			Duration: 1.0 * time.Second,
-			Factor:   3.0,
+		regremote.WithTransport(transport.NewRetry(httpTran, transport.WithRetryPredicate(func(err error) bool {
+			if te, ok := err.(*transport.RetryError); ok {
+				if te.StatusCode != http.StatusUnauthorized && te.StatusCode != http.StatusForbidden {
+					return true
+				}
+
+				if errors.Is(te.Inner, io.ErrUnexpectedEOF) || errors.Is(te.Inner, syscall.EPIPE) {
+					logs.Warn.Printf("retrying %v", err)
+					return true
+				}
+			}
+
+			logs.Warn.Printf("NOT retrying %v", err)
+
+			return false
+		}), transport.WithRetryBackoff(transport.Backoff{
+			Duration: 100 * time.Millisecond,
+			Factor:   0,
 			Jitter:   0.1,
-			Steps:    3,
-		}),
-		regremote.WithRetryHTTPPredicate(func(err error) bool {
-			return true
-		}),
+			Steps:    5,
+		}))),
 		regremote.WithAuthFromKeychain(keychain),
 	}
 	if opts.IncludeNonDistributableLayers {
