@@ -4,14 +4,12 @@
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
@@ -22,7 +20,8 @@ func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
-	airgappedRepo := startRegistryForAirgapTesting(t, env)
+	registry := helpers.NewFakeRegistry(t, env.Logger)
+	defer registry.CleanUp()
 
 	// create generic image
 	imageLockYAML := `---
@@ -45,49 +44,51 @@ images:
 
 	// create bundle that refs image with --lock-ouput and a random tag based on time
 	lockFile := filepath.Join(testDir, "bundle.lock.yml")
-	imgpkg.Run([]string{"push", "-b", fmt.Sprintf("%s:%v", env.Image, time.Now().UnixNano()), "-f", testDir, "--lock-output", lockFile})
+	imgpkg.Run([]string{"push", "-b", registry.ReferenceOnTestServer("gcloud-bundle"), "-f", testDir, "--lock-output", lockFile})
 
-	overrideDockerCredHelperToRandomlyFailWhenCalled(t, env)
+	dockerConfigDir := overrideDockerCredHelperToRandomlyFailWhenCalled(t, env)
 
 	dir, err := filepath.Abs("./")
 	require.NoError(t, err)
 
 	// copy via output file
 	lockOutputPath := filepath.Join(testDir, "bundle-lock-relocate-lock.yml")
-	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", airgappedRepo, "--lock-output", lockOutputPath}, helpers.RunOpts{
-		EnvVars: []string{fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets"))},
+	_, err = imgpkg.RunWithOpts([]string{"copy", "--lock", lockFile, "--to-repo", registry.ReferenceOnTestServer("copy-gcloud-bundle"), "--lock-output", lockOutputPath}, helpers.RunOpts{
+		EnvVars: []string{
+			fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets")),
+			fmt.Sprintf("DOCKER_CONFIG=%s", dockerConfigDir),
+		},
 	})
+
 	require.NoError(t, err)
 }
 
-func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) {
-	// Read docker config that will be temporarily replaced
-	homeDir, _ := os.UserHomeDir()
-	dockerConfigPath := filepath.Join(homeDir, ".docker/config.json")
-	originalDockerConfigJSONContents, err := ioutil.ReadFile(dockerConfigPath)
+func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) string {
+	tempDockerCfgDir, err := ioutil.TempDir(os.TempDir(), "dockercfg")
 	require.NoError(t, err)
 
-	// Retrieve the docker image
+	err = os.MkdirAll(filepath.Join(tempDockerCfgDir, "contexts", "meta"), os.ModePerm)
+	require.NoError(t, err)
+
+	dockerConfigPath := filepath.Join(tempDockerCfgDir, "config.json")
+
+	err = ioutil.WriteFile(dockerConfigPath, []byte(`{
+			"credHelpers": {
+					"gcr.io": "gcloud-race-condition-db-error"
+			}
+		}`), os.ModePerm)
+
+	require.NoError(t, err)
+
+	// Cache the ubuntu image before the gcloud-race-condition-db-error plugin is called.
+	// test/e2e/assets/docker-credential-gcloud-race-condition-db-error runs a docker command (using the ubuntu:21.04) image. If it isn't cached
+	// then that plugin will download that image (which takes time), and the keychain will timeout/fail. (We want it to fail for a different reason)
 	exec.Command("docker", "pull", "ubuntu:21.04").Run()
+
 	env.AddCleanup(func() {
 		exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
+		os.RemoveAll(tempDockerCfgDir)
 	})
 
-	var dockerConfigJSONMap map[string]interface{}
-	err = json.Unmarshal(originalDockerConfigJSONContents, &dockerConfigJSONMap)
-	require.NoError(t, err)
-
-	dockerConfigJSONMap["credHelpers"] = map[string]string{"gcr.io": "gcloud-race-condition-db-error"}
-	delete(dockerConfigJSONMap["auths"].(map[string]interface{}), "gcr.io")
-
-	dockerConfigJSONContents, err := json.Marshal(dockerConfigJSONMap)
-	require.NoError(t, err)
-
-	err = ioutil.WriteFile(dockerConfigPath, dockerConfigJSONContents, os.ModePerm)
-	require.NoError(t, err)
-
-	// restore docker config
-	env.AddCleanup(func() {
-		ioutil.WriteFile(dockerConfigPath, originalDockerConfigJSONContents, os.ModePerm)
-	})
+	return tempDockerCfgDir
 }
