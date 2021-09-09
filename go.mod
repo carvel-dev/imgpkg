@@ -21,3 +21,5 @@ require (
 	k8s.io/legacy-cloud-providers v0.21.0
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace github.com/google/go-containerregistry => /Users/dennisleon/workspace/dennis-go-containerregistry

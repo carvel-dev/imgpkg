@@ -64,6 +64,15 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
+		regremote.WithRetryHTTPBackoff(regremote.Backoff{
+			Duration: 1.0 * time.Second,
+			Factor:   3.0,
+			Jitter:   0.1,
+			Steps:    3,
+		}),
+		regremote.WithRetryHTTPPredicate(func(err error) bool {
+			return true
+		}),
 		regremote.WithAuthFromKeychain(keychain),
 	}
 	if opts.IncludeNonDistributableLayers {

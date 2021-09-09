@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
-	"syscall"
-	"time"
 
 	"github.com/google/go-containerregistry/internal/redact"
 	"github.com/google/go-containerregistry/internal/retry"
@@ -80,6 +78,8 @@ func writeImage(ref name.Reference, img v1.Image, o *options, lastUpdate *v1.Upd
 		context:    o.context,
 		updates:    o.updates,
 		lastUpdate: lastUpdate,
+		backoff:    o.httpBackoff,
+		predicate:  o.httpPredicate,
 	}
 
 	// Upload individual blobs and collect any errors.
@@ -176,6 +176,9 @@ type writer struct {
 	repo    name.Repository
 	client  *http.Client
 	context context.Context
+
+	backoff   retry.Backoff
+	predicate retry.Predicate
 
 	updates    chan<- v1.Update
 	lastUpdate *v1.Update
@@ -409,24 +412,6 @@ func (w *writer) incrProgress(written int64) {
 	}
 }
 
-var shouldRetry retry.Predicate = func(err error) bool {
-	// Various failure modes here, as we're often reading from and writing to
-	// the network.
-	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.EPIPE) {
-		logs.Warn.Printf("retrying %v", err)
-		return true
-	}
-	return false
-}
-
-// Try this three times, waiting 1s after first failure, 3s after second.
-var backoff = retry.Backoff{
-	Duration: 1.0 * time.Second,
-	Factor:   3.0,
-	Jitter:   0.1,
-	Steps:    3,
-}
-
 // uploadOne performs a complete upload of a single layer.
 func (w *writer) uploadOne(l v1.Layer) error {
 	var from, mount string
@@ -508,7 +493,7 @@ func (w *writer) uploadOne(l v1.Layer) error {
 		return nil
 	}
 
-	return retry.Retry(tryUpload, shouldRetry, backoff)
+	return retry.Retry(tryUpload, w.predicate, w.backoff)
 }
 
 type withLayer interface {
@@ -649,7 +634,7 @@ func (w *writer) commitManifest(t Taggable, ref name.Reference) error {
 		return nil
 	}
 
-	return retry.Retry(tryUpload, shouldRetry, backoff)
+	return retry.Retry(tryUpload, w.predicate, w.backoff)
 }
 
 func scopesForUploadingImage(repo name.Repository, layers []v1.Layer) []string {
@@ -692,10 +677,12 @@ func WriteIndex(ref name.Reference, ii v1.ImageIndex, options ...Option) (rerr e
 		return err
 	}
 	w := writer{
-		repo:    ref.Context(),
-		client:  &http.Client{Transport: tr},
-		context: o.context,
-		updates: o.updates,
+		repo:      ref.Context(),
+		client:    &http.Client{Transport: tr},
+		context:   o.context,
+		updates:   o.updates,
+		backoff:   o.httpBackoff,
+		predicate: o.httpPredicate,
 	}
 
 	if o.updates != nil {
@@ -831,10 +818,12 @@ func WriteLayer(repo name.Repository, layer v1.Layer, options ...Option) (rerr e
 		return err
 	}
 	w := writer{
-		repo:    repo,
-		client:  &http.Client{Transport: tr},
-		context: o.context,
-		updates: o.updates,
+		repo:      repo,
+		client:    &http.Client{Transport: tr},
+		context:   o.context,
+		updates:   o.updates,
+		backoff:   o.httpBackoff,
+		predicate: o.httpPredicate,
 	}
 
 	if o.updates != nil {
@@ -898,9 +887,11 @@ func Put(ref name.Reference, t Taggable, options ...Option) error {
 		return err
 	}
 	w := writer{
-		repo:    ref.Context(),
-		client:  &http.Client{Transport: tr},
-		context: o.context,
+		repo:      ref.Context(),
+		client:    &http.Client{Transport: tr},
+		context:   o.context,
+		backoff:   o.httpBackoff,
+		predicate: o.httpPredicate,
 	}
 
 	return w.commitManifest(t, ref)

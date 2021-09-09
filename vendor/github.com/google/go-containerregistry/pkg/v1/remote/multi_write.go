@@ -89,6 +89,8 @@ func MultiWrite(m map[name.Reference]Taggable, options ...Option) (rerr error) {
 		repo:       repo,
 		client:     &http.Client{Transport: tr},
 		context:    o.context,
+		backoff:    o.httpBackoff,
+		predicate:  o.httpPredicate,
 		updates:    o.updates,
 		lastUpdate: &v1.Update{},
 	}
