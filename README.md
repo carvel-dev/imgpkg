@@ -49,3 +49,10 @@ Run every test with a local registry (requires Docker)
 ```bash
 ./hack/test-all-local-registry.sh 5000
 ```
+
+### Source Code Changes
+To keep source code documentation up to date, imgpkg uses [godoc](https://go.dev/blog/godoc). To document a type, variable, constant, function, or a package, write a regular comment directly preceding its declaration that begins with the name of the element it describes. See the [registry package](https://github.com/vmware-tanzu/carvel-imgpkg/blob/develop/pkg/imgpkg/registry/doc.go) for an example. When contributing new source code via a PR, the [GitHub Action linter](https://github.com/vmware-tanzu/carvel-imgpkg/blob/develop/.github/workflows/golangci-lint.yml) will ensure that godocs are included in the changes.
+
+To view the docs
+1. install godoc: `go get -v  golang.org/x/tools/cmd/godoc`
+1. Start the server: `godoc -http=:6060` and visit [`http://localhost:6060/pkg/github.com/k14s/imgpkg/`](http://localhost:6060/pkg/github.com/k14s/imgpkg/).
