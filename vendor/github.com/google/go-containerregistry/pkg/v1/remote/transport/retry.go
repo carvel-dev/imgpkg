@@ -49,7 +49,7 @@ type options struct {
 // Backoff is an alias of retry.Backoff to expose this configuration option to consumers of this lib
 type Backoff = retry.Backoff
 
-// This is implemented by several errors in the net package as well as our
+// Temporary is implemented by several errors in the net package as well as our
 // transport.Error
 type Temporary interface {
 	Temporary() bool
@@ -87,47 +87,10 @@ func NewRetry(inner http.RoundTripper, opts ...Option) http.RoundTripper {
 	}
 }
 
-type RetryError struct {
-	Inner error
-	// The http status code returned.
-	StatusCode int
-	// The request that failed.
-	Request *http.Request
-}
-
-func (e *RetryError) Temporary() bool {
-	if e.Inner == nil {
-		return false
-	}
-
-	if te, ok := e.Inner.(Temporary); ok && te.Temporary() {
-		return true
-	}
-
-	return false
-}
-
-// Check that RetryError implements error
-var _ error = (*RetryError)(nil)
-
-func (e *RetryError) Error() string {
-	return e.Inner.Error()
-}
-
 func (t *retryTransport) RoundTrip(in *http.Request) (out *http.Response, err error) {
 	roundtrip := func() error {
 		out, err = t.inner.RoundTrip(in)
-
-		var statusCode int
-		if out != nil {
-			statusCode = out.StatusCode
-		}
-
-		return &RetryError{
-			Inner:      err,
-			StatusCode: statusCode,
-			Request:    in,
-		}
+		return err
 	}
 	retry.Retry(roundtrip, t.predicate, t.backoff)
 	return

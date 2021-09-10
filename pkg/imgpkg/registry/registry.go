@@ -6,17 +6,13 @@ package registry
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
-	"syscall"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/logs"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -68,27 +64,26 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	}
 
 	regRemoteOptions := []regremote.Option{
-		regremote.WithTransport(transport.NewRetry(httpTran, transport.WithRetryPredicate(func(err error) bool {
-			if te, ok := err.(*transport.RetryError); ok {
-				if te.StatusCode != http.StatusUnauthorized && te.StatusCode != http.StatusForbidden {
+		regremote.WithTransport(httpTran),
+		regremote.WithRetryPredicate(func(err error) bool {
+			if terr, ok := err.(*transport.Error); ok {
+				if terr.StatusCode != 401 && terr.StatusCode != 403 {
 					return true
 				}
-
-				if errors.Is(te.Inner, io.ErrUnexpectedEOF) || errors.Is(te.Inner, syscall.EPIPE) {
-					logs.Warn.Printf("retrying %v", err)
-					return true
+				for _, diagnostic := range terr.Errors {
+					if diagnostic.Code == transport.UnknownErrorCode {
+						println("RETRYING UNKNOWN!!!")
+					}
 				}
 			}
-
-			logs.Warn.Printf("NOT retrying %v", err)
-
 			return false
-		}), transport.WithRetryBackoff(transport.Backoff{
-			Duration: 100 * time.Millisecond,
+		}),
+		regremote.WithRetryBackoff(regremote.Backoff{
+			Duration: 1.0 * time.Second,
 			Factor:   0,
 			Jitter:   0.1,
-			Steps:    5,
-		}))),
+			Steps:    3,
+		}),
 		regremote.WithAuthFromKeychain(keychain),
 	}
 	if opts.IncludeNonDistributableLayers {

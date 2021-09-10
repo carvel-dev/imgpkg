@@ -17,8 +17,12 @@ package remote
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"syscall"
+	"time"
 
+	"github.com/google/go-containerregistry/internal/retry"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -39,11 +43,34 @@ type options struct {
 	allowNondistributableArtifacts bool
 	updates                        chan<- v1.Update
 	pageSize                       int
+	retryBackoff                   Backoff
+	retryPredicate                 retry.Predicate
 }
 
 var defaultPlatform = v1.Platform{
 	Architecture: "amd64",
 	OS:           "linux",
+}
+
+// Backoff is an alias of retry.Backoff to expose this configuration option to consumers of this lib
+type Backoff = retry.Backoff
+
+var defaultRetryPredicate retry.Predicate = func(err error) bool {
+	// Various failure modes here, as we're often reading from and writing to
+	// the network.
+	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.EPIPE) {
+		logs.Warn.Printf("retrying %v", err)
+		return true
+	}
+	return false
+}
+
+// Try this three times, waiting 1s after first failure, 3s after second.
+var defaultRetryBackoff = retry.Backoff{
+	Duration: 1.0 * time.Second,
+	Factor:   3.0,
+	Jitter:   0.1,
+	Steps:    3,
 }
 
 const (
@@ -62,6 +89,8 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 		context:   context.Background(),
 		jobs:      defaultJobs,
 		pageSize:  defaultPageSize,
+		retryPredicate: defaultRetryPredicate,
+		retryBackoff:   defaultRetryBackoff,
 	}
 
 	for _, option := range opts {
@@ -78,7 +107,7 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 		o.auth = auth
 	}
 
-	if _, ok := o.transport.(*transport.Transport); ok {
+	if _, ok := o.transport.(*transport.Transport); !ok {
 		// Wrap the transport in something that logs requests and responses.
 		// It's expensive to generate the dumps, so skip it if we're writing
 		// to nothing.
@@ -87,7 +116,7 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 		}
 
 		// Wrap the transport in something that can retry network flakes.
-		o.transport = transport.NewRetry(o.transport)
+		o.transport = transport.NewRetry(o.transport, transport.WithRetryBackoff(o.retryBackoff), transport.WithRetryPredicate(o.retryPredicate))
 
 		// Wrap this last to prevent transport.New from double-wrapping.
 		if o.userAgent != "" {
@@ -211,6 +240,22 @@ func WithProgress(updates chan<- v1.Update) Option {
 func WithPageSize(size int) Option {
 	return func(o *options) error {
 		o.pageSize = size
+		return nil
+	}
+}
+
+// WithRetryBackoff sets the httpBackoff for retry HTTP operations.
+func WithRetryBackoff(backoff Backoff) Option {
+	return func(o *options) error {
+		o.retryBackoff = backoff
+		return nil
+	}
+}
+
+// WithRetryPredicate sets the predicate for retry HTTP operations.
+func WithRetryPredicate(predicate retry.Predicate) Option {
+	return func(o *options) error {
+		o.retryPredicate = predicate
 		return nil
 	}
 }
