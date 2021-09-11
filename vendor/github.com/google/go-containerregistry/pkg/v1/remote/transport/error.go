@@ -161,7 +161,6 @@ const (
 var temporaryErrorCodes = map[ErrorCode]struct{}{
 	BlobUploadInvalidErrorCode: {},
 	TooManyRequestsErrorCode:   {},
-	UnknownErrorCode:           {},
 }
 
 var temporaryStatusCodes = map[int]struct{}{

@@ -78,8 +78,8 @@ func writeImage(ref name.Reference, img v1.Image, o *options, lastUpdate *v1.Upd
 		context:    o.context,
 		updates:    o.updates,
 		lastUpdate: lastUpdate,
-		backoff:    defaultRetryBackoff,
-		predicate:  defaultRetryPredicate,
+		backoff:    o.retryBackoff,
+		predicate:  o.retryPredicate,
 	}
 
 	// Upload individual blobs and collect any errors.
@@ -179,8 +179,8 @@ type writer struct {
 
 	updates    chan<- v1.Update
 	lastUpdate *v1.Update
-	backoff   Backoff
-	predicate retry.Predicate
+	backoff    Backoff
+	predicate  retry.Predicate
 }
 
 func sendError(ch chan<- v1.Update, err error) error {
