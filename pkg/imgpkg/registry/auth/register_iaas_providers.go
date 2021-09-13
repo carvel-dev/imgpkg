@@ -4,12 +4,19 @@
 package auth
 
 import (
-	// aws credential provider
+	// aws credential provider via init()
 	_ "github.com/vdemeester/k8s-pkg-credentialprovider/aws"
 
-	// azure credential provider
+	// azure credential provider via init()
 	_ "github.com/vdemeester/k8s-pkg-credentialprovider/azure"
 
-	// gcp credential provider
+	// gcp credential provider via init()
 	_ "github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
+
+	"github.com/go-logr/logr"
+	"k8s.io/klog/v2"
 )
+
+func init() {
+	klog.SetLogger(logr.DiscardLogger{})
+}
