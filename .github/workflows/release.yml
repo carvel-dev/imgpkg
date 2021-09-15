@@ -7,9 +7,6 @@ on:
 
 jobs:
   goreleaser:
-    outputs:
-      HOMEBREW_FORMULA: ${{ steps.get-homebrew-formula.outputs.HOMEBREW_FORMULA }}
-
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,12 +24,12 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           version: 0.162.0
-          args: release --rm-dist --debug
+          args: release --rm-dist --debug ${{ env.SKIP_PUBLISH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/github-script@v4
         id: get-checksums-from-draft-release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && ${{ !env.ACT }}
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           result-encoding: string
@@ -82,7 +79,7 @@ jobs:
             ${checksums['imgpkg-windows-amd64.exe']}  ./imgpkg-windows-amd64.exe`
 
       - name: verify uploaded artifacts
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && ${{ !env.ACT }}
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: |
@@ -96,51 +93,13 @@ jobs:
           EOF
           )
 
-      - name: generate homebrew formula
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          set -e -x
-          VERSION=`echo ${{ github.ref }}  | grep -Eo '[0-9].*'`
-
-          IMGPKG_DARWIN_AMD64=$(grep 'imgpkg-darwin-amd64' <<< "${{steps.get-checksums-from-draft-release.outputs.result}}" | awk '{print $1}')
-          IMGPKG_LINUX_AMD64=$(grep 'imgpkg-linux-amd64' <<< "${{steps.get-checksums-from-draft-release.outputs.result}}" | awk '{print $1}')
-
-          cat <<EOF > ./dist/imgpkg.rb
-          class Imgpkg < Formula
-            desc "Imgpkg"
-            homepage "https://carvel.dev/imgpkg/"
-            version "v${VERSION}"
-
-            on_macos do
-              url "https://github.com/vmware-tanzu/carvel-imgpkg/releases/download/v${VERSION}/imgpkg-darwin-amd64"
-              sha256 "$IMGPKG_DARWIN_AMD64"
-            end
-
-            elsif OS.linux?
-              url "https://github.com/vmware-tanzu/carvel-imgpkg/releases/download/v${VERSION}/imgpkg-linux-amd64"
-              sha256 "$IMGPKG_LINUX_AMD64"
-            end
-
-            depends_on :arch => :x86_64
-
-            def install
-              bin.install stable.url.split("/")[-1] => "imgpkg"
-            end
-
-            test do
-              system "#{bin}/imgpkg", "version"
-            end
-          end
-          EOF
-          cat ./dist/imgpkg.rb
-
-      - name: Upload imgpkg Formula
-        uses: actions/upload-artifact@v1
+      - name: Upload Checksums
+        uses: actions/upload-artifact@v2
         with:
-          name: homebrew-formula
-          path: ./dist/imgpkg.rb
+          name: checksums
+          path: ./go-checksums
 
-  homebrew:
+  carvel-release-scripts:
     needs: goreleaser
     runs-on: ubuntu-latest
     steps:
@@ -148,26 +107,59 @@ jobs:
         uses: actions/checkout@v2
         with:
           persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
-          repository: vmware-tanzu/homebrew-carvel
-          ref: develop
-      - name: Download updated homebrew formula
-        uses: actions/download-artifact@v1
+          repository: vmware-tanzu/carvel-release-scripts
+          ref: main
+          ssh-key: ${{ secrets.CARVEL_RELEASE_SCRIPTS_DEPLOY_PRIVATE_KEY }}
+      - name: Download checksums
+        uses: actions/download-artifact@v2
+        id: download-checksums
         with:
-          name: homebrew-formula
-      - name: Update homebrew
+          name: checksums
+          path: ~/checksums
+      - name: generate homebrew ytt datavalue file
         run: |
-          cat ./imgpkg.rb
-          cat homebrew-formula/imgpkg.rb > ./imgpkg.rb
-          rm -rf ./homebrew-formula
-          cat ./imgpkg.rb
-      - name: Commit & Push changes
+          VERSION=`echo ${{ github.ref }}  | grep -Eo '[0-9].*'`
+
+          # EXAMPLE checksum line:
+          # 0837efa4e30fc3f934479d1bd183cfd97ec96f7f3cfab0892be7f39308908993  ./imgpkg-linux-amd64
+          function map_checksums_to_assets() {
+            cat ${{steps.download-checksums.outputs.download-path}}/go-checksums | while read line; do
+              filename=$(echo $line | awk '{print $2}' | sed -e "s#^\.\/##")
+              os=$(echo $filename | awk -F\- '{print $2}')
+              arch=$(echo $filename | awk -F\- '{print $3}' |  sed -e "s/\..*$//")
+              sha256=$(echo $line | awk '{print $1}')
+
+              echo "
+            - os: ${os}
+              arch: ${arch}
+              shasum: ${sha256}
+              filename: ${filename}"
+            done
+          }
+
+          cat <<EOF >releases/imgpkg/$VERSION.yml
+          #@data/values
+          ---
+          version: v${VERSION}
+          assets:
+            $(map_checksums_to_assets)
+
+          github:
+            url: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
+          EOF
+
+          cat releases/imgpkg/$VERSION.yml
+
+      - name: Commit & Push ytt datavalue to carvel-release-scripts
+        if: ${{ !env.ACT }}
         env:
           AUTHOR_NAME: "k8slt"
           AUTHOR_EMAIL: "klt@groups.vmware.com"
-          REPOSITORY: "vmware-tanzu/homebrew-carvel"
+          REPOSITORY: "vmware-tanzu/carvel-release-scripts"
           BRANCH: "imgpkg-homebrew"
           FORCE: true
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CARVEL_RELEASE_SCRIPTS_TOKEN }}
+          GITHUB_DEPLOY_PRIVATE_KEY: ${{ secrets.CARVEL_RELEASE_SCRIPTS_DEPLOY_PRIVATE_KEY }}
         run: |
           set -e
 
@@ -185,10 +177,10 @@ jobs:
             exit 1;
           };
 
-          [ -z "${GITHUB_TOKEN}" ] && {
-              echo 'Missing input "github_token: ${{ secrets.GITHUB_TOKEN }}".';
+          if [ -z "${GITHUB_TOKEN}" ] && [ -z "${GITHUB_DEPLOY_PRIVATE_KEY}" ]; then
+              echo 'Missing required input "github_token: ${{ secrets.GITHUB_TOKEN }} OR "github_deploy_private_key: ${{ secrets.GITHUB_DEPLOY_PRIVATE_KEY }}".';
               exit 1;
-          };
+          fi
 
           if ${FORCE}; then
               _FORCE_OPTION='--force'
@@ -196,12 +188,22 @@ jobs:
 
           remote_repo="https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
 
-          git config http.sslVerify false
+          if [ -n "${GITHUB_DEPLOY_PRIVATE_KEY}" ]; then
+            remote_repo="git@github.com:${REPOSITORY}"
+
+            tempkey=`basename $0`
+            TMP_DEPLOY_PRIV_KEY=`mktemp /tmp/${tempkey}.XXXXXX` || exit 1
+            echo "${GITHUB_DEPLOY_PRIVATE_KEY}" > $TMP_DEPLOY_PRIV_KEY
+            eval $(ssh-agent -s)
+            ssh-add ${TMP_DEPLOY_PRIV_KEY}
+          fi
+
+          git config http.sslVerify true
           git config --local user.email "${AUTHOR_EMAIL}"
           git config --local user.name "${AUTHOR_NAME}"
 
           git add -A
 
-          git commit -m "{$MESSAGE}" $_EMPTY || exit 0
+          git commit -m "${MESSAGE}" $_EMPTY || exit 0
 
           git push "${remote_repo}" HEAD:"${BRANCH}" --follow-tags $_FORCE_OPTION;
