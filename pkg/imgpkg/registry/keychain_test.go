@@ -240,6 +240,58 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 		}), auth)
 	})
 
+	for i, validHostname := range []string{
+		"localhost:9999",
+		"http://localhost:9999",
+		"https://localhost:9999",
+		"localhost:9999/v1/",
+		"localhost:9999/v2/",
+	} {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %d", i), func(t *testing.T) {
+			envVars := []string{
+				"IMGPKG_REGISTRY_USERNAME=user",
+				"IMGPKG_REGISTRY_PASSWORD=pass",
+				fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", validHostname),
+			}
+
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+			assert.NoError(t, err)
+
+			auth, err := keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+				Username: "user",
+				Password: "pass",
+			}), auth)
+		})
+	}
+
+	for i, invalidHostname := range []string{
+		"http://[::1]:namedport", // rfc3986 3.2.3
+		"http://[%10::1]",        // no %xx escapes in IP address
+		"http://%41:8080/",       // not allowed: % encoding only for non-ASCII
+	} {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %d", i), func(t *testing.T) {
+			envVars := []string{
+				"IMGPKG_REGISTRY_USERNAME=user",
+				"IMGPKG_REGISTRY_PASSWORD=pass",
+				fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", invalidHostname),
+			}
+
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+			assert.NoError(t, err)
+
+			_, err = keychain.Resolve(resource)
+			assert.Error(t, err)
+		})
+	}
 }
 
 func TestAuthProvidedViaDefaultKeychain(t *testing.T) {

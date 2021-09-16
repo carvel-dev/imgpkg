@@ -5,11 +5,11 @@ package auth
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
-	regname "github.com/google/go-containerregistry/pkg/name"
 )
 
 var _ regauthn.Keychain = &EnvKeychain{}
@@ -71,11 +71,30 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 
 	funcsMap := map[string]func(*envKeychainInfo, string) error{
 		"HOSTNAME": func(info *envKeychainInfo, val string) error {
-			registry, err := regname.NewRegistry(val, regname.StrictValidation)
+			if !strings.HasPrefix(val, "https://") && !strings.HasPrefix(val, "http://") {
+				val = "https://" + val
+			}
+			parsedURL, err := url.Parse(val)
 			if err != nil {
 				return fmt.Errorf("Parsing registry hostname: %s (e.g. gcr.io, index.docker.io)", err)
 			}
-			info.Hostname = registry.RegistryStr()
+
+			// Allows exact matches:
+			//    foo.bar.com/namespace
+			// Or hostname matches:
+			//    foo.bar.com
+			// It also considers /v2/  and /v1/ equivalent to the hostname
+			effectivePath := parsedURL.Path
+			if strings.HasPrefix(effectivePath, "/v2/") || strings.HasPrefix(effectivePath, "/v1/") {
+				effectivePath = effectivePath[3:]
+			}
+			var key string
+			if (len(effectivePath) > 0) && (effectivePath != "/") {
+				key = parsedURL.Host + effectivePath
+			} else {
+				key = parsedURL.Host
+			}
+			info.Hostname = key
 			return nil
 		},
 		"USERNAME": func(info *envKeychainInfo, val string) error {
