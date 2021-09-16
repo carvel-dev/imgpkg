@@ -6,6 +6,7 @@ package auth
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 
@@ -16,7 +17,7 @@ import (
 var _ regauthn.Keychain = &EnvKeychain{}
 
 type envKeychainInfo struct {
-	Hostname      string
+	URL           string
 	Username      string
 	Password      string
 	IdentityToken string
@@ -41,7 +42,12 @@ func (k *EnvKeychain) Resolve(target regauthn.Resource) (regauthn.Authenticator,
 	}
 
 	for _, info := range infos {
-		if match, _ := credentialprovider.URLsMatchStr(info.Hostname, target.RegistryStr()); match {
+		registryURLMatches, err := credentialprovider.URLsMatchStr(info.URL, target.String())
+		if err != nil {
+			return nil, err
+		}
+
+		if registryURLMatches {
 			return regauthn.FromConfig(regauthn.AuthConfig{
 				Username:      info.Username,
 				Password:      info.Password,
@@ -52,6 +58,20 @@ func (k *EnvKeychain) Resolve(target regauthn.Resource) (regauthn.Authenticator,
 	}
 
 	return regauthn.Anonymous, nil
+}
+
+type orderedEnvKeychainInfos []envKeychainInfo
+
+func (s orderedEnvKeychainInfos) Len() int {
+	return len(s)
+}
+
+func (s orderedEnvKeychainInfos) Less(i, j int) bool {
+	return s[i].URL < s[j].URL
+}
+
+func (s orderedEnvKeychainInfos) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
 
 func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
@@ -95,7 +115,7 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 			} else {
 				key = parsedURL.Host
 			}
-			info.Hostname = key
+			info.URL = key
 			return nil
 		},
 		"USERNAME": func(info *envKeychainInfo, val string) error {
@@ -166,6 +186,12 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 	for _, info := range infos {
 		result = append(result, info)
 	}
+
+	// Update the collected auth infos used to identify which credentials to use for a given
+	// image. The info is reverse-sorted by URL so more specific paths are matched
+	// first. For example, if for the given image "quay.io/coreos/etcd",
+	// credentials for "quay.io/coreos" should match before "quay.io".
+	sort.Sort(sort.Reverse(orderedEnvKeychainInfos(result)))
 
 	k.infos = result
 	k.collected = true
