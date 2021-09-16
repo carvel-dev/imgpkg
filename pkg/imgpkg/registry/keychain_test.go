@@ -246,8 +246,10 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 		"https://localhost:9999",
 		"localhost:9999/v1/",
 		"localhost:9999/v2/",
+		"*:9999/v2/",
+		"local*:9999/v2/",
 	} {
-		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %s/%d", validHostname, i), func(t *testing.T) {
 			envVars := []string{
 				"IMGPKG_REGISTRY_USERNAME=user",
 				"IMGPKG_REGISTRY_PASSWORD=pass",
@@ -275,7 +277,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 		"http://[%10::1]",        // no %xx escapes in IP address
 		"http://%41:8080/",       // not allowed: % encoding only for non-ASCII
 	} {
-		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %s/%d", invalidHostname, i), func(t *testing.T) {
 			envVars := []string{
 				"IMGPKG_REGISTRY_USERNAME=user",
 				"IMGPKG_REGISTRY_PASSWORD=pass",

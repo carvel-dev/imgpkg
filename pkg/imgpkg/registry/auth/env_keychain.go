@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
+	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 )
 
 var _ regauthn.Keychain = &EnvKeychain{}
@@ -40,7 +41,7 @@ func (k *EnvKeychain) Resolve(target regauthn.Resource) (regauthn.Authenticator,
 	}
 
 	for _, info := range infos {
-		if info.Hostname == target.RegistryStr() {
+		if match, _ := credentialprovider.URLsMatchStr(info.Hostname, target.RegistryStr()); match {
 			return regauthn.FromConfig(regauthn.AuthConfig{
 				Username:      info.Username,
 				Password:      info.Password,
