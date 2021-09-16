@@ -131,6 +131,8 @@ func TestAuthProvidedViaCLI(t *testing.T) {
 }
 
 func TestAuthProvidedViaEnvVars(t *testing.T) {
+	providedImage := "localhost:9999/imgpkg_test"
+
 	t.Run("When a single registry credentials is provided", func(t *testing.T) {
 		envVars := []string{
 			"IMGPKG_REGISTRY_USERNAME=user",
@@ -140,7 +142,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 
 		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		require.NoError(t, err)
-		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+		resource, err := name.NewRepository(providedImage)
 		assert.NoError(t, err)
 
 		auth, err := keychain.Resolve(resource)
@@ -160,7 +162,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 
 		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		require.NoError(t, err)
-		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+		resource, err := name.NewRepository(providedImage)
 		assert.NoError(t, err)
 
 		auth, err := keychain.Resolve(resource)
@@ -179,7 +181,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 
 		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		require.NoError(t, err)
-		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+		resource, err := name.NewRepository(providedImage)
 		assert.NoError(t, err)
 
 		auth, err := keychain.Resolve(resource)
@@ -228,7 +230,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 
 		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		require.NoError(t, err)
-		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
+		resource, err := name.NewRepository(providedImage)
 		assert.NoError(t, err)
 
 		auth, err := keychain.Resolve(resource)
@@ -240,6 +242,167 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 		}), auth)
 	})
 
+	testCasesWithMatchingHostnames := []struct {
+		targetImage      string
+		providedHostname string
+	}{
+		{providedImage, "localhost:9999"},
+		{providedImage, "http://localhost:9999"},
+		{providedImage, "https://localhost:9999"},
+		{providedImage, "localhost:9999/v1/"},
+		{providedImage, "localhost:9999/v2/"},
+		{providedImage, "*:9999/v2/"},
+		{providedImage, "local*:9999/v2/"},
+		{"subdomain.localhost:9999/imgpkg_test", "*.localhost:9999/v2/"},
+		{"subdomain1.subdomain2.localhost:9999/imgpkg_test", "*.*.localhost:9999/v2/"},
+		{providedImage, providedImage},
+	}
+
+	for i, tc := range testCasesWithMatchingHostnames {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %s/%d", tc.providedHostname, i), func(t *testing.T) {
+			envVars := []string{
+				"IMGPKG_REGISTRY_USERNAME=user",
+				"IMGPKG_REGISTRY_PASSWORD=pass",
+				fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", tc.providedHostname),
+			}
+
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository(tc.targetImage)
+			assert.NoError(t, err)
+
+			auth, err := keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+				Username: "user",
+				Password: "pass",
+			}), auth)
+		})
+	}
+
+	testCasesWithNonMatchingHostnames := []struct {
+		targetImage      string
+		providedHostname string
+	}{
+		{"subdomain1.subdomain2.localhost:9999/imgpkg_test", "*.localhost:9999"},
+		{"subdomain1.localhost:9999/imgpkg_test", "localhost:9999"},
+		{"subdomain1.localhost:9999/imgpkg_test", "*:9999"},
+	}
+
+	for i, tc := range testCasesWithNonMatchingHostnames {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %s/%d", tc.providedHostname, i), func(t *testing.T) {
+			envVars := []string{
+				"IMGPKG_REGISTRY_USERNAME=user",
+				"IMGPKG_REGISTRY_PASSWORD=pass",
+				fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", tc.providedHostname),
+			}
+
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository(tc.targetImage)
+			assert.NoError(t, err)
+
+			auth, err := keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			assert.Equal(t, authn.Anonymous, auth)
+		})
+	}
+
+	for i, testCasesWithInvalidHostname := range []string{
+		"http://[::1]:namedport", // rfc3986 3.2.3
+		"http://[%10::1]",        // no %xx escapes in IP address
+		"http://%41:8080/",       // not allowed: % encoding only for non-ASCII
+	} {
+		t.Run(fmt.Sprintf("IMGPKG_HOSTNAME %s/%d", testCasesWithInvalidHostname, i), func(t *testing.T) {
+			envVars := []string{
+				"IMGPKG_REGISTRY_USERNAME=user",
+				"IMGPKG_REGISTRY_PASSWORD=pass",
+				fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", testCasesWithInvalidHostname),
+			}
+
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository(providedImage)
+			assert.NoError(t, err)
+
+			_, err = keychain.Resolve(resource)
+			assert.Error(t, err)
+		})
+	}
+
+	testCasesSpecifyingOrder := []struct {
+		envs             []string
+		expectedUsername string
+		expectedPassword string
+	}{
+		{
+			[]string{
+				"IMGPKG_REGISTRY_USERNAME_0=user-not-chosen",
+				"IMGPKG_REGISTRY_PASSWORD_0=pass-not-chosen",
+				"IMGPKG_REGISTRY_HOSTNAME_0=localhost:9999",
+				"IMGPKG_REGISTRY_USERNAME_1=user",
+				"IMGPKG_REGISTRY_PASSWORD_1=pass",
+				"IMGPKG_REGISTRY_HOSTNAME_1=localhost:9999/imgpkg_test",
+			},
+			"user", "pass",
+		},
+		{
+			[]string{
+				"IMGPKG_REGISTRY_USERNAME_0=user-not-chosen",
+				"IMGPKG_REGISTRY_PASSWORD_0=pass-not-chosen",
+				"IMGPKG_REGISTRY_HOSTNAME_0=localhost:9999/imgpkg_test",
+				"IMGPKG_REGISTRY_USERNAME_1=user",
+				"IMGPKG_REGISTRY_PASSWORD_1=pass",
+				"IMGPKG_REGISTRY_HOSTNAME_1=localhost:9999/imgpkg_test/imagename",
+			},
+			"user", "pass",
+		},
+		{
+			[]string{
+				"IMGPKG_REGISTRY_USERNAME_0=user-not-chosen",
+				"IMGPKG_REGISTRY_PASSWORD_0=pass-not-chosen",
+				"IMGPKG_REGISTRY_HOSTNAME_0=*:9999/imgpkg_test/imagename",
+				"IMGPKG_REGISTRY_USERNAME_1=user",
+				"IMGPKG_REGISTRY_PASSWORD_1=pass",
+				"IMGPKG_REGISTRY_HOSTNAME_1=localhost:9999",
+			},
+			"user", "pass",
+		},
+		{
+			[]string{
+				"IMGPKG_REGISTRY_USERNAME_0=user-not-chosen",
+				"IMGPKG_REGISTRY_PASSWORD_0=pass-not-chosen",
+				"IMGPKG_REGISTRY_HOSTNAME_0=localhost:9999/v1/",
+				"IMGPKG_REGISTRY_USERNAME_1=user",
+				"IMGPKG_REGISTRY_PASSWORD_1=pass",
+				"IMGPKG_REGISTRY_HOSTNAME_1=localhost:9999/imgpkg_test",
+			},
+			"user", "pass",
+		},
+	}
+
+	for i, tc := range testCasesSpecifyingOrder {
+		t.Run(fmt.Sprintf("ensure more specific HOSTNAME is used: %d", i), func(t *testing.T) {
+			keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return tc.envs })
+			assert.NoError(t, err)
+
+			resource, err := name.NewRepository("localhost:9999/imgpkg_test/imagename")
+			assert.NoError(t, err)
+
+			auth, err := keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			assert.Equal(t, authn.FromConfig(authn.AuthConfig{
+				Username: tc.expectedUsername,
+				Password: tc.expectedPassword,
+			}), auth)
+		})
+	}
 }
 
 func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
