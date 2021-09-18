@@ -62,7 +62,7 @@ func (po *PullOptions) Run() error {
 
 	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", po.RegistryFlags.AsRegistryOpts(), err)
+		return err
 	}
 
 	switch {

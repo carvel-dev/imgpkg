@@ -52,7 +52,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 func (po *PushOptions) Run() error {
 	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with provided options: %v", err)
+		return err
 	}
 
 	var imageURL string
