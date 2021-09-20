@@ -43,7 +43,7 @@ type Registry struct {
 func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
-		return Registry{}, err
+		return Registry{}, fmt.Errorf("Creating registry HTTP transport: %s", err)
 	}
 
 	var refOpts []regname.Option
@@ -58,9 +58,10 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 			Token:    opts.Token,
 			Anon:     opts.Anon,
 		},
-		os.Environ)
+		os.Environ,
+	)
 	if err != nil {
-		return Registry{}, err
+		return Registry{}, fmt.Errorf("Creating registry keychain: %s", err)
 	}
 
 	regRemoteOptions := []regremote.Option{

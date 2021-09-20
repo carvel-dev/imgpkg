@@ -83,7 +83,7 @@ func (c *CopyOptions) Run() error {
 
 	reg, err := registry.NewRegistry(registryOpts)
 	if err != nil {
-		return fmt.Errorf("Unable to create a registry with the options %v: %v", registryOpts, err)
+		return err
 	}
 
 	logger := util.NewLogger(os.Stderr)
