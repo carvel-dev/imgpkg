@@ -145,7 +145,7 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 			continue
 		}
 
-		if !strings.HasPrefix(pieces[0], globalEnvironPrefix) {
+		if !strings.HasPrefix(pieces[0], globalEnvironPrefix) || pieces[0] == "IMGPKG_REGISTRY_AZURE_CR_CONFIG" {
 			continue
 		}
 

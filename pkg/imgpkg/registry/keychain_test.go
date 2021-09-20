@@ -242,6 +242,20 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 		}), auth)
 	})
 
+	t.Run("Do not error if AZURE_CR_CONFIG env var is set", func(t *testing.T) {
+		envVars := []string{
+			"IMGPKG_REGISTRY_AZURE_CR_CONFIG=/some/path",
+		}
+
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
+		resource, err := name.NewRepository(providedImage)
+		assert.NoError(t, err)
+
+		_, err = keychain.Resolve(resource)
+		assert.NoError(t, err)
+	})
+
 	testCasesWithMatchingHostnames := []struct {
 		targetImage      string
 		providedHostname string
