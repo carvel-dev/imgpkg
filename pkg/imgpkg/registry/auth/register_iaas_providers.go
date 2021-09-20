@@ -18,5 +18,5 @@ import (
 )
 
 func init() {
-	klog.SetLogger(logr.DiscardLogger{})
+	klog.SetLogger(logr.Discard())
 }
