@@ -365,7 +365,6 @@ k8s.io/component-base/version
 ## explicit
 k8s.io/klog/v2
 # k8s.io/legacy-cloud-providers v0.21.0
-## explicit
 k8s.io/legacy-cloud-providers/azure/auth
 k8s.io/legacy-cloud-providers/gce/gcpcredential
 # k8s.io/utils v0.0.0-20201110183641-67b214c5f920
