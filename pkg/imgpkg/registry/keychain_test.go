@@ -36,6 +36,9 @@ func TestMain(m *testing.M) {
 	gcpRegistryURL, server = registerGCPProvider()
 	defer server.Close()
 
+	tempConfigJSONProviderDir := registerDefaultDockerProvider()
+	defer os.RemoveAll(tempConfigJSONProviderDir)
+
 	os.Exit(m.Run())
 }
 
@@ -662,6 +665,36 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 
 		assert.Equal(t, authn.Anonymous, auth)
 	})
+}
+
+func registerDefaultDockerProvider() string {
+	// TestOrderingOfAuthOpts does *not* use the default .docker/config.json location (they use the DOCKER_CONFIG env var)
+	// (to avoid test pollution and/or messing with a dev's docker files they may rely on)
+	// Setting up the ordering tests in that way resulted in a slight loss of test coverage.
+	// for e.g. the introduction of credentialprovider.defaultDockerConfigProvider resulted in none of the tests failing
+	// So, in order to assert that credentialprovider.defaultDockerConfigProvider is disabled now and in the future
+	// we configure the credentialprovider.defaultDockerConfigProvider with a docker config json file with credentials
+	// (that shouldn't be chosen ever) for the same registry as the ordering tests.
+	// This is also done before any test is run since the credentialprovider.defaultDockerConfigProvider is cached
+	tempConfigJSONProviderDir, err := ioutil.TempDir(os.TempDir(), "test-default-keychain-provider")
+	if err != nil {
+		panic(fmt.Errorf("unable to run test: %s", err))
+	}
+
+	err = ioutil.WriteFile(filepath.Join(tempConfigJSONProviderDir, "config.json"), []byte(`{
+  "auths" : {
+    "http://some.fake.registry/v1/" : {
+		"username": "provider-username",
+		"password": "provider-password"
+    }
+  }
+}`), os.ModePerm)
+	if err != nil {
+		panic(fmt.Errorf("unable to run test: %s", err))
+	}
+
+	credentialprovider.SetPreferredDockercfgPath(tempConfigJSONProviderDir)
+	return tempConfigJSONProviderDir
 }
 
 func registerGCPProvider() (string, *httptest.Server) {
