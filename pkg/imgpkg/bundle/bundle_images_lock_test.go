@@ -8,11 +8,13 @@ import (
 	"os"
 	"testing"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,6 +43,10 @@ type imgAssertion struct {
 
 func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+
+	confUI := goui.NewConfUI(goui.NewNoopLogger())
+	defer confUI.Flush()
+	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{
@@ -438,7 +444,7 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(6, logger)
+			bundles, imagesRefs, err := subject.AllImagesRefs(6, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -452,6 +458,10 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 
 func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+
+	confUI := goui.NewConfUI(goui.NewNoopLogger())
+	defer confUI.Flush()
+	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{
@@ -659,7 +669,7 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(1, logger)
+			bundles, imagesRefs, err := subject.AllImagesRefs(1, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -673,6 +683,10 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 
 func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+
+	confUI := goui.NewConfUI(goui.NewNoopLogger())
+	defer confUI.Flush()
+	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{
@@ -1087,7 +1101,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(6, logger)
+			bundles, imagesRefs, err := subject.AllImagesRefs(6, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -1137,7 +1151,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		fmt.Println("============")
 
 		subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-		bundles, _, err := subject.AllImagesRefs(6, logger)
+		bundles, _, err := subject.AllImagesRefs(6, uiLogger)
 		require.NoError(t, err)
 		checkBundlesPresence(t, bundles, imagesTree)
 

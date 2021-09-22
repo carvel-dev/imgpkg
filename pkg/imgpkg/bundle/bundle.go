@@ -94,7 +94,8 @@ func (o *Bundle) allCachedImageRefs() []ImageRef {
 	return imgsRef
 }
 
-func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, logger util.LoggerWithLevels) error {
+// NoteCopy writes an image-location representing the bundle / images that have been copied
+func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, ui util.UIWithLevels) error {
 	locationsCfg := ImageLocationsConfig{
 		APIVersion: LocationAPIVersion,
 		Kind:       ImageLocationsKind,
@@ -122,10 +123,10 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		panic(fmt.Sprintf("Internal inconsistency: '%s' have to be a digest", bundleProcessedImage.DigestRef))
 	}
 
-	logger.Debugf("creating Locations OCI Image\n")
+	ui.Debugf("creating Locations OCI Image\n")
 
 	// Using NewNoopUI because we do not want to have output from this push
-	return NewLocations(logger).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+	return NewLocations(ui).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
 }
 
 func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
@@ -160,7 +161,6 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return false, err
 	}
 
-	loggerBuilder := util.NewLogger(uiBlockWriter{ui})
 	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
 	if err != nil {
 		return false, fmt.Errorf("Extracting bundle into directory: %s", err)
@@ -172,7 +172,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	}
 
 	bundleImageRefs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
-		logger:          loggerBuilder.NewLevelLogger(util.LogWarn, loggerBuilder.NewPrefixedWriter("")),
+		ui:              util.NewUILevelLogger(util.LogWarn, ui),
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	})

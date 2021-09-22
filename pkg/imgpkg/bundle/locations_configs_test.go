@@ -9,6 +9,7 @@ import (
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,12 @@ func TestLocations(t *testing.T) {
 		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
 		fakeRegistry := fakeRegistryBuilder.Build()
-		subject := bundle.NewLocations(logger)
+
+		confUI := goui.NewConfUI(goui.NewNoopLogger())
+		defer confUI.Flush()
+		uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+
+		subject := bundle.NewLocations(uiLogger)
 
 		bundleRef := fakeRegistryBuilder.ReferenceOnTestServer("some/testing@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93")
 		bundleDigestRef, err := regname.NewDigest(bundleRef)
@@ -55,7 +61,12 @@ func TestLocations(t *testing.T) {
 		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
 		fakeRegistry := fakeRegistryBuilder.Build()
-		subject := bundle.NewLocations(logger)
+
+		confUI := goui.NewConfUI(goui.NewNoopLogger())
+		defer confUI.Flush()
+		uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+
+		subject := bundle.NewLocations(uiLogger)
 
 		bundleRef := fakeRegistryBuilder.ReferenceOnTestServer("some/testing@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93")
 		bundleDigestRef, err := regname.NewDigest(bundleRef)

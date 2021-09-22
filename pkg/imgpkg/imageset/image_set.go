@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -38,11 +39,12 @@ type ImagesReaderWriter interface {
 
 type ImageSet struct {
 	concurrency int
-	logger      Logger
+	ui          goui.UI
 }
 
-func NewImageSet(concurrency int, logger Logger) ImageSet {
-	return ImageSet{concurrency, logger}
+// NewImageSet constructor for creating an ImageSet
+func NewImageSet(concurrency int, ui goui.UI) ImageSet {
+	return ImageSet{concurrency, ui}
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
@@ -63,8 +65,8 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 	imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
-	i.logger.WriteStr("exporting %d images...\n", len(foundImages.All()))
-	defer func() { i.logger.WriteStr("exported %d images\n", len(foundImages.All())) }()
+	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All()))
+	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())) }()
 
 	var refs []imagedesc.Metadata
 
@@ -74,7 +76,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 			return nil, err
 		}
 
-		i.logger.WriteStr("will export %s\n", img.DigestRef)
+		i.ui.BeginLinef("will export %s\n", img.DigestRef)
 		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag, Labels: img.Labels})
 	}
 
@@ -91,7 +93,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 
 	importedImages := NewProcessedImages()
 
-	i.logger.WriteStr("importing %d images...\n", len(imgOrIndexes))
+	i.ui.BeginLinef("importing %d images...\n", len(imgOrIndexes))
 
 	importThrottle := util.NewThrottle(i.concurrency)
 

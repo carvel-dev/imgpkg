@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
@@ -34,12 +35,13 @@ type TarWriter struct {
 	layersToWrite []imagedesc.ImageLayerDescriptor
 
 	opts                  TarWriterOpts
-	logger                Logger
+	ui                    goui.UI
 	imageLayerWriterCheck ImageLayerWriterFilter
 }
 
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, logger Logger, imageLayerWriterCheck ImageLayerWriterFilter) *TarWriter {
-	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, logger: logger, imageLayerWriterCheck: imageLayerWriterCheck}
+// NewTarWriter constructor returning a mechanism to write image refs / layers to a tarball on disk.
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, ui goui.UI, imageLayerWriterCheck ImageLayerWriterFilter) *TarWriter {
+	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, ui: ui, imageLayerWriterCheck: imageLayerWriterCheck}
 }
 
 func (w *TarWriter) Write() error {
@@ -302,7 +304,7 @@ func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size
 	}
 
 	if !zerosFill {
-		w.logger.WriteStr("done: file '%s' (%s)\n", path, time.Now().Sub(t1))
+		w.ui.BeginLinef("done: file '%s' (%s)\n", path, time.Now().Sub(t1))
 	}
 
 	return nil
