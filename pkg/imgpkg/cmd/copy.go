@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -22,6 +23,8 @@ import (
 const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 
 type CopyOptions struct {
+	ui ui.UI
+
 	ImageFlags      ImageFlags
 	BundleFlags     BundleFlags
 	LockInputFlags  LockInputFlags
@@ -36,8 +39,9 @@ type CopyOptions struct {
 	IncludeNonDistributable bool
 }
 
-func NewCopyOptions() *CopyOptions {
-	return &CopyOptions{}
+// NewCopyOptions constructor for building a CopyOptions, holding values derived via flags
+func NewCopyOptions(ui *ui.ConfUI) *CopyOptions {
+	return &CopyOptions{ui: ui}
 }
 
 func NewCopyCmd(o *CopyOptions) *cobra.Command {
@@ -89,7 +93,7 @@ func (c *CopyOptions) Run() error {
 	logger := util.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
 	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
+	imagesUploaderLogger := util.NewProgressBar(c.ui, "done uploading images", "Error uploading images")
 
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)

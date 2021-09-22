@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/cheggaaa/pb"
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/mattn/go-isatty"
 )
@@ -18,20 +19,22 @@ type ProgressLogger interface {
 	End()
 }
 
-func (l ImgpkgLogger) NewProgressBar(logger LoggerWithLevels, finalMessage, errorMessagePrefix string) ProgressLogger {
+// NewProgressBar constructor to build a ProgressLogger responsible for printing out a progress bar using updates when
+// writing to a registry via ggcr
+func NewProgressBar(ui goui.UI, finalMessage, errorMessagePrefix string) ProgressLogger {
 	ctx, cancel := context.WithCancel(context.Background())
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		return &ProgressBarLogger{ctx: ctx, cancelFunc: cancel, logger: logger, finalMessage: finalMessage, errorMessagePrefix: errorMessagePrefix}
+		return &ProgressBarLogger{ctx: ctx, cancelFunc: cancel, ui: ui, finalMessage: finalMessage, errorMessagePrefix: errorMessagePrefix}
 	}
 
-	return &ProgressBarNoTTYLogger{logger: logger, ctx: ctx, cancelFunc: cancel, finalMessage: finalMessage}
+	return &ProgressBarNoTTYLogger{ui: ui, ctx: ctx, cancelFunc: cancel, finalMessage: finalMessage}
 }
 
 type ProgressBarLogger struct {
 	ctx                context.Context
 	cancelFunc         context.CancelFunc
 	bar                *pb.ProgressBar
-	logger             LoggerWithLevels
+	ui                 goui.UI
 	finalMessage       string
 	errorMessagePrefix string
 }
@@ -48,7 +51,7 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 				return
 			case update := <-progressChan:
 				if update.Error != nil {
-					l.logger.Errorf("%s: %s\n", l.errorMessagePrefix, update.Error)
+					l.ui.ErrorLinef("%s: %s\n", l.errorMessagePrefix, update.Error)
 					continue
 				}
 
@@ -69,13 +72,13 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 func (l *ProgressBarLogger) End() {
 	l.cancelFunc()
 	l.bar.FinishPrint("") // Ensures a new line is added after the progress bar
-	l.logger.Logf("%s", l.finalMessage)
+	l.ui.BeginLinef("%s", l.finalMessage)
 }
 
 type ProgressBarNoTTYLogger struct {
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
-	logger       LoggerWithLevels
+	ui           goui.UI
 	finalMessage string
 }
 
@@ -93,5 +96,5 @@ func (l *ProgressBarNoTTYLogger) Start(progressChan <-chan regv1.Update) {
 
 func (l *ProgressBarNoTTYLogger) End() {
 	l.cancelFunc()
-	l.logger.Logf(l.finalMessage)
+	l.ui.BeginLinef(l.finalMessage)
 }
