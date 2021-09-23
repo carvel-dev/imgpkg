@@ -21,6 +21,5 @@ require (
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v0.21.1 // indirect
 	k8s.io/klog/v2 v2.20.0
-	k8s.io/legacy-cloud-providers v0.21.0
 	sigs.k8s.io/yaml v1.2.0
 )

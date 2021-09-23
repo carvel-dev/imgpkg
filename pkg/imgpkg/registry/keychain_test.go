@@ -24,7 +24,6 @@ import (
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/legacy-cloud-providers/gce/gcpcredential"
 )
 
 var gcpRegistryURL string
@@ -710,11 +709,16 @@ func registerGCPProvider() (string, *httptest.Server) {
    }
 }`, registryURL, email, auth)
 	const probeEndpoint = "/computeMetadata/v1/"
+	const metadataURL = "http://metadata.google.internal./computeMetadata/v1/"
+	const metadataAttributes = metadataURL + "instance/attributes/"
+	// DockerConfigKey is the URL of the dockercfg metadata key used by DockerConfigKeyProvider.
+	const DockerConfigKey = metadataAttributes + "google-dockercfg"
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Only serve the one metadata key.
 		if probeEndpoint == r.URL.Path {
 			w.WriteHeader(http.StatusOK)
-		} else if strings.HasSuffix(gcpcredential.DockerConfigKey, r.URL.Path) {
+		} else if strings.HasSuffix(DockerConfigKey, r.URL.Path) {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, sampleDockerConfig)
