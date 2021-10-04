@@ -16,8 +16,7 @@ import (
 
 func TestLocations(t *testing.T) {
 	t.Run("when creates a locations Images it can fetch the configuration", func(t *testing.T) {
-		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
-		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
+		fakeRegistryBuilder := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry := fakeRegistryBuilder.Build()
 
 		confUI := goui.NewConfUI(goui.NewNoopLogger())
@@ -58,8 +57,7 @@ func TestLocations(t *testing.T) {
 	})
 
 	t.Run("when locations Image is not present it returns LocationsNotFound error", func(t *testing.T) {
-		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
-		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
+		fakeRegistryBuilder := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry := fakeRegistryBuilder.Build()
 
 		confUI := goui.NewConfUI(goui.NewNoopLogger())

@@ -6,34 +6,32 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"sync"
+
+	goui "github.com/cppforlife/go-cli-ui/ui"
 )
 
-type ImgpkgLogger struct {
-	writer     io.Writer
-	writerLock *sync.Mutex
+// NewUIPrefixedWriter constructor for building a UI with a prefix when logging a message
+func NewUIPrefixedWriter(prefix string, ui goui.UI) *UIPrefixWriter {
+	return &UIPrefixWriter{ui, prefix, &sync.Mutex{}}
 }
 
-func NewLogger(writer io.Writer) ImgpkgLogger {
-	return ImgpkgLogger{writer: writer, writerLock: &sync.Mutex{}}
-}
-
-func (l ImgpkgLogger) NewPrefixedWriter(prefix string) *LoggerPrefixWriter {
-	return &LoggerPrefixWriter{prefix, l.writer, l.writerLock}
-}
-
-type LoggerPrefixWriter struct {
+// UIPrefixWriter prints a prefix when the underlying ui prints a message
+type UIPrefixWriter struct {
+	goui.UI
 	prefix     string
-	writer     io.Writer
 	writerLock *sync.Mutex
 }
 
-func (w *LoggerPrefixWriter) Logf(msg string, args ...interface{}) {
-	w.WriteStr(msg, args...)
+// BeginLinef writes a message and args adding a configured prefix
+func (w *UIPrefixWriter) BeginLinef(msg string, args ...interface{}) {
+	_, err := w.Write([]byte(fmt.Sprintf(msg, args...)))
+	if err != nil {
+		panic(fmt.Sprintf("Unable to write to ui: %s", err))
+	}
 }
 
-func (w *LoggerPrefixWriter) Write(data []byte) (int, error) {
+func (w *UIPrefixWriter) Write(data []byte) (int, error) {
 	newData := make([]byte, len(data))
 	copy(newData, data)
 
@@ -48,16 +46,8 @@ func (w *LoggerPrefixWriter) Write(data []byte) (int, error) {
 	w.writerLock.Lock()
 	defer w.writerLock.Unlock()
 
-	_, err := w.writer.Write(newData)
-	if err != nil {
-		return 0, fmt.Errorf("write err: %s", err)
-	}
+	w.PrintBlock(newData)
 
 	// return original data length
 	return len(data), nil
-}
-
-func (w *LoggerPrefixWriter) WriteStr(str string, args ...interface{}) error {
-	_, err := w.Write([]byte(fmt.Sprintf(str, args...)))
-	return err
 }

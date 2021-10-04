@@ -89,13 +89,12 @@ func (c *CopyOptions) Run() error {
 		return err
 	}
 
-	//logger := util.NewLogger(os.Stderr)
-	//prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	//levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-	imagesUploaderLogger := util.NewProgressBar(c.ui, "done uploading images", "Error uploading images")
+	prefixedLogger := util.NewUIPrefixedWriter("copy | ", c.ui)
+	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
+	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	imageSet := ctlimgset.NewImageSet(c.Concurrency, c.ui)
-	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, c.ui)
+	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
 	var signatureRetriever SignatureRetriever
 	if c.SignatureFlags.CopyCosignSignatures {
@@ -103,8 +102,6 @@ func (c *CopyOptions) Run() error {
 	} else {
 		signatureRetriever = signature.NewNoop()
 	}
-
-	uiLogger := util.NewUILevelLogger(util.LogWarn, c.ui)
 
 	repoSrc := CopyRepoSrc{
 		ImageFlags:              c.ImageFlags,
@@ -114,7 +111,7 @@ func (c *CopyOptions) Run() error {
 		IncludeNonDistributable: c.IncludeNonDistributable,
 		Concurrency:             c.Concurrency,
 
-		ui:                 uiLogger,
+		ui:                 levelLogger,
 		registry:           registry.NewRegistryWithProgress(reg, imagesUploaderLogger),
 		imageSet:           imageSet,
 		tarImageSet:        tarImageSet,
