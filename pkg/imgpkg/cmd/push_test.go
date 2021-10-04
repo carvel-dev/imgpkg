@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -56,7 +57,7 @@ func TestMultiImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	if !strings.Contains(err.Error(), "This directory contains multiple bundle definitions. Only a single instance of .imgpkg/images.yml can be provided") {
+	if !strings.Contains(err.Error(), fmt.Sprintf("This directory contains multiple bundle definitions. Only a single instance of .imgpkg%simages.yml can be provided", string(os.PathSeparator))) {
 		t.Fatalf("Expected error to contain message about multiple .imgpkg dirs, got: %s", err)
 	}
 }
@@ -133,7 +134,7 @@ func TestBundleDirectoryErrors(t *testing.T) {
 		{
 			name:            "no bundle",
 			createBundleDir: false,
-			expectedError:   "This directory is not a bundle. It is missing .imgpkg/images.yml",
+			expectedError:   fmt.Sprintf("This directory is not a bundle. It is missing .imgpkg%simages.yml", string(os.PathSeparator)),
 		},
 	}
 

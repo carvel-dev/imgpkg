@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,10 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 	})
 
 	t.Run("airgapped environment", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping test as image used requires linux")
+		}
+
 		env := helpers.BuildEnv(t)
 		airgappedRepo := startRegistryForAirgapTesting(t, env)
 
@@ -207,6 +212,10 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 
 	for _, mediaType := range []types.MediaType{types.OCIUncompressedRestrictedLayer, types.DockerForeignLayer} {
 		t.Run(fmt.Sprintf("Without --include-non-distributable-layers flag and image contains a non-distributable layer should only copy distributable layers and print a warning message (Using MediaType %s)", mediaType), func(t *testing.T) {
+			if runtime.GOOS == "windows" {
+				t.Skip("Skipping test as image used requires linux")
+			}
+
 			env := helpers.BuildEnv(t)
 			if mediaType == types.OCIUncompressedRestrictedLayer && strings.HasPrefix(env.RelocationRepo, "gcr.io") {
 				t.Skip("Skipping this test due gcr.io limitation.")

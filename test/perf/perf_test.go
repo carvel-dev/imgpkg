@@ -6,6 +6,7 @@ package perf
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,6 +27,10 @@ const (
 )
 
 func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test as docker image used requires linux")
+	}
+
 	logger := helpers.Logger{}
 	env := helpers.BuildEnv(t)
 	defer env.Cleanup()
@@ -51,6 +56,10 @@ func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
 }
 
 func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test as image used requires linux")
+	}
+
 	logger := helpers.Logger{}
 	env := helpers.BuildEnv(t)
 	defer env.Cleanup()

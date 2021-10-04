@@ -2,6 +2,8 @@
 
 set -e -x -u
 
+FILE_EXT="${1-}"
+
 # makes builds reproducible
 export CGO_ENABLED=0
 LDFLAGS="-buildid="
@@ -17,7 +19,7 @@ go mod tidy
 git apply ./hack/patch-k8s-pkg-credentialprovider.patch
 
 # export GOOS=linux GOARCH=amd64
-go build -ldflags="$LDFLAGS" -trimpath -o imgpkg ./cmd/imgpkg/...
+go build -ldflags="$LDFLAGS" -trimpath -o "imgpkg$FILE_EXT" ./cmd/imgpkg/...
 ./imgpkg version
 
 # compile tests, but do not run them: https://github.com/golang/go/issues/15513#issuecomment-839126426
