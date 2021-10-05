@@ -82,7 +82,7 @@ func TestCopyTarSrc(t *testing.T) {
 		tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
 		tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
 		imgpkg.Run([]string{"copy", "-b", bundleInfo.RefDigest, "--to-tar", tempBundleTarFile})
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", fakeRegistry.ReferenceOnTestServer("copied-bundle")}, helpers.RunOpts{
+		imgpkg.RunWithOpts([]string{"copy", "--tty", "--tar", tempBundleTarFile, "--to-repo", fakeRegistry.ReferenceOnTestServer("copied-bundle")}, helpers.RunOpts{
 			AllowError:   false,
 			StderrWriter: outputBuffer,
 			StdoutWriter: outputBuffer,

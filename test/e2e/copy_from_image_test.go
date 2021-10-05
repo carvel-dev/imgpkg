@@ -153,7 +153,7 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 	var imageDigest string
 	logger.Section("copy from a tarball (with a NDL) to a repo (the image in the repo does *not* include the NDL because the --include-non-dist flag was omitted)", func() {
 		stderr := bytes.NewBufferString("")
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
+		imgpkg.RunWithOpts([]string{"copy", "--tty", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
 			StderrWriter: stderr,
 		})
 		imageDigest = fmt.Sprintf("@%s", env.ImageFactory.ImageDigest(env.RelocationRepo))
@@ -238,7 +238,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			stopRegistryForAirgapTesting(t, env)
 
 			var stdOutWriter bytes.Buffer
-			imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
+			imgpkg.RunWithOpts([]string{"copy", "--tty", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
 				StdoutWriter: &stdOutWriter,
 				StderrWriter: &stdOutWriter,
 			})

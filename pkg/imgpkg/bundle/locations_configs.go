@@ -42,23 +42,25 @@ func (n LocationsNotFound) Error() string {
 
 type LocationsConfigs struct {
 	reader LocationImageReader
-	logger util.LoggerWithLevels
+	ui     util.UIWithLevels
 }
 
 type LocationImageReader interface {
 	Read(img regv1.Image) (ImageLocationsConfig, error)
 }
 
-func NewLocations(logger util.LoggerWithLevels) *LocationsConfigs {
-	return NewLocationsWithReader(&locationsSingleLayerReader{}, logger)
+// NewLocations constructor for creating a LocationsConfigs
+func NewLocations(ui util.UIWithLevels) *LocationsConfigs {
+	return NewLocationsWithReader(&locationsSingleLayerReader{}, ui)
 }
 
-func NewLocationsWithReader(reader LocationImageReader, logger util.LoggerWithLevels) *LocationsConfigs {
-	return &LocationsConfigs{reader: reader, logger: logger}
+// NewLocationsWithReader constructor for LocationsConfigs
+func NewLocationsWithReader(reader LocationImageReader, ui util.UIWithLevels) *LocationsConfigs {
+	return &LocationsConfigs{reader: reader, ui: ui}
 }
 
 func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) (ImageLocationsConfig, error) {
-	r.logger.Tracef("Fetching Locations OCI Images for bundle: %s\n", bundleRef)
+	r.ui.Tracef("Fetching Locations OCI Images for bundle: %s\n", bundleRef)
 
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {
@@ -69,14 +71,14 @@ func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) 
 	if err != nil {
 		if terr, ok := err.(*transport.Error); ok {
 			if _, ok := imageNotFoundStatusCode[terr.StatusCode]; ok {
-				r.logger.Debugf("Did not find Locations OCI Image for bundle: %s\n", bundleRef)
+				r.ui.Debugf("Did not find Locations OCI Image for bundle: %s\n", bundleRef)
 				return ImageLocationsConfig{}, &LocationsNotFound{image: locRef.Name()}
 			}
 		}
 		return ImageLocationsConfig{}, fmt.Errorf("Fetching location image: %s", err)
 	}
 
-	r.logger.Tracef("Reading the locations configuration file\n")
+	r.ui.Tracef("Reading the locations configuration file\n")
 
 	cfg, err := r.reader.Read(img)
 	if err != nil {
@@ -87,7 +89,7 @@ func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) 
 }
 
 func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, ui ui.UI) error {
-	r.logger.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
+	r.ui.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
 
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
 	if err != nil {
@@ -105,7 +107,7 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 		return err
 	}
 
-	r.logger.Tracef("Pushing image\n")
+	r.ui.Tracef("Pushing image\n")
 
 	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg, ui)
 	if err != nil {

@@ -5,8 +5,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
@@ -22,6 +22,8 @@ import (
 const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 
 type CopyOptions struct {
+	ui ui.UI
+
 	ImageFlags      ImageFlags
 	BundleFlags     BundleFlags
 	LockInputFlags  LockInputFlags
@@ -36,8 +38,9 @@ type CopyOptions struct {
 	IncludeNonDistributable bool
 }
 
-func NewCopyOptions() *CopyOptions {
-	return &CopyOptions{}
+// NewCopyOptions constructor for building a CopyOptions, holding values derived via flags
+func NewCopyOptions(ui *ui.ConfUI) *CopyOptions {
+	return &CopyOptions{ui: ui}
 }
 
 func NewCopyCmd(o *CopyOptions) *cobra.Command {
@@ -86,10 +89,9 @@ func (c *CopyOptions) Run() error {
 		return err
 	}
 
-	logger := util.NewLogger(os.Stderr)
-	prefixedLogger := logger.NewPrefixedWriter("copy | ")
-	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-	imagesUploaderLogger := logger.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
+	prefixedLogger := util.NewUIPrefixedWriter("copy | ", c.ui)
+	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
+	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
@@ -109,7 +111,7 @@ func (c *CopyOptions) Run() error {
 		IncludeNonDistributable: c.IncludeNonDistributable,
 		Concurrency:             c.Concurrency,
 
-		logger:             levelLogger,
+		ui:                 levelLogger,
 		registry:           registry.NewRegistryWithProgress(reg, imagesUploaderLogger),
 		imageSet:           imageSet,
 		tarImageSet:        tarImageSet,
@@ -343,7 +345,7 @@ func everyMediaTypeForAnImage(image regv1.Image) []string {
 	return everyMediaType
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(logger util.LoggerWithLevels, includeNonDistributableFlag bool, everyMediaType []string) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(ui util.UIWithLevels, includeNonDistributableFlag bool, everyMediaType []string) {
 	noNonDistributableLayers := true
 
 	for _, mediaType := range everyMediaType {
@@ -353,8 +355,8 @@ func informUserToUseTheNonDistributableFlagWithDescriptors(logger util.LoggerWit
 	}
 
 	if includeNonDistributableFlag && noNonDistributableLayers {
-		logger.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
+		ui.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		logger.Warnf("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
+		ui.Warnf("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
 	}
 }

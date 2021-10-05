@@ -7,14 +7,15 @@ import (
 	"bytes"
 	"testing"
 
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 )
 
 func TestLogger(t *testing.T) {
 	var buf bytes.Buffer
 
-	logger := util.NewLogger(&buf)
-	prefLogger := logger.NewPrefixedWriter("prefix: ")
+	ui := goui.NewWriterUI(&buf, &buf, nil)
+	prefLogger := util.NewUIPrefixedWriter("prefix: ", ui)
 
 	prefLogger.Write([]byte("content1"))
 	prefLogger.Write([]byte("content2\n"))

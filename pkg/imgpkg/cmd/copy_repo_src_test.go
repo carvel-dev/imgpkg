@@ -20,6 +20,7 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
@@ -36,15 +37,22 @@ var stdOut *bytes.Buffer
 
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
-	logger := util.NewLogger(stdOut)
-	prefixedLogger := logger.NewPrefixedWriter("test | ")
-	levelLogger := logger.NewLevelLogger(util.LogWarn, prefixedLogger)
-	imageSet := imageset.NewImageSet(1, prefixedLogger)
+
+	confUI := &bundlefakes.FakeUI{}
+	confUI.BeginLinefStub = func(s string, i ...interface{}) {
+		stdOut.Write([]byte(fmt.Sprintf(s, i...)))
+		stdOut.Write([]byte("\n"))
+	}
+
+	defer confUI.Flush()
+	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+
+	imageSet := imageset.NewImageSet(1, confUI)
 
 	subject = CopyRepoSrc{
-		logger:             levelLogger,
+		ui:                 uiLogger,
 		imageSet:           imageSet,
-		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, prefixedLogger),
+		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, confUI),
 		Concurrency:        1,
 		signatureRetriever: &fakeSignatureRetriever{},
 	}

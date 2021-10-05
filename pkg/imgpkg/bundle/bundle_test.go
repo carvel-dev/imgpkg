@@ -12,12 +12,14 @@ import (
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 )
@@ -819,9 +821,12 @@ func TestNoteCopy(t *testing.T) {
 		fakeRegistry.WithImmutableTags("repo/bundle-with-collocated-bundles", locationsImageTag)
 		defer fakeRegistry.ResetHandler()
 
-		logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+		confUI := goui.NewConfUI(goui.NewNoopLogger())
+		defer confUI.Flush()
+		uiLogger := util.NewUILevelLogger(util.LogDebug, confUI)
+
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
-		_, _, err = subject.AllImagesRefs(1, logger)
+		_, _, err = subject.AllImagesRefs(1, uiLogger)
 		assert.NoError(t, err)
 
 		processedImages := imageset.NewProcessedImages()
@@ -840,7 +845,7 @@ func TestNoteCopy(t *testing.T) {
 			Image:     randomImageColocatedWithIcecreamBundle.Image,
 		})
 
-		err = subject.NoteCopy(processedImages, reg, logger)
+		err = subject.NoteCopy(processedImages, reg, uiLogger)
 		assert.NoError(t, err)
 	})
 }
