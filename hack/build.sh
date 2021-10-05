@@ -16,6 +16,11 @@ go mod tidy
 # Specifically, the docker config.json is loaded before cli flags (and maybe even IaaS metadata services)
 git apply ./hack/patch-k8s-pkg-credentialprovider.patch
 
+git diff --exit-code vendor/ || {
+  echo 'found changes in the project. when expected none. exiting'
+  exit 1
+}
+
 # export GOOS=linux GOARCH=amd64
 go build -ldflags="$LDFLAGS" -trimpath -o imgpkg ./cmd/imgpkg/...
 ./imgpkg version
