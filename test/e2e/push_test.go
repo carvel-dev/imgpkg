@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/k14s/imgpkg/test/helpers"
@@ -42,6 +43,10 @@ images:
 }
 
 func TestPushFilesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+	}
+
 	env := helpers.BuildEnv(t)
 	logger := helpers.Logger{}
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
@@ -63,12 +68,12 @@ func TestPushFilesPermissions(t *testing.T) {
 	logger.Section("Check files permissions did not change", func() {
 		info, err := os.Stat(filepath.Join(bundleDir, "exec_file.sh"))
 		require.NoError(t, err)
-		assert.Equal(t, fs.FileMode(0700), info.Mode(), "have -rwx------ permissions")
+		assert.Equal(t, fs.FileMode(0700).String(), info.Mode().String(), "have -rwx------ permissions")
 		info, err = os.Stat(filepath.Join(bundleDir, "read_only_config.yml"))
 		require.NoError(t, err)
-		assert.Equal(t, fs.FileMode(0400), info.Mode(), "have -r-------- permissions")
+		assert.Equal(t, fs.FileMode(0400).String(), info.Mode().String(), "have -r-------- permissions")
 		info, err = os.Stat(filepath.Join(bundleDir, "read_write_config.yml"))
 		require.NoError(t, err)
-		assert.Equal(t, fs.FileMode(0600), info.Mode(), "have -rw------- permissions")
+		assert.Equal(t, fs.FileMode(0600).String(), info.Mode().String(), "have -rw------- permissions")
 	})
 }
