@@ -5,8 +5,6 @@ package perf
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,10 +25,6 @@ const (
 )
 
 func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping test as docker image used requires linux")
-	}
-
 	logger := helpers.Logger{}
 	env := helpers.BuildEnv(t)
 	defer env.Cleanup()
@@ -56,10 +50,6 @@ func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
 }
 
 func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping test as image used requires linux")
-	}
-
 	logger := helpers.Logger{}
 	env := helpers.BuildEnv(t)
 	defer env.Cleanup()
@@ -88,23 +78,11 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 }
 
 func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
-	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-perf-testing", "registry:2")
-	output, err := dockerRunCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("output: %s, %s", output, err)
-	}
+	fakeRegistry := helpers.NewFakeRegistry(t, env.Logger)
 
 	env.AddCleanup(func() {
-		exec.Command("docker", "stop", "registry-for-perf-testing").Run()
-		exec.Command("docker", "rm", "-v", "registry-for-perf-testing").Run()
+		fakeRegistry.CleanUp()
 	})
 
-	inspectCmd := exec.Command("docker", "inspect", `--format='{{(index (index .NetworkSettings.Ports "5000/tcp") 0).HostPort}}'`, "registry-for-perf-testing")
-	output, err = inspectCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("output: %s, %s", output, err)
-	}
-
-	hostPort := strings.ReplaceAll(string(output), "'", "")
-	return fmt.Sprintf("localhost:%s/repo/perf-image", strings.ReplaceAll(hostPort, "\n", ""))
+	return fakeRegistry.ReferenceOnTestServer("repo/perf-image")
 }
