@@ -14,7 +14,8 @@ import (
 type ImgpkgOptions struct {
 	ui *ui.ConfUI
 
-	UIFlags UIFlags
+	UIFlags    UIFlags
+	DebugFlags DebugFlags
 }
 
 func NewImgpkgOptions(ui *ui.ConfUI) *ImgpkgOptions {
@@ -42,6 +43,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	cmd.SetErr(blockWriter)
 
 	o.UIFlags.Set(cmd)
+	o.DebugFlags.Set(cmd)
 
 	cmd.AddCommand(NewPushCmd(NewPushOptions(o.ui)))
 	cmd.AddCommand(NewPullCmd(NewPullOptions(o.ui)))
@@ -59,6 +61,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 
 	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(func(*cobra.Command, []string) error {
 		o.UIFlags.ConfigureUI(o.ui)
+		o.DebugFlags.ConfigureDebug()
 		return nil
 	}))
 
