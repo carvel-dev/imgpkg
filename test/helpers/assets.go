@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -96,10 +95,7 @@ func (a *Assets) CleanCreatedFolders() {
 	for _, folder := range a.CreatedFolders {
 		err := os.RemoveAll(folder)
 
-		//TODO: figure out why windows still has a file handle on the bundle.tar file
-		if runtime.GOOS != "windows" {
-			require.NoErrorf(a.T, err, "cleaning folder: '%s'", folder)
-		}
+		require.NoErrorf(a.T, err, "cleaning folder: '%s'", folder)
 	}
 }
 
