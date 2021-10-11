@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: simple-app
-        image: docker.io/dkalinin/k8s-simple-app
+        image: index.docker.io/dkalinin/k8s-simple-app
         env:
           - name: HELLO_MSG
             value: stranger
