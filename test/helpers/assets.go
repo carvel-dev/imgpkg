@@ -94,7 +94,6 @@ func (a *Assets) CleanCreatedFolders() {
 	a.T.Helper()
 	for _, folder := range a.CreatedFolders {
 		err := os.RemoveAll(folder)
-
 		require.NoErrorf(a.T, err, "cleaning folder: '%s'", folder)
 	}
 }

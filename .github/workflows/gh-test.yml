@@ -53,11 +53,11 @@ jobs:
 
         export IMGPKG_E2E_IMAGE="ttl.sh/github-action-test-relocation-$GITHUB_RUN_ID"
         export IMGPKG_E2E_RELOCATION_REPO="ttl.sh/github-action-imgpkg-test-$GITHUB_RUN_ID"
-        # deploy local registry and run tests
 
         go install github.com/sigstore/cosign/cmd/cosign@v0.5.0
 
         alias cosign=cosign.exe
 
-        ./hack/test-all.sh ".exe"
+        export IMGPKG_BINARY_EXT=".exe"
+        ./hack/test-all.sh
         '

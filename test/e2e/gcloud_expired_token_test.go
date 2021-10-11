@@ -20,6 +20,7 @@ func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping test as docker image used requires linux")
 	}
+
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()

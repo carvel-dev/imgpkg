@@ -2,11 +2,9 @@
 
 set -e -x -u
 
-FILE_EXT="${1-}"
+./hack/build.sh
 
-./hack/build.sh $FILE_EXT
-
-export IMGPKG_BINARY="$PWD/imgpkg$FILE_EXT"
+export IMGPKG_BINARY="$PWD/imgpkg${IMGPKG_BINARY_EXT-}"
 
 ./hack/test.sh
 ./hack/test-e2e.sh
