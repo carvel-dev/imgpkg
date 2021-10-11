@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/k14s/imgpkg/test/helpers"
@@ -16,6 +17,10 @@ import (
 )
 
 func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test as docker image used requires linux")
+	}
+
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()

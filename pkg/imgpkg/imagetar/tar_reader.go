@@ -33,6 +33,7 @@ func (r TarReader) getIdsFromManifest(file tarFile) (*imagedesc.ImageRefDescript
 	if err != nil {
 		return nil, err
 	}
+	defer manifestFile.Close()
 
 	manifestBytes, err := ioutil.ReadAll(manifestFile)
 	if err != nil {

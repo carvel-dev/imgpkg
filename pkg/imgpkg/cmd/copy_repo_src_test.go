@@ -111,15 +111,15 @@ bundle:
 		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(
 			bundleWithNested.BundleName + "@" + bundleWithNested.Digest)
 
-		tarDir := assets.CreateTempFolder("tar-copy")
-		imageTarPath := filepath.Join(tarDir, "bundle.tar")
+		bundleTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(bundleTarPath)
 
-		err = subject.CopyToTar(imageTarPath)
+		err = subject.CopyToTar(bundleTarPath)
 		require.NoError(t, err)
 
-		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
+		assertTarballContainsOnlyDistributableLayers(bundleTarPath, t)
 
-		assertTarballLabelsOuterBundle(imageTarPath, subject.BundleFlags.Bundle, t)
+		assertTarballLabelsOuterBundle(bundleTarPath, subject.BundleFlags.Bundle, t)
 	})
 }
 
@@ -211,8 +211,8 @@ images:
 		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(bundleWithNested.BundleName + "@" +
 			bundleWithNested.Digest)
 
-		tarDir := assets.CreateTempFolder("tar-copy")
-		imageTarPath := filepath.Join(tarDir, "bundle.tar")
+		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(imageTarPath)
 
 		err := subject.CopyToTar(imageTarPath)
 		require.NoError(t, err)

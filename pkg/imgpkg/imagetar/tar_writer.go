@@ -51,7 +51,6 @@ func (w *TarWriter) Write() error {
 	if err != nil {
 		return err
 	}
-
 	defer w.dst.Close()
 
 	w.tf = tar.NewWriter(w.dst)

@@ -5,10 +5,8 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,7 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -99,7 +96,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 
 	t.Run("airgapped environment", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
-		airgappedRepo := startRegistryForAirgapTesting(t, env)
+		airgappedRepo, fakeRegistry := startRegistryForAirgapTesting(t, env)
 
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 
@@ -116,7 +113,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		// copy to tar skipping NDL
 		imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath})
 
-		stopRegistryForAirgapTesting(t, env)
+		stopRegistryForAirgapTesting(fakeRegistry)
 
 		_, err := imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable-layers"}, helpers.RunOpts{
 			AllowError:   true,
@@ -208,15 +205,20 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 	for _, mediaType := range []types.MediaType{types.OCIUncompressedRestrictedLayer, types.DockerForeignLayer} {
 		t.Run(fmt.Sprintf("Without --include-non-distributable-layers flag and image contains a non-distributable layer should only copy distributable layers and print a warning message (Using MediaType %s)", mediaType), func(t *testing.T) {
 			env := helpers.BuildEnv(t)
+
+			if strings.HasPrefix(env.RelocationRepo, "index.docker.io") {
+				t.Skip("Skipping this test due index.docker.io limitation. See https://github.com/docker/hub-feedback/issues/2132")
+			}
+
+			if mediaType == types.DockerForeignLayer && strings.HasPrefix(env.RelocationRepo, "ttl.sh") {
+				t.Skip("Skipping this test due ttl.sh limitation.")
+			}
+
 			if mediaType == types.OCIUncompressedRestrictedLayer && strings.HasPrefix(env.RelocationRepo, "gcr.io") {
 				t.Skip("Skipping this test due gcr.io limitation.")
 			}
 
-			if mediaType == types.DockerForeignLayer && strings.HasPrefix(env.RelocationRepo, "index.docker.io") {
-				t.Skip("Skipping this test due dockerhub limitation.")
-			}
-
-			airgappedRepo := startRegistryForAirgapTesting(t, env)
+			airgappedRepo, fakeRegistry := startRegistryForAirgapTesting(t, env)
 
 			imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 			defer env.Cleanup()
@@ -235,7 +237,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 				imgpkg.Run([]string{"copy", "-i", airgappedRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
 			})
 
-			stopRegistryForAirgapTesting(t, env)
+			stopRegistryForAirgapTesting(fakeRegistry)
 
 			var stdOutWriter bytes.Buffer
 			imgpkg.RunWithOpts([]string{"copy", "--tty", "--tar", tarFilePath, "--to-repo", repoToCopyName}, helpers.RunOpts{
@@ -398,40 +400,16 @@ func TestCopyErrors(t *testing.T) {
 	})
 }
 
-func stopRegistryForAirgapTesting(t *testing.T, env *helpers.Env) {
-	err := exec.Command("docker", "stop", "registry-for-airgapped-testing").Run()
-	require.NoError(t, err)
-
-	env.AddCleanup(func() {
-		exec.Command("docker", "start", "registry-for-airgapped-testing").Run()
-	})
+func stopRegistryForAirgapTesting(fakeRegistry *helpers.FakeTestRegistryBuilder) {
+	fakeRegistry.CleanUp()
 }
 
-func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) string {
-	dockerRunCmd := exec.Command("docker", "run", "-d", "-p", "5000", "--env", "REGISTRY_VALIDATION_MANIFESTS_URLS_ALLOW=- ^https?://", "--restart", "always", "--name", "registry-for-airgapped-testing", "registry:2")
-	_, err := dockerRunCmd.CombinedOutput()
-	require.NoError(t, err)
+func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) (string, *helpers.FakeTestRegistryBuilder) {
+	fakeRegistry := helpers.NewFakeRegistry(t, env.Logger)
 
 	env.AddCleanup(func() {
-		exec.Command("docker", "stop", "registry-for-airgapped-testing").Run()
-		exec.Command("docker", "rm", "registry-for-airgapped-testing").Run()
+		fakeRegistry.CleanUp()
 	})
 
-	inspectCmd := exec.Command("docker", "inspect", `--format='{{(index (index .NetworkSettings.Ports "5000/tcp") 0).HostPort}}'`, "registry-for-airgapped-testing")
-	output, err := inspectCmd.CombinedOutput()
-	require.NoError(t, err)
-
-	hostPort := strings.ReplaceAll(string(output), "'", "")
-
-	registryURL := fmt.Sprintf("localhost:%s", strings.ReplaceAll(hostPort, "\n", ""))
-	registry, err := name.NewRegistry(registryURL)
-	require.NoError(t, err)
-
-	err = util.Retry(func() error {
-		_, err = remote.Catalog(context.Background(), registry)
-		return err
-	})
-	require.NoError(t, err)
-
-	return fmt.Sprintf("%s/repo/airgapped-image", registryURL)
+	return fakeRegistry.ReferenceOnTestServer("repo/airgapped-image"), fakeRegistry
 }
