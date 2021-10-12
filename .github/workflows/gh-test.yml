@@ -59,5 +59,7 @@ jobs:
         alias cosign=cosign.exe
 
         export IMGPKG_BINARY_EXT=".exe"
-        ./hack/test-all.sh
+        ./hack/build.sh
+        $PWD/imgpkg.exe push -f test/e2e/assets/bundle_file_permissions -b ttl.sh/test-windows-push
+        docker pull ttl.sh/test-windows-push
         '
