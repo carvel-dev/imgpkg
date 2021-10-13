@@ -12,6 +12,7 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
 
@@ -143,6 +144,23 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 		ImgpkgDir, strings.Join(b.paths, ", "), path)
 
 	return bundleValidationError{msg}
+}
+
+func (b Contents) Build(ui ui.UI) (*ctlimg.FileImage, error) {
+	err := b.validate()
+	if err != nil {
+		return nil, err
+	}
+
+	labels := map[string]string{BundleConfigLabel: "true"}
+	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
+
+	img, err := tarImg.AsFileImage(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, err
 }
 
 type bundleValidationError struct {

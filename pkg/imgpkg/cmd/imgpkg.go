@@ -49,6 +49,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	cmd.AddCommand(NewPullCmd(NewPullOptions(o.ui)))
 	cmd.AddCommand(NewVersionCmd(NewVersionOptions(o.ui)))
 	cmd.AddCommand(NewCopyCmd(NewCopyOptions(o.ui)))
+	cmd.AddCommand(NewBuildCmd(NewBuildOptions(o.ui)))
 
 	tagCmd := NewTagCmd()
 	tagCmd.AddCommand(NewTagListCmd(NewTagListOptions(o.ui)))

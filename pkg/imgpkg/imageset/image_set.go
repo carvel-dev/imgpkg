@@ -50,7 +50,7 @@ func NewImageSet(concurrency int, ui goui.UI) ImageSet {
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
 
-	ids, err := i.Export(foundImages, registry)
+	ids, err := i.Export(foundImages, nil, registry)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,8 +62,7 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	return images, ids, err
 }
 
-func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
-	imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
+func (i ImageSet) Export(foundImages *UnprocessedImageRefs, preloadedImages *ProcessedImages, imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
 	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All()))
 	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())) }()
@@ -83,6 +82,21 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 	ids, err := imagedesc.NewImageRefDescriptors(refs, imagesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("Collecting packaging metadata: %s", err)
+	}
+
+	//TODO: clean up
+	if preloadedImages != nil {
+		for _, img := range preloadedImages.All() {
+			ref, err := regname.NewDigest(img.DigestRef)
+			if err != nil {
+				return nil, err
+			}
+
+			err = ids.AddImage(imagedesc.Metadata{Ref: ref, Tag: img.Tag, Labels: img.Labels}, img.Image)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return ids, nil
