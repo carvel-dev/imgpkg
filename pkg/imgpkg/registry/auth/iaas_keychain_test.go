@@ -42,7 +42,7 @@ func TestTimeoutWhenEnablingProvider(t *testing.T) {
 			})
 
 			if assert.Error(t, err) {
-				assert.Equal(t, "Timeout occurred trying to enable iaas provider", err.Error())
+				assert.Equal(t, "Timeout occurred trying to enable IaaS provider. (hint: To skip authenticating via IaaS set the environment variable IMGPKG_ENABLE_IAAS_AUTH=false)", err.Error())
 			}
 
 			return true

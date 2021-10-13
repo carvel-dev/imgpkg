@@ -61,7 +61,7 @@ func NewIaasKeychain(ctx context.Context, environFunc func() []string) (authn.Ke
 			keyring: keyring,
 		}, nil
 	case <-timeout.Done():
-		return nil, fmt.Errorf("Timeout occurred trying to enable iaas provider")
+		return nil, fmt.Errorf("Timeout occurred trying to enable IaaS provider. (hint: To skip authenticating via IaaS set the environment variable IMGPKG_ENABLE_IAAS_AUTH=false)")
 	}
 }
 
