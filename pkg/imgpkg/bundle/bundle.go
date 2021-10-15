@@ -13,11 +13,11 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	plainimg "github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
+	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	plainimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 const (

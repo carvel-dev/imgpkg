@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/signature"
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestCosign_Signature(t *testing.T) {

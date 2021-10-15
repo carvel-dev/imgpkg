@@ -26,7 +26,7 @@ import (
 	"io"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageutils/and"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageutils/and"
 )
 
 type verifyReader struct {

@@ -14,14 +14,14 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestPullBundleWritingContentsToDisk(t *testing.T) {

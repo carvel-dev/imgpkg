@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 
-	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestDebugDisabled(t *testing.T) {

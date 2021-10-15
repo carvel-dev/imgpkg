@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/signature"
-	"github.com/k14s/imgpkg/pkg/imgpkg/signature/signaturefakes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/signaturefakes"
 )
 
 func TestSignatureRetriever_Signatures(t *testing.T) {

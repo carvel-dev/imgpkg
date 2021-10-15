@@ -17,12 +17,12 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
-	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 )
 

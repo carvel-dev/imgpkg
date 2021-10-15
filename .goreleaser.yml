@@ -26,7 +26,7 @@ builds:
 
     ldflags:
       - -buildid=
-      - -X github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
+      - -X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
 
 archives:
   - format: binary

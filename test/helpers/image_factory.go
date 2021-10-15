@@ -21,8 +21,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/stretchr/testify/require"
+	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 )
 
 type ImageFactory struct {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
 func TestBundleLockNonDigestUnmarshalError(t *testing.T) {

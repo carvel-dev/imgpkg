@@ -25,7 +25,7 @@ git diff --exit-code || {
 
 # makes builds reproducible
 export CGO_ENABLED=0
-LDFLAGS="-X github.com/k14s/imgpkg/pkg/imgpkg/cmd.Version=$VERSION -buildid="
+LDFLAGS="-X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version=$VERSION -buildid="
 
 
 GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -o imgpkg-darwin-amd64 ./cmd/imgpkg/...
