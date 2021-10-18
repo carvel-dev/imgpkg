@@ -115,21 +115,17 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 }
 
 func (ids *ImageRefDescriptors) AddImage(imageMetadata Metadata, image regv1.Image) error {
-	var td ImageOrImageIndexDescriptor
-
 	img, err := ids.buildImage(imageMetadata, image)
 	if err != nil {
 		return err
 	}
 
-	td = ImageOrImageIndexDescriptor{Image: &img}
-
 	ids.imageLayersLock.Lock()
 	defer ids.imageLayersLock.Unlock()
 
-	ids.descs = append(ids.descs, td)
+	ids.descs = append(ids.descs, ImageOrImageIndexDescriptor{Image: &img})
 
-	return err
+	return nil
 }
 
 func (ids *ImageRefDescriptors) Descriptors() []ImageOrImageIndexDescriptor {
