@@ -41,7 +41,10 @@ images:
 `, bundleDigestRef)
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
-		imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir})
+		tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+		tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+
+		imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir, "--to-tar", tempBundleTarFile})
 	})
 }
 
@@ -59,13 +62,15 @@ func TestBuildFilesPermissions(t *testing.T) {
 	// u+rw even if in the this repository the permission is correct
 	require.NoError(t, os.Chmod(filepath.Join(".", "assets", "bundle_file_permissions", "read_only_config.yml"), 0400))
 
-	logger.Section("Push bundle with different permissions files", func() {
-		imgpkg.Run([]string{"build", "-f", "./assets/bundle_file_permissions", "-b", env.Image})
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+
+	logger.Section("Build bundle with different permissions files", func() {
+		imgpkg.Run([]string{"build", "-f", "./assets/bundle_file_permissions", "-b", env.Image, "--to-tar", tempBundleTarFile})
 	})
 
 	logger.Section("Copy locally built bundle into registry", func() {
-		tarFile := "/tmp/testbundle.tar"
-		imgpkg.Run([]string{"copy", "--tar", tarFile, "--to-repo", env.Image})
+		imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", env.Image})
 	})
 
 	bundleDir := env.Assets.CreateTempFolder("bundle-location")
@@ -92,11 +97,12 @@ func TestBundleBuildPullAnnotation(t *testing.T) {
 	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
 
-	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
-	imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir})
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
 
-	tarFile := "/tmp/testbundle.tar"
-	imgpkg.Run([]string{"copy", "--to-repo", env.Image, "--tar", tarFile})
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
+	imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir, "--to-tar", tempBundleTarFile})
+	imgpkg.Run([]string{"copy", "--to-repo", env.Image, "--tar", tempBundleTarFile})
 
 	ref, _ := name.NewTag(env.Image, name.WeakValidation)
 	image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
@@ -125,10 +131,11 @@ func TestBuildWithFileExclusion(t *testing.T) {
 		filepath.Join("nested-dir", "excluded-file.txt"),
 		"this file will not be excluded because it is nested",
 	)
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
 
-	imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir, "--file-exclusion", "excluded-file.txt"})
-	tarFile := "/tmp/testbundle.tar"
-	imgpkg.Run([]string{"copy", "--to-repo", env.Image, "--tar", tarFile})
+	imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir, "--file-exclusion", "excluded-file.txt", "--to-tar", tempBundleTarFile})
+	imgpkg.Run([]string{"copy", "--to-repo", env.Image, "--tar", tempBundleTarFile})
 
 	outDir := env.Assets.CreateTempFolder("bundle-exclusion")
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
@@ -138,4 +145,26 @@ func TestBuildWithFileExclusion(t *testing.T) {
 	}
 	expectedFiles = append(expectedFiles, env.Assets.FilesInFolder()...)
 	env.Assets.ValidateFilesAreEqual(bundleDir, outDir, expectedFiles)
+}
+
+func TestBuildImage(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	testDir := env.Assets.CreateTempFolder("imgpkg-test-basic")
+
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+
+	imgpkg.Run([]string{"build", "-i", env.Image, "-f", env.Assets.SimpleAppDir(), "--to-tar", tempBundleTarFile})
+	imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", env.Image})
+	imgpkg.Run([]string{"pull", "-i", env.Image, "-o", testDir})
+
+	env.Assets.ValidateFilesAreEqual(env.Assets.SimpleAppDir(), testDir, []string{
+		"README.md",
+		"LICENSE",
+		"config/config.yml",
+		"config/inner-dir/README.txt",
+	})
 }

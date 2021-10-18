@@ -124,7 +124,9 @@ func (ids *ImageRefDescriptors) AddImage(imageMetadata Metadata, image regv1.Ima
 
 	td = ImageOrImageIndexDescriptor{Image: &img}
 
-	//TODO: Add mutext
+	ids.imageLayersLock.Lock()
+	defer ids.imageLayersLock.Unlock()
+
 	ids.descs = append(ids.descs, td)
 
 	return err

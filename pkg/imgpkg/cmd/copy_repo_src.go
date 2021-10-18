@@ -44,7 +44,7 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	ids, err := c.tarImageSet.Export(unprocessedImageRefs, nil, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
+	ids, err := c.tarImageSet.Export(unprocessedImageRefs, ctlimgset.NewProcessedImages(), dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
 	if err != nil {
 		return err
 	}

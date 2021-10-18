@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -22,11 +21,14 @@ import (
 type BuildOptions struct {
 	ui ui.UI
 
-	ImageFlags      ImageFlags
-	BundleFlags     BundleFlags
-	LockOutputFlags LockOutputFlags
-	FileFlags       FileFlags
-	RegistryFlags   RegistryFlags
+	ImageFlags    ImageFlags
+	BundleFlags   BundleFlags
+	FileFlags     FileFlags
+	RegistryFlags RegistryFlags
+
+	TarDst                      string
+	Concurrency                 int
+	IncludeNonDistributableFlag IncludeNonDistributableFlag
 }
 
 func NewBuildOptions(ui ui.UI) *BuildOptions {
@@ -35,15 +37,24 @@ func NewBuildOptions(ui ui.UI) *BuildOptions {
 
 func NewBuildCmd(o *BuildOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "build",
-		Short:   "TODO",
-		RunE:    func(_ *cobra.Command, _ []string) error { return o.Run() },
-		Example: `TODO`,
+		Use:   "build",
+		Short: "Build files into an image stored as a tarball",
+		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
+		Example: `
+  # Build bundle repo/app1-config with contents of config/ directory stored in /tmp/bundle.tar
+  imgpkg build -b repo/app1-config -f config/ --to-tar /tmp/bundle.tar
+
+  # Build image repo/app1-config with contents from multiple locations stored in /tmp/image.tar
+  imgpkg build -i repo/app1-config -f config/ -f additional-config.yml --to-tar /tmp/image.tar`,
 	}
 	o.ImageFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	o.IncludeNonDistributableFlag.Set(cmd)
+
+	cmd.Flags().StringVar(&o.TarDst, "to-tar", "", "Location to write a tar file containing assets")
+	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	return cmd
 }
 
@@ -52,8 +63,6 @@ func (po *BuildOptions) Run() error {
 	if err != nil {
 		return err
 	}
-
-	var imageURL string
 
 	isBundle := po.BundleFlags.Bundle != ""
 	isImage := po.ImageFlags.Image != ""
@@ -66,13 +75,13 @@ func (po *BuildOptions) Run() error {
 		return fmt.Errorf("Expected either image or bundle")
 
 	case isBundle:
-		imageURL, err = po.buildBundle(reg)
+		err = po.buildBundle(reg)
 		if err != nil {
 			return err
 		}
 
 	case isImage:
-		imageURL, err = po.buildImage(reg)
+		err = po.buildImage(reg)
 		if err != nil {
 			return err
 		}
@@ -81,39 +90,37 @@ func (po *BuildOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	po.ui.BeginLinef("Pushed '%s'", imageURL)
+	po.ui.BeginLinef("Succeeded")
 
 	return nil
 }
 
-func (po *BuildOptions) buildBundle(registry registry.Registry) (string, error) {
+func (po *BuildOptions) buildBundle(registry registry.Registry) error {
 	prefixedLogger := util.NewUIPrefixedWriter("build | ", po.ui)
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 
-	buildImage, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Build(po.ui)
+	bundleFileImage, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Build(po.ui)
 	if err != nil {
-		return "", err
+		return err
 	}
-	defer buildImage.Remove()
+	defer bundleFileImage.Remove()
 
-	builtBundleDigest, err := po.getDigest(po.BundleFlags.Bundle, buildImage)
+	bundleDigest, err := po.getDigest(po.BundleFlags.Bundle, bundleFileImage)
 	if err != nil {
-		return "", err
-	}
-
-	tag, err := po.getTag(po.BundleFlags.Bundle)
-	if err != nil {
-		return "", err
+		return err
 	}
 
-	plainImage := plainimage.NewFetchedPlainImageWithTag(builtBundleDigest, tag, buildImage.Image)
+	bundleTag, err := po.getTag(po.BundleFlags.Bundle)
+	if err != nil {
+		return err
+	}
+
+	plainImage := plainimage.NewFetchedPlainImageWithTag(bundleDigest, bundleTag, bundleFileImage)
 	rootBundle := bundle.NewBundleFromPlainImage(plainImage, registry)
 
-	//TODO: thread via flag
-	concurrency := 1
-	_, imageRefs, err := rootBundle.AllImagesRefs(concurrency, levelLogger)
+	_, imageRefs, err := rootBundle.AllImagesRefs(po.Concurrency, levelLogger)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
@@ -122,11 +129,6 @@ func (po *BuildOptions) buildBundle(registry registry.Registry) (string, error) 
 	}
 
 	processedImages := ctlimgset.NewProcessedImages()
-	fetch, err := plainImage.Fetch()
-	if err != nil {
-		return "", err
-	}
-
 	processedImages.Add(ctlimgset.ProcessedImage{
 		UnprocessedImageRef: ctlimgset.UnprocessedImageRef{
 			DigestRef: rootBundle.DigestRef(),
@@ -135,99 +137,83 @@ func (po *BuildOptions) buildBundle(registry registry.Registry) (string, error) 
 				rootBundleLabelKey: "",
 			}},
 		DigestRef:  rootBundle.DigestRef(),
-		Image:      fetch,
+		Image:      bundleFileImage,
 		ImageIndex: nil,
 	})
 
-	// TODO: thread in via flags
-	path := "/tmp/testbundle.tar"
+	tarImageSet := ctlimgset.NewTarImageSet(ctlimgset.NewImageSet(po.Concurrency, prefixedLogger), po.Concurrency, prefixedLogger)
+	includeNonDistributable := po.IncludeNonDistributableFlag.IncludeNonDistributable
 
-	imageSet := ctlimgset.NewImageSet(concurrency, prefixedLogger)
-	tarImageSet := ctlimgset.NewTarImageSet(imageSet, concurrency, prefixedLogger)
-
-	_, err = tarImageSet.Export(unprocessedImageRefs, processedImages, path, registry, imagetar.NewImageLayerWriterCheck(false))
+	_, err = tarImageSet.Export(unprocessedImageRefs, processedImages, po.TarDst, registry, imagetar.NewImageLayerWriterCheck(includeNonDistributable))
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return "", nil
+	return nil
 }
 
-func (po *BuildOptions) buildImage(registry registry.Registry) (string, error) {
+func (po *BuildOptions) buildImage(registry registry.Registry) error {
 	prefixedLogger := util.NewUIPrefixedWriter("build | ", po.ui)
 
-	if po.LockOutputFlags.LockFilePath != "" {
-		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
-	}
-
-	contents := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths)
-	isBundle, err := contents.PresentsAsBundle()
+	err := po.validateImageUserFlags()
 	if err != nil {
-		return "", err
-	}
-	if isBundle {
-		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
+		return err
 	}
 
-	//TODO: provide ui as the writer
-	loggerWriter := os.Stdout
-	tarImg := ctlimg.NewTarImage(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, loggerWriter)
-	imageBuild, err := tarImg.AsFileImage(map[string]string{})
+	imageFile, err := ctlimg.NewTarImage(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, InfoLog{po.ui}).AsFileImage(map[string]string{})
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	builtImageDigest, err := po.getDigest(po.ImageFlags.Image, imageBuild)
+	imageDigest, err := po.getDigest(po.ImageFlags.Image, imageFile)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	tag, err := po.getTag(po.ImageFlags.Image)
+	imageTag, err := po.getTag(po.ImageFlags.Image)
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	plainImage := plainimage.NewFetchedPlainImageWithTag(builtImageDigest, tag, imageBuild.Image)
-
-	// TODO: thread in via flags
-	path := "/tmp/testbundle.tar"
-	//TODO: thread via flag
-	concurrency := 1
-
-	imageSet := ctlimgset.NewImageSet(concurrency, prefixedLogger)
-	tarImageSet := ctlimgset.NewTarImageSet(imageSet, concurrency, prefixedLogger)
 
 	processedImages := ctlimgset.NewProcessedImages()
-	fetch, err := plainImage.Fetch()
-	if err != nil {
-		return "", err
-	}
-
 	processedImages.Add(ctlimgset.ProcessedImage{
 		UnprocessedImageRef: ctlimgset.UnprocessedImageRef{
-			DigestRef: plainImage.DigestRef(),
-			Tag:       plainImage.Tag(),
+			DigestRef: imageDigest,
+			Tag:       imageTag,
 		},
-		DigestRef:  plainImage.DigestRef(),
-		Image:      fetch,
+		DigestRef:  imageDigest,
+		Image:      imageFile,
 		ImageIndex: nil,
 	})
 
-	_, err = tarImageSet.Export(ctlimgset.NewUnprocessedImageRefs(), processedImages, path, registry, imagetar.NewImageLayerWriterCheck(false))
+	isNonDistributable := po.IncludeNonDistributableFlag.IncludeNonDistributable
+	tarImageSet := ctlimgset.NewTarImageSet(ctlimgset.NewImageSet(po.Concurrency, prefixedLogger), po.Concurrency, prefixedLogger)
+	_, err = tarImageSet.Export(ctlimgset.NewUnprocessedImageRefs(), processedImages, po.TarDst, registry, imagetar.NewImageLayerWriterCheck(isNonDistributable))
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return "", nil
+	return nil
+}
+
+func (po *BuildOptions) validateImageUserFlags() error {
+	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).PresentsAsBundle()
+	if err != nil {
+		return err
+	}
+	if isBundle {
+		return fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
+	}
+	return nil
 }
 
 func (po *BuildOptions) getDigest(imageRef string, buildImage *ctlimg.FileImage) (string, error) {
-	digest, err := buildImage.Digest()
+	parseReference, err := regname.ParseReference(imageRef)
 	if err != nil {
 		return "", err
 	}
 
-	parseReference, err := regname.ParseReference(imageRef)
+	digest, err := buildImage.Digest()
 	if err != nil {
 		return "", err
 	}
@@ -246,4 +232,13 @@ func (po *BuildOptions) getTag(imageRef string) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", imageRef, err)
 	}
 	return uploadRef.TagStr(), nil
+}
+
+type InfoLog struct {
+	ui ui.UI
+}
+
+func (l InfoLog) Write(data []byte) (int, error) {
+	l.ui.BeginLinef(string(data))
+	return len(data), nil
 }
