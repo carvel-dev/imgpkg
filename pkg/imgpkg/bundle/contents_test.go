@@ -12,6 +12,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewContentsBundleWithBundles(t *testing.T) {
@@ -48,6 +49,16 @@ images:
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}
+	})
+
+	t.Run("build is successful", func(t *testing.T) {
+		subject := bundle.NewContents([]string{bundleDir}, nil)
+
+		fileImage, err := subject.Build(fakeUI)
+		require.NoError(t, err)
+		config, err := fileImage.ConfigFile()
+		require.NoError(t, err)
+		require.Contains(t, config.Config.Labels, "dev.carvel.imgpkg.bundle")
 	})
 }
 

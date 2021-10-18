@@ -21,14 +21,14 @@ import (
 type BuildOptions struct {
 	ui ui.UI
 
-	ImageFlags    ImageFlags
-	BundleFlags   BundleFlags
-	FileFlags     FileFlags
-	RegistryFlags RegistryFlags
-
-	TarDst                      string
-	Concurrency                 int
+	ImageFlags                  ImageFlags
+	BundleFlags                 BundleFlags
+	FileFlags                   FileFlags
+	RegistryFlags               RegistryFlags
 	IncludeNonDistributableFlag IncludeNonDistributableFlag
+
+	TarDst      string
+	Concurrency int
 }
 
 func NewBuildOptions(ui ui.UI) *BuildOptions {
@@ -218,7 +218,7 @@ func (bo *BuildOptions) getDigest(imageRef string, buildImage *ctlimg.FileImage)
 		return "", err
 	}
 
-	newDigest, err := regname.NewDigest(parseReference.Context().RepositoryStr() + "@" + digest.String())
+	newDigest, err := regname.NewDigest(fmt.Sprintf("%s@%s", parseReference.Context().Name(), digest.String()))
 	if err != nil {
 		return "", err
 	}

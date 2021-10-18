@@ -64,6 +64,23 @@ func (b Contents) PresentsAsBundle() (bool, error) {
 	return true, nil
 }
 
+func (b Contents) Build(ui ui.UI) (*ctlimg.FileImage, error) {
+	err := b.validate()
+	if err != nil {
+		return nil, err
+	}
+
+	labels := map[string]string{BundleConfigLabel: "true"}
+	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
+
+	img, err := tarImg.AsFileImage(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, err
+}
+
 func (b Contents) validate() error {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
@@ -144,23 +161,6 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 		ImgpkgDir, strings.Join(b.paths, ", "), path)
 
 	return bundleValidationError{msg}
-}
-
-func (b Contents) Build(ui ui.UI) (*ctlimg.FileImage, error) {
-	err := b.validate()
-	if err != nil {
-		return nil, err
-	}
-
-	labels := map[string]string{BundleConfigLabel: "true"}
-	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
-
-	img, err := tarImg.AsFileImage(labels)
-	if err != nil {
-		return nil, err
-	}
-
-	return img, err
 }
 
 type bundleValidationError struct {
