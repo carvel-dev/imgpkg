@@ -92,7 +92,7 @@ func TestBuildFilesPermissions(t *testing.T) {
 	})
 }
 
-func TestBundleBuildPullAnnotation(t *testing.T) {
+func TestBuildBundlePullAnnotation(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
@@ -167,4 +167,22 @@ func TestBuildImage(t *testing.T) {
 		"config/config.yml",
 		"config/inner-dir/README.txt",
 	})
+}
+
+func TestBuildWithTagIsPreserved(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
+	bundleRefWithTag := env.Image + ":tag1"
+	imgpkg.Run([]string{"build", "-b", bundleRefWithTag, "-f", bundleDir, "--to-tar", tempBundleTarFile})
+	imgpkg.Run([]string{"copy", "--to-repo", env.Image, "--tar", tempBundleTarFile})
+
+	ref, _ := name.NewTag(bundleRefWithTag, name.WeakValidation)
+	_, err := remote.Head(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(t, err)
 }
