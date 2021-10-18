@@ -64,8 +64,8 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs, preloadedImages *ProcessedImages, imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
 
-	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All()))
-	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())) }()
+	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All())+len(preloadedImages.All()))
+	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())+len(preloadedImages.All())) }()
 
 	var refs []imagedesc.Metadata
 
@@ -90,7 +90,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs, preloadedImages *Pro
 			return nil, err
 		}
 
-		i.ui.BeginLinef("will locally export %s\n", img.DigestRef)
+		i.ui.BeginLinef("will export %s\n", img.DigestRef)
 		err = ids.AddImage(imagedesc.Metadata{Ref: ref, Tag: img.Tag, Labels: img.Labels}, img.Image)
 		if err != nil {
 			return nil, err
