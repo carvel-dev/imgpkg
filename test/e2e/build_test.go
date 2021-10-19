@@ -9,11 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
 	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +35,9 @@ func TestBuildBundleOfBundles(t *testing.T) {
 		bundleDigestRef = fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, out))
 	})
 
+	tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+	tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+
 	logger.Section("create new bundle with bundles", func() {
 		imagesLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
@@ -41,10 +47,9 @@ images:
 `, bundleDigestRef)
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
-		tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
-		tempBundleTarFile := filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
-
-		imgpkg.Run([]string{"build", "-b", env.Image, "-f", bundleDir, "--to-tar", tempBundleTarFile})
+		out := imgpkg.Run([]string{"build", "--tty", "-b", env.Image, "-f", bundleDir, "--to-tar", tempBundleTarFile})
+		indexOfImageDigest := strings.Index(out, fmt.Sprintf("Built '%s", env.Image))
+		assertTarballLabelsOuterBundle(tempBundleTarFile, fmt.Sprintf("%s@%s", env.Image, helpers.ExtractDigest(t, out[indexOfImageDigest:])), t)
 	})
 }
 
@@ -185,4 +190,20 @@ func TestBuildWithTagIsPreserved(t *testing.T) {
 	ref, _ := name.NewTag(bundleRefWithTag, name.WeakValidation)
 	_, err := remote.Head(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(t, err)
+}
+
+func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
+	tarReader := imagetar.NewTarReader(imageTarPath)
+	imageOrIndices, err := tarReader.Read()
+	assert.NoError(t, err)
+	var imageReferencesFound []imagedesc.ImageOrIndex
+	for _, imageOrIndex := range imageOrIndices {
+		if _, ok := imageOrIndex.Labels["dev.carvel.imgpkg.copy.root-bundle"]; ok {
+			imageReferencesFound = append(imageReferencesFound, imageOrIndex)
+		}
+	}
+
+	assert.NotNil(t, imageReferencesFound)
+	assert.Len(t, imageReferencesFound, 1)
+	assert.Equal(t, outerBundleRef, imageReferencesFound[0].Ref())
 }

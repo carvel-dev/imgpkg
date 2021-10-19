@@ -66,6 +66,7 @@ func (bo *BuildOptions) Run() error {
 
 	isBundle := bo.BundleFlags.Bundle != ""
 	isImage := bo.ImageFlags.Image != ""
+	var repoAndDigest string
 
 	switch {
 	case isBundle && isImage:
@@ -75,13 +76,13 @@ func (bo *BuildOptions) Run() error {
 		return fmt.Errorf("Expected either image or bundle")
 
 	case isBundle:
-		err = bo.buildBundle(reg)
+		repoAndDigest, err = bo.buildBundle(reg)
 		if err != nil {
 			return err
 		}
 
 	case isImage:
-		err = bo.buildImage(reg)
+		repoAndDigest, err = bo.buildImage(reg)
 		if err != nil {
 			return err
 		}
@@ -90,29 +91,29 @@ func (bo *BuildOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	bo.ui.BeginLinef("Succeeded")
+	bo.ui.BeginLinef("Built '%s'", repoAndDigest)
 
 	return nil
 }
 
-func (bo *BuildOptions) buildBundle(registry registry.Registry) error {
+func (bo *BuildOptions) buildBundle(registry registry.Registry) (string, error) {
 	prefixedLogger := util.NewUIPrefixedWriter("build | ", bo.ui)
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 
 	bundleFileImage, err := bundle.NewContents(bo.FileFlags.Files, bo.FileFlags.ExcludedFilePaths).Build(bo.ui)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer bundleFileImage.Remove()
 
 	bundleDigest, err := bo.getDigest(bo.BundleFlags.Bundle, bundleFileImage)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	bundleTag, err := bo.getTag(bo.BundleFlags.Bundle)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	plainImage := plainimage.NewFetchedPlainImageWithTag(bundleDigest, bundleTag, bundleFileImage)
@@ -120,7 +121,7 @@ func (bo *BuildOptions) buildBundle(registry registry.Registry) error {
 
 	_, imageRefs, err := rootBundle.AllImagesRefs(bo.Concurrency, levelLogger)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
@@ -146,33 +147,33 @@ func (bo *BuildOptions) buildBundle(registry registry.Registry) error {
 
 	_, err = tarImageSet.Export(unprocessedImageRefs, processedImages, bo.TarDst, registry, imagetar.NewImageLayerWriterCheck(includeNonDistributable))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return rootBundle.DigestRef(), nil
 }
 
-func (bo *BuildOptions) buildImage(registry registry.Registry) error {
+func (bo *BuildOptions) buildImage(registry registry.Registry) (string, error) {
 	prefixedLogger := util.NewUIPrefixedWriter("build | ", bo.ui)
 
 	err := bo.validateImageUserFlags()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	imageFile, err := ctlimg.NewTarImage(bo.FileFlags.Files, bo.FileFlags.ExcludedFilePaths, InfoLog{bo.ui}).AsFileImage(map[string]string{})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	imageDigest, err := bo.getDigest(bo.ImageFlags.Image, imageFile)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	imageTag, err := bo.getTag(bo.ImageFlags.Image)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	processedImages := ctlimgset.NewProcessedImages()
@@ -190,10 +191,10 @@ func (bo *BuildOptions) buildImage(registry registry.Registry) error {
 	tarImageSet := ctlimgset.NewTarImageSet(ctlimgset.NewImageSet(bo.Concurrency, prefixedLogger), bo.Concurrency, prefixedLogger)
 	_, err = tarImageSet.Export(ctlimgset.NewUnprocessedImageRefs(), processedImages, bo.TarDst, registry, imagetar.NewImageLayerWriterCheck(isNonDistributable))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return imageDigest, nil
 }
 
 func (bo *BuildOptions) validateImageUserFlags() error {
