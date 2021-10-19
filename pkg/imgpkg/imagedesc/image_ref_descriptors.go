@@ -114,6 +114,7 @@ func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescri
 	return imageRefDescs, err
 }
 
+// AddImage Add an image with a metadata. Useful for when an image doesn't originate from a registry. i.e. built locally.
 func (ids *ImageRefDescriptors) AddImage(imageMetadata Metadata, image regv1.Image) error {
 	img, err := ids.buildImage(imageMetadata, image)
 	if err != nil {

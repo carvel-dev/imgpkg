@@ -25,6 +25,7 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, ui goui.UI) TarImageSet 
 	return TarImageSet{imageSet, concurrency, ui}
 }
 
+// Export writes multiple images to a tarball
 func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, preloadedImages *ProcessedImages, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
 	ids, err := i.imageSet.Export(foundImages, preloadedImages, registry)
 	if err != nil {

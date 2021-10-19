@@ -47,6 +47,17 @@ func (b Contents) Push(uploadRef regname.Tag, registry ImagesMetadataWriter, ui 
 	return plainimage.NewContents(b.paths, b.excludedPaths).Push(uploadRef, labels, registry, ui)
 }
 
+// Build constructs an image from files on disk
+func (b Contents) Build(ui ui.UI) (*ctlimg.FileImage, error) {
+	err := b.validate()
+	if err != nil {
+		return nil, err
+	}
+
+	labels := map[string]string{BundleConfigLabel: "true"}
+	return ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui}).AsFileImage(labels)
+}
+
 func (b Contents) PresentsAsBundle() (bool, error) {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
@@ -62,23 +73,6 @@ func (b Contents) PresentsAsBundle() (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (b Contents) Build(ui ui.UI) (*ctlimg.FileImage, error) {
-	err := b.validate()
-	if err != nil {
-		return nil, err
-	}
-
-	labels := map[string]string{BundleConfigLabel: "true"}
-	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
-
-	img, err := tarImg.AsFileImage(labels)
-	if err != nil {
-		return nil, err
-	}
-
-	return img, err
 }
 
 func (b Contents) validate() error {

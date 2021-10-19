@@ -62,8 +62,8 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	return images, ids, err
 }
 
+// Export fetches images (UnprocessedImageRefs) and pre-fetched images ProcessedImages into a ImageRefDescriptors
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs, preloadedImages *ProcessedImages, imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
-
 	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All())+len(preloadedImages.All()))
 	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())+len(preloadedImages.All())) }()
 
