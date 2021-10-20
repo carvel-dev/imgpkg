@@ -67,7 +67,7 @@ func TestCopyTarSrc(t *testing.T) {
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
-		imageWithNonDistributableLayer := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
+		imageWithNonDistributableLayer, _ := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
 		nestedImageIndex := fakeRegistry.WithImageIndex("repo/nestedimageindex", imageWithNonDistributableLayer.Image)
 
 		randomImage := fakeRegistry.WithRandomImage("repo/randomimage")

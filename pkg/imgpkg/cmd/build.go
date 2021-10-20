@@ -23,15 +23,15 @@ import (
 type BuildOptions struct {
 	ui ui.UI
 
-	ImageFlags                  ImageFlags
-	BundleFlags                 BundleFlags
-	FileFlags                   FileFlags
-	RegistryFlags               RegistryFlags
-	SignatureFlags              SignatureFlags
-	IncludeNonDistributableFlag IncludeNonDistributableFlag
+	ImageFlags     ImageFlags
+	BundleFlags    BundleFlags
+	FileFlags      FileFlags
+	RegistryFlags  RegistryFlags
+	SignatureFlags SignatureFlags
 
-	TarDst      string
-	Concurrency int
+	TarDst                  string
+	Concurrency             int
+	IncludeNonDistributable bool
 }
 
 // NewBuildOptions constructor to BuildOptions
@@ -57,10 +57,11 @@ func NewBuildCmd(o *BuildOptions) *cobra.Command {
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.SignatureFlags.Set(cmd)
-	o.IncludeNonDistributableFlag.Set(cmd)
 
 	cmd.Flags().StringVar(&o.TarDst, "to-tar", "", "Location to write a tar file containing assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
+	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
+		"Include non-distributable layers when copying an image/bundle")
 	return cmd
 }
 
@@ -150,7 +151,7 @@ func (bo *BuildOptions) buildBundle(registry registry.Registry, signatureRetriev
 	})
 
 	tarImageSet := ctlimgset.NewTarImageSet(ctlimgset.NewImageSet(bo.Concurrency, prefixedLogger), bo.Concurrency, prefixedLogger)
-	includeNonDistributable := bo.IncludeNonDistributableFlag.IncludeNonDistributable
+	includeNonDistributable := bo.IncludeNonDistributable
 
 	_, err = tarImageSet.Export(rootBundleArtifactRefs, processedImages, bo.TarDst, registry, imagetar.NewImageLayerWriterCheck(includeNonDistributable))
 	if err != nil {
@@ -192,7 +193,7 @@ func (bo *BuildOptions) buildImage(registry registry.Registry, prefixedLogger ui
 		ImageIndex: nil,
 	})
 
-	isNonDistributable := bo.IncludeNonDistributableFlag.IncludeNonDistributable
+	isNonDistributable := bo.IncludeNonDistributable
 	tarImageSet := ctlimgset.NewTarImageSet(ctlimgset.NewImageSet(bo.Concurrency, prefixedLogger), bo.Concurrency, prefixedLogger)
 	_, err = tarImageSet.Export(ctlimgset.NewUnprocessedImageRefs(), processedImages, bo.TarDst, registry, imagetar.NewImageLayerWriterCheck(isNonDistributable))
 	if err != nil {

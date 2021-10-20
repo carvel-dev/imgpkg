@@ -128,7 +128,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
-	randomImageWithNonDistributableLayer := fakeRegistry.
+	randomImageWithNonDistributableLayer, _ := fakeRegistry.
 		WithRandomImage("library/image_with_non_dist_layer").WithNonDistributableLayer()
 
 	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").

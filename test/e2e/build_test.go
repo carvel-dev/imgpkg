@@ -6,6 +6,7 @@ package e2e
 import (
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
@@ -94,6 +96,37 @@ func TestBuildBundle(t *testing.T) {
 		ref, _ := name.NewTag(bundleRefWithTag, name.WeakValidation)
 		_, err := remote.Head(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 		require.NoError(t, err)
+	})
+
+	t.Run("Bundle contains an image with a non-distributable layer", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		imageWithNonDistributableLayer, nonDistributableLayer := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
+
+		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
+		imagesLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, imageWithNonDistributableLayer.RefDigest)
+		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
+
+		fakeRegistry.Build()
+
+		tempBundleTarFile := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(tempBundleTarFile)
+
+		imgpkg.Run([]string{"build", "--include-non-distributable-layers", "--tty", "-f", bundleDir, "-b", "repo/bundle", "--to-tar", tempBundleTarFile})
+		nonDistributableLayerDigest, err := nonDistributableLayer.Digest()
+		assert.NoError(t, err)
+
+		assertTarballContainsImageWithNDL(tempBundleTarFile, imageWithNonDistributableLayer.RefDigest, nonDistributableLayerDigest, t)
 	})
 
 	t.Run("Bundle with signed images are preserved", func(t *testing.T) {
@@ -267,7 +300,6 @@ images:
 	})
 }
 
-
 func TestBuildImage(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
@@ -320,4 +352,26 @@ func assertTarballContainsImage(imageTarPath string, imageRef string, t *testing
 	assert.NotNil(t, imageReferencesFound)
 	assert.Len(t, imageReferencesFound, 1)
 	assert.Equal(t, imageRef, imageReferencesFound[0].Ref())
+}
+
+func assertTarballContainsImageWithNDL(imageTarPath string, imageRef string, digest regv1.Hash, t *testing.T) {
+	tarReader := imagetar.NewTarReader(imageTarPath)
+	imageOrIndices, err := tarReader.Read()
+	assert.NoError(t, err)
+	var imageReferencesFound []imagedesc.ImageOrIndex
+	for _, imageOrIndex := range imageOrIndices {
+		if imageOrIndex.Ref() == imageRef {
+			imageReferencesFound = append(imageReferencesFound, imageOrIndex)
+		}
+	}
+
+	assert.NotNil(t, imageReferencesFound)
+	assert.Len(t, imageReferencesFound, 1)
+	assert.Equal(t, imageRef, imageReferencesFound[0].Ref())
+	layers, err := (*imageReferencesFound[0].Image).LayerByDigest(digest)
+	assert.NoError(t, err)
+	compressed, err := layers.Compressed()
+	assert.NoError(t, err)
+	_, err = ioutil.ReadAll(compressed)
+	assert.NoError(t, err)
 }

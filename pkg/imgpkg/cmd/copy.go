@@ -24,18 +24,18 @@ const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 type CopyOptions struct {
 	ui ui.UI
 
-	ImageFlags                  ImageFlags
-	BundleFlags                 BundleFlags
-	LockInputFlags              LockInputFlags
-	LockOutputFlags             LockOutputFlags
-	TarFlags                    TarFlags
-	RegistryFlags               RegistryFlags
-	SignatureFlags              SignatureFlags
-	IncludeNonDistributableFlag IncludeNonDistributableFlag
+	ImageFlags      ImageFlags
+	BundleFlags     BundleFlags
+	LockInputFlags  LockInputFlags
+	LockOutputFlags LockOutputFlags
+	TarFlags        TarFlags
+	RegistryFlags   RegistryFlags
+	SignatureFlags  SignatureFlags
 
 	RepoDst string
 
-	Concurrency int
+	Concurrency             int
+	IncludeNonDistributable bool
 }
 
 // NewCopyOptions constructor for building a CopyOptions, holding values derived via flags
@@ -66,10 +66,11 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.SignatureFlags.Set(cmd)
-	o.IncludeNonDistributableFlag.Set(cmd)
 
 	cmd.Flags().StringVar(&o.RepoDst, "to-repo", "", "Location to upload assets")
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
+	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
+		"Include non-distributable layers when copying an image/bundle")
 	return cmd
 }
 
@@ -82,7 +83,7 @@ func (c *CopyOptions) Run() error {
 	}
 
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
-	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributableFlag.IncludeNonDistributable
+	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributable
 
 	reg, err := registry.NewRegistry(registryOpts)
 	if err != nil {
@@ -108,7 +109,7 @@ func (c *CopyOptions) Run() error {
 		BundleFlags:             c.BundleFlags,
 		LockInputFlags:          c.LockInputFlags,
 		TarFlags:                c.TarFlags,
-		IncludeNonDistributable: c.IncludeNonDistributableFlag.IncludeNonDistributable,
+		IncludeNonDistributable: c.IncludeNonDistributable,
 		Concurrency:             c.Concurrency,
 
 		ui:                 levelLogger,
