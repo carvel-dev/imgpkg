@@ -120,6 +120,31 @@ func (r *FakeTestRegistryBuilder) WithBasicAuth(username string, password string
 	r.server.Config.Handler = authenticatedRegistry
 }
 
+// HTTPRequestLog Log entry for HTTP requests sent to the registry
+type HTTPRequestLog struct {
+	Method string
+	URL    string
+}
+
+// WithRequestLogging enables the logging of the HTTP requests sent to the registry
+func (r *FakeTestRegistryBuilder) WithRequestLogging() *[]HTTPRequestLog {
+	var httpRequestLog []HTTPRequestLog
+	parentHandler := r.server.Config.Handler
+
+	requestLogging := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		httpRequestLog = append(httpRequestLog, HTTPRequestLog{
+			Method: request.Method,
+			URL:    request.URL.String(),
+		})
+
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.server.Config.Handler = requestLogging
+
+	return &httpRequestLog
+}
+
 func (r *FakeTestRegistryBuilder) WithIdentityToken(idToken string) {
 	const accessToken string = "access_token"
 	r.auth = &authn.Bearer{Token: accessToken}

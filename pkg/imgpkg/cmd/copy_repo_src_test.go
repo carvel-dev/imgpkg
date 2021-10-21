@@ -402,7 +402,7 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 			{Image: randomImage2.RefDigest},
 		})
 
-	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle:some-tag",
 		"test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
 		{Image: bundleWithTwoImages.RefDigest},
 	})
@@ -437,6 +437,27 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 		})
 
 		assert.Equal(t, processedBundle.DigestRef, destRepo+"@"+bundleWithNestedBundle.Digest)
+	})
+
+	t.Run("When user defined tag is provided, it applies it after the upload of the blobs finishes", func(t *testing.T) {
+		subject := subject
+		subject.registry = fakeRegistry.Build()
+		subject.BundleFlags.Bundle = fakeRegistry.ReferenceOnTestServer(bundleWithNestedBundle.BundleName)
+
+		fakeDestRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogTrace})
+		defer fakeDestRegistry.CleanUp()
+
+		requestLog := fakeDestRegistry.WithRequestLogging()
+		fakeDestRegistry.Build()
+
+		destRepo := fakeDestRegistry.ReferenceOnTestServer("library/bundle-copy")
+		_, err := subject.CopyToRepo(destRepo)
+		require.NoError(t, err)
+
+		// Ensure that the last operation done against the registry is the creation of the tag
+		userDefinedTagRequest := (*requestLog)[len(*requestLog)-1]
+		assert.Equal(t, "/v2/library/bundle-copy/manifests/some-tag", userDefinedTagRequest.URL)
+		require.Equal(t, "PUT", userDefinedTagRequest.Method)
 	})
 
 	t.Run("When recursive bundle is enabled and a lock file is provided, it copies every image to repo", func(t *testing.T) {
@@ -871,6 +892,32 @@ images:
 
 	})
 
+	t.Run("When user defined tag is provided, it applies it after the upload of the blobs finishes", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		destinationImageName := "library/copied-img"
+		fakeDestRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogTrace})
+		defer fakeDestRegistry.CleanUp()
+
+		requestLog := fakeDestRegistry.WithRequestLogging()
+		fakeDestRegistry.Build()
+
+		imgToCopy := "library/image-to-copy:some-tag"
+		fakeRegistry.WithRandomImage(imgToCopy)
+
+		subject := subject
+		subject.ImageFlags.Image = fakeRegistry.ReferenceOnTestServer(imgToCopy)
+		subject.registry = fakeRegistry.Build()
+
+		_, err := subject.CopyToRepo(fakeDestRegistry.ReferenceOnTestServer(destinationImageName))
+		require.NoError(t, err)
+
+		// Ensure that the last operation done against the registry is the creation of the tag
+		userDefinedTagRequest := (*requestLog)[len(*requestLog)-1]
+		assert.Equal(t, "/v2/library/copied-img/manifests/some-tag", userDefinedTagRequest.URL)
+		require.Equal(t, "PUT", userDefinedTagRequest.Method)
+	})
 }
 
 type fakeSignatureRetriever struct {

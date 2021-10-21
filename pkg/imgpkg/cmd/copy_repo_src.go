@@ -77,6 +77,11 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		informUserToUseTheNonDistributableFlagWithDescriptors(
 			c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 
+		err = c.tagAllImages(processedImages)
+		if err != nil {
+			return nil, fmt.Errorf("Tagging images: %s", err)
+		}
+
 		return processedImages, nil
 	}
 
@@ -94,6 +99,11 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		if err := bundle.NoteCopy(processedImages, c.registry, c.ui); err != nil {
 			return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
 		}
+	}
+
+	err = c.tagAllImages(processedImages)
+	if err != nil {
+		return nil, fmt.Errorf("Tagging images: %s", err)
 	}
 
 	informUserToUseTheNonDistributableFlagWithDescriptors(
@@ -241,4 +251,60 @@ func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string 
 
 	}
 	return mediaTypes
+}
+
+func (c CopyRepoSrc) tagAllImages(processedImages *ctlimgset.ProcessedImages) error {
+	throttle := util.NewThrottle(c.Concurrency)
+
+	totalThreads := 0
+	errCh := make(chan error, processedImages.Len())
+	for _, item := range processedImages.All() {
+		item := item // copy
+
+		if item.Tag == "" {
+			continue
+		}
+
+		totalThreads++
+		go func() {
+			throttle.Take()
+			defer throttle.Done()
+
+			digest, err := regname.NewDigest(item.DigestRef)
+			if err != nil {
+				panic(fmt.Sprintf("Internal consistency: %s should be a digest", item.DigestRef))
+			}
+
+			customTagRef := digest.Tag(item.Tag)
+
+			switch {
+			case item.Image != nil:
+				err = c.registry.WriteTag(customTagRef, item.Image)
+				if err != nil {
+					errCh <- fmt.Errorf("Tagging image %s: %s", digest.Name(), err)
+					return
+				}
+
+			case item.ImageIndex != nil:
+				err = c.registry.WriteTag(customTagRef, item.ImageIndex)
+				if err != nil {
+					errCh <- fmt.Errorf("Tagging image index %s: %s", digest.Name(), err)
+					return
+				}
+
+			default:
+				panic("Unknown item")
+			}
+
+			errCh <- nil
+		}()
+	}
+
+	for i := 0; i < totalThreads; i++ {
+		err := <-errCh
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
