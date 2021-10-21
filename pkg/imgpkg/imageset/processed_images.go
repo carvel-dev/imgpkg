@@ -63,6 +63,14 @@ func (i *ProcessedImages) FindByURL(unprocessedImageURL UnprocessedImageRef) (Pr
 	return img, found
 }
 
+// Len returns the length of Processed Images
+func (i *ProcessedImages) Len() int {
+	i.imgsLock.Lock()
+	defer i.imgsLock.Unlock()
+
+	return len(i.imgs)
+}
+
 func (i *ProcessedImages) All() []ProcessedImage {
 	i.imgsLock.Lock()
 	defer i.imgsLock.Unlock()
