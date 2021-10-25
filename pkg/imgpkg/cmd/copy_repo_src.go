@@ -59,6 +59,7 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.ui.Tracef("CopyToRepo(%s)\n", repo)
 
+	var processedImages *ctlimgset.ProcessedImages
 	importRepo, err := regname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
@@ -69,45 +70,35 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		processedImages, err := c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		unprocessedImageRefs, bundles, err := c.getAllSourceImages()
 		if err != nil {
 			return nil, err
 		}
 
-		informUserToUseTheNonDistributableFlagWithDescriptors(
-			c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
-
-		err = c.tagAllImages(processedImages)
+		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 		if err != nil {
-			return nil, fmt.Errorf("Tagging images: %s", err)
+			return nil, err
 		}
 
-		return processedImages, nil
-	}
-
-	unprocessedImageRefs, bundles, err := c.getAllSourceImages()
-	if err != nil {
-		return nil, err
-	}
-
-	processedImages, ids, err := c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, bundle := range bundles {
-		if err := bundle.NoteCopy(processedImages, c.registry, c.ui); err != nil {
-			return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+		for _, bundle := range bundles {
+			if err := bundle.NoteCopy(processedImages, c.registry, c.ui); err != nil {
+				return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			}
 		}
 	}
+
+	informUserToUseTheNonDistributableFlagWithDescriptors(
+		c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 
 	err = c.tagAllImages(processedImages)
 	if err != nil {
 		return nil, fmt.Errorf("Tagging images: %s", err)
 	}
-
-	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.ui, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
 
 	return processedImages, nil
 }

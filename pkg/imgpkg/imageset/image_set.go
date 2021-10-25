@@ -48,18 +48,18 @@ func NewImageSet(concurrency int, ui goui.UI) ImageSet {
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	ids, err := i.Export(foundImages, registry)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	imgOrIndexes := imagedesc.NewDescribedReader(ids, ids).Read()
 
 	images, err := i.Import(imgOrIndexes, importRepo, registry)
 
-	return images, ids, err
+	return images, err
 }
 
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
