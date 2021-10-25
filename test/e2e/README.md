@@ -37,11 +37,11 @@ Test scripts pass down arguments ultimate to the `go test` invocation.
 Specify which tests to run using the `-run` `go test` argument:
 
 ```bash
-$ ./hack/test-e2e.sh -run *Copy*FromATar*
+$ ./hack/test-e2e.sh -run ".*Copy.*FromATar.*"
 ```
 
 or
 
 ```bash
-$ ./hack/test-all-local-registry.sh 5001 -run *Copy*FromATar*
+$ ./hack/test-all-local-registry.sh 5001 -run ".*Copy.*FromATar.*"
 ```
