@@ -15,7 +15,7 @@ func TestIncludesNonDistributableLayerWhenFlagIsProvided(t *testing.T) {
 	}
 
 	distributableFlag := true
-	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imageLayer, nil))
 	if err != nil {
 		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
 	}
@@ -31,7 +31,7 @@ func TestDoesNotIncludeNonDistributableLayerWhenFlagIsNotProvided(t *testing.T) 
 	}
 
 	distributableFlag := false
-	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imageLayer, nil))
 	if err != nil {
 		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
 	}
@@ -45,7 +45,7 @@ func TestIncludesDistributableLayer(t *testing.T) {
 	imageLayer := imagedesc.ImageLayerDescriptor{}
 
 	distributableFlag := false
-	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	shouldWrite, err := ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imageLayer, nil))
 	if err != nil {
 		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
 	}
@@ -55,7 +55,7 @@ func TestIncludesDistributableLayer(t *testing.T) {
 	}
 
 	distributableFlag = true
-	shouldWrite, err = ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imageLayer, nil))
+	shouldWrite, err = ImageLayerWriterFilter{distributableFlag}.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imageLayer, nil))
 	if err != nil {
 		t.Fatalf("Expected checking layer to succeed but got an error: %s", err)
 	}
