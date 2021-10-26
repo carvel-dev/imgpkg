@@ -48,18 +48,18 @@ func NewImageSet(concurrency int, ui goui.UI) ImageSet {
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, *imagedesc.ImageRefDescriptors, error) {
+	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
 
 	ids, err := i.Export(foundImages, registry)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	imgOrIndexes := imagedesc.NewDescribedReader(ids, ids).Read()
 
 	images, err := i.Import(imgOrIndexes, importRepo, registry)
 
-	return images, ids, err
+	return images, err
 }
 
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
@@ -137,7 +137,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
-			processedImage, err := i.tagAndVerifyItem(item, importRepo, registry)
+			processedImage, err := i.verifyImageOrIndex(item, importRepo, registry)
 			if err == nil {
 				importedImages.Add(processedImage)
 			}
@@ -222,7 +222,7 @@ func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repositor
 	return uploadTagRef, nil
 }
 
-func (i *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
+func (i *ImageSet) verifyImageOrIndex(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
 	existingRef, err := regname.NewDigest(item.Ref())
 	if err != nil {
 		return ProcessedImage{}, err
@@ -231,11 +231,6 @@ func (i *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regn
 	importDigestRef, err := i.verifyItemCopied(item, importRepo, registry)
 	if err != nil {
 		return ProcessedImage{}, err
-	}
-
-	err = i.tagItemCopied(item, importRepo, registry, importDigestRef)
-	if err != nil {
-		return ProcessedImage{}, fmt.Errorf("Importing image %s: %s", existingRef.Name(), err)
 	}
 
 	var regImage regv1.Image
@@ -252,33 +247,6 @@ func (i *ImageSet) tagAndVerifyItem(item imagedesc.ImageOrIndex, importRepo regn
 		Image:               regImage,
 		ImageIndex:          regImageIndex,
 	}, nil
-}
-
-func (i *ImageSet) tagItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter, importDigestRef regname.Digest) error {
-	if item.Tag() != "" {
-		uploadOriginalTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), item.Tag()))
-		if err != nil {
-			return fmt.Errorf("Building upload tag image ref: %s", err)
-		}
-
-		switch {
-		case item.Image != nil:
-			err = registry.WriteTag(uploadOriginalTagRef, *item.Image)
-			if err != nil {
-				return fmt.Errorf("Importing image as %s: %s", importDigestRef.Name(), err)
-			}
-
-		case item.Index != nil:
-			err = registry.WriteTag(uploadOriginalTagRef, *item.Index)
-			if err != nil {
-				return fmt.Errorf("Importing image index as %s: %s", importDigestRef.Name(), err)
-			}
-
-		default:
-			panic("Unknown item")
-		}
-	}
-	return nil
 }
 
 func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Digest, error) {
