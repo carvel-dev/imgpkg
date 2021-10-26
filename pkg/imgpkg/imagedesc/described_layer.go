@@ -27,9 +27,7 @@ func NewDescribedLayer(desc ImageLayerDescriptor, contents LayerContents) Descri
 func (l DescribedLayer) Digest() (regv1.Hash, error) { return regv1.NewHash(l.desc.Digest) }
 func (l DescribedLayer) DiffID() (regv1.Hash, error) { return regv1.NewHash(l.desc.DiffID) }
 
-func (l DescribedLayer) Compressed() (io.ReadCloser, error) { return l.contents.Open() }
-
-func (l DescribedLayer) Uncompressed() (io.ReadCloser, error) {
+func (l DescribedLayer) Compressed() (io.ReadCloser, error) {
 	rc, err := l.contents.Open()
 	if err != nil {
 		return nil, err
@@ -45,7 +43,16 @@ func (l DescribedLayer) Uncompressed() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("Creating verified reader: %v", err)
 	}
 
-	return gzip.ReadCloser(rc), nil
+	return rc, nil
+}
+
+func (l DescribedLayer) Uncompressed() (io.ReadCloser, error) {
+	rc, err := l.Compressed()
+	if err != nil {
+		return nil, err
+	}
+
+	return gzip.UnzipReadCloser(rc)
 }
 
 func (l DescribedLayer) Size() (int64, error) { return l.desc.Size, nil }
