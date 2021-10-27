@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"golang.org/x/sync/errgroup"
 )
 

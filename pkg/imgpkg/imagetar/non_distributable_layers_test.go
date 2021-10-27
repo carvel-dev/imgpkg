@@ -6,7 +6,7 @@ package imagetar
 import (
 	"testing"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 )
 
 func TestIncludesNonDistributableLayerWhenFlagIsProvided(t *testing.T) {

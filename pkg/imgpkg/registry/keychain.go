@@ -6,7 +6,7 @@ import (
 	"context"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
-	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
 // Keychain implements an authn.Keychain interface by composing multiple keychains.

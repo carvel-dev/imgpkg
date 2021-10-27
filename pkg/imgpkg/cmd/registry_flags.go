@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/spf13/cobra"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type RegistryFlags struct {

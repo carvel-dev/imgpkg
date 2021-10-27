@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/cppforlife/go-cli-ui/ui"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 func TestLevelLogger(t *testing.T) {

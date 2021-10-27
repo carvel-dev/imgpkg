@@ -10,8 +10,8 @@ import (
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
 )
 
 type TarImageSet struct {

@@ -13,11 +13,11 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestCopyBundleToDifferentRepository(t *testing.T) {

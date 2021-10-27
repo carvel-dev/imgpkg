@@ -6,8 +6,8 @@ package e2e
 import (
 	"testing"
 
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestVersion(t *testing.T) {

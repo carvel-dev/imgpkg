@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	uitest "github.com/cppforlife/go-cli-ui/ui/test"
-	"github.com/k14s/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestTagList(t *testing.T) {

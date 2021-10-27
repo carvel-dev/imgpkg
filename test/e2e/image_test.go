@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/k14s/imgpkg/test/helpers"
+	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestPushPull(t *testing.T) {

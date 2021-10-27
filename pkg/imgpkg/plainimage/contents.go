@@ -12,7 +12,7 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 )
 
 type Contents struct {

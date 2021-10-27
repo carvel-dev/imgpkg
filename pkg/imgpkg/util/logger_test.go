@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 func TestLogger(t *testing.T) {

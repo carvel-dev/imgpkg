@@ -4,7 +4,7 @@ package bundlefakes
 import (
 	"sync"
 
-	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 )
 
 type FakeImagesLockLocationConfig struct {

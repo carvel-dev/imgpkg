@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	ctlbundle "github.com/k14s/imgpkg/pkg/imgpkg/bundle"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
-	"github.com/k14s/imgpkg/pkg/imgpkg/imagetar"
-	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
+	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	ctlimgset "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 type SignatureRetriever interface {

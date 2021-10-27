@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 const (

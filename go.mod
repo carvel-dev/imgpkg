@@ -1,4 +1,4 @@
-module github.com/k14s/imgpkg
+module github.com/vmware-tanzu/carvel-imgpkg
 
 go 1.17
 
