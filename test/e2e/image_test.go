@@ -4,7 +4,9 @@
 package e2e
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
@@ -17,8 +19,12 @@ func TestPushPull(t *testing.T) {
 
 	testDir := env.Assets.CreateTempFolder("imgpkg-test-basic")
 
-	imgpkg.Run([]string{"push", "-i", env.Image, "-f", env.Assets.SimpleAppDir()})
-	imgpkg.Run([]string{"pull", "-i", env.Image, "-o", testDir})
+	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", env.Assets.SimpleAppDir()})
+	digest := helpers.ExtractDigest(t, out)
+
+	splits := strings.Split(digest, ":")
+	imageRefWithTag := env.Image + ":" + fmt.Sprintf("%s-%s.imgpkg", splits[0], splits[1])
+	imgpkg.Run([]string{"pull", "-i", imageRefWithTag, "-o", testDir})
 
 	env.Assets.ValidateFilesAreEqual(env.Assets.SimpleAppDir(), testDir, []string{
 		"README.md",

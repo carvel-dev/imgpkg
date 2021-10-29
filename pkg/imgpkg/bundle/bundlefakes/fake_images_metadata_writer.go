@@ -50,19 +50,6 @@ type FakeImagesMetadataWriter struct {
 		result1 *remote.Descriptor
 		result2 error
 	}
-	HeadStub        func(name.Reference) (*v1.Descriptor, error)
-	headMutex       sync.RWMutex
-	headArgsForCall []struct {
-		arg1 name.Reference
-	}
-	headReturns struct {
-		result1 *v1.Descriptor
-		result2 error
-	}
-	headReturnsOnCall map[int]struct {
-		result1 *v1.Descriptor
-		result2 error
-	}
 	ImageStub        func(name.Reference) (v1.Image, error)
 	imageMutex       sync.RWMutex
 	imageArgsForCall []struct {
@@ -76,19 +63,6 @@ type FakeImagesMetadataWriter struct {
 		result1 v1.Image
 		result2 error
 	}
-	IndexStub        func(name.Reference) (v1.ImageIndex, error)
-	indexMutex       sync.RWMutex
-	indexArgsForCall []struct {
-		arg1 name.Reference
-	}
-	indexReturns struct {
-		result1 v1.ImageIndex
-		result2 error
-	}
-	indexReturnsOnCall map[int]struct {
-		result1 v1.ImageIndex
-		result2 error
-	}
 	WriteImageStub        func(name.Reference, v1.Image) error
 	writeImageMutex       sync.RWMutex
 	writeImageArgsForCall []struct {
@@ -99,6 +73,18 @@ type FakeImagesMetadataWriter struct {
 		result1 error
 	}
 	writeImageReturnsOnCall map[int]struct {
+		result1 error
+	}
+	WriteTagStub        func(name.Tag, remote.Taggable) error
+	writeTagMutex       sync.RWMutex
+	writeTagArgsForCall []struct {
+		arg1 name.Tag
+		arg2 remote.Taggable
+	}
+	writeTagReturns struct {
+		result1 error
+	}
+	writeTagReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -302,70 +288,6 @@ func (fake *FakeImagesMetadataWriter) GetReturnsOnCall(i int, result1 *remote.De
 	}{result1, result2}
 }
 
-func (fake *FakeImagesMetadataWriter) Head(arg1 name.Reference) (*v1.Descriptor, error) {
-	fake.headMutex.Lock()
-	ret, specificReturn := fake.headReturnsOnCall[len(fake.headArgsForCall)]
-	fake.headArgsForCall = append(fake.headArgsForCall, struct {
-		arg1 name.Reference
-	}{arg1})
-	stub := fake.HeadStub
-	fakeReturns := fake.headReturns
-	fake.recordInvocation("Head", []interface{}{arg1})
-	fake.headMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeImagesMetadataWriter) HeadCallCount() int {
-	fake.headMutex.RLock()
-	defer fake.headMutex.RUnlock()
-	return len(fake.headArgsForCall)
-}
-
-func (fake *FakeImagesMetadataWriter) HeadCalls(stub func(name.Reference) (*v1.Descriptor, error)) {
-	fake.headMutex.Lock()
-	defer fake.headMutex.Unlock()
-	fake.HeadStub = stub
-}
-
-func (fake *FakeImagesMetadataWriter) HeadArgsForCall(i int) name.Reference {
-	fake.headMutex.RLock()
-	defer fake.headMutex.RUnlock()
-	argsForCall := fake.headArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeImagesMetadataWriter) HeadReturns(result1 *v1.Descriptor, result2 error) {
-	fake.headMutex.Lock()
-	defer fake.headMutex.Unlock()
-	fake.HeadStub = nil
-	fake.headReturns = struct {
-		result1 *v1.Descriptor
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesMetadataWriter) HeadReturnsOnCall(i int, result1 *v1.Descriptor, result2 error) {
-	fake.headMutex.Lock()
-	defer fake.headMutex.Unlock()
-	fake.HeadStub = nil
-	if fake.headReturnsOnCall == nil {
-		fake.headReturnsOnCall = make(map[int]struct {
-			result1 *v1.Descriptor
-			result2 error
-		})
-	}
-	fake.headReturnsOnCall[i] = struct {
-		result1 *v1.Descriptor
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *FakeImagesMetadataWriter) Image(arg1 name.Reference) (v1.Image, error) {
 	fake.imageMutex.Lock()
 	ret, specificReturn := fake.imageReturnsOnCall[len(fake.imageArgsForCall)]
@@ -426,70 +348,6 @@ func (fake *FakeImagesMetadataWriter) ImageReturnsOnCall(i int, result1 v1.Image
 	}
 	fake.imageReturnsOnCall[i] = struct {
 		result1 v1.Image
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesMetadataWriter) Index(arg1 name.Reference) (v1.ImageIndex, error) {
-	fake.indexMutex.Lock()
-	ret, specificReturn := fake.indexReturnsOnCall[len(fake.indexArgsForCall)]
-	fake.indexArgsForCall = append(fake.indexArgsForCall, struct {
-		arg1 name.Reference
-	}{arg1})
-	stub := fake.IndexStub
-	fakeReturns := fake.indexReturns
-	fake.recordInvocation("Index", []interface{}{arg1})
-	fake.indexMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeImagesMetadataWriter) IndexCallCount() int {
-	fake.indexMutex.RLock()
-	defer fake.indexMutex.RUnlock()
-	return len(fake.indexArgsForCall)
-}
-
-func (fake *FakeImagesMetadataWriter) IndexCalls(stub func(name.Reference) (v1.ImageIndex, error)) {
-	fake.indexMutex.Lock()
-	defer fake.indexMutex.Unlock()
-	fake.IndexStub = stub
-}
-
-func (fake *FakeImagesMetadataWriter) IndexArgsForCall(i int) name.Reference {
-	fake.indexMutex.RLock()
-	defer fake.indexMutex.RUnlock()
-	argsForCall := fake.indexArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeImagesMetadataWriter) IndexReturns(result1 v1.ImageIndex, result2 error) {
-	fake.indexMutex.Lock()
-	defer fake.indexMutex.Unlock()
-	fake.IndexStub = nil
-	fake.indexReturns = struct {
-		result1 v1.ImageIndex
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeImagesMetadataWriter) IndexReturnsOnCall(i int, result1 v1.ImageIndex, result2 error) {
-	fake.indexMutex.Lock()
-	defer fake.indexMutex.Unlock()
-	fake.IndexStub = nil
-	if fake.indexReturnsOnCall == nil {
-		fake.indexReturnsOnCall = make(map[int]struct {
-			result1 v1.ImageIndex
-			result2 error
-		})
-	}
-	fake.indexReturnsOnCall[i] = struct {
-		result1 v1.ImageIndex
 		result2 error
 	}{result1, result2}
 }
@@ -556,6 +414,68 @@ func (fake *FakeImagesMetadataWriter) WriteImageReturnsOnCall(i int, result1 err
 	}{result1}
 }
 
+func (fake *FakeImagesMetadataWriter) WriteTag(arg1 name.Tag, arg2 remote.Taggable) error {
+	fake.writeTagMutex.Lock()
+	ret, specificReturn := fake.writeTagReturnsOnCall[len(fake.writeTagArgsForCall)]
+	fake.writeTagArgsForCall = append(fake.writeTagArgsForCall, struct {
+		arg1 name.Tag
+		arg2 remote.Taggable
+	}{arg1, arg2})
+	stub := fake.WriteTagStub
+	fakeReturns := fake.writeTagReturns
+	fake.recordInvocation("WriteTag", []interface{}{arg1, arg2})
+	fake.writeTagMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeImagesMetadataWriter) WriteTagCallCount() int {
+	fake.writeTagMutex.RLock()
+	defer fake.writeTagMutex.RUnlock()
+	return len(fake.writeTagArgsForCall)
+}
+
+func (fake *FakeImagesMetadataWriter) WriteTagCalls(stub func(name.Tag, remote.Taggable) error) {
+	fake.writeTagMutex.Lock()
+	defer fake.writeTagMutex.Unlock()
+	fake.WriteTagStub = stub
+}
+
+func (fake *FakeImagesMetadataWriter) WriteTagArgsForCall(i int) (name.Tag, remote.Taggable) {
+	fake.writeTagMutex.RLock()
+	defer fake.writeTagMutex.RUnlock()
+	argsForCall := fake.writeTagArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeImagesMetadataWriter) WriteTagReturns(result1 error) {
+	fake.writeTagMutex.Lock()
+	defer fake.writeTagMutex.Unlock()
+	fake.WriteTagStub = nil
+	fake.writeTagReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeImagesMetadataWriter) WriteTagReturnsOnCall(i int, result1 error) {
+	fake.writeTagMutex.Lock()
+	defer fake.writeTagMutex.Unlock()
+	fake.WriteTagStub = nil
+	if fake.writeTagReturnsOnCall == nil {
+		fake.writeTagReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.writeTagReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeImagesMetadataWriter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -565,14 +485,12 @@ func (fake *FakeImagesMetadataWriter) Invocations() map[string][][]interface{} {
 	defer fake.firstImageExistsMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
-	fake.headMutex.RLock()
-	defer fake.headMutex.RUnlock()
 	fake.imageMutex.RLock()
 	defer fake.imageMutex.RUnlock()
-	fake.indexMutex.RLock()
-	defer fake.indexMutex.RUnlock()
 	fake.writeImageMutex.RLock()
 	defer fake.writeImageMutex.RUnlock()
+	fake.writeTagMutex.RLock()
+	defer fake.writeTagMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

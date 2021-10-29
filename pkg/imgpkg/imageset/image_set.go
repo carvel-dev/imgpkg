@@ -147,7 +147,7 @@ func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan er
 }
 
 func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
-	uploadTagRef, err := buildUploadTagRef(item, importRepo)
+	uploadTagRef, err := util.BuildDefaultUploadTagRef(item, importRepo)
 	if err != nil {
 		return regname.Tag{}, nil, err
 	}
@@ -191,20 +191,6 @@ func (i ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagR
 	return regv1.Image(imageWithRef), nil
 }
 
-func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repository) (regname.Tag, error) {
-	itemDigest, err := item.Digest()
-	if err != nil {
-		return regname.Tag{}, err
-	}
-
-	tag := fmt.Sprintf("%s-%s.imgpkg", itemDigest.Algorithm, itemDigest.Hex)
-	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
-	if err != nil {
-		return regname.Tag{}, fmt.Errorf("Building upload tag image ref: %s", err)
-	}
-	return uploadTagRef, nil
-}
-
 func (i *ImageSet) verifyImageOrIndex(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (ProcessedImage, error) {
 	existingRef, err := regname.NewDigest(item.Ref())
 	if err != nil {
@@ -244,7 +230,7 @@ func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regn
 	}
 
 	// AWS ECR doesnt like using digests for manifest uploads
-	uploadTagRef, err := buildUploadTagRef(item, importRepo)
+	uploadTagRef, err := util.BuildDefaultUploadTagRef(item, importRepo)
 	if err != nil {
 		return regname.Digest{}, err
 	}
