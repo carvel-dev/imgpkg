@@ -43,6 +43,34 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 	return bundles, allImageRefs, err
 }
 
+// UpdateImageRefs updates the bundle cached images
+func (o *Bundle) UpdateImageRefs(bundles []*Bundle, ui util.UIWithLevels) error {
+	o.cachedImageRefs = map[string]ImageRef{}
+
+	img, err := o.checkedImage()
+	if err != nil {
+		return err
+	}
+
+	imageRefsToProcess, err := o.fetchImagesRef(img, ui)
+	if err != nil {
+		return fmt.Errorf("Fetching images of %s: %s", o.DigestRef(), err)
+	}
+
+	for _, image := range imageRefsToProcess.ImageRefs() {
+		isBundle := false
+		for _, bundle := range bundles {
+			if bundle.DigestRef() == image.ImageRef.Image {
+				isBundle = true
+				break
+			}
+		}
+		image.IsBundle = &isBundle
+		o.updateCachedImageRef(image)
+	}
+	return nil
+}
+
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
 	o.cachedImageRefs = map[string]ImageRef{}
 
@@ -118,7 +146,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, ui util.UIWithLevels) (ImageRef
 	// Reads the ImagesLock of the bundle because this is the source of truth
 	imagesLock, err := o.imagesLockReader.Read(img)
 	if err != nil {
-		return ImageRefs{}, err
+		return ImageRefs{}, fmt.Errorf("Reading ImagesLock file: %s", err)
 	}
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations

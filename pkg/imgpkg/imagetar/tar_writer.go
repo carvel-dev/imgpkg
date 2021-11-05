@@ -108,7 +108,7 @@ func (w *TarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
 
 func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	for _, imgLayer := range td.Layers {
-		shouldLayerBeIncluded, err := w.imageLayerWriterCheck.ShouldLayerBeIncluded(imagedesc.NewDescribedLayer(imgLayer, nil))
+		shouldLayerBeIncluded, err := w.imageLayerWriterCheck.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imgLayer, nil))
 		if err != nil {
 			return err
 		}

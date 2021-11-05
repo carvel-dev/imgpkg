@@ -6,6 +6,7 @@ package imagedesc
 import (
 	"encoding/json"
 	"fmt"
+
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
@@ -34,7 +35,7 @@ func (i DescribedImage) Layers() ([]regv1.Layer, error) {
 		if err != nil {
 			return nil, err
 		}
-		layers = append(layers, NewDescribedLayer(layerTD, layerFile))
+		layers = append(layers, NewDescribedCompressedLayer(layerTD, layerFile))
 	}
 	return layers, nil
 }
@@ -97,7 +98,7 @@ func (i DescribedImage) LayerByDigest(digest regv1.Hash) (regv1.Layer, error) {
 			if err != nil {
 				return nil, err
 			}
-			return NewDescribedLayer(layerTD, layerFile), nil
+			return NewDescribedCompressedLayer(layerTD, layerFile), nil
 		}
 	}
 	return nil, fmt.Errorf("Expected to find layer '%s' by digest", digest)
@@ -112,7 +113,7 @@ func (i DescribedImage) LayerByDiffID(diffID regv1.Hash) (regv1.Layer, error) {
 			if err != nil {
 				return nil, err
 			}
-			return NewDescribedLayer(layerTD, layerFile), nil
+			return NewDescribedCompressedLayer(layerTD, layerFile), nil
 		}
 	}
 	return nil, fmt.Errorf("Expected to find layer '%s' by diff id", diffID)

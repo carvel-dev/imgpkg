@@ -528,7 +528,8 @@ images:
 }
 
 func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
-	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+	fakeRegistry := helpers.NewFakeRegistry(t, logger)
 	defer fakeRegistry.CleanUp()
 
 	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
@@ -616,6 +617,83 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 				IsBundle: false,
 			}},
 		}, cfg)
+	})
+
+	t.Run("A Tar bundle with an image when copied to repo, creates Valid Location OCI image", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		tmpFolder := assets.CreateTempFolder("tar-valid-oci-image")
+		tarFile := filepath.Join(tmpFolder, "bundle.tar")
+
+		subject := subject
+		subject.registry = fakeRegistry.Build()
+		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+
+		logger.Section("create Tar file with bundle", func() {
+			err := subject.CopyToTar(tarFile)
+			require.NoError(t, err)
+		})
+
+		logger.Section("copy bundle from Tar file to Repository", func() {
+			subject.BundleFlags.Bundle = ""
+			subject.TarFlags.TarSrc = tarFile
+			_, err := subject.CopyToRepo(destRepo)
+			require.NoError(t, err)
+		})
+
+		locationImgFolder := assets.CreateTempFolder("locations")
+		locationsFilePath := filepath.Join(locationImgFolder, "image-locations.yml")
+		logger.Section("retrieve the Locations Image for outer bundle", func() {
+			locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithNestedBundle.Digest, ":", "-"))
+			refs := []string{locationImg}
+			require.NoError(t, validateImagesPresenceInRegistry(t, refs), "Location OCI Image not present")
+
+			downloadImagesLocation(t, locationImg, locationImgFolder)
+
+			require.FileExists(t, locationsFilePath)
+		})
+
+		logger.Section("validate that the locations file is correct", func() {
+			cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+			require.NoError(t, err)
+
+			require.Equal(t, bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{{
+					Image: bundleWithOneImages.RefDigest,
+					// Repository not used for now because all images will be present in the same repository
+					IsBundle: true,
+				}},
+			}, cfg)
+		})
+
+		logger.Section("retrieve the Locations Image for inner bundle", func() {
+			locationImg := fmt.Sprintf("%s:%s.image-locations.imgpkg", destRepo, strings.ReplaceAll(bundleWithOneImages.Digest, ":", "-"))
+			refs := []string{locationImg}
+			require.NoError(t, validateImagesPresenceInRegistry(t, refs))
+
+			locationImgFolder = assets.CreateTempFolder("locations")
+			downloadImagesLocation(t, locationImg, locationImgFolder)
+
+			locationsFilePath = filepath.Join(locationImgFolder, "image-locations.yml")
+			require.FileExists(t, locationsFilePath)
+		})
+
+		logger.Section("validate that the locations file is correct", func() {
+			cfg, err := bundle.NewLocationConfigFromPath(locationsFilePath)
+			require.NoError(t, err)
+
+			require.Equal(t, bundle.ImageLocationsConfig{
+				APIVersion: "imgpkg.carvel.dev/v1alpha1",
+				Kind:       "ImageLocations",
+				Images: []bundle.ImageLocation{{
+					Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+					IsBundle: false,
+				}},
+			}, cfg)
+		})
 	})
 
 	knownStatusCodesMeaningImageWasNotFound := []int{404, 401, 403}

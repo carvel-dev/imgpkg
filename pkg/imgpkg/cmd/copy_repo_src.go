@@ -74,6 +74,35 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		if err != nil {
 			return nil, err
 		}
+
+		var bundles []*ctlbundle.Bundle
+		for _, image := range processedImages.All() {
+			if image.ImageIndex != nil {
+				continue
+			}
+
+			pImage := plainimage.NewFetchedPlainImageWithTag(image.UnprocessedImageRef.DigestRef, image.Tag, image.Image)
+			bundle := ctlbundle.NewBundleFromPlainImage(pImage, c.registry)
+			isBundle, err := bundle.IsBundle()
+			if err != nil {
+				return nil, fmt.Errorf("Unable to check if %s is a bundle: %s", image.DigestRef, err)
+			}
+			if !isBundle {
+				continue
+			}
+
+			bundles = append(bundles, bundle)
+		}
+
+		for _, bundle := range bundles {
+			if err := bundle.UpdateImageRefs(bundles, c.ui); err != nil {
+				return nil, fmt.Errorf("Updating Image Refs %s: %s", bundle.DigestRef(), err)
+			}
+
+			if err := bundle.NoteCopy(processedImages, c.registry, c.ui); err != nil {
+				return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			}
+		}
 	} else {
 		unprocessedImageRefs, bundles, err := c.getAllSourceImages()
 		if err != nil {
