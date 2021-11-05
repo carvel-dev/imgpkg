@@ -14,6 +14,7 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
@@ -32,7 +33,7 @@ type CopyRepoSrc struct {
 	ui                 util.UIWithLevels
 	imageSet           ctlimgset.ImageSet
 	tarImageSet        ctlimgset.TarImageSet
-	registry           ctlimgset.ImagesReaderWriter
+	registry           registry.ImagesReaderWriter
 	signatureRetriever SignatureRetriever
 }
 

@@ -12,6 +12,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type TarImageSet struct {
@@ -25,7 +26,8 @@ func NewTarImageSet(imageSet ImageSet, concurrency int, ui goui.UI) TarImageSet 
 	return TarImageSet{imageSet, concurrency, ui}
 }
 
-func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
+// Export Creates a Tar with the provided Images
+func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string, registry registry.ImagesReaderWriter, imageLayerWriterCheck imagetar.ImageLayerWriterFilter) (*imagedesc.ImageRefDescriptors, error) {
 	ids, err := i.imageSet.Export(foundImages, registry)
 	if err != nil {
 		return nil, err
@@ -52,7 +54,8 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 	return ids, imagetar.NewTarWriter(ids, outputFileOpener, opts, i.ui, imageLayerWriterCheck).Write()
 }
 
-func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
+// Import Copy tar with Images to the Registry
+func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
 		return nil, err

@@ -28,7 +28,7 @@ func TestRegistry_Digest(t *testing.T) {
 		u, err := url.Parse(server.URL)
 		require.NoError(t, err)
 
-		subject, err := registry.NewRegistry(registry.Opts{})
+		subject, err := registry.NewSimpleRegistry(registry.Opts{})
 		require.NoError(t, err)
 
 		imgRef, err := name.ParseReference(fmt.Sprintf("%s/repo:latest", u.Host))
@@ -52,7 +52,7 @@ func TestRegistry_Digest(t *testing.T) {
 		u, err := url.Parse(server.URL)
 		require.NoError(t, err)
 
-		subject, err := registry.NewRegistry(registry.Opts{})
+		subject, err := registry.NewSimpleRegistry(registry.Opts{})
 		require.NoError(t, err)
 		imgRef, err := name.ParseReference(fmt.Sprintf("%s/repo:latest", u.Host))
 		require.NoError(t, err)
@@ -78,7 +78,7 @@ func createServer(handler func(w http.ResponseWriter, r *http.Request)) *httptes
 
 func TestRegistry_Get(t *testing.T) {
 	t.Run("when Ref includes protocol it errors", func(t *testing.T) {
-		subject, err := registry.NewRegistry(registry.Opts{})
+		subject, err := registry.NewSimpleRegistry(registry.Opts{})
 		require.NoError(t, err)
 
 		ref, err := name.NewTag("https://docker.whatever/whoever/etc")

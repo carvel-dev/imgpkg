@@ -60,7 +60,7 @@ func (po *PullOptions) Run() error {
 		return err
 	}
 
-	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
+	reg, err := registry.NewSimpleRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return err
 	}

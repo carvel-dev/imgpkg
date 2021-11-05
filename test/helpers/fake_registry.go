@@ -86,7 +86,7 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 		}
 	}
 
-	reg, err := registry.NewRegistry(registry.Opts{})
+	reg, err := registry.NewSimpleRegistry(registry.Opts{})
 	assert.NoError(r.t, err)
 	return reg
 }

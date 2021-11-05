@@ -36,15 +36,53 @@ type Opts struct {
 	ResponseHeaderTimeout time.Duration
 }
 
-type Registry struct {
+// Registry Interface to access the registry
+type Registry interface {
+	Get(reference regname.Reference) (*regremote.Descriptor, error)
+	Digest(reference regname.Reference) (regv1.Hash, error)
+	Index(reference regname.Reference) (regv1.ImageIndex, error)
+	Image(reference regname.Reference) (regv1.Image, error)
+	FirstImageExists(digests []string) (string, error)
+
+	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
+	WriteImage(reference regname.Reference, image regv1.Image) error
+	WriteIndex(reference regname.Reference, index regv1.ImageIndex) error
+	WriteTag(tag regname.Tag, taggable regremote.Taggable) error
+
+	ListTags(repo regname.Repository) ([]string, error)
+}
+
+// ImagesReader Interface for Reading Images
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReader
+type ImagesReader interface {
+	Get(regname.Reference) (*regremote.Descriptor, error)
+	Digest(regname.Reference) (regv1.Hash, error)
+	Index(regname.Reference) (regv1.ImageIndex, error)
+	Image(regname.Reference) (regv1.Image, error)
+	FirstImageExists(digests []string) (string, error)
+}
+
+// ImagesReaderWriter Interface for Reading and Writing Images
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
+type ImagesReaderWriter interface {
+	ImagesReader
+	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
+	WriteImage(regname.Reference, regv1.Image) error
+	WriteIndex(regname.Reference, regv1.ImageIndex) error
+	WriteTag(regname.Tag, regremote.Taggable) error
+}
+
+// SimpleRegistry Implements Registry interface
+type SimpleRegistry struct {
 	opts    []regremote.Option
 	refOpts []regname.Option
 }
 
-func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
+// NewSimpleRegistry Builder for a Simple Registry
+func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
-		return Registry{}, fmt.Errorf("Creating registry HTTP transport: %s", err)
+		return nil, fmt.Errorf("Creating registry HTTP transport: %s", err)
 	}
 
 	var refOpts []regname.Option
@@ -62,7 +100,7 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 		os.Environ,
 	)
 	if err != nil {
-		return Registry{}, fmt.Errorf("Creating registry keychain: %s", err)
+		return nil, fmt.Errorf("Creating registry keychain: %s", err)
 	}
 
 	regRemoteOptions := []regremote.Option{
@@ -76,13 +114,14 @@ func NewRegistry(opts Opts, regOpts ...regremote.Option) (Registry, error) {
 		regRemoteOptions = append(regRemoteOptions, regOpts...)
 	}
 
-	return Registry{
+	return &SimpleRegistry{
 		opts:    regRemoteOptions,
 		refOpts: refOpts,
 	}, nil
 }
 
-func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+// Get Retrieve Image descriptor for an Image reference
+func (r SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -93,7 +132,8 @@ func (r Registry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 	return regremote.Get(overriddenRef, r.opts...)
 }
 
-func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
+// Digest Retrieve the Digest for an Image reference
+func (r SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	if err := r.validateRef(ref); err != nil {
 		return regv1.Hash{}, err
 	}
@@ -113,7 +153,8 @@ func (r Registry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	return desc.Digest, nil
 }
 
-func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
+// Image Retrieve the regv1.Image struct for an Image reference
+func (r SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -125,7 +166,8 @@ func (r Registry) Image(ref regname.Reference) (regv1.Image, error) {
 	return regremote.Image(overriddenRef, r.opts...)
 }
 
-func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
+// MultiWrite Upload multiple Images in Parallel to the Registry
+func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
 	overriddenImageOrIndexesToUploadRef := map[regname.Reference]regremote.Taggable{}
 
 	for ref, taggable := range imageOrIndexesToUpload {
@@ -159,7 +201,8 @@ func (r Registry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regrem
 	})
 }
 
-func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
+// WriteImage Upload Image to registry
+func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -178,7 +221,8 @@ func (r Registry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	return nil
 }
 
-func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
+// Index Retrieve regv1.ImageIndex struct for an Index reference
+func (r SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -189,7 +233,8 @@ func (r Registry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 	return regremote.Index(overriddenRef, r.opts...)
 }
 
-func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
+// WriteIndex Uploads the Index manifest to the registry
+func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -208,7 +253,8 @@ func (r Registry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error 
 	return nil
 }
 
-func (r Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
+// WriteTag Tag the referenced Image
+func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -227,7 +273,8 @@ func (r Registry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 	return nil
 }
 
-func (r Registry) ListTags(repo regname.Repository) ([]string, error) {
+// ListTags Retrieve all tags associated with a Repository
+func (r SimpleRegistry) ListTags(repo regname.Repository) ([]string, error) {
 	overriddenRepo, err := regname.NewRepository(repo.Name(), r.refOpts...)
 	if err != nil {
 		return nil, err
@@ -235,7 +282,8 @@ func (r Registry) ListTags(repo regname.Repository) ([]string, error) {
 	return regremote.List(overriddenRepo, r.opts...)
 }
 
-func (r Registry) FirstImageExists(digests []string) (string, error) {
+// FirstImageExists Returns the first of the provided Image Digests that exists in the Registry
+func (r SimpleRegistry) FirstImageExists(digests []string) (string, error) {
 	var err error
 	for _, img := range digests {
 		ref, parseErr := regname.NewDigest(img)
@@ -291,7 +339,7 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 
 var protocolMatcher = regexp.MustCompile(`\Ahttps?://`)
 
-func (Registry) validateRef(ref regname.Reference) error {
+func (SimpleRegistry) validateRef(ref regname.Reference) error {
 	if match := protocolMatcher.FindString(ref.String()); len(match) > 0 {
 		return fmt.Errorf("Reference '%s' should not include %s protocol prefix", ref, match)
 	}

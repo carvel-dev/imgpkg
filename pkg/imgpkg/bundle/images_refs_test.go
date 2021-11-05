@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset/imagesetfakes"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/registryfakes"
 )
 
 func TestMain(m *testing.M) {
@@ -38,7 +38,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 			},
 		}
 
-		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &registryfakes.FakeImagesReader{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -73,7 +73,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &registryfakes.FakeImagesReader{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -117,7 +117,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &registryfakes.FakeImagesReader{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusNotFound,
 		})
@@ -158,7 +158,7 @@ func TestImagesRefs_LocalizeImagesLock(t *testing.T) {
 				},
 			},
 		}
-		fakeImagesMetadata := &imagesetfakes.FakeImagesMetadata{}
+		fakeImagesMetadata := &registryfakes.FakeImagesReader{}
 		fakeImagesMetadata.ImageReturns(nil, &transport.Error{
 			StatusCode: http.StatusOK,
 		})

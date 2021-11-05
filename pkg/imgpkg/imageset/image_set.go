@@ -12,29 +12,12 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 type Logger interface {
 	WriteStr(str string, args ...interface{}) error
-}
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadata
-type ImagesMetadata interface {
-	Get(regname.Reference) (*regremote.Descriptor, error)
-	Digest(regname.Reference) (regv1.Hash, error)
-	Index(regname.Reference) (regv1.ImageIndex, error)
-	Image(regname.Reference) (regv1.Image, error)
-	FirstImageExists(digests []string) (string, error)
-}
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
-type ImagesReaderWriter interface {
-	ImagesMetadata
-	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
-	WriteImage(regname.Reference, regv1.Image) error
-	WriteIndex(regname.Reference, regv1.ImageIndex) error
-	WriteTag(regname.Tag, regremote.Taggable) error
 }
 
 type ImageSet struct {
@@ -48,7 +31,7 @@ func NewImageSet(concurrency int, ui goui.UI) ImageSet {
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
 
 	ids, err := i.Export(foundImages, registry)
 	if err != nil {
@@ -63,7 +46,7 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 }
 
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
-	imagesMetadata ImagesMetadata) (*imagedesc.ImageRefDescriptors, error) {
+	imagesMetadata registry.ImagesReader) (*imagedesc.ImageRefDescriptors, error) {
 
 	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All()))
 	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())) }()
@@ -89,7 +72,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 }
 
 func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
-	importRepo regname.Repository, registry ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
 
 	importedImages := NewProcessedImages()
 
@@ -163,7 +146,7 @@ func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan er
 	return nil
 }
 
-func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
+func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
 	uploadTagRef, err := buildUploadTagRef(item, importRepo)
 	if err != nil {
 		return regname.Tag{}, nil, err
@@ -186,7 +169,7 @@ func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex,
 	return uploadTagRef, artifactToWrite, nil
 }
 
-func (ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry ImagesReaderWriter) (regremote.Taggable, error) {
+func (ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry registry.ImagesReaderWriter) (regremote.Taggable, error) {
 	itemRef, err := regname.NewDigest(imageWithRef.Ref())
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse reference: %s: %s", imageWithRef.Ref(), err)
@@ -222,7 +205,7 @@ func buildUploadTagRef(item imagedesc.ImageOrIndex, importRepo regname.Repositor
 	return uploadTagRef, nil
 }
 
-func (i *ImageSet) verifyImageOrIndex(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (ProcessedImage, error) {
+func (i *ImageSet) verifyImageOrIndex(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (ProcessedImage, error) {
 	existingRef, err := regname.NewDigest(item.Ref())
 	if err != nil {
 		return ProcessedImage{}, err
@@ -249,7 +232,7 @@ func (i *ImageSet) verifyImageOrIndex(item imagedesc.ImageOrIndex, importRepo re
 	}, nil
 }
 
-func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry ImagesReaderWriter) (regname.Digest, error) {
+func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (regname.Digest, error) {
 	itemDigest, err := item.Digest()
 	if err != nil {
 		return regname.Digest{}, err
@@ -278,7 +261,7 @@ func (i *ImageSet) verifyItemCopied(item imagedesc.ImageOrIndex, importRepo regn
 }
 
 func (i *ImageSet) verifyTagDigest(
-	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry ImagesReaderWriter) error {
+	uploadTagRef regname.Reference, importDigestRef regname.Digest, registry registry.ImagesReaderWriter) error {
 
 	resultURL, err := getResolvedImageURL(uploadTagRef.Name(), registry)
 	if err != nil {
@@ -298,7 +281,7 @@ func (i *ImageSet) verifyTagDigest(
 	return nil
 }
 
-func getResolvedImageURL(tagRef string, registry ImagesMetadata) (string, error) {
+func getResolvedImageURL(tagRef string, registry registry.ImagesReader) (string, error) {
 	tag, err := regname.NewTag(tagRef, regname.WeakValidation)
 	if err != nil {
 		return "", err

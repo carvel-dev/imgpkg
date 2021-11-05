@@ -35,7 +35,7 @@ func NewTagResolveCmd(o *TagResolveOptions) *cobra.Command {
 }
 
 func (t *TagResolveOptions) Run() error {
-	reg, err := registry.NewRegistry(t.RegistryFlags.AsRegistryOpts())
+	reg, err := registry.NewSimpleRegistry(t.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return err
 	}
