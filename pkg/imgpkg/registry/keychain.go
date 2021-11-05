@@ -1,5 +1,6 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
 package registry
 
 import (
@@ -19,5 +20,5 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (rega
 		return nil, err
 	}
 
-	return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts}), nil
+	return regauthn.NewMultiKeychain(auth.NewEnvKeychain(environFunc), iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts}), nil
 }

@@ -6,6 +6,7 @@ package auth
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -26,12 +27,23 @@ type envKeychainInfo struct {
 
 // EnvKeychain implements an authn.Keychain interface by using credentials provided by imgpkg's auth environment vars
 type EnvKeychain struct {
-	EnvironFunc func() []string
+	environFunc func() []string
 
 	infos       []envKeychainInfo
 	collectErr  error
 	collected   bool
 	collectLock sync.Mutex
+}
+
+// NewEnvKeychain builder for Environment Keychain
+func NewEnvKeychain(environFunc func() []string) *EnvKeychain {
+	if environFunc == nil {
+		environFunc = os.Environ
+	}
+
+	return &EnvKeychain{
+		environFunc: environFunc,
+	}
 }
 
 // Resolve looks up the most appropriate credential for the specified target.
@@ -139,7 +151,7 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 	defaultInfo := envKeychainInfo{}
 	infos := map[string]envKeychainInfo{}
 
-	for _, env := range k.EnvironFunc() {
+	for _, env := range k.environFunc() {
 		pieces := strings.SplitN(env, "=", 2)
 		if len(pieces) != 2 {
 			continue

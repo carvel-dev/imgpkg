@@ -169,13 +169,13 @@ func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex,
 	return uploadTagRef, artifactToWrite, nil
 }
 
-func (ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry registry.ImagesReaderWriter) (regremote.Taggable, error) {
+func (i ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry registry.ImagesReaderWriter) (regremote.Taggable, error) {
 	itemRef, err := regname.NewDigest(imageWithRef.Ref())
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse reference: %s: %s", imageWithRef.Ref(), err)
 	}
 
-	if imageBlobsCanBeMounted(itemRef, uploadTagRef) {
+	if imageBlobsCanBeMounted(itemRef, uploadTagRef, registry) {
 		descriptor, err := registry.Get(itemRef)
 		if err != nil {
 			// If a performance improvement cannot be done, fallback to the 'non-performant' way
@@ -303,6 +303,18 @@ func getResolvedImageURL(tagRef string, registry registry.ImagesReader) (string,
 // This is a constraint on how registries are able to mount 'objects' across repos.
 // When mounting an object from repo A to repo B, the object in repo A needs to live in the same registry as repo B.
 // To read more about mounting across a repo: https://github.com/opencontainers/distribution-spec/blob/master/spec.md#mounting-a-blob-from-another-repository
-func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag) bool {
-	return ref.Context().RegistryStr() == uploadTagRef.Context().RegistryStr()
+func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag, reg registry.ImagesReaderWriter) bool {
+	if ref.Context().RegistryStr() != uploadTagRef.Context().RegistryStr() {
+		return false
+	}
+
+	// Creates a new registry struct that uses the destination authentication only
+	// A repository cannot be mounted if the user provided to the destination cannot
+	// read the source.
+	destAuthRegistry, err := reg.CloneWithSingleAuth(uploadTagRef)
+	if err != nil {
+		panic(fmt.Sprintf("Internal consistency: was unable to resolve the auth for the image: %s", err))
+	}
+	_, err = destAuthRegistry.Digest(ref)
+	return err == nil
 }

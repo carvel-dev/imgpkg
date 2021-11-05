@@ -11,6 +11,19 @@ import (
 )
 
 type FakeImagesReaderWriter struct {
+	CloneWithSingleAuthStub        func(name.Tag) (registry.Registry, error)
+	cloneWithSingleAuthMutex       sync.RWMutex
+	cloneWithSingleAuthArgsForCall []struct {
+		arg1 name.Tag
+	}
+	cloneWithSingleAuthReturns struct {
+		result1 registry.Registry
+		result2 error
+	}
+	cloneWithSingleAuthReturnsOnCall map[int]struct {
+		result1 registry.Registry
+		result2 error
+	}
 	DigestStub        func(name.Reference) (v1.Hash, error)
 	digestMutex       sync.RWMutex
 	digestArgsForCall []struct {
@@ -127,6 +140,70 @@ type FakeImagesReaderWriter struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuth(arg1 name.Tag) (registry.Registry, error) {
+	fake.cloneWithSingleAuthMutex.Lock()
+	ret, specificReturn := fake.cloneWithSingleAuthReturnsOnCall[len(fake.cloneWithSingleAuthArgsForCall)]
+	fake.cloneWithSingleAuthArgsForCall = append(fake.cloneWithSingleAuthArgsForCall, struct {
+		arg1 name.Tag
+	}{arg1})
+	stub := fake.CloneWithSingleAuthStub
+	fakeReturns := fake.cloneWithSingleAuthReturns
+	fake.recordInvocation("CloneWithSingleAuth", []interface{}{arg1})
+	fake.cloneWithSingleAuthMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuthCallCount() int {
+	fake.cloneWithSingleAuthMutex.RLock()
+	defer fake.cloneWithSingleAuthMutex.RUnlock()
+	return len(fake.cloneWithSingleAuthArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuthCalls(stub func(name.Tag) (registry.Registry, error)) {
+	fake.cloneWithSingleAuthMutex.Lock()
+	defer fake.cloneWithSingleAuthMutex.Unlock()
+	fake.CloneWithSingleAuthStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuthArgsForCall(i int) name.Tag {
+	fake.cloneWithSingleAuthMutex.RLock()
+	defer fake.cloneWithSingleAuthMutex.RUnlock()
+	argsForCall := fake.cloneWithSingleAuthArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuthReturns(result1 registry.Registry, result2 error) {
+	fake.cloneWithSingleAuthMutex.Lock()
+	defer fake.cloneWithSingleAuthMutex.Unlock()
+	fake.CloneWithSingleAuthStub = nil
+	fake.cloneWithSingleAuthReturns = struct {
+		result1 registry.Registry
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithSingleAuthReturnsOnCall(i int, result1 registry.Registry, result2 error) {
+	fake.cloneWithSingleAuthMutex.Lock()
+	defer fake.cloneWithSingleAuthMutex.Unlock()
+	fake.CloneWithSingleAuthStub = nil
+	if fake.cloneWithSingleAuthReturnsOnCall == nil {
+		fake.cloneWithSingleAuthReturnsOnCall = make(map[int]struct {
+			result1 registry.Registry
+			result2 error
+		})
+	}
+	fake.cloneWithSingleAuthReturnsOnCall[i] = struct {
+		result1 registry.Registry
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeImagesReaderWriter) Digest(arg1 name.Reference) (v1.Hash, error) {
@@ -706,6 +783,8 @@ func (fake *FakeImagesReaderWriter) WriteTagReturnsOnCall(i int, result1 error) 
 func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.cloneWithSingleAuthMutex.RLock()
+	defer fake.cloneWithSingleAuthMutex.RUnlock()
 	fake.digestMutex.RLock()
 	defer fake.digestMutex.RUnlock()
 	fake.firstImageExistsMutex.RLock()

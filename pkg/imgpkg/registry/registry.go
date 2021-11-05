@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"runtime"
 	"time"
 
+	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -34,6 +34,8 @@ type Opts struct {
 	Anon     bool
 
 	ResponseHeaderTimeout time.Duration
+
+	EnvironFunc func() []string
 }
 
 // Registry Interface to access the registry
@@ -50,6 +52,8 @@ type Registry interface {
 	WriteTag(tag regname.Tag, taggable regremote.Taggable) error
 
 	ListTags(repo regname.Repository) ([]string, error)
+
+	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
 }
 
 // ImagesReader Interface for Reading Images
@@ -70,12 +74,17 @@ type ImagesReaderWriter interface {
 	WriteImage(regname.Reference, regv1.Image) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
+
+	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
 }
+
+var _ Registry = &SimpleRegistry{}
 
 // SimpleRegistry Implements Registry interface
 type SimpleRegistry struct {
-	opts    []regremote.Option
-	refOpts []regname.Option
+	remoteOpts []regremote.Option
+	refOpts    []regname.Option
+	keychain   regauthn.Keychain
 }
 
 // NewSimpleRegistry Builder for a Simple Registry
@@ -97,7 +106,7 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 			Token:    opts.Token,
 			Anon:     opts.Anon,
 		},
-		os.Environ,
+		opts.EnvironFunc,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Creating registry keychain: %s", err)
@@ -105,7 +114,6 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 
 	regRemoteOptions := []regremote.Option{
 		regremote.WithTransport(httpTran),
-		regremote.WithAuthFromKeychain(keychain),
 	}
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
@@ -115,9 +123,33 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 	}
 
 	return &SimpleRegistry{
-		opts:    regRemoteOptions,
-		refOpts: refOpts,
+		remoteOpts: regRemoteOptions,
+		refOpts:    refOpts,
+		keychain:   keychain,
 	}, nil
+}
+
+// CloneWithSingleAuth Clones the provided registry replacing the Keychain with a Keychain that can only authenticate
+// the image provided
+// A Registry need to be provided as the first parameter or the function will panic
+func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, error) {
+	imgAuth, err := r.keychain.Resolve(imageRef)
+	if err != nil {
+		return nil, err
+	}
+
+	keychain := auth.NewSingleAuthKeychain(imgAuth)
+
+	return &SimpleRegistry{
+		remoteOpts: r.remoteOpts,
+		refOpts:    r.refOpts,
+		keychain:   keychain,
+	}, nil
+}
+
+// opts Returns the opts + the keychain
+func (r SimpleRegistry) opts() []regremote.Option {
+	return append(r.remoteOpts, regremote.WithAuthFromKeychain(r.keychain))
 }
 
 // Get Retrieve Image descriptor for an Image reference
@@ -129,7 +161,7 @@ func (r SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error
 	if err != nil {
 		return nil, err
 	}
-	return regremote.Get(overriddenRef, r.opts...)
+	return regremote.Get(overriddenRef, r.opts()...)
 }
 
 // Digest Retrieve the Digest for an Image reference
@@ -141,9 +173,9 @@ func (r SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	if err != nil {
 		return regv1.Hash{}, err
 	}
-	desc, err := regremote.Head(overriddenRef, r.opts...)
+	desc, err := regremote.Head(overriddenRef, r.opts()...)
 	if err != nil {
-		getDesc, err := regremote.Get(overriddenRef, r.opts...)
+		getDesc, err := regremote.Get(overriddenRef, r.opts()...)
 		if err != nil {
 			return regv1.Hash{}, err
 		}
@@ -163,7 +195,7 @@ func (r SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
 		return nil, err
 	}
 
-	return regremote.Image(overriddenRef, r.opts...)
+	return regremote.Image(overriddenRef, r.opts()...)
 }
 
 // MultiWrite Upload multiple Images in Parallel to the Registry
@@ -183,7 +215,7 @@ func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]
 	}
 
 	return util.Retry(func() error {
-		lOpts := append(append([]regremote.Option{}, r.opts...), regremote.WithJobs(concurrency))
+		lOpts := append(append([]regremote.Option{}, r.opts()...), regremote.WithJobs(concurrency))
 
 		// Only use the registry with progress reporting if a channel is provided to this method
 		if updatesCh != nil {
@@ -212,7 +244,7 @@ func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error
 	}
 
 	err = util.Retry(func() error {
-		return regremote.Write(overriddenRef, img, r.opts...)
+		return regremote.Write(overriddenRef, img, r.opts()...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
@@ -230,7 +262,7 @@ func (r SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	return regremote.Index(overriddenRef, r.opts...)
+	return regremote.Index(overriddenRef, r.opts()...)
 }
 
 // WriteIndex Uploads the Index manifest to the registry
@@ -244,7 +276,7 @@ func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) 
 	}
 
 	err = util.Retry(func() error {
-		return regremote.WriteIndex(overriddenRef, idx, r.opts...)
+		return regremote.WriteIndex(overriddenRef, idx, r.opts()...)
 	})
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
@@ -264,7 +296,7 @@ func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) e
 	}
 
 	err = util.Retry(func() error {
-		return regremote.Tag(overriddenRef, taggagle, r.opts...)
+		return regremote.Tag(overriddenRef, taggagle, r.opts()...)
 	})
 	if err != nil {
 		return fmt.Errorf("Tagging image: %s", err)
@@ -279,7 +311,7 @@ func (r SimpleRegistry) ListTags(repo regname.Repository) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return regremote.List(overriddenRepo, r.opts...)
+	return regremote.List(overriddenRepo, r.opts()...)
 }
 
 // FirstImageExists Returns the first of the provided Image Digests that exists in the Registry

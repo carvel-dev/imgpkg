@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -51,6 +52,13 @@ func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 }
 
 func (r *FakeTestRegistryBuilder) Build() registry.Registry {
+	return r.BuildWithRegistryOpts(registry.Opts{
+		EnvironFunc: os.Environ,
+	})
+}
+
+// BuildWithRegistryOpts Builds registry with provided Registry Opts
+func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) registry.Registry {
 	u, err := url.Parse(r.server.URL)
 	assert.NoError(r.t, err)
 
@@ -86,7 +94,7 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 		}
 	}
 
-	reg, err := registry.NewSimpleRegistry(registry.Opts{})
+	reg, err := registry.NewSimpleRegistry(opts)
 	assert.NoError(r.t, err)
 	return reg
 }
@@ -108,6 +116,58 @@ func (r *FakeTestRegistryBuilder) WithBasicAuth(username string, password string
 			writer.WriteHeader(401)
 			writer.Write([]byte("incorrect username or password"))
 			return
+		}
+
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.auth = &authn.Basic{
+		Username: username,
+		Password: password,
+	}
+	r.server.Config.Handler = authenticatedRegistry
+}
+
+// WithBasicAuthPerRepository Adds authentication check for a particular repository
+func (r *FakeTestRegistryBuilder) WithBasicAuthPerRepository(repo, username, password string) {
+	parentHandler := r.server.Config.Handler
+
+	authenticatedRegistry := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.String(), "/v2/") {
+			// In order to let ggcr know that this registry uses authentication, the /v2/ endpoint needs to return a
+			// 'challenge' response when 'pinging' the /v2/ endpoint.
+			writer.Header().Add("WWW-Authenticate", "Basic")
+			writer.WriteHeader(401)
+			return
+		}
+
+		matched, err := regexp.MatchString(fmt.Sprintf("/v2/%s(/.+)?/(blobs|manifests|tags)", repo), request.URL.Path)
+		if err != nil {
+			writer.WriteHeader(500)
+			writer.Write([]byte("internal consistency: " + err.Error()))
+			return
+		}
+		if matched {
+			usernameFromReq, passwordFromReq, ok := request.BasicAuth()
+			if usernameFromReq != username || passwordFromReq != password || !ok {
+				writer.WriteHeader(401)
+				writer.Write([]byte("incorrect username or password"))
+				return
+			}
+		}
+
+		// Check for mount endpoint authentication
+		if request.Method == "POST" {
+			if request.URL.Query().Get("mount") != "" {
+				if repo == request.URL.Query().Get("from") {
+					usernameFromReq, passwordFromReq, ok := request.BasicAuth()
+					if usernameFromReq != username || passwordFromReq != password || !ok {
+						writer.WriteHeader(401)
+						writer.Write([]byte("incorrect username or password"))
+						return
+					}
+				}
+			}
 		}
 
 		parentHandler.ServeHTTP(writer, request)

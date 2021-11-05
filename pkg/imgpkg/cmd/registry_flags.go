@@ -73,6 +73,8 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		Anon:     r.Anon,
 
 		ResponseHeaderTimeout: r.ResponseHeaderTimeout,
+
+		EnvironFunc: os.Environ,
 	}
 
 	if len(opts.Username) == 0 {

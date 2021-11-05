@@ -10,6 +10,8 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
+var _ Registry = &WithProgress{}
+
 func NewRegistryWithProgress(reg Registry, logger util.ProgressLogger) *WithProgress {
 	return &WithProgress{delegate: reg, logger: logger}
 }
@@ -57,4 +59,21 @@ func (w WithProgress) WriteIndex(reference regname.Reference, index regv1.ImageI
 
 func (w WithProgress) WriteTag(tag regname.Tag, taggable remote.Taggable) error {
 	return w.delegate.WriteTag(tag, taggable)
+}
+
+// ListTags Retrieve all tags associated with a Repository
+func (w WithProgress) ListTags(repo regname.Repository) ([]string, error) {
+	return w.delegate.ListTags(repo)
+}
+
+// CloneWithSingleAuth Clones the provided registry replacing the Keychain with a Keychain that can only authenticate
+// the image provided
+// A Registry need to be provided as the first parameter or the function will panic
+func (w WithProgress) CloneWithSingleAuth(imageRef regname.Tag) (Registry, error) {
+	delegate, err := w.delegate.CloneWithSingleAuth(imageRef)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WithProgress{delegate: delegate}, nil
 }

@@ -6,6 +6,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,10 @@ const (
 
 // NewIaasKeychain implements an authn.Keychain interface by using credentials provided by the iaas metadata services
 func NewIaasKeychain(ctx context.Context, environFunc func() []string) (authn.Keychain, error) {
+	if environFunc == nil {
+		environFunc = os.Environ
+	}
+
 	for _, env := range environFunc() {
 		pieces := strings.SplitN(env, "=", 2)
 		if len(pieces) != 2 {
