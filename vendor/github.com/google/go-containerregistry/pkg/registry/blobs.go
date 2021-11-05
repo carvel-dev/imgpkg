@@ -69,13 +69,23 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 	}
 	target := elem[len(elem)-1]
 	service := elem[len(elem)-2]
+	blobID := ""
+	for _, s := range elem[1:] {
+		if s == "blobs" {
+			break
+		}
+		blobID += "/" + s
+	}
+	if strings.Contains(target, "sha256") {
+		blobID += "/" + target
+	}
 	digest := req.URL.Query().Get("digest")
 	contentRange := req.Header.Get("Content-Range")
 
 	if req.Method == "HEAD" {
 		b.lock.Lock()
 		defer b.lock.Unlock()
-		b, ok := b.contents[target]
+		b, ok := b.contents[blobID]
 		if !ok {
 			return &regError{
 				Status:  http.StatusNotFound,
@@ -93,7 +103,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 	if req.Method == "GET" {
 		b.lock.Lock()
 		defer b.lock.Unlock()
-		b, ok := b.contents[target]
+		b, ok := b.contents[blobID]
 		if !ok {
 			return &regError{
 				Status:  http.StatusNotFound,
@@ -124,7 +134,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 
 		b.lock.Lock()
 		defer b.lock.Unlock()
-		b.contents[d] = l.Bytes()
+		b.contents[blobID + "/" + d] = l.Bytes()
 		resp.Header().Set("Docker-Content-Digest", d)
 		resp.WriteHeader(http.StatusCreated)
 		return nil
@@ -209,7 +219,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 			}
 		}
 
-		b.contents[d] = l.Bytes()
+		b.contents[blobID + "/" + d] = l.Bytes()
 		delete(b.uploads, target)
 		resp.Header().Set("Docker-Content-Digest", d)
 		resp.WriteHeader(http.StatusCreated)
