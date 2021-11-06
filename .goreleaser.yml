@@ -27,9 +27,14 @@ builds:
     ldflags:
       - -buildid=
       - -X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
-    hooks:
-      post:
-        - sh -c "COSIGN_EXPERIMENTAL=1 cosign sign-blob --output  dist/imgpkg-{{ .Os }}-{{ .Arch }}.sig {{ .Path }} 2>&1 | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > dist/imgpkg-{{ .Os }}-{{ .Arch }}.crt"
+
+signs:
+  - id: cosign
+    signature: "${artifact}.sig"
+    cmd: cosign
+    args: ["sign-blob", "--output", "${artifact}.sig", "--key", "gcpkms://projects/{{ .Env.PROJECT_ID }}/locations/{{ .Env.KEY_LOCATION }}/keyRings/{{ .Env.KEY_RING }}/cryptoKeys/{{ .Env.KEY_NAME }}/versions/{{ .Env.KEY_VERSION }}", "${artifact}"]
+    artifacts: binary
+
 archives:
   - format: binary
     name_template: "{{ .Binary }}"
@@ -46,8 +51,7 @@ snapshot:
   name_template: "{{ .Tag }}-next"
 release:
   extra_files:
-    - glob: dist/*.sig
-    - glob: dist/*.crt
+    - glob: "*.sig"
 
   # Repo in which the release will be created.
   github:
