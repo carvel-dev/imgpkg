@@ -38,7 +38,7 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (t *TagListOptions) Run() error {
-	reg, err := registry.NewRegistry(t.RegistryFlags.AsRegistryOpts())
+	reg, err := registry.NewSimpleRegistry(t.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return err
 	}

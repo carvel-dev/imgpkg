@@ -50,7 +50,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 }
 
 func (po *PushOptions) Run() error {
-	reg, err := registry.NewRegistry(po.RegistryFlags.AsRegistryOpts())
+	reg, err := registry.NewSimpleRegistry(po.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return err
 	}

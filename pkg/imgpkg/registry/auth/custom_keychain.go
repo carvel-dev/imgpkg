@@ -21,6 +21,21 @@ type KeychainOpts struct {
 	Anon     bool
 }
 
+// NewSingleAuthKeychain Builds a SingleAuthKeychain struct
+func NewSingleAuthKeychain(auth regauthn.Authenticator) SingleAuthKeychain {
+	return SingleAuthKeychain{auth: auth}
+}
+
+// SingleAuthKeychain This Keychain will always provide the same authentication for all images
+type SingleAuthKeychain struct {
+	auth regauthn.Authenticator
+}
+
+// Resolve returns the same authentication for all images
+func (s SingleAuthKeychain) Resolve(_ regauthn.Resource) (regauthn.Authenticator, error) {
+	return s.auth, nil
+}
+
 // CustomRegistryKeychain implements an authn.Keychain interface by using credentials provided by imgpkg's auth options
 type CustomRegistryKeychain struct {
 	Opts KeychainOpts

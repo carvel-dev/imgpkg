@@ -28,6 +28,7 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
@@ -995,6 +996,44 @@ images:
 		userDefinedTagRequest := (*requestLog)[len(*requestLog)-1]
 		assert.Equal(t, "/v2/library/copied-img/manifests/some-tag", userDefinedTagRequest.URL)
 		require.Equal(t, "PUT", userDefinedTagRequest.Method)
+	})
+
+	t.Run("When copying to same registry but have no permission to mount layer", func(t *testing.T) {
+		t.Skip("Skipping this test because the registry in ggcr does not validate that a blob is part of repository or not, so we will get false positives")
+		// we will need https://github.com/google/go-containerregistry/pull/1158 or something similar to ensure no false positives happen for this test
+		// skipping it for now, but we should review in the future, To run this test use the code in the commit e4c2b6acd5adc569c155a2353bb12b06f46f3e78
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		destinationImageName := fakeRegistry.ReferenceOnTestServer("some/other/copied-img")
+		originImageName := "repo/image"
+
+		image2RefDigest := fakeRegistry.WithRandomImage(originImageName).RefDigest
+
+		subject := subject
+		subject.ImageFlags.Image = image2RefDigest
+		subject.registry = fakeRegistry.BuildWithRegistryOpts(registry.Opts{
+			EnvironFunc: func() []string {
+				return []string{
+					"IMGPKG_REGISTRY_HOSTNAME_0=" + fakeRegistry.ReferenceOnTestServer("repo"),
+					"IMGPKG_REGISTRY_USERNAME_0=some-user",
+					"IMGPKG_REGISTRY_PASSWORD_0=some-password",
+					"IMGPKG_REGISTRY_HOSTNAME_1=" + fakeRegistry.ReferenceOnTestServer("some/other"),
+					"IMGPKG_REGISTRY_USERNAME_1=some-other-user",
+					"IMGPKG_REGISTRY_PASSWORD_1=some-other-password",
+				}
+			},
+		})
+
+		// Authentication added in this step to ensure the images are created beforehand
+		// because we are not testing here the authentication of image pushing
+		fakeRegistry.WithBasicAuthPerRepository("repo", "some-user", "some-password")
+		fakeRegistry.WithBasicAuthPerRepository("some/other", "some-other-user", "some-other-password")
+
+		processedImages, err := subject.CopyToRepo(destinationImageName)
+		require.NoError(t, err)
+		require.Len(t, processedImages.All(), 1)
+		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
 	})
 }
 

@@ -84,7 +84,7 @@ func (c *CopyOptions) Run() error {
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
 	registryOpts.IncludeNonDistributableLayers = c.IncludeNonDistributable
 
-	reg, err := registry.NewRegistry(registryOpts)
+	reg, err := registry.NewSimpleRegistry(registryOpts)
 	if err != nil {
 		return err
 	}
