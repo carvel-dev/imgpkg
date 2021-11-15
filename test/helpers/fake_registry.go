@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -186,13 +187,39 @@ type HTTPRequestLog struct {
 	URL    string
 }
 
+// HTTPRequestLogs Slice of HTTP Requests
+type HTTPRequestLogs struct {
+	requests []HTTPRequestLog
+	lock     sync.Mutex
+}
+
+// NewHTTPRequestLogs Build a new HTTPRequestLogs struct
+func NewHTTPRequestLogs() *HTTPRequestLogs {
+	return &HTTPRequestLogs{requests: []HTTPRequestLog{}}
+}
+
+// Add new HTTP Request to the Log
+func (h *HTTPRequestLogs) Add(request HTTPRequestLog) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	h.requests = append(h.requests, request)
+}
+
+// Last Retrieve Last HTTP Request
+func (h *HTTPRequestLogs) Last() HTTPRequestLog {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	return h.requests[len(h.requests)-1]
+}
+
 // WithRequestLogging enables the logging of the HTTP requests sent to the registry
-func (r *FakeTestRegistryBuilder) WithRequestLogging() *[]HTTPRequestLog {
-	var httpRequestLog []HTTPRequestLog
+func (r *FakeTestRegistryBuilder) WithRequestLogging() *HTTPRequestLogs {
+	httpRequestLog := NewHTTPRequestLogs()
 	parentHandler := r.server.Config.Handler
 
 	requestLogging := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		httpRequestLog = append(httpRequestLog, HTTPRequestLog{
+		httpRequestLog.Add(HTTPRequestLog{
 			Method: request.Method,
 			URL:    request.URL.String(),
 		})
@@ -202,7 +229,7 @@ func (r *FakeTestRegistryBuilder) WithRequestLogging() *[]HTTPRequestLog {
 
 	r.server.Config.Handler = requestLogging
 
-	return &httpRequestLog
+	return httpRequestLog
 }
 
 func (r *FakeTestRegistryBuilder) WithIdentityToken(idToken string) {
