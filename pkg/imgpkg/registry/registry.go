@@ -18,7 +18,6 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 type Opts struct {
@@ -34,6 +33,7 @@ type Opts struct {
 	Anon     bool
 
 	ResponseHeaderTimeout time.Duration
+	RetryCount            int
 
 	EnvironFunc func() []string
 }
@@ -121,6 +121,14 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 	if regOpts != nil {
 		regRemoteOptions = append(regRemoteOptions, regOpts...)
 	}
+
+	regRemoteOptions = append(regRemoteOptions, regremote.WithRetryBackoff(regremote.Backoff{
+		Duration: 100 * time.Millisecond,
+		Factor:   2,
+		Jitter:   0,
+		Steps:    opts.RetryCount,
+		Cap:      1 * time.Second,
+	}))
 
 	return &SimpleRegistry{
 		remoteOpts: regRemoteOptions,
@@ -214,23 +222,8 @@ func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]
 		overriddenImageOrIndexesToUploadRef[overriddenRef] = taggable
 	}
 
-	return util.Retry(func() error {
-		lOpts := append(append([]regremote.Option{}, r.opts()...), regremote.WithJobs(concurrency))
-
-		// Only use the registry with progress reporting if a channel is provided to this method
-		if updatesCh != nil {
-			uploadProgress := make(chan regv1.Update)
-			lOpts = append(lOpts, regremote.WithProgress(uploadProgress))
-
-			go func() {
-				for update := range uploadProgress {
-					updatesCh <- update
-				}
-			}()
-		}
-
-		return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, lOpts...)
-	})
+	rOpts := append(append([]regremote.Option{}, r.opts()...), regremote.WithJobs(concurrency))
+	return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, rOpts...)
 }
 
 // WriteImage Upload Image to registry
@@ -243,9 +236,7 @@ func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.Write(overriddenRef, img, r.opts()...)
-	})
+	err = regremote.Write(overriddenRef, img, r.opts()...)
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
 	}
@@ -275,9 +266,7 @@ func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) 
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.WriteIndex(overriddenRef, idx, r.opts()...)
-	})
+	err = regremote.WriteIndex(overriddenRef, idx, r.opts()...)
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
 	}
@@ -295,9 +284,7 @@ func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) e
 		return err
 	}
 
-	err = util.Retry(func() error {
-		return regremote.Tag(overriddenRef, taggagle, r.opts()...)
-	})
+	err = regremote.Tag(overriddenRef, taggagle, r.opts()...)
 	if err != nil {
 		return fmt.Errorf("Tagging image: %s", err)
 	}
