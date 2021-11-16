@@ -456,7 +456,7 @@ func TestToRepoBundleContainingANestedBundle(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure that the last operation done against the registry is the creation of the tag
-		userDefinedTagRequest := (*requestLog)[len(*requestLog)-1]
+		userDefinedTagRequest := requestLog.Last()
 		assert.Equal(t, "/v2/library/bundle-copy/manifests/some-tag", userDefinedTagRequest.URL)
 		require.Equal(t, "PUT", userDefinedTagRequest.Method)
 	})
@@ -993,7 +993,7 @@ images:
 		require.NoError(t, err)
 
 		// Ensure that the last operation done against the registry is the creation of the tag
-		userDefinedTagRequest := (*requestLog)[len(*requestLog)-1]
+		userDefinedTagRequest := requestLog.Last()
 		assert.Equal(t, "/v2/library/copied-img/manifests/some-tag", userDefinedTagRequest.URL)
 		require.Equal(t, "PUT", userDefinedTagRequest.Method)
 	})
