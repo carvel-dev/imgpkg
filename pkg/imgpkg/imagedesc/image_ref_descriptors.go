@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"sync"
 
@@ -16,6 +15,7 @@ import (
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	regtran "github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	regtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"golang.org/x/sync/errgroup"
 )
@@ -36,7 +36,7 @@ type Metadata struct {
 type ImageRefDescriptors struct {
 	registry Registry
 
-	descs []ImageOrImageIndexDescriptor
+	descs ImageOrImageIndexDescriptors
 
 	imageLayersLock sync.Mutex
 	imageLayers     map[ImageLayerDescriptor]regv1.Layer
@@ -48,6 +48,47 @@ func NewImageRefDescriptorsFromBytes(data []byte) (*ImageRefDescriptors, error) 
 	err := json.Unmarshal(data, &descs)
 	if err != nil {
 		return nil, err
+	}
+
+	return &ImageRefDescriptors{descs: descs}, nil
+}
+
+func NewImageRefDescriptorsFromOCIManifests(manifests []ociv1.Manifest) (*ImageRefDescriptors, error) {
+	var descs []ImageOrImageIndexDescriptor
+
+	for _, manifest := range manifests {
+
+		var layers []ImageLayerDescriptor
+		for _, layer := range manifest.Layers {
+			layers = append(layers, ImageLayerDescriptor{
+				MediaType: layer.MediaType,
+				Digest:    string(layer.Digest),
+				Size:      layer.Size,
+			})
+		}
+		rawConfig, err := json.Marshal(manifest.Config)
+		if err != nil {
+			return nil, err
+		}
+
+		descs = append(descs, ImageOrImageIndexDescriptor{
+			ImageIndex: nil,
+			Image: &ImageDescriptor{
+				Refs:   []string{},
+				Layers: layers,
+				Config: ConfigDescriptor{
+					Digest: string(manifest.Config.Digest),
+					Raw:    string(rawConfig),
+				},
+				Manifest: ManifestDescriptor{
+					MediaType: "",
+					Digest:    "",
+					Raw:       "",
+				},
+				Tag:    "",
+				Labels: nil,
+			},
+		})
 	}
 
 	return &ImageRefDescriptors{descs: descs}, nil
@@ -281,11 +322,11 @@ func (ids *ImageRefDescriptors) FindLayer(layerTD ImageLayerDescriptor) (LayerCo
 
 func (ids *ImageRefDescriptors) AsBytes() ([]byte, error) {
 	// Ensure result is deterministic
-	sort.Slice(ids.descs, func(i, j int) bool {
-		return ids.descs[i].SortKey() < ids.descs[j].SortKey()
-	})
+	//sort.Slice(ids.descs, func(i, j int) bool {
+	//	return ids.descs[i].SortKey() < ids.descs[j].SortKey()
+	//})
 
-	return json.Marshal(ids.descs)
+	return ids.descs.IndexFileAsBytes()
 }
 
 func (ids *ImageRefDescriptors) buildRef(otherRef regname.Reference, digest string) regname.Reference {

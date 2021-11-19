@@ -73,6 +73,28 @@ func (f tarFile) openChunk(path string) (io.ReadCloser, error) {
 	return nil, util.NonRetryableError{Message: fmt.Sprintf("file %s not found in tar (hint: This may be because when copying to a tarball, the --include-non-distributable-layers flag should have been provided.)", path)}
 }
 
+func (f tarFile) existsChunk(path string) (bool, error) {
+	file, err := os.Open(f.path)
+	if err != nil {
+		return false, err
+	}
+
+	tf := tar.NewReader(file)
+	for {
+		hdr, err := tf.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+		if hdr.Name == path {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (f tarFileChunkReadCloser) Close() error {
 	// It seems that there is a race between go-containerregistry library
 	// and net/http's transport to close the request body. Specifically

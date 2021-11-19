@@ -25,6 +25,11 @@ require (
 )
 
 require (
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.0.2-0.20210730191737-8e42a01fb1b7
+)
+
+require (
 	github.com/Azure/azure-sdk-for-go v43.0.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.12 // indirect
@@ -53,8 +58,6 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.0.2-0.20210730191737-8e42a01fb1b7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect

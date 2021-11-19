@@ -4,12 +4,16 @@
 package imagedesc
 
 import (
+	"encoding/json"
 	"io"
+	"sort"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	regv1types "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/opencontainers/go-digest"
+	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type RegistryRemoteImage interface {
@@ -43,9 +47,89 @@ type LayerContents interface {
 	Open() (io.ReadCloser, error)
 }
 
+type ImageOrImageIndexDescriptors []ImageOrImageIndexDescriptor
+
 type ImageOrImageIndexDescriptor struct {
 	ImageIndex *ImageIndexDescriptor
 	Image      *ImageDescriptor
+}
+
+type OCIBundle struct {
+	// SchemaVersion is the image manifest schema that this image follows
+	SchemaVersion int `json:"schemaVersion"`
+
+	Manifests []ociv1.Descriptor `json:"manifests"`
+}
+
+func (i ImageOrImageIndexDescriptors) IndexFileAsBytes() ([]byte, error) {
+	bundle := OCIBundle{SchemaVersion: 2}
+
+	imgs := i
+	sort.Slice(imgs, func(i, j int) bool {
+		return imgs[i].SortKey() < imgs[j].SortKey()
+	})
+
+	for _, descriptor := range imgs {
+		var manifest ociv1.Manifest
+		err := json.Unmarshal([]byte(descriptor.Image.Manifest.Raw), &manifest)
+		if err != nil {
+			return nil, err
+
+		}
+
+		imgDescriptor := ociv1.Descriptor{
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Digest:    descriptor.ManifestDigest(),
+			Size:      descriptor.ManifestSize(),
+			Annotations: map[string]string{
+				ociv1.AnnotationRefName: descriptor.Image.Tag,
+			},
+		}
+
+		bundle.Manifests = append(bundle.Manifests, imgDescriptor)
+	}
+
+	return json.Marshal(bundle)
+}
+
+func (i ImageOrImageIndexDescriptor) ManifestDigest() digest.Digest {
+	if i.Image != nil {
+		return digest.Digest(i.Image.Manifest.Digest)
+	}
+
+	return digest.Digest(i.ImageIndex.Digest)
+}
+
+func (i ImageOrImageIndexDescriptor) ManifestAsBytes() ([]byte, error) {
+	if i.Image != nil {
+		return []byte(i.Image.Manifest.Raw), nil
+	}
+
+	return []byte(i.ImageIndex.Raw), nil
+}
+
+func (i ImageOrImageIndexDescriptor) ConfigDigest() digest.Digest {
+	if i.Image != nil {
+		return digest.Digest(i.Image.Config.Digest)
+	}
+
+	return ""
+}
+
+func (i ImageOrImageIndexDescriptor) ConfigAsBytes() ([]byte, error) {
+	if i.Image != nil {
+		return []byte(i.Image.Config.Raw), nil
+	}
+
+	return nil, nil
+}
+
+func (i ImageOrImageIndexDescriptor) ManifestSize() int64 {
+	if i.Image != nil {
+		return int64(len(i.Image.Manifest.Raw))
+	}
+
+	return int64(len(i.ImageIndex.Raw))
 }
 
 type ImageIndexDescriptor struct {
@@ -85,6 +169,7 @@ type ConfigDescriptor struct {
 }
 
 type ManifestDescriptor struct {
+	ociv1.Manifest
 	MediaType string
 	Digest    string
 	Raw       string

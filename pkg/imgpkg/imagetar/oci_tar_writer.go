@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
@@ -18,15 +20,7 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
-type Logger interface {
-	WriteStr(str string, args ...interface{}) error
-}
-
-type TarWriterOpts struct {
-	Concurrency int
-}
-
-type TarWriter struct {
+type OCITarWriter struct {
 	ids       *imagedesc.ImageRefDescriptors
 	dstOpener func() (io.WriteCloser, error)
 
@@ -39,12 +33,12 @@ type TarWriter struct {
 	imageLayerWriterCheck ImageLayerWriterFilter
 }
 
-// NewTarWriter constructor returning a mechanism to write image refs / layers to a tarball on disk.
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, ui goui.UI, imageLayerWriterCheck ImageLayerWriterFilter) *TarWriter {
-	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, ui: ui, imageLayerWriterCheck: imageLayerWriterCheck}
+// NewOCITarWriter constructor returning a mechanism to write image refs / layers to a tarball on disk.
+func NewOCITarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, ui goui.UI, imageLayerWriterCheck ImageLayerWriterFilter) *OCITarWriter {
+	return &OCITarWriter{ids: ids, dstOpener: dstOpener, opts: opts, ui: ui, imageLayerWriterCheck: imageLayerWriterCheck}
 }
 
-func (w *TarWriter) Write() error {
+func (w *OCITarWriter) Write() error {
 	var err error
 
 	w.dst, err = w.dstOpener()
@@ -55,6 +49,27 @@ func (w *TarWriter) Write() error {
 
 	w.tf = tar.NewWriter(w.dst)
 	defer w.tf.Close()
+
+	hdr := &tar.Header{
+		Mode:     0644,
+		Typeflag: tar.TypeDir,
+		Name:     "blobs",
+	}
+
+	err = w.tf.WriteHeader(hdr)
+	if err != nil {
+		return err
+	}
+	hdr = &tar.Header{
+		Mode:     0644,
+		Typeflag: tar.TypeDir,
+		Name:     "blobs/sha256",
+	}
+
+	err = w.tf.WriteHeader(hdr)
+	if err != nil {
+		return err
+	}
 
 	idsBytes, err := w.ids.AsBytes()
 	if err != nil {
@@ -89,12 +104,36 @@ func (w *TarWriter) Write() error {
 		default:
 			panic("Unknown item")
 		}
+
+		manifest, err := td.ManifestAsBytes()
+		if err != nil {
+			return err
+		}
+
+		err = w.writeTarEntry(w.tf, fmt.Sprintf("blobs/sha256/%s", strings.Split(string(td.ManifestDigest()), ":")[1]), bytes.NewReader(manifest), int64(len(manifest)))
+		if err != nil {
+			return err
+		}
+
+		config, err := td.ConfigAsBytes()
+		if err != nil {
+			return err
+		}
+
+		if config == nil {
+			continue
+		}
+
+		err = w.writeTarEntry(w.tf, fmt.Sprintf("blobs/sha256/%s", strings.Split(string(td.ConfigDigest()), ":")[1]), bytes.NewReader(config), int64(len(config)))
+		if err != nil {
+			return err
+		}
 	}
 
 	return w.writeLayers()
 }
 
-func (w *TarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
+func (w *OCITarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
 	for _, idx := range td.Indexes {
 		err := w.writeImageIndex(idx)
 		if err != nil {
@@ -112,7 +151,7 @@ func (w *TarWriter) writeImageIndex(td imagedesc.ImageIndexDescriptor) error {
 	return nil
 }
 
-func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
+func (w *OCITarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	for _, imgLayer := range td.Layers {
 		shouldLayerBeIncluded, err := w.imageLayerWriterCheck.ShouldLayerBeIncluded(imagedesc.NewDescribedCompressedLayer(imgLayer, nil))
 		if err != nil {
@@ -124,14 +163,7 @@ func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	}
 	return nil
 }
-
-type writtenLayer struct {
-	Name   string
-	Offset int64
-	Layer  imagedesc.ImageLayerDescriptor
-}
-
-func (w *TarWriter) writeLayers() error {
+func (w *OCITarWriter) writeLayers() error {
 	// Sort layers by digest to have deterministic archive
 	sort.Slice(w.layersToWrite, func(i, j int) bool {
 		return w.layersToWrite[i].Digest < w.layersToWrite[j].Digest
@@ -148,7 +180,7 @@ func (w *TarWriter) writeLayers() error {
 			return err
 		}
 
-		name := digest.Algorithm + "-" + digest.Hex + ".tar.gz"
+		name := filepath.Join("blobs", digest.Algorithm, digest.Hex)
 
 		// Dedup layers
 		if _, found := writtenLayers[name]; found {
@@ -208,7 +240,7 @@ func (w *TarWriter) writeLayers() error {
 	return nil
 }
 
-func (w *TarWriter) fillInLayers(writtenLayers map[string]writtenLayer) error {
+func (w *OCITarWriter) fillInLayers(writtenLayers map[string]writtenLayer) error {
 	var sortedWrittenLayers []writtenLayer
 
 	for _, writtenLayer := range writtenLayers {
@@ -247,7 +279,7 @@ func (w *TarWriter) fillInLayers(writtenLayers map[string]writtenLayer) error {
 	return nil
 }
 
-func (w *TarWriter) fillInLayer(wl writtenLayer) error {
+func (w *OCITarWriter) fillInLayer(wl writtenLayer) error {
 	file, err := w.dstOpener()
 	if err != nil {
 		return err
@@ -281,7 +313,7 @@ func (w *TarWriter) fillInLayer(wl writtenLayer) error {
 	return tw.Flush()
 }
 
-func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size int64) error {
+func (w *OCITarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size int64) error {
 	var zerosFill bool
 
 	if r == nil {
@@ -313,13 +345,4 @@ func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size
 	}
 
 	return nil
-}
-
-type zeroReader struct{}
-
-func (r zeroReader) Read(p []byte) (n int, err error) {
-	for i := range p {
-		p[i] = 0
-	}
-	return len(p), nil
 }
