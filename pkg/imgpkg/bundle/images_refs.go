@@ -50,6 +50,7 @@ func NewImageRefs() ImageRefs {
 	}
 }
 
+// NewImageRefsFromImagesLock Create a new ImageRefs from the provided lockconfig.ImagesLock and ImageLocationsConfig
 func NewImageRefsFromImagesLock(imagesLock lockconfig.ImagesLock, imageRefsLocationConfig ImageRefLocationsConfig) (ImageRefs, error) {
 	imageRefs := ImageRefs{
 		refsLock:           &sync.Mutex{},

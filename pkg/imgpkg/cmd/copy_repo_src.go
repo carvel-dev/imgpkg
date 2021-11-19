@@ -96,7 +96,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		}
 
 		for _, bundle := range bundles {
-			if err := bundle.UpdateImageRefs(bundles, c.ui); err != nil {
+			if err := bundle.UpdateImageRefs(bundles); err != nil {
 				return nil, fmt.Errorf("Updating Image Refs %s: %s", bundle.DigestRef(), err)
 			}
 

@@ -43,8 +43,8 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 	return bundles, allImageRefs, err
 }
 
-// UpdateImageRefs updates the bundle cached images
-func (o *Bundle) UpdateImageRefs(bundles []*Bundle, ui util.UIWithLevels) error {
+// UpdateImageRefs updates the bundle cached images without talking to the registry
+func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 	o.cachedImageRefs = map[string]ImageRef{}
 
 	img, err := o.checkedImage()
@@ -52,7 +52,9 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle, ui util.UIWithLevels) error 
 		return err
 	}
 
-	imageRefsToProcess, err := o.fetchImagesRef(img, ui)
+	// Call fetchImagesRef with a NotFoundLocationsConfig because this function should only be used
+	// in the copy from tar to repository
+	imageRefsToProcess, err := o.fetchImagesRef(img, &NotFoundLocationsConfig{})
 	if err != nil {
 		return fmt.Errorf("Fetching images of %s: %s", o.DigestRef(), err)
 	}
@@ -79,7 +81,17 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 		return nil, ImageRefs{}, err
 	}
 
-	imageRefsToProcess, err := o.fetchImagesRef(img, ui)
+	bundleDigestRef, err := regname.NewDigest(o.DigestRef())
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: The Bundle Reference '%s' does not have a digest", o.DigestRef()))
+	}
+
+	locationsConfig := LocationsConfig{
+		ui:              ui,
+		imgRetriever:    o.imgRetriever,
+		bundleDigestRef: bundleDigestRef,
+	}
+	imageRefsToProcess, err := o.fetchImagesRef(img, &locationsConfig)
 	if err != nil {
 		return nil, ImageRefs{}, err
 	}
@@ -137,12 +149,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	return bundles, processedImageRefs, nil
 }
 
-func (o *Bundle) fetchImagesRef(img regv1.Image, ui util.UIWithLevels) (ImageRefs, error) {
-	bundleDigestRef, err := regname.NewDigest(o.DigestRef())
-	if err != nil {
-		panic(fmt.Sprintf("Internal inconsistency: The Bundle Reference '%s' does not have a digest", o.DigestRef()))
-	}
-
+func (o *Bundle) fetchImagesRef(img regv1.Image, locationsConfig ImageRefLocationsConfig) (ImageRefs, error) {
 	// Reads the ImagesLock of the bundle because this is the source of truth
 	imagesLock, err := o.imagesLockReader.Read(img)
 	if err != nil {
@@ -151,11 +158,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, ui util.UIWithLevels) (ImageRef
 
 	// We use ImagesLock struct only to add the bundle repository to the list of locations
 	// maybe we can move this functionality to the bundle in the future
-	refs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
-		ui:              ui,
-		imgRetriever:    o.imgRetriever,
-		bundleDigestRef: bundleDigestRef,
-	})
+	refs, err := NewImageRefsFromImagesLock(imagesLock, locationsConfig)
 	if err != nil {
 		return ImageRefs{}, err
 	}
@@ -274,4 +277,12 @@ type LocationsConfig struct {
 
 func (l LocationsConfig) Config() (ImageLocationsConfig, error) {
 	return NewLocations(l.ui).Fetch(l.imgRetriever, l.bundleDigestRef)
+}
+
+// NotFoundLocationsConfig Noop Locations Configuration retrieval
+type NotFoundLocationsConfig struct{}
+
+// Config Returns a LocationsNotFound error
+func (l NotFoundLocationsConfig) Config() (ImageLocationsConfig, error) {
+	return ImageLocationsConfig{}, &LocationsNotFound{}
 }

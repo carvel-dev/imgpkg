@@ -213,6 +213,14 @@ func (h *HTTPRequestLogs) Last() HTTPRequestLog {
 	return h.requests[len(h.requests)-1]
 }
 
+// Len Length of request logs
+func (h *HTTPRequestLogs) Len() int {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	return len(h.requests)
+}
+
 // WithRequestLogging enables the logging of the HTTP requests sent to the registry
 func (r *FakeTestRegistryBuilder) WithRequestLogging() *HTTPRequestLogs {
 	httpRequestLog := NewHTTPRequestLogs()
