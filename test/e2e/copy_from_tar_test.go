@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
@@ -150,5 +151,36 @@ func TestCopyTarSrc(t *testing.T) {
 		fakeRegistry.RemoveImage("repo/randomimage@" + randomImage.Digest)
 
 		imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", fakeRegistry.ReferenceOnTestServer("copied-bundle")})
+	})
+
+	t.Run("When there is no longer access to the origin registry the copy is successful", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		destinationFakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer destinationFakeRegistry.CleanUp()
+
+		var tempBundleTarFile string
+		originFakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer originFakeRegistry.CleanUp()
+		logger.Section("create tar from bundle", func() {
+			randomImage := originFakeRegistry.WithRandomImage("repo/randomimage")
+			bundleInfo := originFakeRegistry.WithBundleFromPath("repo/bundle", "assets/bundle").WithImageRefs([]lockconfig.ImageRef{
+				{Image: randomImage.RefDigest},
+			})
+
+			originFakeRegistry.Build()
+
+			tempBundleTarDir := env.Assets.CreateTempFolder("bundle-tar")
+			tempBundleTarFile = filepath.Join(tempBundleTarDir, "bundle-tar.tgz")
+			imgpkg.Run([]string{"copy", "-b", bundleInfo.RefDigest, "--to-tar", tempBundleTarFile})
+		})
+
+		// Log all the requests done to the origin registry
+		requestLog := originFakeRegistry.WithRequestLogging()
+
+		imgpkg.Run([]string{"copy", "--tar", tempBundleTarFile, "--to-repo", destinationFakeRegistry.ReferenceOnTestServer("copied-bundle")})
+		require.Equal(t, 0, requestLog.Len(), "Requests where sent to the origin registry")
 	})
 }

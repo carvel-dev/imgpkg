@@ -738,7 +738,55 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			require.NoError(t, validateImagesPresenceInRegistry(t, refs))
 		})
 	}
+}
 
+func TestToRepoFromTar(t *testing.T) {
+	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+	fakeRegistry := helpers.NewFakeRegistry(t, logger)
+	defer fakeRegistry.CleanUp()
+
+	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
+		WithImageRefs([]lockconfig.ImageRef{
+			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+		})
+
+	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
+		"test_assets/bundle_with_mult_images").WithImageRefs([]lockconfig.ImageRef{
+		{Image: bundleWithOneImages.RefDigest},
+	})
+
+	subject := subject
+	subject.BundleFlags.Bundle = bundleWithNestedBundle.RefDigest
+	subject.registry = fakeRegistry.Build()
+
+	t.Run("When copying from tar do not try to reach to the original registry", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		tmpFolder := assets.CreateTempFolder("tar-valid-oci-image")
+		tarFile := filepath.Join(tmpFolder, "bundle.tar")
+
+		subject := subject
+		subject.registry = fakeRegistry.Build()
+
+		logger.Section("create Tar file with bundle", func() {
+			err := subject.CopyToTar(tarFile)
+			require.NoError(t, err)
+		})
+
+		fakeRegistry.CleanUp()
+		destFakeRegistry := helpers.NewFakeRegistry(t, logger)
+		defer destFakeRegistry.CleanUp()
+		subject.registry = destFakeRegistry.Build()
+		destRepo := destFakeRegistry.ReferenceOnTestServer("library/bundle-copy")
+
+		logger.Section("copy bundle from Tar file to Repository", func() {
+			subject.BundleFlags.Bundle = ""
+			subject.TarFlags.TarSrc = tarFile
+			_, err := subject.CopyToRepo(destRepo)
+			require.NoError(t, err)
+		})
+	})
 }
 
 func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
