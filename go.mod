@@ -18,7 +18,7 @@ require (
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.21.0-1
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	k8s.io/apimachinery v0.22.3
+	k8s.io/apimachinery v0.22.4
 	k8s.io/client-go v0.21.1 // indirect
 	k8s.io/klog/v2 v2.30.0
 	sigs.k8s.io/yaml v1.3.0
