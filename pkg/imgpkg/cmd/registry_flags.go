@@ -22,9 +22,12 @@ type RegistryFlags struct {
 	Token    string
 	Anon     bool
 
+	RetryCount int
+
 	ResponseHeaderTimeout time.Duration
 }
 
+// Set Registers the flags available to the provided command
 func (r *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&r.CACertPaths, "registry-ca-cert-path", nil, "Add CA certificates for registry API (format: /tmp/foo) (can be specified multiple times)")
 	cmd.Flags().BoolVar(&r.VerifyCerts, "registry-verify-certs", true, "Set whether to verify server's certificate chain and host name")
@@ -36,6 +39,7 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&r.Anon, "registry-anon", false, "Set anonymous auth ($IMGPKG_ANON)")
 
 	cmd.Flags().DurationVar(&r.ResponseHeaderTimeout, "registry-response-header-timeout", 30*time.Second, "Maximum time to allow a request to wait for a server's response headers from the registry (ms|s|m|h)")
+	cmd.Flags().IntVar(&r.RetryCount, "registry-retry-count", 5, "Set the number of times imgpkg retries to send requests to the registry in case of an error")
 
 	cmd.Flags().String("registry-azure-cr-config", "", "Path to the file containing Azure container registry configuration information. ($IMGPKG_REGISTRY_AZURE_CR_CONFIG)")
 
@@ -72,6 +76,7 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		Token:    r.Token,
 		Anon:     r.Anon,
 
+		RetryCount:            r.RetryCount,
 		ResponseHeaderTimeout: r.ResponseHeaderTimeout,
 
 		EnvironFunc: os.Environ,

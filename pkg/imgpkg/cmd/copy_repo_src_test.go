@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -350,11 +351,11 @@ func TestToRepoImageIndex(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 1)
 		manifest, err := processedImages.All()[0].ImageIndex.IndexManifest()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, manifest.Manifests, int(expectedNumOfImagesForImgIndex))
 	})
 
@@ -1082,6 +1083,38 @@ images:
 		require.NoError(t, err)
 		require.Len(t, processedImages.All(), 1)
 		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
+	})
+
+	t.Run("When a temporary error happens it retries the configured number of times", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		destinationImageName := fakeRegistry.ReferenceOnTestServer("some/other/copied-img")
+		originImageName := "repo/image"
+
+		image2RefDigest := fakeRegistry.WithRandomImage(originImageName).RefDigest
+
+		subject := subject
+		subject.ImageFlags.Image = image2RefDigest
+		subject.registry = fakeRegistry.BuildWithRegistryOpts(registry.Opts{
+			RetryCount: 2,
+		})
+		numberOfTries := 0
+
+		fakeRegistry.WithHandlerFunc(func(writer http.ResponseWriter, request *http.Request) bool {
+			if strings.HasSuffix(request.URL.String(), "/v2/") || request.Method == "GET" || request.Method == "HEAD" {
+				return false
+			}
+
+			writer.WriteHeader(500)
+			writer.Write([]byte("{\"errors\":[{\"code\":\"UNKNOWN\",\"message\":\"internal server error\"}]}"))
+			numberOfTries++
+			return true
+		})
+
+		_, err := subject.CopyToRepo(destinationImageName)
+		assert.Equal(t, 2, numberOfTries)
+		require.Error(t, err)
 	})
 }
 

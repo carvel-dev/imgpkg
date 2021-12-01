@@ -55,6 +55,7 @@ func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 	return r.BuildWithRegistryOpts(registry.Opts{
 		EnvironFunc: os.Environ,
+		RetryCount:  3,
 	})
 }
 
@@ -179,6 +180,20 @@ func (r *FakeTestRegistryBuilder) WithBasicAuthPerRepository(repo, username, pas
 		Password: password,
 	}
 	r.server.Config.Handler = authenticatedRegistry
+}
+
+// WithHandlerFunc Adds authentication check for a particular repository
+func (r *FakeTestRegistryBuilder) WithHandlerFunc(handler func(writer http.ResponseWriter, request *http.Request) bool) {
+	parentHandler := r.server.Config.Handler
+
+	handlerFunc := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if handler(writer, request) {
+			return
+		}
+		parentHandler.ServeHTTP(writer, request)
+	})
+
+	r.server.Config.Handler = handlerFunc
 }
 
 // HTTPRequestLog Log entry for HTTP requests sent to the registry
