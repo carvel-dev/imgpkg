@@ -12,7 +12,9 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 type Contents struct {
@@ -22,6 +24,7 @@ type Contents struct {
 
 type ImagesWriter interface {
 	WriteImage(regname.Reference, regv1.Image) error
+	WriteTag(ref regname.Tag, taggagle regremote.Taggable) error
 }
 
 func NewContents(paths []string, excludedPaths []string) Contents {
@@ -51,6 +54,16 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	digest, err := img.Digest()
 	if err != nil {
 		return "", err
+	}
+
+	uploadTagRef, err := util.BuildDefaultUploadTagRef(img, uploadRef.Repository)
+	if err != nil {
+		return "", fmt.Errorf("Building default upload tag image ref: %s", err)
+	}
+
+	err = writer.WriteTag(uploadTagRef, img)
+	if err != nil {
+		return "", fmt.Errorf("Writing Tag '%s': %s", uploadRef.Name(), err)
 	}
 
 	return fmt.Sprintf("%s@%s", uploadRef.Context(), digest), nil

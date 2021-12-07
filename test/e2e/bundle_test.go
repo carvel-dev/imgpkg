@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -17,6 +18,31 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
+
+func TestPushPullBundle(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
+
+	out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
+	digest := helpers.ExtractDigest(t, out)
+	outDir := env.Assets.CreateTempFolder("imgpkg-test-basic")
+
+	splits := strings.Split(digest, ":")
+	bundleRefWithTag := env.Image + ":" + fmt.Sprintf("%s-%s.imgpkg", splits[0], splits[1])
+	imgpkg.Run([]string{"pull", "-b", bundleRefWithTag, "-o", outDir})
+
+	env.Assets.ValidateFilesAreEqual(bundleDir, outDir, []string{
+		".imgpkg/bundle.yml",
+		".imgpkg/images.yml",
+		"README.md",
+		"LICENSE",
+		"config/config.yml",
+		"config/inner-dir/README.txt",
+	})
+}
 
 func TestBundlePushPullAnnotation(t *testing.T) {
 	env := helpers.BuildEnv(t)
@@ -36,6 +62,7 @@ func TestBundlePushPullAnnotation(t *testing.T) {
 	require.Contains(t, config.Config.Labels, "dev.carvel.imgpkg.bundle")
 
 	outDir := env.Assets.CreateTempFolder("bundle-annotation")
+
 	imgpkg.Run([]string{"pull", "-b", env.Image, "-o", outDir})
 
 	env.Assets.ValidateFilesAreEqual(bundleDir, outDir, env.Assets.FilesInFolder())

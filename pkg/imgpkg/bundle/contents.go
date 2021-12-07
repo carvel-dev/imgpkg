@@ -12,6 +12,7 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
 )
 
@@ -30,6 +31,7 @@ type Contents struct {
 type ImagesMetadataWriter interface {
 	ImagesMetadata
 	WriteImage(regname.Reference, regv1.Image) error
+	WriteTag(ref regname.Tag, taggagle regremote.Taggable) error
 }
 
 func NewContents(paths []string, excludedPaths []string) Contents {
