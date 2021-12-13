@@ -7,7 +7,7 @@ require (
 	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72
 	github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
 	github.com/fatih/color v1.10.0 // indirect
-	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr v1.2.2
 	github.com/google/go-containerregistry v0.7.0
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mattn/go-runewidth v0.0.12 // indirect
@@ -16,10 +16,10 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.22.4
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	k8s.io/apimachinery v0.22.4
-	k8s.io/client-go v0.22.4 // indirect
+	k8s.io/apimachinery v0.23.0
+	k8s.io/client-go v0.23.0 // indirect
 	k8s.io/klog/v2 v2.30.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -48,11 +48,11 @@ require (
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.11 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2-0.20210730191737-8e42a01fb1b7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -65,8 +65,8 @@ require (
 	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211110154304-99a53858aa08 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
@@ -78,6 +78,7 @@ require (
 	k8s.io/cloud-provider v0.22.4 // indirect
 	k8s.io/component-base v0.22.4 // indirect
 	k8s.io/legacy-cloud-providers v0.22.4 // indirect
-	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a // indirect
+	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b // indirect
+	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 )
