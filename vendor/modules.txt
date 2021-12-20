@@ -418,7 +418,7 @@ k8s.io/cloud-provider/credentialconfig
 # k8s.io/component-base v0.22.4
 ## explicit; go 1.16
 k8s.io/component-base/version
-# k8s.io/klog/v2 v2.30.0
+# k8s.io/klog/v2 v2.40.1
 ## explicit; go 1.13
 k8s.io/klog/v2
 # k8s.io/legacy-cloud-providers v0.22.4
