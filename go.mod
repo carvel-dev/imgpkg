@@ -18,7 +18,7 @@ require (
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.22.4
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	k8s.io/apimachinery v0.23.0
+	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.0 // indirect
 	k8s.io/klog/v2 v2.30.0
 	sigs.k8s.io/yaml v1.3.0
@@ -62,7 +62,7 @@ require (
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vito/go-interact v0.0.0-20171111012221-fa338ed9e9ec // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a // indirect
+	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211110154304-99a53858aa08 // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
