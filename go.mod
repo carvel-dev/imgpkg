@@ -3,16 +3,14 @@ module github.com/vmware-tanzu/carvel-imgpkg
 go 1.17
 
 require (
-	github.com/cheggaaa/pb v1.0.29
+	github.com/cheggaaa/pb v2.0.7+incompatible
 	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72
 	github.com/cppforlife/go-cli-ui v0.0.0-20200506005011-4268990983cc
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-logr/logr v1.2.2
 	github.com/google/go-containerregistry v0.7.0
 	github.com/mattn/go-isatty v0.0.14
-	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
-	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.22.4
@@ -72,7 +70,13 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
+	gopkg.in/VividCortex/ewma.v1 v1.1.1 // indirect
+	gopkg.in/cheggaaa/pb.v2 v2.0.7 // indirect
+	gopkg.in/fatih/color.v1 v1.7.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/mattn/go-colorable.v0 v0.1.0 // indirect
+	gopkg.in/mattn/go-isatty.v0 v0.0.4 // indirect
+	gopkg.in/mattn/go-runewidth.v0 v0.0.4 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/cloud-provider v0.22.4 // indirect
