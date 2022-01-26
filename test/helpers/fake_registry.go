@@ -46,7 +46,7 @@ type FakeTestRegistryBuilder struct {
 }
 
 func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
-	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger, auth: authn.Anonymous}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
 
 	return r
