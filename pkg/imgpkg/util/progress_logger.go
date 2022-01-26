@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cheggaaa/pb"
+	pb "github.com/cheggaaa/pb/v3"
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/mattn/go-isatty"
@@ -42,8 +42,9 @@ type ProgressBarLogger struct {
 func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 	// Add a new empty line to separate the progress bar from prior output
 	fmt.Println()
-	l.bar = pb.New64(0).SetUnits(pb.U_BYTES)
-	l.bar.ShowSpeed = true
+	l.bar = pb.New64(0)
+	l.bar.Set(pb.Bytes, true)
+
 	go func() {
 		for {
 			select {
@@ -58,12 +59,12 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 				if update.Total == 0 {
 					return
 				}
-				if l.bar.Total == 0 {
-					l.bar.SetTotal64(update.Total)
+				if !l.bar.IsStarted() {
+					l.bar.SetTotal(update.Total)
 					l.bar.Start()
 				}
-				l.bar.Set64(update.Complete)
-				l.bar.Update()
+				l.bar.SetCurrent(update.Complete)
+				l.bar.Write()
 			}
 		}
 	}()
@@ -71,8 +72,8 @@ func (l *ProgressBarLogger) Start(progressChan <-chan regv1.Update) {
 
 func (l *ProgressBarLogger) End() {
 	l.cancelFunc()
-	l.bar.FinishPrint("") // Ensures a new line is added after the progress bar
-	l.ui.BeginLinef("%s", l.finalMessage)
+	l.bar.Finish()
+	l.ui.BeginLinef("\n%s", l.finalMessage)
 }
 
 type ProgressBarNoTTYLogger struct {
