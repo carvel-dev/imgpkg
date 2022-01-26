@@ -223,6 +223,9 @@ func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]
 	}
 
 	rOpts := append(append([]regremote.Option{}, r.opts()...), regremote.WithJobs(concurrency))
+	if updatesCh != nil {
+		rOpts = append(rOpts, regremote.WithProgress(updatesCh))
+	}
 	return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, rOpts...)
 }
 
