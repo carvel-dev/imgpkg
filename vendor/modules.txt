@@ -359,7 +359,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/apimachinery v0.23.2
+# k8s.io/apimachinery v0.23.3
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -433,7 +433,7 @@ k8s.io/klog/v2
 ## explicit; go 1.16
 k8s.io/legacy-cloud-providers/azure/auth
 k8s.io/legacy-cloud-providers/gce/gcpcredential
-# k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
+# k8s.io/utils v0.0.0-20211116205334-6203023598ed
 ## explicit; go 1.12
 k8s.io/utils/buffer
 k8s.io/utils/clock
