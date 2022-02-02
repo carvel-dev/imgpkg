@@ -28,9 +28,9 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 

@@ -15,9 +15,9 @@ import (
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	plainimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 const (

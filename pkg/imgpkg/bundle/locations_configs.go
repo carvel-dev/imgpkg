@@ -18,8 +18,8 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
 const (

@@ -19,9 +19,12 @@ type UIWithLevels interface {
 }
 
 const (
+	// LogTrace most verbose level
 	LogTrace LogLevel = iota
+	// LogDebug used when more information than normal is needed
 	LogDebug LogLevel = iota
-	LogWarn  LogLevel = iota
+	// LogWarn only logs warnings and errors
+	LogWarn LogLevel = iota
 )
 
 // NewUILevelLogger is a UILevelWriter constructor, wrapping a ui.UI with a specific log level

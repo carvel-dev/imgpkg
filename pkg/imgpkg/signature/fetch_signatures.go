@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"golang.org/x/sync/errgroup"
 )
 
