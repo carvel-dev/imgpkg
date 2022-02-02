@@ -10,8 +10,6 @@ type LogLevel int
 
 // UIWithLevels wraps a ui.UI with logging levels
 type UIWithLevels interface {
-	goui.UI
-
 	Errorf(msg string, args ...interface{})
 	Warnf(msg string, args ...interface{})
 	Debugf(msg string, args ...interface{})
