@@ -66,6 +66,7 @@ func (i *PlainImage) Repo() string {
 	return i.parsedRef.Context().Name()
 }
 
+// DigestRef Image full location including registry, repository and digest
 func (i *PlainImage) DigestRef() string {
 	if i.parsedRef == nil {
 		panic("Unexpected usage of DigestRef(); call Fetch before")

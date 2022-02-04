@@ -341,25 +341,29 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 }
 
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
-	bundle, err := random.Image(500, 5)
+	b, err := random.Image(500, 5)
 	require.NoError(r.t, err)
 
-	bundle, err = mutate.ConfigFile(bundle, &v1.ConfigFile{
+	b, err = mutate.ConfigFile(b, &v1.ConfigFile{
 		Config: v1.Config{
 			Labels: map[string]string{"dev.carvel.imgpkg.bundle": "true"},
 		},
 	})
 	require.NoError(r.t, err, "create image from tar")
 
-	r.updateState(bundleName, bundle, nil, "", "")
+	r.updateState(bundleName, b, nil, "", "")
 
-	digest, err := bundle.Digest()
+	digest, err := b.Digest()
 	assert.NoError(r.t, err)
 	imgName, err := name.ParseReference(bundleName)
 	require.NoError(r.t, err)
 	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
 	r.logger.Tracef("created bundle %s\n", bundleRef)
-	return BundleInfo{r, bundle, bundleName, "",
+	tmpDir, err := ioutil.TempDir("", digest.Hex)
+	require.NoError(r.t, err)
+	bDir := filepath.Join(tmpDir, bundle.ImgpkgDir)
+	require.NoError(r.t, os.MkdirAll(bDir, 0777))
+	return BundleInfo{r, b, bundleName, tmpDir,
 		digest.String(), bundleRef}
 }
 

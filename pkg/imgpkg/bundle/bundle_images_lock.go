@@ -18,6 +18,11 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
+// ImagesRefs Retrieve the references for the Images of this particular bundle
+func (o *Bundle) ImagesRefs() []ImageRef {
+	return o.allCachedImageRefs()
+}
+
 // AllImagesRefs returns a flat list of nested bundles and every image reference for a specific bundle
 func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
