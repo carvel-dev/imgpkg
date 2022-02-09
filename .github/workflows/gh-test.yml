@@ -51,12 +51,14 @@ jobs:
         export PATH="$GOPATH/bin:$PATH"
         cd src/github.com/${{ github.repository }}
 
-        export IMGPKG_E2E_IMAGE="ttl.sh/github-action-test-relocation-$GITHUB_RUN_ID"
-        export IMGPKG_E2E_RELOCATION_REPO="ttl.sh/github-action-imgpkg-test-$GITHUB_RUN_ID"
+        export IMGPKG_E2E_IMAGE="localhost:5000/github-action-test-relocation-$GITHUB_RUN_ID"
+        export IMGPKG_E2E_RELOCATION_REPO="localhost:5000/github-action-imgpkg-test-$GITHUB_RUN_ID"
 
         go install github.com/sigstore/cosign/cmd/cosign@v0.5.0
 
         alias cosign=cosign.exe
+
+        docker run -d -p 5000:5000 --restart=always --name registry ghcr.io/vmware-tanzu/carvel-imgpkg/registry-windows:2.8.0-2022
 
         export IMGPKG_BINARY_EXT=".exe"
         ./hack/test-all.sh
