@@ -1,0 +1,31 @@
+name: Registry in Windows container build
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  goreleaser:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+    - name: Log in to the Container registry
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Building image
+      shell: pwsh
+      run: |
+        cd hack\windows-registry
+        .\build.ps1
+        .\push.ps1
+
