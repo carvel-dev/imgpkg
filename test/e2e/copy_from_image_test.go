@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -210,8 +211,8 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 				t.Skip("Skipping this test due index.docker.io limitation. See https://github.com/docker/hub-feedback/issues/2132")
 			}
 
-			if mediaType == types.DockerForeignLayer && strings.HasPrefix(env.RelocationRepo, "ttl.sh") {
-				t.Skip("Skipping this test due ttl.sh limitation.")
+			if mediaType == types.DockerForeignLayer && (strings.HasPrefix(env.RelocationRepo, "ttl.sh") || runtime.GOOS == "windows") {
+				t.Skip("Skipping this test due ttl.sh/windows limitation.")
 			}
 
 			if mediaType == types.OCIUncompressedRestrictedLayer && strings.HasPrefix(env.RelocationRepo, "gcr.io") {
