@@ -8,7 +8,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  goreleaser:
+  build-windows-image:
     runs-on: windows-2022
     permissions:
       contents: read
