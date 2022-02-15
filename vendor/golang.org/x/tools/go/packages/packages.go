@@ -26,7 +26,6 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/internal/gocommand"
 	"golang.org/x/tools/internal/packagesinternal"
-	"golang.org/x/tools/internal/typeparams"
 	"golang.org/x/tools/internal/typesinternal"
 )
 
@@ -911,7 +910,6 @@ func (ld *loader) loadPackage(lpkg *loaderPackage) {
 		Scopes:     make(map[ast.Node]*types.Scope),
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
-	typeparams.InitInstanceInfo(lpkg.TypesInfo)
 	lpkg.TypesSizes = ld.sizes
 
 	importer := importerFunc(func(path string) (*types.Package, error) {

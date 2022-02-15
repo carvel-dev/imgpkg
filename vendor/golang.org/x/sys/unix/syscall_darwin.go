@@ -159,10 +159,8 @@ func Pipe(p []int) (err error) {
 	}
 	var x [2]int32
 	err = pipe(&x)
-	if err == nil {
-		p[0] = int(x[0])
-		p[1] = int(x[1])
-	}
+	p[0] = int(x[0])
+	p[1] = int(x[1])
 	return
 }
 

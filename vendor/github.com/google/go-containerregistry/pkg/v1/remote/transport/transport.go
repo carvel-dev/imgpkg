@@ -68,7 +68,9 @@ func NewWithContext(ctx context.Context, reg name.Registry, auth authn.Authentic
 	}
 
 	switch pr.challenge.Canonical() {
-	case anonymous, basic:
+	case anonymous:
+		return &Wrapper{t}, nil
+	case basic:
 		return &Wrapper{&basicTransport{inner: t, auth: auth, target: reg.RegistryStr()}}, nil
 	case bearer:
 		// We require the realm, which tells us where to send our Basic auth to turn it into Bearer auth.
