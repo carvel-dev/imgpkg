@@ -89,7 +89,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 		go func() {
 			importThrottle.Take()
 			defer importThrottle.Done()
-			tag, taggable, err := i.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
+			tags, taggables, err := i.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
 			if err != nil {
 				errCh <- err
 				return
@@ -97,7 +97,9 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			imageOrIndexesToWriteLock.Lock()
 			defer imageOrIndexesToWriteLock.Unlock()
 
-			imageOrIndexesToWrite[tag] = taggable
+			for idx, v := range tags {
+				imageOrIndexesToWrite[v] = taggables[idx]
+			}
 			errCh <- nil
 		}()
 	}
@@ -146,27 +148,36 @@ func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan er
 	return nil
 }
 
-func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) (regname.Tag, regremote.Taggable, error) {
-	uploadTagRef, err := util.BuildDefaultUploadTagRef(item, importRepo)
+func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) ([]regname.Tag, []regremote.Taggable, error) {
+	uploadTagRef1, err := util.BuildDefaultUploadTagRef(item, importRepo)
 	if err != nil {
-		return regname.Tag{}, nil, err
+		return []regname.Tag{}, nil, err
 	}
 
-	var artifactToWrite regremote.Taggable
-	switch {
-	case item.Image != nil:
-		artifactToWrite, err = i.mountableImage(*item.Image, uploadTagRef, registry)
-		if err != nil {
-			return regname.Tag{}, nil, err
+	uploadTagRef2, err := util.BuildLegibleUploadTagRef(item.Ref(), importRepo)
+	if err != nil {
+		return []regname.Tag{}, nil, err
+	}
+
+	tagArr := []regname.Tag{uploadTagRef1, uploadTagRef2}
+	var artifactsToWrite []regremote.Taggable
+
+	for _, v := range tagArr {
+		switch {
+		case item.Image != nil:
+			artifactToWrite, err := i.mountableImage(*item.Image, v, registry)
+			if err != nil {
+				return []regname.Tag{}, nil, err
+			}
+			artifactsToWrite = append(artifactsToWrite, artifactToWrite)
+		case item.Index != nil:
+			artifactsToWrite = append(artifactsToWrite, *item.Index)
+		default:
+			panic("Unknown item")
 		}
-
-	case item.Index != nil:
-		artifactToWrite = *item.Index
-	default:
-		panic("Unknown item")
 	}
 
-	return uploadTagRef, artifactToWrite, nil
+	return tagArr, artifactsToWrite, nil
 }
 
 func (i ImageSet) mountableImage(imageWithRef imagedesc.ImageWithRef, uploadTagRef regname.Tag, registry registry.ImagesReaderWriter) (regremote.Taggable, error) {
@@ -304,3 +315,4 @@ func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag, reg
 	_, err = destAuthRegistry.Digest(ref)
 	return err == nil
 }
+
