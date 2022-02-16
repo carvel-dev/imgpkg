@@ -11,12 +11,15 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
+	"sync"
 	"time"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/logs"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -82,9 +85,11 @@ var _ Registry = &SimpleRegistry{}
 
 // SimpleRegistry Implements Registry interface
 type SimpleRegistry struct {
-	remoteOpts []regremote.Option
-	refOpts    []regname.Option
-	keychain   regauthn.Keychain
+	remoteOpts      []regremote.Option
+	refOpts         []regname.Option
+	keychain        regauthn.Keychain
+	roundTrippers   *RoundTripperStorage
+	transportAccess *sync.Mutex
 }
 
 // NewSimpleRegistry Builder for a Simple Registry
@@ -112,28 +117,41 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 		return nil, fmt.Errorf("Creating registry keychain: %s", err)
 	}
 
-	regRemoteOptions := []regremote.Option{
-		regremote.WithTransport(httpTran),
-	}
+	var regRemoteOptions []regremote.Option
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
 	}
 	if regOpts != nil {
 		regRemoteOptions = append(regRemoteOptions, regOpts...)
 	}
+	tries := opts.RetryCount
+	if tries == 0 {
+		tries = 1
+	}
 
-	regRemoteOptions = append(regRemoteOptions, regremote.WithRetryBackoff(regremote.Backoff{
+	retryBackoff := regremote.Backoff{
 		Duration: 100 * time.Millisecond,
 		Factor:   2,
 		Jitter:   0,
-		Steps:    opts.RetryCount,
+		Steps:    tries,
 		Cap:      1 * time.Second,
-	}))
+	}
+	regRemoteOptions = append(regRemoteOptions, regremote.WithRetryBackoff(retryBackoff))
+
+	baseRoundTripper := http.RoundTripper(httpTran)
+	if logs.Enabled(logs.Debug) {
+		baseRoundTripper = transport.NewLogger(httpTran)
+	}
+
+	// Wrap the transport in something that can retry network flakes.
+	baseRoundTripper = transport.NewRetry(baseRoundTripper, transport.WithRetryBackoff(retryBackoff))
 
 	return &SimpleRegistry{
-		remoteOpts: regRemoteOptions,
-		refOpts:    refOpts,
-		keychain:   keychain,
+		remoteOpts:      regRemoteOptions,
+		refOpts:         refOpts,
+		keychain:        keychain,
+		roundTrippers:   NewRoundTripperStorage(baseRoundTripper),
+		transportAccess: &sync.Mutex{},
 	}, nil
 }
 
@@ -149,20 +167,56 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 	keychain := auth.NewSingleAuthKeychain(imgAuth)
 
 	return &SimpleRegistry{
-		remoteOpts: r.remoteOpts,
-		refOpts:    r.refOpts,
-		keychain:   keychain,
+		remoteOpts:      r.remoteOpts,
+		refOpts:         r.refOpts,
+		keychain:        keychain,
+		roundTrippers:   r.roundTrippers,
+		transportAccess: &sync.Mutex{},
 	}, nil
 }
 
-// opts Returns the opts + the keychain
-func (r SimpleRegistry) opts() []regremote.Option {
-	// new options come first so that user configured options take precedence
-	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain)}, r.remoteOpts...)
+// readOpts Returns the readOpts + the keychain
+func (r *SimpleRegistry) readOpts(ref regname.Reference) ([]regremote.Option, error) {
+	rt, err := r.transport(ref, ref.Scope(transport.PullScope))
+	if err != nil {
+		return nil, err
+	}
+	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain), regremote.WithTransport(rt)}, r.remoteOpts...), nil
+}
+
+// writeOpts Returns the writeOpts + the keychain
+func (r *SimpleRegistry) writeOpts(ref regname.Reference) ([]regremote.Option, error) {
+	rt, err := r.transport(ref, ref.Scope(transport.PushScope))
+	if err != nil {
+		return nil, err
+	}
+
+	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain), regremote.WithTransport(rt)}, r.remoteOpts...), nil
+}
+
+// transport Retrieve the RoundTripper that can be used to access the repository
+func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.RoundTripper, error) {
+	// The idea is that we can only retrieve 1 RoundTripper at a time to ensure that we do not create
+	// the same RoundTripper multiple times
+	r.transportAccess.Lock()
+	defer r.transportAccess.Unlock()
+	rt := r.roundTrippers.RoundTripper(ref.Context(), scope)
+	if rt == nil {
+		resolvedAuth, err := r.keychain.Resolve(ref.Context())
+		if err != nil {
+			return nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)
+		}
+		rt, err = r.roundTrippers.CreateRoundTripper(ref.Context().Registry, resolvedAuth, scope)
+		if err != nil {
+			return nil, fmt.Errorf("Error while preparing a transport to talk with the registry: %s", err)
+		}
+	}
+
+	return rt, nil
 }
 
 // Get Retrieve Image descriptor for an Image reference
-func (r SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
+func (r *SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -170,11 +224,15 @@ func (r SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, error
 	if err != nil {
 		return nil, err
 	}
-	return regremote.Get(overriddenRef, r.opts()...)
+	opts, err := r.readOpts(ref)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.Get(overriddenRef, opts...)
 }
 
 // Digest Retrieve the Digest for an Image reference
-func (r SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
+func (r *SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	if err := r.validateRef(ref); err != nil {
 		return regv1.Hash{}, err
 	}
@@ -182,9 +240,14 @@ func (r SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 	if err != nil {
 		return regv1.Hash{}, err
 	}
-	desc, err := regremote.Head(overriddenRef, r.opts()...)
+
+	opts, err := r.readOpts(ref)
 	if err != nil {
-		getDesc, err := regremote.Get(overriddenRef, r.opts()...)
+		return regv1.Hash{}, err
+	}
+	desc, err := regremote.Head(overriddenRef, opts...)
+	if err != nil {
+		getDesc, err := regremote.Get(overriddenRef, opts...)
 		if err != nil {
 			return regv1.Hash{}, err
 		}
@@ -195,7 +258,7 @@ func (r SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 }
 
 // Image Retrieve the regv1.Image struct for an Image reference
-func (r SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
+func (r *SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -204,13 +267,18 @@ func (r SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
 		return nil, err
 	}
 
-	return regremote.Image(overriddenRef, r.opts()...)
+	opts, err := r.readOpts(ref)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.Image(overriddenRef, opts...)
 }
 
 // MultiWrite Upload multiple Images in Parallel to the Registry
-func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
+func (r *SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error {
 	overriddenImageOrIndexesToUploadRef := map[regname.Reference]regremote.Taggable{}
 
+	var singleRef regname.Reference
 	for ref, taggable := range imageOrIndexesToUpload {
 		if err := r.validateRef(ref); err != nil {
 			return err
@@ -219,11 +287,16 @@ func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]
 		if err != nil {
 			return err
 		}
+		singleRef = overriddenRef
 
 		overriddenImageOrIndexesToUploadRef[overriddenRef] = taggable
 	}
 
-	rOpts := append(append([]regremote.Option{}, r.opts()...), regremote.WithJobs(concurrency))
+	opts, err := r.writeOpts(singleRef)
+	if err != nil {
+		return err
+	}
+	rOpts := append(append([]regremote.Option{}, opts...), regremote.WithJobs(concurrency))
 	if updatesCh != nil {
 		rOpts = append(rOpts, regremote.WithProgress(updatesCh))
 	}
@@ -231,7 +304,7 @@ func (r SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference]
 }
 
 // WriteImage Upload Image to registry
-func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error {
+func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -240,7 +313,12 @@ func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error
 		return err
 	}
 
-	err = regremote.Write(overriddenRef, img, r.opts()...)
+	opts, err := r.writeOpts(ref)
+	if err != nil {
+		return err
+	}
+
+	err = regremote.Write(overriddenRef, img, opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)
 	}
@@ -249,7 +327,7 @@ func (r SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error
 }
 
 // Index Retrieve regv1.ImageIndex struct for an Index reference
-func (r SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
+func (r *SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 	if err := r.validateRef(ref); err != nil {
 		return nil, err
 	}
@@ -257,11 +335,15 @@ func (r SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	return regremote.Index(overriddenRef, r.opts()...)
+	opts, err := r.readOpts(ref)
+	if err != nil {
+		return nil, err
+	}
+	return regremote.Index(overriddenRef, opts...)
 }
 
 // WriteIndex Uploads the Index manifest to the registry
-func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
+func (r *SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -270,7 +352,12 @@ func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) 
 		return err
 	}
 
-	err = regremote.WriteIndex(overriddenRef, idx, r.opts()...)
+	opts, err := r.writeOpts(ref)
+	if err != nil {
+		return err
+	}
+
+	err = regremote.WriteIndex(overriddenRef, idx, opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image index: %s", err)
 	}
@@ -279,7 +366,7 @@ func (r SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex) 
 }
 
 // WriteTag Tag the referenced Image
-func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
+func (r *SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -288,7 +375,12 @@ func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) e
 		return err
 	}
 
-	err = regremote.Tag(overriddenRef, taggagle, r.opts()...)
+	opts, err := r.writeOpts(ref)
+	if err != nil {
+		return err
+	}
+
+	err = regremote.Tag(overriddenRef, taggagle, opts...)
 	if err != nil {
 		return fmt.Errorf("Tagging image: %s", err)
 	}
@@ -297,16 +389,25 @@ func (r SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) e
 }
 
 // ListTags Retrieve all tags associated with a Repository
-func (r SimpleRegistry) ListTags(repo regname.Repository) ([]string, error) {
+func (r *SimpleRegistry) ListTags(repo regname.Repository) ([]string, error) {
 	overriddenRepo, err := regname.NewRepository(repo.Name(), r.refOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return regremote.List(overriddenRepo, r.opts()...)
+	repoRef, err := regname.ParseReference(overriddenRepo.String())
+	if err != nil {
+		return nil, err
+	}
+	opts, err := r.readOpts(repoRef)
+	if err != nil {
+		return nil, err
+	}
+
+	return regremote.List(overriddenRepo, opts...)
 }
 
 // FirstImageExists Returns the first of the provided Image Digests that exists in the Registry
-func (r SimpleRegistry) FirstImageExists(digests []string) (string, error) {
+func (r *SimpleRegistry) FirstImageExists(digests []string) (string, error) {
 	var err error
 	for _, img := range digests {
 		ref, parseErr := regname.NewDigest(img)
