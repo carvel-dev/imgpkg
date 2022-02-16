@@ -47,4 +47,3 @@ func BuildLegibleUploadTagRef(itemRef string, importRepo regname.Repository) (re
 	uploadTagRef, err := regname.NewTag(fmt.Sprintf("%s:%s", importRepo.Name(), tag))
 	return uploadTagRef, err
 }
-

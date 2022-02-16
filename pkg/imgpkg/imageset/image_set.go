@@ -315,4 +315,3 @@ func imageBlobsCanBeMounted(ref regname.Reference, uploadTagRef regname.Tag, reg
 	_, err = destAuthRegistry.Digest(ref)
 	return err == nil
 }
-
