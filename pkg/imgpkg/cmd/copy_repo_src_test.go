@@ -534,9 +534,14 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, logger)
 	defer fakeRegistry.CleanUp()
 
+	dockerhubProxy := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubProxy = v
+	}
+
 	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
 		WithImageRefs([]lockconfig.ImageRef{
-			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+			{Image: dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
 		})
 
 	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
@@ -615,7 +620,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 			APIVersion: "imgpkg.carvel.dev/v1alpha1",
 			Kind:       "ImageLocations",
 			Images: []bundle.ImageLocation{{
-				Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+				Image:    dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 				IsBundle: false,
 			}},
 		}, cfg)
@@ -691,7 +696,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 				APIVersion: "imgpkg.carvel.dev/v1alpha1",
 				Kind:       "ImageLocations",
 				Images: []bundle.ImageLocation{{
-					Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+					Image:    dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 					IsBundle: false,
 				}},
 			}, cfg)
@@ -746,9 +751,14 @@ func TestToRepoFromTar(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, logger)
 	defer fakeRegistry.CleanUp()
 
+	dockerhubProxy := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubProxy = v
+	}
+
 	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
 		WithImageRefs([]lockconfig.ImageRef{
-			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+			{Image: dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
 		})
 
 	bundleWithNestedBundle := fakeRegistry.WithBundleFromPath("library/bundle-with-nested-bundle",
@@ -794,12 +804,17 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeRegistry.CleanUp()
 
+	dockerhubProxy := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubProxy = v
+	}
+
 	bundleWithOneImages := fakeRegistry.WithBundleFromPath("library/bundle", "test_assets/bundle_with_mult_images").
 		WithImageRefs([]lockconfig.ImageRef{
-			{Image: "hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
+			{Image: dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"},
 		})
 
-	reference, err := name.ParseReference("hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6")
+	reference, err := name.ParseReference(dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6")
 	require.NoError(t, err)
 	helloworld, err := remote.Get(reference)
 	require.NoError(t, err)
@@ -884,7 +899,7 @@ func TestToRepoBundleRunTwiceCreatesValidLocationOCI(t *testing.T) {
 			APIVersion: "imgpkg.carvel.dev/v1alpha1",
 			Kind:       "ImageLocations",
 			Images: []bundle.ImageLocation{{
-				Image:    "index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
+				Image:    dockerhubProxy + "/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
 				IsBundle: false,
 			}},
 		}, cfg)

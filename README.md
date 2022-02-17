@@ -45,9 +45,17 @@ Build the code with
 ./hack/build.sh
 ```
 
+## Testing
+
 Run every test with a local registry (requires Docker)
 ```bash
 ./hack/test-all-local-registry.sh 5000
+```
+
+If you would like to use a proxy registry for pulling images in order to avoid rate limiting from dockerhub,
+set DOCKERHUB_PROXY environment variable to that proxy, e.g.:
+```bash
+export DOCKERHUB_PROXY=<my-registry.local.sometld/my-dockerhub-proxy> && ./hack/test-all-local-registry.sh 5000
 ```
 
 ### Source Code Changes

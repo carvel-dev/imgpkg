@@ -29,12 +29,16 @@ func TestPullImageLockRewrite(t *testing.T) {
 	defer env.Cleanup()
 
 	imageDigestRef := "@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"
+	dockerhubProxy := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubProxy = v
+	}
 	imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
-- image: hello-world%s
-`, imageDigestRef)
+- image: %s/library/hello-world%s
+`, dockerhubProxy, imageDigestRef)
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
@@ -67,7 +71,7 @@ images:
 			APIVersion: "imgpkg.carvel.dev/v1alpha1",
 			Kind:       "ImageLocations",
 			Images: []bundle.ImageLocation{{
-				Image: "index.docker.io/library/hello-world" + imageDigestRef,
+				Image: dockerhubProxy + "/library/hello-world" + imageDigestRef,
 				// Repository not used for now because all images will be present in the same repository
 				IsBundle: false,
 			}},
@@ -84,12 +88,16 @@ func TestPullImageLockRewriteBundleOfBundles(t *testing.T) {
 
 	bundleDigestRef := ""
 	imageDigestRef := "@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"
+	dockerhubProxy := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubProxy = v
+	}
 	imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
-- image: hello-world%s
-`, imageDigestRef)
+- image: %s/library/hello-world%s
+`, dockerhubProxy, imageDigestRef)
 
 	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 	uniqueImageName := env.Image + fmt.Sprintf("%d", time.Now().Unix())
