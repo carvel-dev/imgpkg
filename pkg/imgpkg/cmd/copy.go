@@ -56,6 +56,10 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
     imgpkg copy -b dkalinin/app1-bundle --to-repo internal-registry/app1-bundle
 
     # Copy image dkalinin/app1-image to another registry (or repository)
+    # ##########################################################################
+    # NOTE: if not using ~/.docker.config for authn, use env vars as described  #
+    # in https://carvel.dev/imgpkg/docs/v0.24.0/auth/#via-environment-variables #
+    # ##########################################################################
     imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image`,
 	}
 
