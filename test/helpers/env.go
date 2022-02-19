@@ -98,3 +98,15 @@ func (e Env) Validate(t *testing.T) {
 
 	require.Len(t, errStrs, 0)
 }
+
+func GetDockerHubRegistry() string {
+	dockerhubReg := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubReg = v
+	}
+	return dockerhubReg
+}
+
+func CompleteImageRef(ref string) string {
+	return GetDockerHubRegistry() + "/" + ref
+}
