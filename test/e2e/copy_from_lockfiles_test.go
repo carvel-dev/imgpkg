@@ -6,7 +6,6 @@ package e2e
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -31,12 +30,8 @@ func TestCopyFromBundleLock(t *testing.T) {
 		randomImageDigestRef = env.Image + randomImageDigest
 	})
 
-	dockerhubProxy := "index.docker.io"
-	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
-		dockerhubProxy = v
-	}
-
 	t.Run("when copying index to repo, it is successful and generates a BundleLock file", func(t *testing.T) {
+		dockerhubImgRef := helpers.CompleteImageRef("library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9")
 		testDir := ""
 		lockFile := ""
 		logger.Section("create bundle from index", func() {
@@ -45,8 +40,8 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
  - annotations:
-     kbld.carvel.dev/id: ` + dockerhubProxy + `/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
-   image: ` + dockerhubProxy + `/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
+     kbld.carvel.dev/id: ` + dockerhubImgRef + `
+   image: ` + dockerhubImgRef + `
 `
 			testDir = env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
