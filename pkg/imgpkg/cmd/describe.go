@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -146,6 +147,8 @@ func (p bundleTextPrinter) printerRec(description api.BundleDescription, logger 
 		indentLogger.BeginLinef("Image: %s\n", b.Image)
 		indentLogger.BeginLinef("Type: Bundle\n")
 		indentLogger.BeginLinef("Origin: %s\n", b.Origin)
+		annotations := b.Annotations
+		p.printAnnotations(annotations, indentLogger)
 		p.printerRec(b, indentLogger)
 	}
 
@@ -153,5 +156,23 @@ func (p bundleTextPrinter) printerRec(description api.BundleDescription, logger 
 		indentLogger.BeginLinef("Image: %s\n", image.Image)
 		indentLogger.BeginLinef("Type: Image\n")
 		indentLogger.BeginLinef("Origin: %s\n", image.Origin)
+		annotations := image.Annotations
+		p.printAnnotations(annotations, indentLogger)
+	}
+}
+
+func (p bundleTextPrinter) printAnnotations(annotations map[string]string, indentLogger *goui.IndentingUI) {
+	if len(annotations) > 0 {
+		indentLogger.BeginLinef("Annotations:\n")
+		annIndentLogger := goui.NewIndentingUI(indentLogger)
+
+		var annotationKeys []string
+		for key := range annotations {
+			annotationKeys = append(annotationKeys, key)
+		}
+		sort.Strings(annotationKeys)
+		for _, key := range annotationKeys {
+			annIndentLogger.BeginLinef("%s: %s\n", key, annotations[key])
+		}
 	}
 }

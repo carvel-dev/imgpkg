@@ -5,6 +5,8 @@ package api
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
@@ -37,8 +39,9 @@ type BundleMetadata struct {
 
 // ImageInfo URLs where the image can be found as well as annotations provided in the Images Lock
 type ImageInfo struct {
-	Image  string
-	Origin string
+	Image       string
+	Origin      string
+	Annotations map[string]string
 }
 
 // BundleContent Contents present in a Bundle
@@ -107,8 +110,9 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		imgRef: currentBundle,
 		bundle: BundleDescription{
 			ImageInfo: ImageInfo{
-				Image:  currentBundle.PrimaryLocation(),
-				Origin: currentBundle.Image,
+				Image:       currentBundle.PrimaryLocation(),
+				Origin:      currentBundle.Image,
+				Annotations: currentBundle.Annotations,
 			},
 			Metadata: BundleMetadata{},
 			Content:  BundleContent{},
@@ -125,7 +129,12 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		panic("Internal consistency: bundle could not be found in list of bundles")
 	}
 
-	for _, ref := range bundle.ImagesRefs() {
+	imagesRefs := bundle.ImagesRefs()
+	sort.Slice(imagesRefs, func(i, j int) bool {
+		return strings.Compare(imagesRefs[i].Image, imagesRefs[j].Image) <= 0
+	})
+
+	for _, ref := range imagesRefs {
 		if ref.IsBundle == nil {
 			panic("Internal consistency: IsBundle after processing must always have a value")
 		}
@@ -135,8 +144,9 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 			desc.bundle.Content.Bundles = append(desc.bundle.Content.Bundles, bundleDesc)
 		} else {
 			desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
-				Image:  ref.PrimaryLocation(),
-				Origin: ref.Image,
+				Image:       ref.PrimaryLocation(),
+				Origin:      ref.Image,
+				Annotations: ref.Annotations,
 			})
 		}
 	}
