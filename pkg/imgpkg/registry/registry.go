@@ -157,7 +157,8 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 
 // opts Returns the opts + the keychain
 func (r SimpleRegistry) opts() []regremote.Option {
-	return append(r.remoteOpts, regremote.WithAuthFromKeychain(r.keychain))
+	// new options come first so that user configured options take precedence
+	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain)}, r.remoteOpts...)
 }
 
 // Get Retrieve Image descriptor for an Image reference
