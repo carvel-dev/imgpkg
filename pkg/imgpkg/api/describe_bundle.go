@@ -21,40 +21,42 @@ type DescribeOpts struct {
 
 // Author information from a Bundle
 type Author struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
 }
 
 // Website URL where more information of the Bundle can be found
 type Website struct {
-	URL string `json:"url"`
+	URL string `json:"url,omitempty"`
 }
 
 // BundleMetadata Extra metadata present in a Bundle
 type BundleMetadata struct {
-	Metadata map[string]string `json:"metadata"`
-	Authors  []Author          `json:"authors"`
-	Websites []Website         `json:"websites"`
+	Metadata map[string]string `json:"metadata,omitempty"`
+	Authors  []Author          `json:"authors,omitempty"`
+	Websites []Website         `json:"websites,omitempty"`
 }
 
 // ImageInfo URLs where the image can be found as well as annotations provided in the Images Lock
 type ImageInfo struct {
-	Image       string
-	Origin      string
-	Annotations map[string]string
+	Image       string            `json:"image"`
+	Origin      string            `json:"origin"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // BundleContent Contents present in a Bundle
 type BundleContent struct {
-	Bundles []BundleDescription
-	Images  []ImageInfo
+	Bundles []BundleDescription `json:"bundles,omitempty"`
+	Images  []ImageInfo         `json:"images,omitempty"`
 }
 
 // BundleDescription Metadata and Contents of a Bundle
 type BundleDescription struct {
-	ImageInfo
-	Metadata BundleMetadata
-	Content  BundleContent
+	Image       string            `json:"image"`
+	Origin      string            `json:"origin"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    BundleMetadata    `json:"metadata,omitempty"`
+	Content     BundleContent     `json:"content"`
 }
 
 // DescribeBundle Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
@@ -109,13 +111,11 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	desc = refWithDescription{
 		imgRef: currentBundle,
 		bundle: BundleDescription{
-			ImageInfo: ImageInfo{
-				Image:       currentBundle.PrimaryLocation(),
-				Origin:      currentBundle.Image,
-				Annotations: currentBundle.Annotations,
-			},
-			Metadata: BundleMetadata{},
-			Content:  BundleContent{},
+			Image:       currentBundle.PrimaryLocation(),
+			Origin:      currentBundle.Image,
+			Annotations: currentBundle.Annotations,
+			Metadata:    BundleMetadata{},
+			Content:     BundleContent{},
 		},
 	}
 	var bundle *ctlbundle.Bundle

@@ -332,7 +332,11 @@ func assertBundleResult(t *testing.T, expectedBundle createdBundle, result api.B
 func findImageWithRef(bundle api.BundleDescription, refDigest string) (api.BundleDescription, api.ImageInfo, bool) {
 	for _, bundleDesc := range bundle.Content.Bundles {
 		if bundleDesc.Image == refDigest {
-			return bundleDesc, bundleDesc.ImageInfo, true
+			return bundleDesc, api.ImageInfo{
+				Image:       bundle.Image,
+				Origin:      bundle.Origin,
+				Annotations: bundle.Annotations,
+			}, true
 		}
 	}
 	for _, img := range bundle.Content.Images {

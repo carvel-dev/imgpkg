@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/api"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -75,6 +76,9 @@ func (d *DescribeOptions) Run() error {
 	if d.OutputType == "text" {
 		p := bundleTextPrinter{ui: d.ui}
 		p.Print(description)
+	} else if d.OutputType == "yaml" {
+		p := bundleYAMLPrinter{ui: d.ui}
+		return p.Print(description)
 	}
 	return nil
 }
@@ -93,37 +97,6 @@ func (d *DescribeOptions) validateFlags() error {
 	return nil
 }
 
-// Bundle SHA: aaaaad700949154e429d28661d01c99d53a38af0d5275842ccbf0bf6dbef8ca4
-//Tags: latest, v1.0.0
-//
-//Authors:
-//  Carvel Team <carvel@vmware.com>
-//Websites:
-//  carvel.dev/imgpkg
-//Metadata:
-//  - Some Version: 1.0.0
-//  - Other Information: Some text here
-//
-//Images:
-//  - Image: new.registry.io/simple-app-install-package@sha256:d211dd700949154e429d28661d01c99d53a38af0d5275842ccbf0bf6dbef8ca4
-//    Type: Bundle
-//    Origin: my.registry.io/bundle1@sha256:d211dd700949154e429d28661d01c99d53a38af0d5275842ccbf0bf6dbef8ca4
-//    Images:
-//      - Image: new.registry.io/simple-app-install-package@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-//        Type: Image
-//        Origin: registry.io/img1@sha256:4c8b96d4fffdfae29258d94a22ae4ad1fe36139d47288b8960d9958d1e63a9d0
-//        Annotations:
-//          kbld.carvel.dev/id: my.registry.io/simple-application
-//
-//      - Image: new.registry.io/simple-app-install-package@sha256:47ae428a887c41ba0aedf87d560eb305a8aa522ffb80ac1c96a37b16df038e0f
-//        Type: Image
-//        Origin: registry.io/img2@sha256:47ae428a887c41ba0aedf87d560eb305a8aa522ffb80ac1c96a37b16df038e0f
-//  - Image: new.registry.io/simple-app-install-package@sha256:47ae428a887c41ba0aedf87d560eb305a8aa522ffb80ac1c96a37b16df038e0f
-//    Type: Image
-//    Origin: registry.io/img2@sha256:47ae428a887c41ba0aedf87d560eb305a8aa522ffb80ac1c96a37b16df038e0f
-
-// ./imgpkg describe -b localhost:5000/describe-test-not-collocated@sha256:f35a6d5e5596919c6bd4f62164ee6f8ccd919d0d8a04b3a5fb382af33dd7da9d
-// ./imgpkg describe -b localhost:5000/describe-test-collocated@sha256:f35a6d5e5596919c6bd4f62164ee6f8ccd919d0d8a04b3a5fb382af33dd7da9d
 type bundleTextPrinter struct {
 	ui goui.UI
 }
@@ -175,4 +148,26 @@ func (p bundleTextPrinter) printAnnotations(annotations map[string]string, inden
 			annIndentLogger.BeginLinef("%s: %s\n", key, annotations[key])
 		}
 	}
+}
+
+type bundleYAMLPrinter struct {
+	ui goui.UI
+}
+
+func (p bundleYAMLPrinter) Print(description api.BundleDescription) error {
+	logger := util.NewUIPrefixedWriter("", p.ui)
+	bundleRef, err := regname.ParseReference(description.Image)
+	if err != nil {
+		panic(fmt.Sprintf("Internal consistency: expected %s to be a digest reference", description.Image))
+	}
+
+	yamlDesc, err := yaml.Marshal(description)
+	if err != nil {
+		return err
+	}
+
+	logger.BeginLinef("sha: %s\n", bundleRef.Identifier())
+	logger.BeginLinef(string(yamlDesc))
+
+	return nil
 }
