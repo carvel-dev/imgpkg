@@ -65,8 +65,10 @@ func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
 func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
-func (o *Bundle) updateCachedImageRef(ref ImageRef) {
-	o.cachedImageRefs[ref.Image] = ref.DeepCopy()
+func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
+	img := ref.DeepCopy()
+	img.Annotations = o.cachedImageRefs[ref.Image].Annotations
+	o.cachedImageRefs[ref.Image] = img
 }
 
 func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {

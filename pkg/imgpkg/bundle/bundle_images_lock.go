@@ -36,7 +36,9 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
 			}
-			bundle.updateCachedImageRef(imgRef)
+
+			// We want to keep the annotations, only ensure the rest of the information is copied
+			bundle.updateCachedImageRefWithoutAnnotations(imgRef)
 		}
 	}
 
@@ -68,7 +70,8 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 			}
 		}
 		image.IsBundle = &isBundle
-		o.updateCachedImageRef(image)
+		// We want to keep the annotations, only ensure the rest of the information is copied
+		o.updateCachedImageRefWithoutAnnotations(image)
 	}
 	return nil
 }
@@ -103,7 +106,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		o.updateCachedImageRef(image)
+		o.cachedImageRefs[image.Image] = image.DeepCopy()
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
