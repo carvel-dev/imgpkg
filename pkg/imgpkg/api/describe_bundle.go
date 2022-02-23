@@ -11,6 +11,17 @@ import (
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
+)
+
+// ImageType defines the type of Image
+type ImageType string
+
+const (
+	// ContentImage Image that is part of the Bundle
+	ContentImage ImageType = "Image"
+	// SignatureImage Image that contains a signature
+	SignatureImage ImageType = "Signature"
 )
 
 // DescribeOpts Options used when calling the Describe function
@@ -42,6 +53,7 @@ type ImageInfo struct {
 	Image       string            `json:"image"`
 	Origin      string            `json:"origin"`
 	Annotations map[string]string `json:"annotations,omitempty"`
+	ImageType   ImageType         `json:"imageType"`
 }
 
 // BundleContent Contents present in a Bundle
@@ -76,7 +88,22 @@ func DescribeBundle(bundleImage string, opts DescribeOpts, registryOpts registry
 		return BundleDescription{}, fmt.Errorf("The image %s is not a bundle", bundleImage)
 	}
 
-	allBundles, _, err := bundle.AllImagesRefs(opts.Concurrency, opts.Logger)
+	signatureRetriever := signature.NewSignatures(signature.NewCosign(reg), opts.Concurrency)
+
+	allBundles, allImgRefs, err := bundle.AllImagesRefs(opts.Concurrency, opts.Logger)
+	if err != nil {
+		return BundleDescription{}, err
+	}
+
+	bImageRefs := allImgRefs.ImageRefs()
+	imgRefs := []lockconfig.ImageRef{{
+		Image: bundle.DigestRef(),
+	}}
+	for _, ref := range bImageRefs {
+		imgRefs = append(imgRefs, ref.ImageRef)
+	}
+
+	signatures, err := signatureRetriever.FetchFromImageRef(imgRefs)
 	if err != nil {
 		return BundleDescription{}, err
 	}
@@ -89,7 +116,7 @@ func DescribeBundle(bundleImage string, opts DescribeOpts, registryOpts registry
 			IsBundle: &isBundle,
 		},
 	}
-	return topBundle.DescribeBundle(allBundles), nil
+	return topBundle.DescribeBundle(allBundles, signatures), nil
 }
 
 type refWithDescription struct {
@@ -97,12 +124,12 @@ type refWithDescription struct {
 	bundle BundleDescription
 }
 
-func (r *refWithDescription) DescribeBundle(bundles []*ctlbundle.Bundle) BundleDescription {
+func (r *refWithDescription) DescribeBundle(bundles []*ctlbundle.Bundle, signatures map[string]lockconfig.ImageRef) BundleDescription {
 	var visitedImgs map[string]refWithDescription
-	return r.describeBundleRec(visitedImgs, r.imgRef, bundles)
+	return r.describeBundleRec(visitedImgs, r.imgRef, bundles, signatures)
 }
 
-func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ctlbundle.ImageRef, bundles []*ctlbundle.Bundle) BundleDescription {
+func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ctlbundle.ImageRef, bundles []*ctlbundle.Bundle, signatures map[string]lockconfig.ImageRef) BundleDescription {
 	desc, wasVisited := visitedImgs[currentBundle.Image]
 	if wasVisited {
 		return desc.bundle
@@ -140,15 +167,32 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 
 		if *ref.IsBundle {
-			bundleDesc := r.describeBundleRec(visitedImgs, ref, bundles)
+			bundleDesc := r.describeBundleRec(visitedImgs, ref, bundles, signatures)
 			desc.bundle.Content.Bundles = append(desc.bundle.Content.Bundles, bundleDesc)
 		} else {
 			desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
 				Image:       ref.PrimaryLocation(),
 				Origin:      ref.Image,
 				Annotations: ref.Annotations,
+				ImageType:   ContentImage,
 			})
 		}
+
+		if sig, ok := signatures[ref.PrimaryLocation()]; ok {
+			desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
+				Image:       sig.PrimaryLocation(),
+				Annotations: sig.Annotations,
+				ImageType:   SignatureImage,
+			})
+		}
+	}
+
+	if sig, ok := signatures[currentBundle.PrimaryLocation()]; ok {
+		desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
+			Image:       sig.PrimaryLocation(),
+			Annotations: sig.Annotations,
+			ImageType:   SignatureImage,
+		})
 	}
 
 	return desc.bundle

@@ -5,10 +5,12 @@ package signature
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -37,16 +39,39 @@ func NewSignatures(finder Finder, concurrency int) *Signatures {
 
 func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	signatures := imageset.NewUnprocessedImageRefs()
+	var imgs []lockconfig.ImageRef
+	for _, ref := range images.All() {
+		imgs = append(imgs, lockconfig.ImageRef{
+			Image: ref.DigestRef,
+		})
+	}
+	imagesRefs, err := s.FetchFromImageRef(imgs)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range imagesRefs {
+		signatures.Add(imageset.UnprocessedImageRef{
+			DigestRef: ref.Image,
+			Tag:       ref.Annotations["tag"],
+		})
+	}
+
+	return signatures, err
+}
+
+func (s *Signatures) FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error) {
+	lock := &sync.Mutex{}
+	signatures := map[string]lockconfig.ImageRef{}
 
 	throttle := util.NewThrottle(s.concurrency)
 	var wg errgroup.Group
 
-	for _, ref := range images.All() {
+	for _, ref := range images {
 		ref := ref //copy
 		wg.Go(func() error {
-			imgDigest, err := name.NewDigest(ref.DigestRef)
+			imgDigest, err := name.NewDigest(ref.PrimaryLocation())
 			if err != nil {
-				return fmt.Errorf("Parsing '%s': %s", ref.DigestRef, err)
+				return fmt.Errorf("Parsing '%s': %s", ref.Image, err)
 			}
 
 			throttle.Take()
@@ -60,7 +85,12 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 				return nil
 			}
 
-			signatures.Add(signature)
+			lock.Lock()
+			signatures[ref.PrimaryLocation()] = lockconfig.ImageRef{
+				Image:       signature.DigestRef,
+				Annotations: map[string]string{"tag": signature.Tag},
+			}
+			lock.Unlock()
 			return nil
 		})
 	}

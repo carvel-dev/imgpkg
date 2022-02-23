@@ -22,7 +22,7 @@ func TestDescribe_TextOutput(t *testing.T) {
 		defer env.Cleanup()
 
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-		var bundleDigest, imageDigest string
+		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest string
 		logger.Section("create bundle with image", func() {
 			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
 
@@ -39,12 +39,21 @@ images:
 
 			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
 			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+
+			logger.Section("sign image and Bundle", func() {
+				imgSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, imageDigest))
+				imgSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, imgSigTag))
+				bundleSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSigTag))
+			})
 		})
 
 		logger.Section("copy bundle to repository", func() {
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
-				"--to-repo", env.RelocationRepo},
+				"--to-repo", env.RelocationRepo,
+				"--cosign-signatures",
+			},
 			)
 		})
 
@@ -57,15 +66,32 @@ images:
 			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
 Images:
-  Image: %s%s
-  Type: Image
-  Origin: %s%s
-  Annotations:
-    some.annotation: some value
-    some.other.annotation: some other value
+  - Image: %s%s
+    Type: Image
+    Origin: %s%s
+    Annotations:
+      some.annotation: some value
+      some.other.annotation: some other value
+
+  - Image: %s@%s
+    Type: Signature
+    Annotations:
+      tag: %s
+
+  - Image: %s@%s
+    Type: Signature
+    Annotations:
+      tag: %s
 
 Succeeded
-`, bundleDigest[1:], env.RelocationRepo, imageDigest, env.Image, imageDigest), stdout)
+`,
+				bundleDigest[1:],
+				env.RelocationRepo, imageDigest, env.Image, imageDigest,
+				env.RelocationRepo, imgSigDigest,
+				imgSigTag,
+				env.RelocationRepo, bundleSigDigest,
+				bundleSigTag,
+			), stdout)
 		})
 	})
 
@@ -137,23 +163,25 @@ images:
 			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
 Images:
-  Image: %s%s
-  Type: Bundle
-  Origin: %s%s
-  Annotations:
-    what is this: this is the nested bundle
-  Images:
-    Image: %s%s
+  - Image: %s%s
+    Type: Bundle
+    Origin: %s%s
+    Annotations:
+      what is this: this is the nested bundle
+    Images:
+    - Image: %s%s
+      Type: Image
+      Origin: %s
+
+    - Image: %s%s
+      Type: Image
+      Origin: %s
+
+  - Image: %s%s
     Type: Image
     Origin: %s
-    Image: %s%s
-    Type: Image
-    Origin: %s
-  Image: %s%s
-  Type: Image
-  Origin: %s
-  Annotations:
-    what is this: this is just an image
+    Annotations:
+      what is this: this is just an image
 
 Succeeded
 `,
@@ -174,7 +202,7 @@ Succeeded
 		imgRef, err := regname.ParseReference(env.Image)
 		require.NoError(t, err)
 
-		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest, img2SigDigest, img2SigTag string
 		logger.Section("create 2 simple images", func() {
 			img1DigestRef = imgRef.Context().Name() + "-img1"
 			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
@@ -183,6 +211,9 @@ Succeeded
 			img2DigestRef = imgRef.Context().Name() + "-img2"
 			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
 			img2DigestRef = img2DigestRef + img2Digest
+
+			img2SigTag = env.ImageFactory.SignImage(img2DigestRef)
+			img2SigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", imgRef.Context().Name()+"-img2", img2SigTag))
 		})
 
 		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
@@ -227,19 +258,26 @@ images:
 			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
 Images:
-  Image: %s%s
-  Type: Bundle
-  Origin: %s%s
-  Images:
-    Image: %s
+  - Image: %s%s
+    Type: Bundle
+    Origin: %s%s
+    Images:
+    - Image: %s
+      Type: Image
+      Origin: %s
+
+    - Image: %s
+      Type: Image
+      Origin: %s
+
+    - Image: %s@%s
+      Type: Signature
+      Annotations:
+        tag: %s
+
+  - Image: %s
     Type: Image
     Origin: %s
-    Image: %s
-    Type: Image
-    Origin: %s
-  Image: %s
-  Type: Image
-  Origin: %s
 
 Succeeded
 `,
@@ -247,6 +285,8 @@ Succeeded
 				nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest,
 				img1DigestRef, img1DigestRef,
 				img2DigestRef, img2DigestRef,
+				imgRef.Context().Name()+"-img2", img2SigDigest,
+				img2SigTag,
 				img1DigestRef, img1DigestRef,
 			), stdout)
 		})
@@ -262,7 +302,7 @@ func TestDescribe_YAMLOutput(t *testing.T) {
 		defer env.Cleanup()
 
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-		var bundleDigest, imageDigest string
+		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest string
 		logger.Section("create bundle with image", func() {
 			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
 
@@ -279,12 +319,21 @@ images:
 
 			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
 			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+
+			logger.Section("sign image and Bundle", func() {
+				imgSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, imageDigest))
+				imgSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, imgSigTag))
+				bundleSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSigTag))
+			})
 		})
 
 		logger.Section("copy bundle to repository", func() {
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
-				"--to-repo", env.RelocationRepo},
+				"--to-repo", env.RelocationRepo,
+				"--cosign-signatures",
+			},
 			)
 		})
 
@@ -302,7 +351,18 @@ content:
       some.annotation: some value
       some.other.annotation: some other value
     image: %s%s
+    imageType: Image
     origin: %s%s
+  - annotations:
+      tag: %s
+    image: %s@%s
+    imageType: Signature
+    origin: ""
+  - annotations:
+      tag: %s
+    image: %s@%s
+    imageType: Signature
+    origin: ""
 image: %s%s
 metadata: {}
 origin: %s%s
@@ -311,6 +371,10 @@ Succeeded
 `, bundleDigest[1:],
 				env.RelocationRepo, imageDigest,
 				env.Image, imageDigest,
+				imgSigTag,
+				env.RelocationRepo, imgSigDigest,
+				bundleSigTag,
+				env.RelocationRepo, bundleSigDigest,
 				env.RelocationRepo, bundleDigest, env.RelocationRepo, bundleDigest), stdout)
 		})
 	})
@@ -389,8 +453,10 @@ content:
     content:
       images:
       - image: %s%s
+        imageType: Image
         origin: %s
       - image: %s%s
+        imageType: Image
         origin: %s
     image: %s%s
     metadata: {}
@@ -399,6 +465,7 @@ content:
   - annotations:
       what is this: this is just an image
     image: %s%s
+    imageType: Image
     origin: %s
 image: %s%s
 metadata: {}
@@ -424,7 +491,7 @@ Succeeded
 		imgRef, err := regname.ParseReference(env.Image)
 		require.NoError(t, err)
 
-		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest, img2SigDigest, img2SigTag string
 		logger.Section("create 2 simple images", func() {
 			img1DigestRef = imgRef.Context().Name() + "-img1"
 			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
@@ -433,6 +500,9 @@ Succeeded
 			img2DigestRef = imgRef.Context().Name() + "-img2"
 			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
 			img2DigestRef = img2DigestRef + img2Digest
+
+			img2SigTag = env.ImageFactory.SignImage(img2DigestRef)
+			img2SigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", imgRef.Context().Name()+"-img2", img2SigTag))
 		})
 
 		nestedBundle := imgRef.Context().Name() + "-bundle-nested"
@@ -480,14 +550,22 @@ content:
   - content:
       images:
       - image: %s
+        imageType: Image
         origin: %s
       - image: %s
+        imageType: Image
         origin: %s
+      - annotations:
+          tag: %s
+        image: %s@%s
+        imageType: Signature
+        origin: ""
     image: %s%s
     metadata: {}
     origin: %s%s
   images:
   - image: %s
+    imageType: Image
     origin: %s
 image: %s%s
 metadata: {}
@@ -498,6 +576,7 @@ Succeeded
 				outerBundleDigest[1:],
 				img1DigestRef, img1DigestRef,
 				img2DigestRef, img2DigestRef,
+				img2SigTag, imgRef.Context().Name()+"-img2", img2SigDigest,
 				nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest,
 				img1DigestRef, img1DigestRef,
 				outerBundle, outerBundleDigest, outerBundle, outerBundleDigest,

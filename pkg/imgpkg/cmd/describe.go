@@ -110,27 +110,47 @@ func (p bundleTextPrinter) Print(description api.BundleDescription) {
 	logger.BeginLinef("Bundle SHA: %s\n", bundleRef.Identifier())
 
 	logger.BeginLinef("\n")
-	p.printerRec(description, p.ui)
+	p.printerRec(description, logger, logger)
 }
 
-func (p bundleTextPrinter) printerRec(description api.BundleDescription, logger goui.UI) {
-	logger.BeginLinef("Images:\n")
+func (p bundleTextPrinter) printerRec(description api.BundleDescription, originalLogger goui.UI, logger goui.UI) {
 	indentLogger := goui.NewIndentingUI(logger)
-	for _, b := range description.Content.Bundles {
-		indentLogger.BeginLinef("Image: %s\n", b.Image)
-		indentLogger.BeginLinef("Type: Bundle\n")
-		indentLogger.BeginLinef("Origin: %s\n", b.Origin)
+	if len(description.Content.Bundles) == 0 && len(description.Content.Images) == 0 {
+		return
+	}
+	if originalLogger == logger {
+		originalLogger.BeginLinef("Images:\n")
+	} else {
+		indentLogger.BeginLinef("Images:\n")
+	}
+	for i, b := range description.Content.Bundles {
+		if i != 0 {
+			originalLogger.BeginLinef("\n")
+		}
+		indentLogger.BeginLinef("- Image: %s\n", b.Image)
+		indentLogger.BeginLinef("  Type: Bundle\n")
+		indentLogger.BeginLinef("  Origin: %s\n", b.Origin)
 		annotations := b.Annotations
-		p.printAnnotations(annotations, indentLogger)
-		p.printerRec(b, indentLogger)
+
+		p.printAnnotations(annotations, goui.NewIndentingUI(indentLogger))
+		p.printerRec(b, originalLogger, indentLogger)
 	}
 
-	for _, image := range description.Content.Images {
-		indentLogger.BeginLinef("Image: %s\n", image.Image)
-		indentLogger.BeginLinef("Type: Image\n")
-		indentLogger.BeginLinef("Origin: %s\n", image.Origin)
+	if len(description.Content.Bundles) > 0 {
+		originalLogger.BeginLinef("")
+	}
+
+	for i, image := range description.Content.Images {
+		if i != 0 {
+			originalLogger.BeginLinef("")
+		}
+		indentLogger.BeginLinef("- Image: %s\n", image.Image)
+		indentLogger.BeginLinef("  Type: %s\n", image.ImageType)
+		if image.ImageType == api.ContentImage {
+			indentLogger.BeginLinef("  Origin: %s\n", image.Origin)
+		}
 		annotations := image.Annotations
-		p.printAnnotations(annotations, indentLogger)
+		p.printAnnotations(annotations, goui.NewIndentingUI(indentLogger))
 	}
 }
 
