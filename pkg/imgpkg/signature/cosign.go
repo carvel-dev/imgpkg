@@ -8,21 +8,28 @@ import (
 	"net/http"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
 )
 
-type Cosign struct {
-	registry registry.Registry
+// DigestReader Interface that knows how to read a Digest from a registry
+type DigestReader interface {
+	Digest(reference regname.Reference) (regv1.Hash, error)
 }
 
-func NewCosign(reg registry.Registry) *Cosign {
+// Cosign Signature retriever
+type Cosign struct {
+	registry DigestReader
+}
+
+// NewCosign constructor for Signature retriever
+func NewCosign(reg DigestReader) *Cosign {
 	return &Cosign{registry: reg}
 }
 
+// Signature retrieves the Image information that contains the signature for the provided Image
 func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef, error) {
 	sigTagRef, err := c.signatureTag(imageRef)
 	if err != nil {
@@ -46,9 +53,9 @@ func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef
 }
 
 func (c Cosign) signatureTag(reference regname.Digest) (regname.Tag, error) {
-	digest, err := v1.NewHash(reference.DigestStr())
+	digest, err := regv1.NewHash(reference.DigestStr())
 	if err != nil {
 		return regname.Tag{}, fmt.Errorf("Converting to hash: %s", err)
 	}
-	return regname.NewTag(reference.Repository.Name() + ":" + cosign.Munge(v1.Descriptor{Digest: digest}))
+	return regname.NewTag(reference.Repository.Name() + ":" + cosign.Munge(regv1.Descriptor{Digest: digest}))
 }

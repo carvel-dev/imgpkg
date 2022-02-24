@@ -19,17 +19,21 @@ type Finder interface {
 	Signature(reference name.Digest) (imageset.UnprocessedImageRef, error)
 }
 
+// NotFoundErr specific not found error
 type NotFoundErr struct{}
 
+// Error Not Found Error message
 func (s NotFoundErr) Error() string {
 	return "signature not found"
 }
 
+// Signatures Signature fetcher
 type Signatures struct {
 	signatureFinder Finder
 	concurrency     int
 }
 
+// NewSignatures constructs the Signature Fetcher
 func NewSignatures(finder Finder, concurrency int) *Signatures {
 	return &Signatures{
 		signatureFinder: finder,
@@ -37,6 +41,7 @@ func NewSignatures(finder Finder, concurrency int) *Signatures {
 	}
 }
 
+// Fetch Retrieve the available signatures associated with the images provided
 func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	signatures := imageset.NewUnprocessedImageRefs()
 	var imgs []lockconfig.ImageRef
@@ -59,6 +64,7 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 	return signatures, err
 }
 
+// FetchFromImageRef Retrieve the available signatures associated with the images provided
 func (s *Signatures) FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error) {
 	lock := &sync.Mutex{}
 	signatures := map[string]lockconfig.ImageRef{}
@@ -100,10 +106,13 @@ func (s *Signatures) FetchFromImageRef(images []lockconfig.ImageRef) (map[string
 	return signatures, err
 }
 
+// Noop No Operation signature fetcher
 type Noop struct{}
 
+// NewNoop Constructs a no operation signature fetcher
 func NewNoop() *Noop { return &Noop{} }
 
+// Fetch Do nothing
 func (n Noop) Fetch(*imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	return imageset.NewUnprocessedImageRefs(), nil
 }
