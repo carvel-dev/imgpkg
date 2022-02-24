@@ -24,6 +24,14 @@ const (
 	BundleConfigLabel = "dev.carvel.imgpkg.bundle"
 )
 
+// Logger Interface used for logging
+type Logger interface {
+	Errorf(msg string, args ...interface{})
+	Warnf(msg string, args ...interface{})
+	Debugf(msg string, args ...interface{})
+	Tracef(msg string, args ...interface{})
+}
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockReader
 type ImagesLockReader interface {
 	Read(img regv1.Image) (lockconfig.ImagesLock, error)

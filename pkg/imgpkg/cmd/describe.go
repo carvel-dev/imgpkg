@@ -10,7 +10,7 @@ import (
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/api"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"sigs.k8s.io/yaml"
 )
@@ -62,9 +62,9 @@ func (d *DescribeOptions) Run() error {
 	}
 
 	levelLogger := util.NewUILevelLogger(util.LogWarn, d.ui)
-	description, err := api.DescribeBundle(
+	description, err := bundle.Describe(
 		d.BundleFlags.Bundle,
-		api.DescribeOpts{
+		bundle.DescribeOpts{
 			Logger:      levelLogger,
 			Concurrency: d.Concurrency,
 		},
@@ -101,7 +101,7 @@ type bundleTextPrinter struct {
 	ui goui.UI
 }
 
-func (p bundleTextPrinter) Print(description api.BundleDescription) {
+func (p bundleTextPrinter) Print(description bundle.Description) {
 	logger := util.NewUIPrefixedWriter("", p.ui)
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {
@@ -113,7 +113,7 @@ func (p bundleTextPrinter) Print(description api.BundleDescription) {
 	p.printerRec(description, logger, logger)
 }
 
-func (p bundleTextPrinter) printerRec(description api.BundleDescription, originalLogger goui.UI, logger goui.UI) {
+func (p bundleTextPrinter) printerRec(description bundle.Description, originalLogger goui.UI, logger goui.UI) {
 	indentLogger := goui.NewIndentingUI(logger)
 	if len(description.Content.Bundles) == 0 && len(description.Content.Images) == 0 {
 		return
@@ -146,7 +146,7 @@ func (p bundleTextPrinter) printerRec(description api.BundleDescription, origina
 		}
 		indentLogger.BeginLinef("- Image: %s\n", image.Image)
 		indentLogger.BeginLinef("  Type: %s\n", image.ImageType)
-		if image.ImageType == api.ContentImage {
+		if image.ImageType == bundle.ContentImage {
 			indentLogger.BeginLinef("  Origin: %s\n", image.Origin)
 		}
 		annotations := image.Annotations
@@ -174,7 +174,7 @@ type bundleYAMLPrinter struct {
 	ui goui.UI
 }
 
-func (p bundleYAMLPrinter) Print(description api.BundleDescription) error {
+func (p bundleYAMLPrinter) Print(description bundle.Description) error {
 	logger := util.NewUIPrefixedWriter("", p.ui)
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {

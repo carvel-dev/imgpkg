@@ -1,14 +1,12 @@
 // Copyright 2022 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package api
+package bundle
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
-	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
@@ -24,12 +22,6 @@ const (
 	SignatureImage ImageType = "Signature"
 )
 
-// DescribeOpts Options used when calling the Describe function
-type DescribeOpts struct {
-	Logger      Logger
-	Concurrency int
-}
-
 // Author information from a Bundle
 type Author struct {
 	Name  string `json:"name,omitempty"`
@@ -41,8 +33,8 @@ type Website struct {
 	URL string `json:"url,omitempty"`
 }
 
-// BundleMetadata Extra metadata present in a Bundle
-type BundleMetadata struct {
+// Metadata Extra metadata present in a Bundle
+type Metadata struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 	Authors  []Author          `json:"authors,omitempty"`
 	Websites []Website         `json:"websites,omitempty"`
@@ -56,43 +48,49 @@ type ImageInfo struct {
 	ImageType   ImageType         `json:"imageType"`
 }
 
-// BundleContent Contents present in a Bundle
-type BundleContent struct {
-	Bundles []BundleDescription `json:"bundles,omitempty"`
-	Images  []ImageInfo         `json:"images,omitempty"`
+// Content Contents present in a Bundle
+type Content struct {
+	Bundles []Description `json:"bundles,omitempty"`
+	Images  []ImageInfo   `json:"images,omitempty"`
 }
 
-// BundleDescription Metadata and Contents of a Bundle
-type BundleDescription struct {
+// Description Metadata and Contents of a Bundle
+type Description struct {
 	Image       string            `json:"image"`
 	Origin      string            `json:"origin"`
 	Annotations map[string]string `json:"annotations,omitempty"`
-	Metadata    BundleMetadata    `json:"metadata,omitempty"`
-	Content     BundleContent     `json:"content"`
+	Metadata    Metadata          `json:"metadata,omitempty"`
+	Content     Content           `json:"content"`
 }
 
-// DescribeBundle Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
-func DescribeBundle(bundleImage string, opts DescribeOpts, registryOpts registry.Opts) (BundleDescription, error) {
+// DescribeOpts Options used when calling the Describe function
+type DescribeOpts struct {
+	Logger      Logger
+	Concurrency int
+}
+
+type SignatureFetcher interface {
+	FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error)
+}
+
+// Describe Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
+func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts) (Description, error) {
 	reg, err := registry.NewSimpleRegistry(registryOpts)
 	if err != nil {
-		return BundleDescription{}, err
-	}
-	bundle := ctlbundle.NewBundle(bundleImage, reg)
-
-	isBundle, err := bundle.IsBundle()
-	if err != nil {
-		return BundleDescription{}, err
-	}
-
-	if !isBundle {
-		return BundleDescription{}, fmt.Errorf("The image %s is not a bundle", bundleImage)
+		return Description{}, err
 	}
 
 	signatureRetriever := signature.NewSignatures(signature.NewCosign(reg), opts.Concurrency)
 
+	return DescribeWithRegistryAndSignatureFetcher(bundleImage, opts, reg, signatureRetriever)
+}
+
+// DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
+func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
+	bundle := NewBundle(bundleImage, reg)
 	allBundles, allImgRefs, err := bundle.AllImagesRefs(opts.Concurrency, opts.Logger)
 	if err != nil {
-		return BundleDescription{}, err
+		return Description{}, err
 	}
 
 	bImageRefs := allImgRefs.ImageRefs()
@@ -103,13 +101,14 @@ func DescribeBundle(bundleImage string, opts DescribeOpts, registryOpts registry
 		imgRefs = append(imgRefs, ref.ImageRef)
 	}
 
-	signatures, err := signatureRetriever.FetchFromImageRef(imgRefs)
+	signatures, err := sigFetcher.FetchFromImageRef(imgRefs)
 	if err != nil {
-		return BundleDescription{}, err
+		return Description{}, err
 	}
 
+	isBundle := true
 	topBundle := refWithDescription{
-		imgRef: ctlbundle.ImageRef{
+		imgRef: ImageRef{
 			ImageRef: lockconfig.ImageRef{
 				Image: bundle.DigestRef(),
 			},
@@ -120,16 +119,16 @@ func DescribeBundle(bundleImage string, opts DescribeOpts, registryOpts registry
 }
 
 type refWithDescription struct {
-	imgRef ctlbundle.ImageRef
-	bundle BundleDescription
+	imgRef ImageRef
+	bundle Description
 }
 
-func (r *refWithDescription) DescribeBundle(bundles []*ctlbundle.Bundle, signatures map[string]lockconfig.ImageRef) BundleDescription {
+func (r *refWithDescription) DescribeBundle(bundles []*Bundle, signatures map[string]lockconfig.ImageRef) Description {
 	var visitedImgs map[string]refWithDescription
 	return r.describeBundleRec(visitedImgs, r.imgRef, bundles, signatures)
 }
 
-func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ctlbundle.ImageRef, bundles []*ctlbundle.Bundle, signatures map[string]lockconfig.ImageRef) BundleDescription {
+func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ImageRef, bundles []*Bundle, signatures map[string]lockconfig.ImageRef) Description {
 	desc, wasVisited := visitedImgs[currentBundle.Image]
 	if wasVisited {
 		return desc.bundle
@@ -137,15 +136,15 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 
 	desc = refWithDescription{
 		imgRef: currentBundle,
-		bundle: BundleDescription{
+		bundle: Description{
 			Image:       currentBundle.PrimaryLocation(),
 			Origin:      currentBundle.Image,
 			Annotations: currentBundle.Annotations,
-			Metadata:    BundleMetadata{},
-			Content:     BundleContent{},
+			Metadata:    Metadata{},
+			Content:     Content{},
 		},
 	}
-	var bundle *ctlbundle.Bundle
+	var bundle *Bundle
 	for _, b := range bundles {
 		if b.DigestRef() == currentBundle.PrimaryLocation() {
 			bundle = b

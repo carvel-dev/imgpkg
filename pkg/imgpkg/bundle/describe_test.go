@@ -1,7 +1,7 @@
 // Copyright 2022 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package api_test
+package bundle_test
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/api"
+	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
@@ -235,7 +235,7 @@ func TestDescribeBundle(t *testing.T) {
 			topBundle.Print("")
 			fmt.Printf("++++++++++++++++\n\n")
 
-			bundleDescription, err := api.DescribeBundle(topBundle.refDigest, api.DescribeOpts{
+			bundleDescription, err := ctlbundle.Describe(topBundle.refDigest, ctlbundle.DescribeOpts{
 				Logger:      logger,
 				Concurrency: 1,
 			},
@@ -293,7 +293,7 @@ func (c createdBundle) Print(prefix string) {
 	}
 }
 
-func printDescribedBundle(prefix string, bundle api.BundleDescription) {
+func printDescribedBundle(prefix string, bundle ctlbundle.Description) {
 	fmt.Printf("%sBundle: %s\n", prefix, bundle.Image)
 	fmt.Printf("%s%sAnnotations: %v\n", prefix, prefix, bundle.Annotations)
 	for _, b := range bundle.Content.Bundles {
@@ -305,7 +305,7 @@ func printDescribedBundle(prefix string, bundle api.BundleDescription) {
 	}
 }
 
-func assertBundleResult(t *testing.T, expectedBundle createdBundle, result api.BundleDescription) {
+func assertBundleResult(t *testing.T, expectedBundle createdBundle, result ctlbundle.Description) {
 	for _, image := range expectedBundle.images {
 		if len(image.images) > 0 {
 			bundleDesc, imgInfo, ok := findImageWithRef(result, image.refDigest)
@@ -329,10 +329,10 @@ func assertBundleResult(t *testing.T, expectedBundle createdBundle, result api.B
 		}
 	}
 }
-func findImageWithRef(bundle api.BundleDescription, refDigest string) (api.BundleDescription, api.ImageInfo, bool) {
+func findImageWithRef(bundle ctlbundle.Description, refDigest string) (ctlbundle.Description, ctlbundle.ImageInfo, bool) {
 	for _, bundleDesc := range bundle.Content.Bundles {
 		if bundleDesc.Image == refDigest {
-			return bundleDesc, api.ImageInfo{
+			return bundleDesc, ctlbundle.ImageInfo{
 				Image:       bundle.Image,
 				Origin:      bundle.Origin,
 				Annotations: bundle.Annotations,
@@ -341,10 +341,10 @@ func findImageWithRef(bundle api.BundleDescription, refDigest string) (api.Bundl
 	}
 	for _, img := range bundle.Content.Images {
 		if img.Image == refDigest {
-			return api.BundleDescription{}, img, true
+			return ctlbundle.Description{}, img, true
 		}
 	}
-	return api.BundleDescription{}, api.ImageInfo{}, false
+	return ctlbundle.Description{}, ctlbundle.ImageInfo{}, false
 }
 
 func createBundle(reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath) createdBundle {
