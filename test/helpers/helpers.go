@@ -6,6 +6,7 @@ package helpers
 import (
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"regexp"
 	"testing"
 
@@ -56,4 +57,18 @@ func randString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+// GetDockerHubRegistry returns dockerhub registry or proxy
+func GetDockerHubRegistry() string {
+	dockerhubReg := "index.docker.io"
+	if v, present := os.LookupEnv("DOCKERHUB_PROXY"); present {
+		dockerhubReg = v
+	}
+	return dockerhubReg
+}
+
+// CompleteImageRef returns image reference
+func CompleteImageRef(ref string) string {
+	return GetDockerHubRegistry() + "/" + ref
 }

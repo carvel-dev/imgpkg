@@ -31,6 +31,7 @@ func TestCopyFromBundleLock(t *testing.T) {
 	})
 
 	t.Run("when copying index to repo, it is successful and generates a BundleLock file", func(t *testing.T) {
+		dockerhubImgRef := helpers.CompleteImageRef("library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9")
 		testDir := ""
 		lockFile := ""
 		logger.Section("create bundle from index", func() {
@@ -39,8 +40,8 @@ apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
  - annotations:
-     kbld.carvel.dev/id: index.docker.io/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
-   image: index.docker.io/library/nginx@sha256:4cf620a5c81390ee209398ecc18e5fb9dd0f5155cd82adcbae532fec94006fb9
+     kbld.carvel.dev/id: ` + dockerhubImgRef + `
+   image: ` + dockerhubImgRef + `
 `
 			testDir = env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
 
