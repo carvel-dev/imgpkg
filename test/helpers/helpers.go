@@ -74,6 +74,8 @@ func CompleteImageRef(ref string) string {
 	return GetDockerHubRegistry() + "/" + ref
 }
 
+// TestExpectedRegistry tests an expected
+// value of DOCKERHUB_PROXY
 func TestExpectedRegistry(t *testing.T) {
 	origProxyVal := ""
 
@@ -92,6 +94,8 @@ func TestExpectedRegistry(t *testing.T) {
 	os.Unsetenv("DOCKERHUB_PROXY")
 }
 
+// TestExpectedImgRef tests an expected
+// value of image reference
 func TestExpectedImgRef(t *testing.T) {
 	origProxyVal := ""
 
