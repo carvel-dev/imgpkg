@@ -62,49 +62,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestExpectedRegistry(t *testing.T) {
-	origProxyVal := ""
-
-	v, isSet := os.LookupEnv("DOCKERHUB_PROXY")
-	if isSet {
-		origProxyVal = v
-	}
-
-	os.Unsetenv("DOCKERHUB_PROXY")
-	assert.Equal(t, "index.docker.io", helpers.GetDockerHubRegistry())
-
-	os.Setenv("DOCKERHUB_PROXY", "my-dockerhub-proxy.tld/dockerhub-proxy")
-	assert.Equal(t, "my-dockerhub-proxy.tld/dockerhub-proxy", helpers.GetDockerHubRegistry())
-	os.Unsetenv("DOCKERHUB_PROXY")
-
-	if isSet {
-		os.Setenv("DOCKERHUB_PROXY", origProxyVal)
-	}
-}
-
-func TestExpectedImgRef(t *testing.T) {
-	origProxyVal := ""
-
-	v, isSet := os.LookupEnv("DOCKERHUB_PROXY")
-	if isSet {
-		origProxyVal = v
-	}
-
-	os.Unsetenv("DOCKERHUB_PROXY")
-	assert.Equal(t,
-		"index.docker.io/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
-		helpers.CompleteImageRef("library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"))
-
-	os.Setenv("DOCKERHUB_PROXY", "my-dockerhub-proxy.tld/dockerhub-proxy")
-	assert.Equal(t,
-		"my-dockerhub-proxy.tld/dockerhub-proxy/library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6",
-		helpers.CompleteImageRef("library/hello-world@sha256:ebf526c198a14fa138634b9746c50ec38077ec9b3986227e79eb837d26f59dc6"))
-	os.Unsetenv("DOCKERHUB_PROXY")
-
-	if isSet {
-		os.Setenv("DOCKERHUB_PROXY", origProxyVal)
-	}
-}
 func TestToTarBundle(t *testing.T) {
 	bundleName := "library/bundle"
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
