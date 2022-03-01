@@ -5,10 +5,12 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
@@ -48,6 +50,7 @@ images:
 			})
 		})
 
+		locationsImgDigest := ""
 		logger.Section("copy bundle to repository", func() {
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
@@ -55,6 +58,7 @@ images:
 				"--cosign-signatures",
 			},
 			)
+			locationsImgDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
 		})
 
 		logger.Section("executes describe command", func() {
@@ -63,35 +67,32 @@ images:
 					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
-Images:
-  - Image: %s%s
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s%s
     Type: Image
     Origin: %s%s
     Annotations:
       some.annotation: some value
       some.other.annotation: some other value
+`, env.RelocationRepo, imageDigest, env.Image, imageDigest))
 
-  - Image: %s@%s
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
     Type: Signature
     Annotations:
       tag: %s
-
-  - Image: %s@%s
+`, env.RelocationRepo, imgSigDigest, imgSigTag))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
     Type: Signature
     Annotations:
       tag: %s
+`, env.RelocationRepo, bundleSigDigest, bundleSigTag))
 
-Succeeded
-`,
-				bundleDigest[1:],
-				env.RelocationRepo, imageDigest, env.Image, imageDigest,
-				env.RelocationRepo, imgSigDigest,
-				imgSigTag,
-				env.RelocationRepo, bundleSigDigest,
-				bundleSigTag,
-			), stdout)
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
+    Type: Internal`, env.RelocationRepo, locationsImgDigest))
 		})
 	})
 
@@ -160,37 +161,43 @@ images:
 					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
-Images:
-  - Image: %s%s
+			locationsNestedBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(nestedBundleDigest[1:], ":", "-")))
+			locationsOuterBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(outerBundleDigest[1:], ":", "-")))
+
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s%s
     Type: Bundle
     Origin: %s%s
     Annotations:
       what is this: this is the nested bundle
-    Images:
-    - Image: %s%s
+`, env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest))
+
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s%s
       Type: Image
       Origin: %s
-
-    - Image: %s%s
+`, env.RelocationRepo, img1Digest, img1DigestRef))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s%s
       Type: Image
       Origin: %s
-
-  - Image: %s%s
+`, env.RelocationRepo, img2Digest, img2DigestRef))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s@%s
+      Type: Internal
+`, env.RelocationRepo, locationsNestedBundleImgDigest))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s%s
     Type: Image
     Origin: %s
     Annotations:
       what is this: this is just an image
-
-Succeeded
-`,
-				outerBundleDigest[1:],
-				env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest,
-				env.RelocationRepo, img1Digest, img1DigestRef,
-				env.RelocationRepo, img2Digest, img2DigestRef,
-				env.RelocationRepo, img1Digest, img1DigestRef,
-			), stdout)
+`, env.RelocationRepo, img1Digest, img1DigestRef))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
+    Type: Internal
+`, env.RelocationRepo, locationsOuterBundleImgDigest))
 		})
 	})
 
@@ -255,40 +262,34 @@ images:
 					"-o", "text",
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`Bundle SHA: %s
 
-Images:
-  - Image: %s%s
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s%s
     Type: Bundle
     Origin: %s%s
-    Images:
-    - Image: %s
+`, nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s
       Type: Image
       Origin: %s
-
-    - Image: %s
+`, img1DigestRef, img1DigestRef))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s
       Type: Image
       Origin: %s
-
-    - Image: %s@%s
+`, img2DigestRef, img2DigestRef))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s@%s
       Type: Signature
       Annotations:
         tag: %s
+`, imgRef.Context().Name()+"-img2", img2SigDigest, img2SigTag))
 
-  - Image: %s
-    Type: Image
-    Origin: %s
-
-Succeeded
-`,
-				outerBundleDigest[1:],
-				nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest,
-				img1DigestRef, img1DigestRef,
-				img2DigestRef, img2DigestRef,
-				imgRef.Context().Name()+"-img2", img2SigDigest,
-				img2SigTag,
-				img1DigestRef, img1DigestRef,
-			), stdout)
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`    - Image: %s
+      Type: Image
+      Origin: %s
+`, img1DigestRef, img1DigestRef))
 		})
 	})
 }
@@ -344,37 +345,54 @@ images:
 					"-o", "yaml",
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`sha: %s
+			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
+
+			stdoutLines := strings.Split(stdout, "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   images:
-  - annotations:
-      some.annotation: some value
-      some.other.annotation: some other value
-    image: %s%s
-    imageType: Image
-    origin: %s%s
-  - annotations:
-      tag: %s
-    image: %s@%s
-    imageType: Signature
-    origin: ""
-  - annotations:
-      tag: %s
-    image: %s@%s
-    imageType: Signature
-    origin: ""
+    "%s":
+      annotations:
+        some.annotation: some value
+        some.other.annotation: some other value
+      image: %s%s
+      imageType: Image
+      origin: %s%s
+    "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: Signature
+      origin: %s@%s
+    "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: Signature
+      origin: %s@%s
+    "%s":
+      image: %s@%s
+      imageType: Internal
+      origin: %s@%s
 image: %s%s
 metadata: {}
 origin: %s%s
-
-Succeeded
 `, bundleDigest[1:],
+				imageDigest[1:],
 				env.RelocationRepo, imageDigest,
 				env.Image, imageDigest,
-				imgSigTag,
-				env.RelocationRepo, imgSigDigest,
+				bundleSigDigest,
 				bundleSigTag,
 				env.RelocationRepo, bundleSigDigest,
+				env.RelocationRepo, bundleSigDigest,
+				imgSigDigest,
+				imgSigTag,
+				env.RelocationRepo, imgSigDigest,
+				env.RelocationRepo, imgSigDigest,
+				locationsImgDigest,
+				env.RelocationRepo, locationsImgDigest,
+				env.RelocationRepo, locationsImgDigest,
 				env.RelocationRepo, bundleDigest, env.RelocationRepo, bundleDigest), stdout)
 		})
 	})
@@ -445,39 +463,62 @@ images:
 					"-o", "yaml",
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`sha: %s
+
+			locationsNestedBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(nestedBundleDigest[1:], ":", "-")))
+			locationsOuterBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(outerBundleDigest[1:], ":", "-")))
+			stdoutLines := strings.Split(stdout, "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
-  - annotations:
-      what is this: this is the nested bundle
-    content:
-      images:
-      - image: %s%s
-        imageType: Image
-        origin: %s
-      - image: %s%s
-        imageType: Image
-        origin: %s
-    image: %s%s
-    metadata: {}
-    origin: %s%s
+    "%s":
+      annotations:
+        what is this: this is the nested bundle
+      content:
+        images:
+          "%s":
+            image: %s%s
+            imageType: Image
+            origin: %s
+          "%s":
+            image: %s%s
+            imageType: Image
+            origin: %s
+          "%s":
+            image: %s@%s
+            imageType: Internal
+            origin: %s@%s
+      image: %s%s
+      metadata: {}
+      origin: %s%s
   images:
-  - annotations:
-      what is this: this is just an image
-    image: %s%s
-    imageType: Image
-    origin: %s
+    "%s":
+      annotations:
+        what is this: this is just an image
+      image: %s%s
+      imageType: Image
+      origin: %s
+    "%s":
+      image: %s@%s
+      imageType: Internal
+      origin: %s@%s
 image: %s%s
 metadata: {}
 origin: %s%s
-
-Succeeded
 `,
 				outerBundleDigest[1:],
+				nestedBundleDigest[1:],
+				img1Digest[1:],
 				env.RelocationRepo, img1Digest, img1DigestRef,
+				img2Digest[1:],
 				env.RelocationRepo, img2Digest, img2DigestRef,
+				locationsNestedBundleImgDigest,
+				env.RelocationRepo, locationsNestedBundleImgDigest, env.RelocationRepo, locationsNestedBundleImgDigest,
 				env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest,
+				img1Digest[1:],
 				env.RelocationRepo, img1Digest, img1DigestRef,
+				locationsOuterBundleImgDigest,
+				env.RelocationRepo, locationsOuterBundleImgDigest, env.RelocationRepo, locationsOuterBundleImgDigest,
 				env.RelocationRepo, outerBundleDigest, env.RelocationRepo, outerBundleDigest,
 			), stdout)
 		})
@@ -544,40 +585,53 @@ images:
 					"--output-type", "yaml",
 				},
 			)
-			require.Equal(t, fmt.Sprintf(`sha: %s
+
+			stdoutLines := strings.Split(stdout, "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
-  - content:
-      images:
-      - image: %s
-        imageType: Image
-        origin: %s
-      - image: %s
-        imageType: Image
-        origin: %s
-      - annotations:
-          tag: %s
-        image: %s@%s
-        imageType: Signature
-        origin: ""
-    image: %s%s
-    metadata: {}
-    origin: %s%s
+    "%s":
+      content:
+        images:
+          "%s":
+            image: %s
+            imageType: Image
+            origin: %s
+          "%s":
+            image: %s
+            imageType: Image
+            origin: %s
+          "%s":
+            annotations:
+              tag: %s
+            image: %s@%s
+            imageType: Signature
+            origin: %s@%s
+      image: %s%s
+      metadata: {}
+      origin: %s%s
   images:
-  - image: %s
-    imageType: Image
-    origin: %s
+    "%s":
+      image: %s
+      imageType: Image
+      origin: %s
 image: %s%s
 metadata: {}
 origin: %s%s
-
-Succeeded
 `,
 				outerBundleDigest[1:],
+				nestedBundleDigest[1:],
+				img1Digest[1:],
 				img1DigestRef, img1DigestRef,
+				img2Digest[1:],
 				img2DigestRef, img2DigestRef,
-				img2SigTag, imgRef.Context().Name()+"-img2", img2SigDigest,
+				img2SigDigest,
+				img2SigTag,
+				imgRef.Context().Name()+"-img2", img2SigDigest,
+				imgRef.Context().Name()+"-img2", img2SigDigest,
 				nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest,
+				img1Digest[1:],
 				img1DigestRef, img1DigestRef,
 				outerBundle, outerBundleDigest, outerBundle, outerBundleDigest,
 			), stdout)

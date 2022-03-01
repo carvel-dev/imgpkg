@@ -123,9 +123,12 @@ func (p bundleTextPrinter) printerRec(description bundle.Description, originalLo
 	} else {
 		indentLogger.BeginLinef("Images:\n")
 	}
-	for i, b := range description.Content.Bundles {
-		if i != 0 {
+	firstBundle := true
+	for _, b := range description.Content.Bundles {
+		if !firstBundle {
 			originalLogger.BeginLinef("\n")
+		} else {
+			firstBundle = false
 		}
 		indentLogger.BeginLinef("- Image: %s\n", b.Image)
 		indentLogger.BeginLinef("  Type: Bundle\n")
@@ -140,9 +143,12 @@ func (p bundleTextPrinter) printerRec(description bundle.Description, originalLo
 		originalLogger.BeginLinef("")
 	}
 
-	for i, image := range description.Content.Images {
-		if i != 0 {
+	firstImage := true
+	for _, image := range description.Content.Images {
+		if !firstImage {
 			originalLogger.BeginLinef("")
+		} else {
+			firstImage = false
 		}
 		indentLogger.BeginLinef("- Image: %s\n", image.Image)
 		indentLogger.BeginLinef("  Type: %s\n", image.ImageType)

@@ -88,6 +88,28 @@ func (r LocationsConfigs) Fetch(registry ImagesMetadata, bundleRef name.Digest) 
 	return cfg, err
 }
 
+// LocationsImageDigest Retrieve the Locations OCI Image Digest
+func (r LocationsConfigs) LocationsImageDigest(registry ImagesMetadata, bundleRef name.Digest) (name.Digest, error) {
+	r.ui.Tracef("Fetching Locations OCI Images for bundle: %s\n", bundleRef)
+
+	locRef, err := r.locationsRefFromBundleRef(bundleRef)
+	if err != nil {
+		return name.Digest{}, fmt.Errorf("Calculating locations image tag: %s", err)
+	}
+
+	digest, err := registry.Digest(locRef)
+	if err != nil {
+		if terr, ok := err.(*transport.Error); ok {
+			if _, ok := imageNotFoundStatusCode[terr.StatusCode]; ok {
+				r.ui.Debugf("Did not find Locations OCI Image for bundle: %s\n", bundleRef)
+				return name.Digest{}, &LocationsNotFound{image: locRef.Name()}
+			}
+		}
+		return name.Digest{}, fmt.Errorf("Fetching location image: %s", err)
+	}
+	return bundleRef.Digest(digest.String()), nil
+}
+
 func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, ui ui.UI) error {
 	r.ui.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
 

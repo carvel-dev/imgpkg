@@ -5,9 +5,9 @@ package bundle
 
 import (
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -52,7 +52,7 @@ type Bundle struct {
 	// cachedImageRefs stores set of ImageRefs that were
 	// discovered as part of reading the bundle.
 	// Includes refs only directly referenced by the bundle.
-	cachedImageRefs map[string]ImageRef
+	cachedImageRefs imageRefCache
 }
 
 func NewBundle(ref string, imagesMetadata ImagesMetadata) *Bundle {
@@ -75,18 +75,27 @@ func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
 func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
 
 func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
+	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)
 	img := ref.DeepCopy()
-	img.Annotations = o.cachedImageRefs[ref.Image].Annotations
-	o.cachedImageRefs[ref.Image] = img
+	if !found {
+		o.cachedImageRefs.StoreImageRef(img)
+		return
+	}
+
+	img.Annotations = imgRef.Annotations
+	if img.ImageType == "" {
+		img.ImageType = imgRef.ImageType
+	}
+	o.cachedImageRefs.StoreImageRef(img)
 }
 
 func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
-	ref, found := o.cachedImageRefs[digestRef]
+	ref, found := o.cachedImageRefs.ImageRef(digestRef)
 	if found {
 		return ref.DeepCopy(), true
 	}
 
-	for _, imgRef := range o.cachedImageRefs {
+	for _, imgRef := range o.cachedImageRefs.All() {
 		for _, loc := range imgRef.Locations() {
 			if loc == digestRef {
 				return imgRef.DeepCopy(), true
@@ -98,11 +107,7 @@ func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 }
 
 func (o *Bundle) allCachedImageRefs() []ImageRef {
-	var imgsRef []ImageRef
-	for _, ref := range o.cachedImageRefs {
-		imgsRef = append(imgsRef, ref.DeepCopy())
-	}
-	return imgsRef
+	return o.cachedImageRefs.All()
 }
 
 // NoteCopy writes an image-location representing the bundle / images that have been copied
@@ -125,8 +130,8 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 		}
 	}
 
-	if len(locationsCfg.Images) != len(o.cachedImageRefs) {
-		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", len(o.cachedImageRefs), len(locationsCfg.Images)))
+	if len(locationsCfg.Images) != o.cachedImageRefs.Size() {
+		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", o.cachedImageRefs.Size(), len(locationsCfg.Images)))
 	}
 
 	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)
@@ -278,13 +283,43 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 	return img, err
 }
 
-type uiBlockWriter struct {
-	ui goui.UI
+func newImageRefCache() imageRefCache {
+	return imageRefCache{
+		cache: map[string]ImageRef{},
+		mutex: &sync.Mutex{},
+	}
 }
 
-var _ io.Writer = uiBlockWriter{}
+type imageRefCache struct {
+	cache map[string]ImageRef
+	mutex *sync.Mutex
+}
 
-func (w uiBlockWriter) Write(p []byte) (n int, err error) {
-	w.ui.PrintBlock(p)
-	return len(p), nil
+func (i *imageRefCache) ImageRef(imageRef string) (ImageRef, bool) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	foundImgRef, found := i.cache[imageRef]
+	return foundImgRef, found
+}
+
+func (i *imageRefCache) Size() int {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	return len(i.cache)
+}
+
+func (i *imageRefCache) All() []ImageRef {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	var result []ImageRef
+	for _, ref := range i.cache {
+		result = append(result, ref.DeepCopy())
+	}
+	return result
+}
+
+func (i *imageRefCache) StoreImageRef(imageRef ImageRef) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	i.cache[imageRef.Image] = imageRef
 }

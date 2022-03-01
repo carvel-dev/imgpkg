@@ -399,6 +399,16 @@ func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *Ima
 	return newImg
 }
 
+// WithRandomTaggedImage Creates a random image with a tag
+func (r *FakeTestRegistryBuilder) WithRandomTaggedImage(imageNameFromTest, tag string) *ImageOrImageIndexWithTarPath {
+	img, err := random.Image(500, 3)
+	require.NoError(r.t, err, "create random image with tag")
+
+	newImg := r.updateState(imageNameFromTest, img, nil, "", tag)
+	r.logger.Tracef("created image %s\n", newImg.RefDigest)
+	return newImg
+}
+
 func (r *FakeTestRegistryBuilder) WithImage(imageNameFromTest string, image v1.Image) *ImageOrImageIndexWithTarPath {
 	return r.updateState(imageNameFromTest, image, nil, "", "")
 }

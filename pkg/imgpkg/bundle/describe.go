@@ -4,22 +4,13 @@
 package bundle
 
 import (
+	"fmt"
 	"sort"
-	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
-)
-
-// ImageType defines the type of Image
-type ImageType string
-
-const (
-	// ContentImage Image that is part of the Bundle
-	ContentImage ImageType = "Image"
-	// SignatureImage Image that contains a signature
-	SignatureImage ImageType = "Signature"
 )
 
 // Author information from a Bundle
@@ -50,8 +41,8 @@ type ImageInfo struct {
 
 // Content Contents present in a Bundle
 type Content struct {
-	Bundles []Description `json:"bundles,omitempty"`
-	Images  []ImageInfo   `json:"images,omitempty"`
+	Bundles map[string]Description `json:"bundles,omitempty"`
+	Images  map[string]ImageInfo   `json:"images,omitempty"`
 }
 
 // Description Metadata and Contents of a Bundle
@@ -69,6 +60,7 @@ type DescribeOpts struct {
 	Concurrency int
 }
 
+// SignatureFetcher Interface to retrieve signatures associated with Images
 type SignatureFetcher interface {
 	FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error)
 }
@@ -88,34 +80,17 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 // DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
 func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
 	bundle := NewBundle(bundleImage, reg)
-	allBundles, allImgRefs, err := bundle.AllImagesRefs(opts.Concurrency, opts.Logger)
+	allBundles, err := bundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, sigFetcher)
 	if err != nil {
-		return Description{}, err
+		return Description{}, fmt.Errorf("Retrieving Images from bundle: %s", err)
 	}
 
-	bImageRefs := allImgRefs.ImageRefs()
-	imgRefs := []lockconfig.ImageRef{{
-		Image: bundle.DigestRef(),
-	}}
-	for _, ref := range bImageRefs {
-		imgRefs = append(imgRefs, ref.ImageRef)
-	}
-
-	signatures, err := sigFetcher.FetchFromImageRef(imgRefs)
-	if err != nil {
-		return Description{}, err
-	}
-
-	isBundle := true
 	topBundle := refWithDescription{
-		imgRef: ImageRef{
-			ImageRef: lockconfig.ImageRef{
-				Image: bundle.DigestRef(),
-			},
-			IsBundle: &isBundle,
-		},
+		imgRef: NewContentImageRef(lockconfig.ImageRef{
+			Image: bundle.DigestRef(),
+		}, true),
 	}
-	return topBundle.DescribeBundle(allBundles, signatures), nil
+	return topBundle.DescribeBundle(allBundles), nil
 }
 
 type refWithDescription struct {
@@ -123,12 +98,12 @@ type refWithDescription struct {
 	bundle Description
 }
 
-func (r *refWithDescription) DescribeBundle(bundles []*Bundle, signatures map[string]lockconfig.ImageRef) Description {
+func (r *refWithDescription) DescribeBundle(bundles []*Bundle) Description {
 	var visitedImgs map[string]refWithDescription
-	return r.describeBundleRec(visitedImgs, r.imgRef, bundles, signatures)
+	return r.describeBundleRec(visitedImgs, r.imgRef, bundles)
 }
 
-func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ImageRef, bundles []*Bundle, signatures map[string]lockconfig.ImageRef) Description {
+func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ImageRef, bundles []*Bundle) Description {
 	desc, wasVisited := visitedImgs[currentBundle.Image]
 	if wasVisited {
 		return desc.bundle
@@ -141,7 +116,10 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 			Origin:      currentBundle.Image,
 			Annotations: currentBundle.Annotations,
 			Metadata:    Metadata{},
-			Content:     Content{},
+			Content: Content{
+				Bundles: map[string]Description{},
+				Images:  map[string]ImageInfo{},
+			},
 		},
 	}
 	var bundle *Bundle
@@ -157,7 +135,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 
 	imagesRefs := bundle.ImagesRefs()
 	sort.Slice(imagesRefs, func(i, j int) bool {
-		return strings.Compare(imagesRefs[i].Image, imagesRefs[j].Image) <= 0
+		return imagesRefs[i].Image < imagesRefs[j].Image
 	})
 
 	for _, ref := range imagesRefs {
@@ -166,32 +144,24 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 
 		if *ref.IsBundle {
-			bundleDesc := r.describeBundleRec(visitedImgs, ref, bundles, signatures)
-			desc.bundle.Content.Bundles = append(desc.bundle.Content.Bundles, bundleDesc)
+			bundleDesc := r.describeBundleRec(visitedImgs, ref, bundles)
+			digest, err := name.NewDigest(bundleDesc.Image)
+			if err != nil {
+				panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", bundleDesc.Image))
+			}
+			desc.bundle.Content.Bundles[digest.DigestStr()] = bundleDesc
 		} else {
-			desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
+			digest, err := name.NewDigest(ref.Image)
+			if err != nil {
+				panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", ref.Image))
+			}
+			desc.bundle.Content.Images[digest.DigestStr()] = ImageInfo{
 				Image:       ref.PrimaryLocation(),
 				Origin:      ref.Image,
 				Annotations: ref.Annotations,
-				ImageType:   ContentImage,
-			})
+				ImageType:   ref.ImageType,
+			}
 		}
-
-		if sig, ok := signatures[ref.PrimaryLocation()]; ok {
-			desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
-				Image:       sig.PrimaryLocation(),
-				Annotations: sig.Annotations,
-				ImageType:   SignatureImage,
-			})
-		}
-	}
-
-	if sig, ok := signatures[currentBundle.PrimaryLocation()]; ok {
-		desc.bundle.Content.Images = append(desc.bundle.Content.Images, ImageInfo{
-			Image:       sig.PrimaryLocation(),
-			Annotations: sig.Annotations,
-			ImageType:   SignatureImage,
-		})
 	}
 
 	return desc.bundle

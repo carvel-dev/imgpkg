@@ -23,8 +23,8 @@ func (o *Bundle) ImagesRefs() []ImageRef {
 	return o.allCachedImageRefs()
 }
 
-// AllImagesRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
+// AllImagesLockRefs returns a flat list of nested bundles and every image reference for a specific bundle
+func (o *Bundle) AllImagesLockRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
 
 	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, ui)
@@ -52,7 +52,7 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 
 // UpdateImageRefs updates the bundle cached images without talking to the registry
 func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
-	o.cachedImageRefs = map[string]ImageRef{}
+	o.cachedImageRefs = newImageRefCache()
 
 	img, err := o.checkedImage()
 	if err != nil {
@@ -82,7 +82,7 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 }
 
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
-	o.cachedImageRefs = map[string]ImageRef{}
+	o.cachedImageRefs = newImageRefCache()
 
 	img, err := o.checkedImage()
 	if err != nil {
@@ -111,7 +111,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		o.cachedImageRefs[image.Image] = image.DeepCopy()
+		o.cachedImageRefs.StoreImageRef(image.DeepCopy())
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
@@ -120,7 +120,9 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		// Check if this image is not a bundle and skips
 		if image.IsBundle != nil && *image.IsBundle == false {
-			processedImageRefs.AddImagesRef(image)
+			typedImageRef := NewContentImageRef(image.ImageRef, false).DeepCopy()
+			processedImageRefs.AddImagesRef(typedImageRef)
+			o.cachedImageRefs.StoreImageRef(typedImageRef)
 			errChan <- nil
 			continue
 		}
@@ -138,10 +140,12 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 			bundles = append(bundles, nestedBundles...)
 
 			// Adds Image to the resulting ImagesLock
+			typedImgRef := NewContentImageRef(imgRef,
+				len(nestedBundles) > 0, // nestedBundles have Bundles when the image is a bundle
+			)
+			o.cachedImageRefs.StoreImageRef(typedImgRef)
 			processedImageRefs.AddImagesRef(
-				NewImageRef(imgRef,
-					len(nestedBundles) > 0, // nestedBundles have Bundles when the image is a bundle
-				),
+				typedImgRef,
 			)
 			processedImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
 			errChan <- nil

@@ -826,7 +826,7 @@ func TestNoteCopy(t *testing.T) {
 		uiLogger := util.NewUILevelLogger(util.LogDebug, confUI)
 
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
-		_, _, err = subject.AllImagesRefs(1, uiLogger)
+		_, _, err = subject.AllImagesLockRefs(1, uiLogger)
 		assert.NoError(t, err)
 
 		processedImages := imageset.NewProcessedImages()

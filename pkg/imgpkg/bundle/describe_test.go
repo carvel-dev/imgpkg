@@ -5,14 +5,19 @@ package bundle_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -48,6 +53,41 @@ func TestDescribeBundle(t *testing.T) {
 					{
 						testBundle{
 							name: "app/img1",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "Bundle with signed images",
+			subject: testBundle{
+				name:      "simple/only-images-bundle",
+				signImage: true,
+				images: []testImage{
+					{
+						testBundle{
+							name:      "app/img2",
+							signImage: true,
+						},
+					},
+					{
+						testBundle{
+							name:      "app/img1",
+							signImage: true,
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "Bundle with Locations images",
+			subject: testBundle{
+				name:            "simple/only-images-bundle",
+				locationPresent: true,
+				images: []testImage{
+					{
+						testBundle{
+							name: "app/img2",
 						},
 					},
 				},
@@ -228,7 +268,7 @@ func TestDescribeBundle(t *testing.T) {
 	for _, test := range allTests {
 		t.Run(test.description, func(t *testing.T) {
 			fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
-			topBundle := createBundle(fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{})
+			topBundle := createBundle(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{})
 			fakeRegBuilder.Build()
 
 			fmt.Printf("Expected structure:\n\n")
@@ -262,13 +302,17 @@ type testImage struct {
 }
 
 type testBundle struct {
-	name        string
-	images      []testImage
-	annotations map[string]string
+	name            string
+	images          []testImage
+	annotations     map[string]string
+	signImage       bool
+	locationPresent bool
 }
 
 type createdImage struct {
 	createdBundle
+	isSignature bool
+	isLocations bool
 }
 type createdBundle struct {
 	name        string
@@ -287,8 +331,14 @@ func (c createdBundle) Print(prefix string) {
 	}
 	for _, image := range c.images {
 		if len(image.images) == 0 {
-			fmt.Printf("%s%sImage: %s\n", prefix, prefix, image.refDigest)
-			fmt.Printf("%s%s%sAnnotations: %s\n", prefix, prefix, prefix, image.annotations)
+			if image.isLocations {
+				fmt.Printf("%s%sLocations Image: %s\n", prefix, prefix, image.refDigest)
+			} else if image.isSignature {
+				fmt.Printf("%s%sSignature Image: %s\n", prefix, prefix, image.refDigest)
+			} else {
+				fmt.Printf("%s%sImage: %s\n", prefix, prefix, image.refDigest)
+				fmt.Printf("%s%s%sAnnotations: %s\n", prefix, prefix, prefix, image.annotations)
+			}
 		}
 	}
 }
@@ -300,8 +350,15 @@ func printDescribedBundle(prefix string, bundle ctlbundle.Description) {
 		printDescribedBundle(prefix+"  ", b)
 	}
 	for _, image := range bundle.Content.Images {
-		fmt.Printf("%s%sImage: %s\n", prefix, prefix, image.Image)
-		fmt.Printf("%s%s%sAnnotations: %v\n", prefix, prefix, prefix, image.Annotations)
+		switch image.ImageType {
+		case ctlbundle.SignatureImage:
+			fmt.Printf("%s%sSignature Image: %s\n", prefix, prefix, image.Image)
+		case ctlbundle.InternalImage:
+			fmt.Printf("%s%sLocations Image: %s\n", prefix, prefix, image.Image)
+		default:
+			fmt.Printf("%s%sImage: %s\n", prefix, prefix, image.Image)
+			fmt.Printf("%s%s%sAnnotations: %v\n", prefix, prefix, prefix, image.Annotations)
+		}
 	}
 }
 
@@ -320,10 +377,13 @@ func assertBundleResult(t *testing.T, expectedBundle createdBundle, result ctlbu
 		} else {
 			_, imgInfo, ok := findImageWithRef(result, image.refDigest)
 			if assert.True(t, ok, fmt.Sprintf("unable to find image %s in the bundle %s", image.refDigest, result.Image)) {
-				if len(image.annotations) > 0 {
-					assert.Equal(t, image.annotations, imgInfo.Annotations)
-				} else {
-					assert.Len(t, imgInfo.Annotations, 0)
+				if !image.isSignature && !image.isLocations {
+					assert.Equal(t, ctlbundle.ContentImage, imgInfo.ImageType)
+					if len(image.annotations) > 0 {
+						assert.Equal(t, image.annotations, imgInfo.Annotations)
+					} else {
+						assert.Len(t, imgInfo.Annotations, 0)
+					}
 				}
 			}
 		}
@@ -347,7 +407,7 @@ func findImageWithRef(bundle ctlbundle.Description, refDigest string) (ctlbundle
 	return ctlbundle.Description{}, ctlbundle.ImageInfo{}, false
 }
 
-func createBundle(reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath) createdBundle {
+func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath) createdBundle {
 	if cb, ok := allBundlesCreated[bToCreate.name]; ok {
 		return *cb
 	}
@@ -358,10 +418,12 @@ func createBundle(reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, al
 
 	b := reg.WithRandomBundle(bToCreate.name)
 	for _, image := range bToCreate.images {
+		imgDigestRef := ""
 		if len(image.images) > 0 {
-			innerBundle := createBundle(reg, image.testBundle, allBundlesCreated, createdImages)
+			innerBundle := createBundle(t, reg, image.testBundle, allBundlesCreated, createdImages)
 			imgs = append(imgs, lockconfig.ImageRef{Image: innerBundle.refDigest})
 			result.images = append(result.images, createdImage{createdBundle: innerBundle})
+			imgDigestRef = innerBundle.refDigest
 		} else {
 			var img *helpers.ImageOrImageIndexWithTarPath
 			if i, ok := createdImages[image.name]; ok {
@@ -371,15 +433,66 @@ func createBundle(reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, al
 				createdImages[image.name] = img
 			}
 			imgs = append(imgs, lockconfig.ImageRef{Image: img.RefDigest, Annotations: image.annotations})
-			createdImg := createdImage{createdBundle{
-				name:        image.name,
-				refDigest:   img.RefDigest,
-				annotations: image.annotations,
-			}}
+			createdImg := createdImage{
+				createdBundle: createdBundle{
+					name:        image.name,
+					refDigest:   img.RefDigest,
+					annotations: image.annotations,
+				},
+			}
+			result.images = append(result.images, createdImg)
+			imgDigestRef = img.RefDigest
+		}
+
+		if image.signImage {
+			digest, err := name.NewDigest(imgDigestRef)
+			require.NoError(t, err)
+			hash, err := regv1.NewHash(digest.DigestStr())
+			require.NoError(t, err)
+
+			signImg := reg.WithRandomTaggedImage(imgDigestRef, cosign.Munge(regv1.Descriptor{Digest: hash}))
+
+			createdImg := createdImage{
+				createdBundle: createdBundle{
+					name:      signImg.Digest,
+					refDigest: signImg.RefDigest,
+				},
+				isSignature: true,
+			}
 			result.images = append(result.images, createdImg)
 		}
 	}
 	b = b.WithImageRefs(imgs)
+	if bToCreate.locationPresent {
+		tmpDir, err := ioutil.TempDir("", strings.Split(b.RefDigest, "sha256:")[1])
+		require.NoError(t, err)
+		locImg := reg.WithLocationsImage(b.RefDigest, tmpDir, ctlbundle.ImageLocationsConfig{
+			APIVersion: ctlbundle.LocationAPIVersion,
+			Kind:       ctlbundle.ImageLocationsKind,
+		})
+		result.images = append(result.images, createdImage{
+			isLocations: true,
+			createdBundle: createdBundle{
+				name:      locImg.RefDigest,
+				refDigest: locImg.RefDigest,
+			},
+		})
+	}
+	if bToCreate.signImage {
+		hash, err := regv1.NewHash(b.Digest)
+		require.NoError(t, err)
+
+		signImg := reg.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
+
+		createdImg := createdImage{
+			createdBundle: createdBundle{
+				name:      signImg.Digest,
+				refDigest: signImg.RefDigest,
+			},
+			isSignature: true,
+		}
+		result.images = append(result.images, createdImg)
+	}
 	result.refDigest = b.RefDigest
 	return *result
 }
