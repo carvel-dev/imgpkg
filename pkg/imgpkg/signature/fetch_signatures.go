@@ -50,7 +50,7 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 			Image: ref.DigestRef,
 		})
 	}
-	imagesRefs, err := s.FetchFromImageRef(imgs)
+	imagesRefs, err := s.FetchForImageRefs(imgs)
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +64,10 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 	return signatures, err
 }
 
-// FetchFromImageRef Retrieve the available signatures associated with the images provided
-func (s *Signatures) FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error) {
+// FetchForImageRefs Retrieve the available signatures associated with the images provided
+func (s *Signatures) FetchForImageRefs(images []lockconfig.ImageRef) ([]lockconfig.ImageRef, error) {
 	lock := &sync.Mutex{}
-	signatures := map[string]lockconfig.ImageRef{}
+	var signatures []lockconfig.ImageRef
 
 	throttle := util.NewThrottle(s.concurrency)
 	var wg errgroup.Group
@@ -92,10 +92,10 @@ func (s *Signatures) FetchFromImageRef(images []lockconfig.ImageRef) (map[string
 			}
 
 			lock.Lock()
-			signatures[ref.PrimaryLocation()] = lockconfig.ImageRef{
+			signatures = append(signatures, lockconfig.ImageRef{
 				Image:       signature.DigestRef,
 				Annotations: map[string]string{"tag": signature.Tag},
-			}
+			})
 			lock.Unlock()
 			return nil
 		})

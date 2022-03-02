@@ -106,10 +106,6 @@ func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 	return ImageRef{}, false
 }
 
-func (o *Bundle) allCachedImageRefs() []ImageRef {
-	return o.cachedImageRefs.All()
-}
-
 // NoteCopy writes an image-location representing the bundle / images that have been copied
 func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, ui util.UIWithLevels) error {
 	locationsCfg := ImageLocationsConfig{

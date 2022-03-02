@@ -7,12 +7,11 @@ import (
 	"fmt"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
 // FetchAllImagesRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) FetchAllImagesRefs(concurrency int, ui util.UIWithLevels, sigFetcher SignatureFetcher) ([]*Bundle, error) {
+func (o *Bundle) FetchAllImagesRefs(concurrency int, ui Logger, sigFetcher SignatureFetcher) ([]*Bundle, error) {
 	bundles, _, err := o.AllImagesLockRefs(concurrency, ui)
 	if err != nil {
 		return nil, err
@@ -22,16 +21,16 @@ func (o *Bundle) FetchAllImagesRefs(concurrency int, ui util.UIWithLevels, sigFe
 		imgs := []lockconfig.ImageRef{{
 			Image: bundle.DigestRef(),
 		}}
-		for _, ref := range bundle.allCachedImageRefs() {
+		for _, ref := range bundle.cachedImageRefs.All() {
 			imgs = append(imgs, ref.ImageRef)
 		}
-		refs, err := sigFetcher.FetchFromImageRef(imgs)
+		refs, err := sigFetcher.FetchForImageRefs(imgs)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, ref := range refs {
-			bundle.cachedImageRefs.StoreImageRef(NewImageRefWithType(ref, false, SignatureImage))
+			bundle.cachedImageRefs.StoreImageRef(NewImageRefWithType(ref, SignatureImage))
 		}
 
 		// Get the Locations image for this particular bundle
@@ -53,7 +52,6 @@ func (o *Bundle) FetchAllImagesRefs(concurrency int, ui util.UIWithLevels, sigFe
 			lockconfig.ImageRef{
 				Image: locationsImageRef.String(),
 			},
-			false,
 			InternalImage,
 		))
 	}

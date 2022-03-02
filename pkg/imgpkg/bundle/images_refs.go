@@ -22,7 +22,7 @@ type ImageRef struct {
 	ImageType ImageType
 }
 
-// ImageType defines the type of Image
+// ImageType defines the type of Image. This is an evolving list that might grow with time
 type ImageType string
 
 const (
@@ -36,20 +36,25 @@ const (
 	InternalImage ImageType = "Internal"
 )
 
-// NewContentImageRef Constructs a new ImageRef for Bundle or Image
-func NewContentImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
-	if isBundle {
-		return NewImageRefWithType(imgRef, isBundle, BundleImage)
-	}
+// NewBundleImageRef Constructs a new ImageRef for Bundle
+func NewBundleImageRef(imgRef lockconfig.ImageRef) ImageRef {
+	return NewImageRefWithType(imgRef, BundleImage)
+}
 
-	return NewImageRefWithType(imgRef, isBundle, ContentImage)
+// NewContentImageRef Constructs a new ImageRef for Image
+func NewContentImageRef(imgRef lockconfig.ImageRef) ImageRef {
+	return NewImageRefWithType(imgRef, ContentImage)
 }
 
 // NewImageRefWithType Constructs a new ImageRef based on the ImageType
-func NewImageRefWithType(imgRef lockconfig.ImageRef, isBundle bool, imageType ImageType) ImageRef {
+func NewImageRefWithType(imgRef lockconfig.ImageRef, imageType ImageType) ImageRef {
 	copiable := true
 	if imageType == InternalImage {
 		copiable = false
+	}
+	isBundle := false
+	if imageType == BundleImage {
+		isBundle = true
 	}
 
 	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle, Copiable: copiable, ImageType: imageType}

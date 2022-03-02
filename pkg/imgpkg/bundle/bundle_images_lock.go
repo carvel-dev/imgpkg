@@ -20,7 +20,7 @@ import (
 
 // ImagesRefs Retrieve the references for the Images of this particular bundle
 func (o *Bundle) ImagesRefs() []ImageRef {
-	return o.allCachedImageRefs()
+	return o.cachedImageRefs.All()
 }
 
 // AllImagesLockRefs returns a flat list of nested bundles and every image reference for a specific bundle
@@ -36,7 +36,7 @@ func (o *Bundle) AllImagesLockRefs(concurrency int, ui util.UIWithLevels) ([]*Bu
 	// This loop needs to happen because we skipped some images for some bundle, and only at this point we have
 	// the full list of ImageRefs created and can fill the gaps inside each bundle
 	for _, bundle := range bundles {
-		for _, ref := range bundle.allCachedImageRefs() {
+		for _, ref := range bundle.cachedImageRefs.All() {
 			imgRef, found := allImageRefs.Find(ref.Image)
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
@@ -120,7 +120,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		// Check if this image is not a bundle and skips
 		if image.IsBundle != nil && *image.IsBundle == false {
-			typedImageRef := NewContentImageRef(image.ImageRef, false).DeepCopy()
+			typedImageRef := NewContentImageRef(image.ImageRef).DeepCopy()
 			processedImageRefs.AddImagesRef(typedImageRef)
 			o.cachedImageRefs.StoreImageRef(typedImageRef)
 			errChan <- nil
@@ -140,13 +140,16 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 			bundles = append(bundles, nestedBundles...)
 
 			// Adds Image to the resulting ImagesLock
-			typedImgRef := NewContentImageRef(imgRef,
-				len(nestedBundles) > 0, // nestedBundles have Bundles when the image is a bundle
-			)
+			isBundle := len(nestedBundles) > 0 // nestedBundles have Bundles when the image is a bundle
+			var typedImgRef ImageRef
+			if isBundle {
+				typedImgRef = NewBundleImageRef(imgRef)
+			} else {
+				typedImgRef = NewContentImageRef(imgRef)
+			}
 			o.cachedImageRefs.StoreImageRef(typedImgRef)
-			processedImageRefs.AddImagesRef(
-				typedImgRef,
-			)
+			processedImageRefs.AddImagesRef(typedImgRef)
+
 			processedImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
 			errChan <- nil
 		}()

@@ -62,7 +62,7 @@ type DescribeOpts struct {
 
 // SignatureFetcher Interface to retrieve signatures associated with Images
 type SignatureFetcher interface {
-	FetchFromImageRef(images []lockconfig.ImageRef) (map[string]lockconfig.ImageRef, error)
+	FetchForImageRefs(images []lockconfig.ImageRef) ([]lockconfig.ImageRef, error)
 }
 
 // Describe Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
@@ -86,9 +86,7 @@ func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOp
 	}
 
 	topBundle := refWithDescription{
-		imgRef: NewContentImageRef(lockconfig.ImageRef{
-			Image: bundle.DigestRef(),
-		}, true),
+		imgRef: NewBundleImageRef(lockconfig.ImageRef{Image: bundle.DigestRef()}),
 	}
 	return topBundle.DescribeBundle(allBundles), nil
 }
