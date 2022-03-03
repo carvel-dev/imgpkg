@@ -18,9 +18,9 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -826,7 +826,7 @@ func TestNoteCopy(t *testing.T) {
 		uiLogger := util.NewUILevelLogger(util.LogDebug, confUI)
 
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
-		_, _, err = subject.AllImagesRefs(1, uiLogger)
+		_, _, err = subject.AllImagesLockRefs(1, uiLogger)
 		assert.NoError(t, err)
 
 		processedImages := imageset.NewProcessedImages()

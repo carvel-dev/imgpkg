@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -444,7 +444,7 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(6, uiLogger)
+			bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -669,7 +669,7 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(1, uiLogger)
+			bundles, imagesRefs, err := subject.AllImagesLockRefs(1, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -1101,7 +1101,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 			fmt.Println("============")
 
 			subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-			bundles, imagesRefs, err := subject.AllImagesRefs(6, uiLogger)
+			bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
 			require.NoError(t, err)
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
 			checkBundlesPresence(t, bundles, imagesTree)
@@ -1151,7 +1151,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		fmt.Println("============")
 
 		subject := bundle.NewBundleWithReader(topBundleInfo, registryFakeBuilder.Build(), fakeImagesLockReader)
-		bundles, _, err := subject.AllImagesRefs(6, uiLogger)
+		bundles, _, err := subject.AllImagesLockRefs(6, uiLogger)
 		require.NoError(t, err)
 		checkBundlesPresence(t, bundles, imagesTree)
 
@@ -1419,12 +1419,15 @@ func (i imageNode) GenerateImagesRef() bundle.ImageRefs {
 	}
 
 	for _, node := range i.bundleImages {
-		allImageRefs.AddImagesRef(
-			bundle.NewImageRef(
-				lockconfig.ImageRef{Image: node.imageRef},
-				node.IsBundle(),
-			),
-		)
+		if node.IsBundle() {
+			allImageRefs.AddImagesRef(
+				bundle.NewBundleImageRef(lockconfig.ImageRef{Image: node.imageRef}),
+			)
+		} else {
+			allImageRefs.AddImagesRef(
+				bundle.NewContentImageRef(lockconfig.ImageRef{Image: node.imageRef}),
+			)
+		}
 	}
 
 	return allImageRefs
