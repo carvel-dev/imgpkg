@@ -57,8 +57,12 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
     imgpkg copy -b dkalinin/app1-bundle --to-repo internal-registry/app1-bundle
 
     # Copy image dkalinin/app1-image to another registry (or repository)
+    # ##########################################################################
+    # NOTE: if not using ~/.docker.config for authn, use env vars as described  #
+    # in https://carvel.dev/imgpkg/docs/v0.24.0/auth/#via-environment-variables #
+    # ##########################################################################
     imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image
-	
+
     # Copy using image --use-repo-based-tags flag
     imgpkg copy -i registry.foo.bar/some/application/app \
                 --to-repo other-reg.faz.baz/my-app --use-repo-based-tags
@@ -66,7 +70,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
     # If the above source repo has a tag sha256:669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be,
     # an additional tag some-application-app-sha256-669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be.imgpkg
     # will created in the destination repo. Note that the part of the new tag preceeding '-sha256' will be truncated to
-	# the last 49 charachters`,
+    # the last 49 charachters`,
 	}
 
 	o.ImageFlags.SetCopy(cmd)

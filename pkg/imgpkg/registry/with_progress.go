@@ -16,31 +16,38 @@ func NewRegistryWithProgress(reg Registry, logger util.ProgressLogger) *WithProg
 	return &WithProgress{delegate: reg, logger: logger}
 }
 
+// WithProgress Implements Registry interface and provides progress updates to the logger
 type WithProgress struct {
 	delegate Registry
 	logger   util.ProgressLogger
 }
 
-func (w WithProgress) Get(reference regname.Reference) (*remote.Descriptor, error) {
+// Get Retrieve Image descriptor for an Image reference
+func (w *WithProgress) Get(reference regname.Reference) (*remote.Descriptor, error) {
 	return w.delegate.Get(reference)
 }
 
-func (w WithProgress) Digest(reference regname.Reference) (regv1.Hash, error) {
+// Digest Retrieve the Digest for an Image reference
+func (w *WithProgress) Digest(reference regname.Reference) (regv1.Hash, error) {
 	return w.delegate.Digest(reference)
 }
 
-func (w WithProgress) Index(reference regname.Reference) (regv1.ImageIndex, error) {
+// Index Retrieve regv1.ImageIndex struct for an Index reference
+func (w *WithProgress) Index(reference regname.Reference) (regv1.ImageIndex, error) {
 	return w.delegate.Index(reference)
 }
 
-func (w WithProgress) Image(reference regname.Reference) (regv1.Image, error) {
+// Image Retrieve the regv1.Image struct for an Image reference
+func (w *WithProgress) Image(reference regname.Reference) (regv1.Image, error) {
 	return w.delegate.Image(reference)
 }
 
-func (w WithProgress) FirstImageExists(digests []string) (string, error) {
+// FirstImageExists Returns the first of the provided Image Digests that exists in the Registry
+func (w *WithProgress) FirstImageExists(digests []string) (string, error) {
 	return w.delegate.FirstImageExists(digests)
 }
 
+// MultiWrite Upload multiple Images in Parallel to the Registry
 func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]remote.Taggable, concurrency int, _ chan regv1.Update) error {
 	uploadProgress := make(chan regv1.Update)
 	w.logger.Start(uploadProgress)
@@ -49,20 +56,23 @@ func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]r
 	return w.delegate.MultiWrite(imageOrIndexesToUpload, concurrency, uploadProgress)
 }
 
-func (w WithProgress) WriteImage(reference regname.Reference, image regv1.Image) error {
+// WriteImage Upload Image to registry
+func (w *WithProgress) WriteImage(reference regname.Reference, image regv1.Image) error {
 	return w.delegate.WriteImage(reference, image)
 }
 
-func (w WithProgress) WriteIndex(reference regname.Reference, index regv1.ImageIndex) error {
+// WriteIndex Uploads the Index manifest to the registry
+func (w *WithProgress) WriteIndex(reference regname.Reference, index regv1.ImageIndex) error {
 	return w.delegate.WriteIndex(reference, index)
 }
 
-func (w WithProgress) WriteTag(tag regname.Tag, taggable remote.Taggable) error {
+// WriteTag Tag the referenced Image
+func (w *WithProgress) WriteTag(tag regname.Tag, taggable remote.Taggable) error {
 	return w.delegate.WriteTag(tag, taggable)
 }
 
 // ListTags Retrieve all tags associated with a Repository
-func (w WithProgress) ListTags(repo regname.Repository) ([]string, error) {
+func (w *WithProgress) ListTags(repo regname.Repository) ([]string, error) {
 	return w.delegate.ListTags(repo)
 }
 
