@@ -14,12 +14,17 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
 )
 
-// AllImagesRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
+// ImagesRefs Retrieve the references for the Images of this particular bundle
+func (o *Bundle) ImagesRefs() []ImageRef {
+	return o.cachedImageRefs.All()
+}
+
+// AllImagesLockRefs returns a flat list of nested bundles and every image reference for a specific bundle
+func (o *Bundle) AllImagesLockRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
 
 	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, ui)
@@ -31,12 +36,14 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 	// This loop needs to happen because we skipped some images for some bundle, and only at this point we have
 	// the full list of ImageRefs created and can fill the gaps inside each bundle
 	for _, bundle := range bundles {
-		for _, ref := range bundle.allCachedImageRefs() {
+		for _, ref := range bundle.cachedImageRefs.All() {
 			imgRef, found := allImageRefs.Find(ref.Image)
 			if !found {
 				panic(fmt.Sprintf("Internal inconsistency: The Image '%s' cannot be found in the total list of images", ref.Image))
 			}
-			bundle.updateCachedImageRef(imgRef)
+
+			// We want to keep the annotations, only ensure the rest of the information is copied
+			bundle.updateCachedImageRefWithoutAnnotations(imgRef)
 		}
 	}
 
@@ -45,7 +52,7 @@ func (o *Bundle) AllImagesRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle
 
 // UpdateImageRefs updates the bundle cached images without talking to the registry
 func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
-	o.cachedImageRefs = map[string]ImageRef{}
+	o.cachedImageRefs = newImageRefCache()
 
 	img, err := o.checkedImage()
 	if err != nil {
@@ -68,13 +75,14 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 			}
 		}
 		image.IsBundle = &isBundle
-		o.updateCachedImageRef(image)
+		// We want to keep the annotations, only ensure the rest of the information is copied
+		o.updateCachedImageRefWithoutAnnotations(image)
 	}
 	return nil
 }
 
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
-	o.cachedImageRefs = map[string]ImageRef{}
+	o.cachedImageRefs = newImageRefCache()
 
 	img, err := o.checkedImage()
 	if err != nil {
@@ -103,7 +111,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	mutex := &sync.Mutex{}
 
 	for _, image := range imageRefsToProcess.ImageRefs() {
-		o.updateCachedImageRef(image)
+		o.cachedImageRefs.StoreImageRef(image.DeepCopy())
 
 		if skip := processedImgs.CheckAndAddImage(image.Image); skip {
 			errChan <- nil
@@ -112,7 +120,9 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		// Check if this image is not a bundle and skips
 		if image.IsBundle != nil && *image.IsBundle == false {
-			processedImageRefs.AddImagesRef(image)
+			typedImageRef := NewContentImageRef(image.ImageRef).DeepCopy()
+			processedImageRefs.AddImagesRef(typedImageRef)
+			o.cachedImageRefs.StoreImageRef(typedImageRef)
 			errChan <- nil
 			continue
 		}
@@ -130,11 +140,16 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 			bundles = append(bundles, nestedBundles...)
 
 			// Adds Image to the resulting ImagesLock
-			processedImageRefs.AddImagesRef(
-				NewImageRef(imgRef,
-					len(nestedBundles) > 0, // nestedBundles have Bundles when the image is a bundle
-				),
-			)
+			isBundle := len(nestedBundles) > 0 // nestedBundles have Bundles when the image is a bundle
+			var typedImgRef ImageRef
+			if isBundle {
+				typedImgRef = NewBundleImageRef(imgRef)
+			} else {
+				typedImgRef = NewContentImageRef(imgRef)
+			}
+			o.cachedImageRefs.StoreImageRef(typedImgRef)
+			processedImageRefs.AddImagesRef(typedImgRef)
+
 			processedImageRefs.AddImagesRef(nestedBundlesProcessedImageRefs.ImageRefs()...)
 			errChan <- nil
 		}()

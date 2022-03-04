@@ -32,9 +32,16 @@ func NewRoundTripperStorage(baseRoundTripper http.RoundTripper) *RoundTripperSto
 }
 
 // RoundTripper Retrieve the RoundTripper to be used for a particular registry and repository or nil if it cannot be found
-func (r *RoundTripperStorage) RoundTripper(repo regname.Repository, method string) http.RoundTripper {
+func (r *RoundTripperStorage) RoundTripper(repo regname.Repository, scope string) http.RoundTripper {
 	r.readWriteAccess.Lock()
 	defer r.readWriteAccess.Unlock()
+
+	s := strings.Split(scope, ":")
+	if len(s) != 3 {
+		panic(fmt.Sprintf("Internal inconsistency: expected scope '%s' to have 3 fields", scope))
+	}
+	// Maybe we should check to make sure only 1 repository is present in the scopes
+	method := s[2]
 
 	if _, ok := r.transports[repo.RegistryStr()]; !ok {
 		return nil

@@ -17,11 +17,47 @@ import (
 
 type ImageRef struct {
 	lockconfig.ImageRef
-	IsBundle *bool
+	IsBundle  *bool
+	Copiable  bool
+	ImageType ImageType
 }
 
-func NewImageRef(imgRef lockconfig.ImageRef, isBundle bool) ImageRef {
-	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle}
+// ImageType defines the type of Image. This is an evolving list that might grow with time
+type ImageType string
+
+const (
+	// BundleImage Image that represents a Bundle
+	BundleImage ImageType = "Bundle"
+	// ContentImage Image that is part of the Bundle
+	ContentImage ImageType = "Image"
+	// SignatureImage Image that contains a signature
+	SignatureImage ImageType = "Signature"
+	// InternalImage Image that contains a signature
+	InternalImage ImageType = "Internal"
+)
+
+// NewBundleImageRef Constructs a new ImageRef for Bundle
+func NewBundleImageRef(imgRef lockconfig.ImageRef) ImageRef {
+	return NewImageRefWithType(imgRef, BundleImage)
+}
+
+// NewContentImageRef Constructs a new ImageRef for Image
+func NewContentImageRef(imgRef lockconfig.ImageRef) ImageRef {
+	return NewImageRefWithType(imgRef, ContentImage)
+}
+
+// NewImageRefWithType Constructs a new ImageRef based on the ImageType
+func NewImageRefWithType(imgRef lockconfig.ImageRef, imageType ImageType) ImageRef {
+	copiable := true
+	if imageType == InternalImage {
+		copiable = false
+	}
+	isBundle := false
+	if imageType == BundleImage {
+		isBundle = true
+	}
+
+	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle, Copiable: copiable, ImageType: imageType}
 }
 
 func (i ImageRef) DeepCopy() ImageRef {
@@ -31,8 +67,10 @@ func (i ImageRef) DeepCopy() ImageRef {
 		isBundle = &tmp
 	}
 	return ImageRef{
-		ImageRef: i.ImageRef.DeepCopy(),
-		IsBundle: isBundle,
+		ImageRef:  i.ImageRef.DeepCopy(),
+		IsBundle:  isBundle,
+		Copiable:  i.Copiable,
+		ImageType: i.ImageType,
 	}
 }
 
@@ -60,6 +98,7 @@ func NewImageRefsFromImagesLock(imagesLock lockconfig.ImagesLock, imageRefsLocat
 		imageRefs.AddImagesRef(ImageRef{
 			ImageRef: lockImgRef,
 			IsBundle: nil,
+			Copiable: true,
 		})
 	}
 

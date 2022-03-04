@@ -14,7 +14,7 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 type Contents struct {

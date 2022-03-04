@@ -12,7 +12,7 @@ import (
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 type tarFile struct {

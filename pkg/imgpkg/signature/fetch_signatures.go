@@ -5,10 +5,12 @@ package signature
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,17 +19,21 @@ type Finder interface {
 	Signature(reference name.Digest) (imageset.UnprocessedImageRef, error)
 }
 
+// NotFoundErr specific not found error
 type NotFoundErr struct{}
 
+// Error Not Found Error message
 func (s NotFoundErr) Error() string {
 	return "signature not found"
 }
 
+// Signatures Signature fetcher
 type Signatures struct {
 	signatureFinder Finder
 	concurrency     int
 }
 
+// NewSignatures constructs the Signature Fetcher
 func NewSignatures(finder Finder, concurrency int) *Signatures {
 	return &Signatures{
 		signatureFinder: finder,
@@ -35,18 +41,43 @@ func NewSignatures(finder Finder, concurrency int) *Signatures {
 	}
 }
 
+// Fetch Retrieve the available signatures associated with the images provided
 func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	signatures := imageset.NewUnprocessedImageRefs()
+	var imgs []lockconfig.ImageRef
+	for _, ref := range images.All() {
+		imgs = append(imgs, lockconfig.ImageRef{
+			Image: ref.DigestRef,
+		})
+	}
+	imagesRefs, err := s.FetchForImageRefs(imgs)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range imagesRefs {
+		signatures.Add(imageset.UnprocessedImageRef{
+			DigestRef: ref.Image,
+			Tag:       ref.Annotations["tag"],
+		})
+	}
+
+	return signatures, err
+}
+
+// FetchForImageRefs Retrieve the available signatures associated with the images provided
+func (s *Signatures) FetchForImageRefs(images []lockconfig.ImageRef) ([]lockconfig.ImageRef, error) {
+	lock := &sync.Mutex{}
+	var signatures []lockconfig.ImageRef
 
 	throttle := util.NewThrottle(s.concurrency)
 	var wg errgroup.Group
 
-	for _, ref := range images.All() {
+	for _, ref := range images {
 		ref := ref //copy
 		wg.Go(func() error {
-			imgDigest, err := name.NewDigest(ref.DigestRef)
+			imgDigest, err := name.NewDigest(ref.PrimaryLocation())
 			if err != nil {
-				return fmt.Errorf("Parsing '%s': %s", ref.DigestRef, err)
+				return fmt.Errorf("Parsing '%s': %s", ref.Image, err)
 			}
 
 			throttle.Take()
@@ -60,7 +91,12 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 				return nil
 			}
 
-			signatures.Add(signature)
+			lock.Lock()
+			signatures = append(signatures, lockconfig.ImageRef{
+				Image:       signature.DigestRef,
+				Annotations: map[string]string{"tag": signature.Tag},
+			})
+			lock.Unlock()
 			return nil
 		})
 	}
@@ -70,10 +106,13 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 	return signatures, err
 }
 
+// Noop No Operation signature fetcher
 type Noop struct{}
 
+// NewNoop Constructs a no operation signature fetcher
 func NewNoop() *Noop { return &Noop{} }
 
+// Fetch Do nothing
 func (n Noop) Fetch(*imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	return imageset.NewUnprocessedImageRefs(), nil
 }

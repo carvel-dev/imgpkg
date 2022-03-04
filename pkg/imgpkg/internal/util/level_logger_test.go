@@ -9,7 +9,7 @@ import (
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 func TestLevelLogger(t *testing.T) {
