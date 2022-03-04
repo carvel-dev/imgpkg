@@ -29,12 +29,12 @@ type CopyRepoSrc struct {
 	TarFlags                TarFlags
 	IncludeNonDistributable bool
 	Concurrency             int
-
-	ui                 util.UIWithLevels
-	imageSet           ctlimgset.ImageSet
-	tarImageSet        ctlimgset.TarImageSet
-	registry           registry.ImagesReaderWriter
-	signatureRetriever SignatureRetriever
+	UseRepoBasedTags        bool
+	ui                      util.UIWithLevels
+	imageSet                ctlimgset.ImageSet
+	tarImageSet             ctlimgset.TarImageSet
+	registry                registry.ImagesReaderWriter
+	signatureRetriever      SignatureRetriever
 }
 
 func (c CopyRepoSrc) CopyToTar(dstPath string) error {
@@ -71,7 +71,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, c.UseRepoBasedTags)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +110,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, err
 		}
 
-		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
+		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry, c.UseRepoBasedTags)
 		if err != nil {
 			return nil, err
 		}

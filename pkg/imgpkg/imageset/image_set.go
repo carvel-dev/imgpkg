@@ -31,7 +31,7 @@ func NewImageSet(concurrency int, ui goui.UI) ImageSet {
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
-	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry registry.ImagesReaderWriter, useRepoBasedTags bool) (*ProcessedImages, error) {
 
 	ids, err := i.Export(foundImages, registry)
 	if err != nil {
@@ -40,7 +40,7 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 
 	imgOrIndexes := imagedesc.NewDescribedReader(ids, ids).Read()
 
-	images, err := i.Import(imgOrIndexes, importRepo, registry)
+	images, err := i.Import(imgOrIndexes, importRepo, registry, useRepoBasedTags)
 
 	return images, err
 }
@@ -72,7 +72,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 }
 
 func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
-	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
+	importRepo regname.Repository, registry registry.ImagesReaderWriter, useRepoBasedTags bool) (*ProcessedImages, error) {
 
 	importedImages := NewProcessedImages()
 
@@ -89,7 +89,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 		go func() {
 			importThrottle.Take()
 			defer importThrottle.Done()
-			tags, taggables, err := i.getImageOrImageIndexForMultiWrite(item, importRepo, registry)
+			tags, taggables, err := i.getImageOrImageIndexForMultiWrite(item, importRepo, registry, useRepoBasedTags)
 			if err != nil {
 				errCh <- err
 				return
@@ -148,18 +148,22 @@ func checkForAnyAsyncErrors(imgOrIndexes []imagedesc.ImageOrIndex, errCh chan er
 	return nil
 }
 
-func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter) ([]regname.Tag, []regremote.Taggable, error) {
+func (i ImageSet) getImageOrImageIndexForMultiWrite(item imagedesc.ImageOrIndex, importRepo regname.Repository, registry registry.ImagesReaderWriter, useRepoBasedTags bool) ([]regname.Tag, []regremote.Taggable, error) {
 	uploadTagRef1, err := util.BuildDefaultUploadTagRef(item, importRepo)
 	if err != nil {
 		return []regname.Tag{}, nil, err
 	}
 
-	uploadTagRef2, err := util.BuildLegibleUploadTagRef(item.Ref(), importRepo)
-	if err != nil {
-		return []regname.Tag{}, nil, err
+	tagArr := make([]regname.Tag, 1, 2)
+	tagArr[0] = uploadTagRef1
+	if useRepoBasedTags {
+		uploadTagRef2, err := util.BuildLegibleUploadTagRef(item, item.Ref(), importRepo)
+		if err != nil {
+			return []regname.Tag{}, nil, err
+		}
+		tagArr = append(tagArr, uploadTagRef2)
 	}
 
-	tagArr := []regname.Tag{uploadTagRef1, uploadTagRef2}
 	var artifactsToWrite []regremote.Taggable
 
 	for _, v := range tagArr {

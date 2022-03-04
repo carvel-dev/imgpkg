@@ -103,6 +103,87 @@ images:
 		})
 	})
 
+	t.Run("when copying bundle with --use-rep-based-tags, besides a default one, an extra tag (based on the name of a source repo) is added", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		var imageDigest string
+		logger.Section("create bundle with image", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s%s
+`, env.Image, imageDigest)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag),
+				"--to-repo", env.RelocationRepo,
+				"--use-repo-based-tags"},
+			)
+		})
+
+		logger.Section("Check extra tag was created", func() {
+			algorithmAndSHA := strings.Split(imageDigest, "@")[1]
+			splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
+			repoStr := strings.Join(strings.Split(env.Image, "/")[1:], "-")
+			tagStartIdx := len(repoStr) - 49
+			if tagStartIdx < 0 {
+				tagStartIdx = 0
+			}
+			extraTaggedRepo := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr[tagStartIdx:], splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{extraTaggedRepo}))
+		})
+
+		//test that source repo path is truncated to the last 49 characters
+		longRepoName := env.Image + "-"
+		i := 0
+		for ; i < 49; i++ {
+			longRepoName += "a"
+		}
+
+		logger.Section("create bundle with image", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, longRepoName)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s%s
+`, longRepoName, imageDigest)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", longRepoName, bundleTag), "-f", bundleDir})
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", fmt.Sprintf("%s%s", longRepoName, bundleTag),
+				"--to-repo", env.RelocationRepo,
+				"--use-repo-based-tags"},
+			)
+		})
+
+		logger.Section("Check extra tag was created", func() {
+			algorithmAndSHA := strings.Split(imageDigest, "@")[1]
+			splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
+			repoStr := strings.Join(strings.Split(longRepoName, "/")[1:], "-")
+			tagStartIdx := len(repoStr) - 49
+			if tagStartIdx < 0 {
+				tagStartIdx = 0
+			}
+			extraTaggedRepo := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr[tagStartIdx:], splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{extraTaggedRepo}))
+		})
+	})
+
 	t.Run("when some images are not in the same repository as the bundle it copies all images", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
