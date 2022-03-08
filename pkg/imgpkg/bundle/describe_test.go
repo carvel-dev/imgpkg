@@ -22,8 +22,9 @@ import (
 )
 
 type testDescribe struct {
-	description string
-	subject     testBundle
+	description            string
+	subject                testBundle
+	includeCosignArtifacts bool
 }
 
 func TestDescribeBundle(t *testing.T) {
@@ -59,7 +60,7 @@ func TestDescribeBundle(t *testing.T) {
 			},
 		},
 		{
-			description: "Bundle with signed images",
+			description: "Bundle with signed images, includes signatures on output",
 			subject: testBundle{
 				name:      "simple/only-images-bundle",
 				signImage: true,
@@ -78,6 +79,29 @@ func TestDescribeBundle(t *testing.T) {
 					},
 				},
 			},
+			includeCosignArtifacts: true,
+		},
+		{
+			description: "Bundle with signed images, excludes signatures on output",
+			subject: testBundle{
+				name:      "simple/only-images-bundle",
+				signImage: true,
+				images: []testImage{
+					{
+						testBundle{
+							name:      "app/img2",
+							signImage: true,
+						},
+					},
+					{
+						testBundle{
+							name:      "app/img1",
+							signImage: true,
+						},
+					},
+				},
+			},
+			includeCosignArtifacts: false,
 		},
 		{
 			description: "Bundle with Locations images",
@@ -268,7 +292,7 @@ func TestDescribeBundle(t *testing.T) {
 	for _, test := range allTests {
 		t.Run(test.description, func(t *testing.T) {
 			fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
-			topBundle := createBundle(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{})
+			topBundle := createBundle(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{}, test.includeCosignArtifacts)
 			fakeRegBuilder.Build()
 
 			fmt.Printf("Expected structure:\n\n")
@@ -276,8 +300,9 @@ func TestDescribeBundle(t *testing.T) {
 			fmt.Printf("++++++++++++++++\n\n")
 
 			bundleDescription, err := ctlbundle.Describe(topBundle.refDigest, ctlbundle.DescribeOpts{
-				Logger:      logger,
-				Concurrency: 1,
+				Logger:                 logger,
+				Concurrency:            1,
+				IncludeCosignArtifacts: test.includeCosignArtifacts,
 			},
 				registry.Opts{
 					EnvironFunc: os.Environ,
@@ -407,7 +432,7 @@ func findImageWithRef(bundle ctlbundle.Description, refDigest string) (ctlbundle
 	return ctlbundle.Description{}, ctlbundle.ImageInfo{}, false
 }
 
-func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath) createdBundle {
+func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath, includeCosignArtifacts bool) createdBundle {
 	if cb, ok := allBundlesCreated[bToCreate.name]; ok {
 		return *cb
 	}
@@ -420,7 +445,7 @@ func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate 
 	for _, image := range bToCreate.images {
 		imgDigestRef := ""
 		if len(image.images) > 0 {
-			innerBundle := createBundle(t, reg, image.testBundle, allBundlesCreated, createdImages)
+			innerBundle := createBundle(t, reg, image.testBundle, allBundlesCreated, createdImages, includeCosignArtifacts)
 			imgs = append(imgs, lockconfig.ImageRef{Image: innerBundle.refDigest})
 			result.images = append(result.images, createdImage{createdBundle: innerBundle})
 			imgDigestRef = innerBundle.refDigest
@@ -452,14 +477,16 @@ func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate 
 
 			signImg := reg.WithRandomTaggedImage(imgDigestRef, cosign.Munge(regv1.Descriptor{Digest: hash}))
 
-			createdImg := createdImage{
-				createdBundle: createdBundle{
-					name:      signImg.Digest,
-					refDigest: signImg.RefDigest,
-				},
-				isSignature: true,
+			if includeCosignArtifacts {
+				createdImg := createdImage{
+					createdBundle: createdBundle{
+						name:      signImg.Digest,
+						refDigest: signImg.RefDigest,
+					},
+					isSignature: true,
+				}
+				result.images = append(result.images, createdImg)
 			}
-			result.images = append(result.images, createdImg)
 		}
 	}
 	b = b.WithImageRefs(imgs)
@@ -484,14 +511,16 @@ func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate 
 
 		signImg := reg.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
 
-		createdImg := createdImage{
-			createdBundle: createdBundle{
-				name:      signImg.Digest,
-				refDigest: signImg.RefDigest,
-			},
-			isSignature: true,
+		if includeCosignArtifacts {
+			createdImg := createdImage{
+				createdBundle: createdBundle{
+					name:      signImg.Digest,
+					refDigest: signImg.RefDigest,
+				},
+				isSignature: true,
+			}
+			result.images = append(result.images, createdImg)
 		}
-		result.images = append(result.images, createdImg)
 	}
 	result.refDigest = b.RefDigest
 	return *result
