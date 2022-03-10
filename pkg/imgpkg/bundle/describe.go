@@ -56,8 +56,9 @@ type Description struct {
 
 // DescribeOpts Options used when calling the Describe function
 type DescribeOpts struct {
-	Logger      Logger
-	Concurrency int
+	Logger                 Logger
+	Concurrency            int
+	IncludeCosignArtifacts bool
 }
 
 // SignatureFetcher Interface to retrieve signatures associated with Images
@@ -72,7 +73,12 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 		return Description{}, err
 	}
 
-	signatureRetriever := signature.NewSignatures(signature.NewCosign(reg), opts.Concurrency)
+	var signatureRetriever SignatureFetcher
+	if !opts.IncludeCosignArtifacts {
+		signatureRetriever = signature.NewNoop()
+	} else {
+		signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), opts.Concurrency)
+	}
 
 	return DescribeWithRegistryAndSignatureFetcher(bundleImage, opts, reg, signatureRetriever)
 }

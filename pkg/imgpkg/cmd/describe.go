@@ -27,8 +27,9 @@ type DescribeOptions struct {
 	BundleFlags   BundleFlags
 	RegistryFlags RegistryFlags
 
-	Concurrency int
-	OutputType  string
+	Concurrency            int
+	OutputType             string
+	IncludeCosignArtifacts bool
 }
 
 // NewDescribeOptions constructor for building a DescribeOptions, holding values derived via flags
@@ -51,6 +52,7 @@ func NewDescribeCmd(o *DescribeOptions) *cobra.Command {
 	o.RegistryFlags.Set(cmd)
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().StringVarP(&o.OutputType, "output-type", "o", "text", "Type of output possible values: [text, yaml]")
+	cmd.Flags().BoolVar(&o.IncludeCosignArtifacts, "cosign-artifacts", true, "Retrieve cosign artifact information (Default: true)")
 	return cmd
 }
 
@@ -65,8 +67,9 @@ func (d *DescribeOptions) Run() error {
 	description, err := bundle.Describe(
 		d.BundleFlags.Bundle,
 		bundle.DescribeOpts{
-			Logger:      levelLogger,
-			Concurrency: d.Concurrency,
+			Logger:                 levelLogger,
+			Concurrency:            d.Concurrency,
+			IncludeCosignArtifacts: d.IncludeCosignArtifacts,
 		},
 		d.RegistryFlags.AsRegistryOpts())
 	if err != nil {
