@@ -116,3 +116,8 @@ func NewNoop() *Noop { return &Noop{} }
 func (n Noop) Fetch(*imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error) {
 	return imageset.NewUnprocessedImageRefs(), nil
 }
+
+// FetchForImageRefs Retrieve the available signatures associated with the images provided
+func (n Noop) FetchForImageRefs(images []lockconfig.ImageRef) ([]lockconfig.ImageRef, error) {
+	return nil, nil
+}
