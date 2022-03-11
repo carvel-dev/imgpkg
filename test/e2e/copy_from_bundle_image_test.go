@@ -729,6 +729,85 @@ images:
 		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry(imagesToCheck))
 	})
 
+	t.Run("With Bundle with Nested Bundles, When Push, Copy to Repo, Copy to Tar, Copy to Repo1 and Copy to tar, should copy all Images", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+		fakeRegBuilder := helpers.NewFakeRegistry(t, env.Logger)
+		testDir := env.Assets.CreateTempFolder("nested-bundles-tar-test")
+		tarFilePath := filepath.Join(testDir, "bundle.tar")
+		secondTarFilePath := filepath.Join(testDir, "second-bundle.tar")
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+		imgRefFakeReg, err := regname.ParseReference(fakeRegBuilder.ReferenceOnTestServer(imgRef.Identifier()))
+		require.NoError(t, err)
+
+		var img1DigestRef, img2DigestRef, img1Digest, img2Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = imgRefFakeReg.Context().Name() + "-img1"
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img1DigestRef)
+			img1DigestRef = img1DigestRef + img1Digest
+
+			img2DigestRef = imgRefFakeReg.Context().Name() + "-img2"
+			img2Digest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, img2DigestRef)
+			img2DigestRef = img2DigestRef + img2Digest
+		})
+
+		nestedBundle := imgRefFakeReg.Context().Name() + "-bundle-nested"
+		nestedBundleDigest := ""
+		logger.Section("create nested bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, img1DigestRef, img2DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", nestedBundle, "-f", bundleDir})
+			nestedBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		outerBundle := imgRef.Context().Name() + "-bundle-outer"
+		outerBundleDigest := ""
+		logger.Section("create outer bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, nestedBundle+nestedBundleDigest, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out := imgpkg.Run([]string{"push", "--tty", "-b", outerBundle, "-f", bundleDir})
+			outerBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+		relocatedOuterBundle := outerBundle + "-relocated"
+		logger.Section("relocate OuterBundle", func() {
+			imgpkg.Run([]string{"copy", "-b", outerBundle + outerBundleDigest, "--to-repo", relocatedOuterBundle})
+		})
+
+		var outputTarExport string
+		logger.Section("export full bundle to tar", func() {
+			outputTarExport = imgpkg.Run([]string{"copy", "-b", relocatedOuterBundle + outerBundleDigest, "--to-tar", tarFilePath})
+		})
+
+		logger.Section("import bundle to new repository", func() {
+			imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo})
+		})
+
+		var secondOutputTarExport string
+		logger.Section("export again to a tar", func() {
+			secondOutputTarExport = imgpkg.Run([]string{"copy", "-b", env.RelocationRepo + outerBundleDigest, "--to-tar", secondTarFilePath})
+		})
+
+		require.Contains(t, outputTarExport, "exporting 4 images...")
+		require.Contains(t, secondOutputTarExport, "exporting 4 images...")
+	})
+
 	t.Run("when bundle contains only images it copies all images", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}

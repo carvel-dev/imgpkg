@@ -69,8 +69,9 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 	for _, image := range imageRefsToProcess.ImageRefs() {
 		isBundle := false
 		for _, bundle := range bundles {
-			if bundle.DigestRef() == image.ImageRef.Image {
+			if bundle.Digest() == image.Digest() {
 				isBundle = true
+				image.ImageType = BundleImage
 				break
 			}
 		}
