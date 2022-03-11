@@ -71,8 +71,15 @@ func NewBundleWithReader(ref string, imagesMetadata ImagesMetadata, imagesLockRe
 
 // DigestRef Bundle full location including registry, repository and digest
 func (o *Bundle) DigestRef() string { return o.plainImg.DigestRef() }
-func (o *Bundle) Repo() string      { return o.plainImg.Repo() }
-func (o *Bundle) Tag() string       { return o.plainImg.Tag() }
+
+// Digest Bundle Digest
+func (o *Bundle) Digest() string { return o.plainImg.Digest() }
+
+// Repo Bundle registry and Repository
+func (o *Bundle) Repo() string { return o.plainImg.Repo() }
+
+// Tag Bundle Tag
+func (o *Bundle) Tag() string { return o.plainImg.Tag() }
 
 func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
 	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)

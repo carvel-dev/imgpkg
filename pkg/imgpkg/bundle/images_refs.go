@@ -60,6 +60,16 @@ func NewImageRefWithType(imgRef lockconfig.ImageRef, imageType ImageType) ImageR
 	return ImageRef{ImageRef: imgRef, IsBundle: &isBundle, Copiable: copiable, ImageType: imageType}
 }
 
+// Digest Image Digest
+func (i ImageRef) Digest() string {
+	digest, err := name.NewDigest(i.Image)
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency, ImageRef.Image '%s' should contain a digest", i.Image))
+	}
+
+	return digest.DigestStr()
+}
+
 func (i ImageRef) DeepCopy() ImageRef {
 	var isBundle *bool
 	if i.IsBundle != nil {
