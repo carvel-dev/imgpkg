@@ -76,6 +76,7 @@ jobs:
             return `${checksums['imgpkg-darwin-amd64']}  ./imgpkg-darwin-amd64
             ${checksums['imgpkg-darwin-arm64']}  ./imgpkg-darwin-arm64
             ${checksums['imgpkg-linux-amd64']}  ./imgpkg-linux-amd64
+            ${checksums['imgpkg-linux-arm64']}  ./imgpkg-linux-arm64
             ${checksums['imgpkg-windows-amd64.exe']}  ./imgpkg-windows-amd64.exe`
 
       - name: verify uploaded artifacts
