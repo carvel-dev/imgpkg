@@ -23,11 +23,11 @@ func (r DescribedReader) Read() []ImageOrIndex {
 		switch {
 		case td.Image != nil:
 			var img ImageWithRef = NewDescribedImage(*td.Image, r.layerProvider)
-			result = append(result, ImageOrIndex{Image: &img, Labels: td.Image.Labels})
+			result = append(result, ImageOrIndex{Image: &img, Labels: td.Image.Labels, OrigRef: td.OrigRef()})
 
 		case td.ImageIndex != nil:
 			idx := r.buildIndex(*td.ImageIndex)
-			result = append(result, ImageOrIndex{Index: &idx, Labels: td.ImageIndex.Labels})
+			result = append(result, ImageOrIndex{Index: &idx, Labels: td.ImageIndex.Labels, OrigRef: td.OrigRef()})
 
 		default:
 			panic("Unknown item")

@@ -37,6 +37,7 @@ jobs:
       env:
         IMGPKG_E2E_IMAGE: "dev.registry.tanzu.vmware.com/imgpkg/github-action-test-relocation"
         IMGPKG_E2E_RELOCATION_REPO: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test"
+        IMGPKG_E2E_RELOCATION_REPO_C: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test-c"
         TanzuNetDevUsername: ${{ secrets.TanzuNetDevUsername }}
         TanzuNetDevPassword: ${{ secrets.TanzuNetDevPassword }}
       run: |
@@ -45,6 +46,7 @@ jobs:
         # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
         export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
         export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+        export IMGPKG_E2E_RELOCATION_REPO_C="$IMGPKG_E2E_RELOCATION_REPO_C-$GITHUB_RUN_ID"
 
         export GOPATH=$(echo `pwd`)
         export PATH="$PATH:$GOPATH/bin"
@@ -74,6 +76,7 @@ jobs:
         env:
           IMGPKG_E2E_IMAGE: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-test-relocation"
           IMGPKG_E2E_RELOCATION_REPO: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-imgpkg-test"
+          IMGPKG_E2E_RELOCATION_REPO_C: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-imgpkg-test-c"
           GCR_PASSWORD: ${{ secrets.GCR_PASSWORD }}
         run: |
           set -e
@@ -81,6 +84,7 @@ jobs:
           # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+          export IMGPKG_E2E_RELOCATION_REPO_C="$IMGPKG_E2E_RELOCATION_REPO_C-$GITHUB_RUN_ID"
 
           export GOPATH=$(echo `pwd`)
           export PATH="$PATH:$GOPATH/bin"

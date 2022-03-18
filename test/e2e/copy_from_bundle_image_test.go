@@ -103,13 +103,13 @@ images:
 		})
 	})
 
-	t.Run("when copying bundle with --use-rep-based-tags, besides a default one, an extra tag (based on the name of a source repo) is added", func(t *testing.T) {
+	t.Run("1. when copying bundle with --use-repo-based-tags a tag derived from the name of a source repo is added", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
 
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-		var imageDigest string
+		var bundleDigest, imageDigest string
 		logger.Section("create bundle with image", func() {
 			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
 
@@ -120,7 +120,8 @@ images:
 - image: %s%s
 `, env.Image, imageDigest)
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
 		logger.Section("copy bundle to repository", func() {
@@ -131,22 +132,31 @@ images:
 			)
 		})
 
-		logger.Section("Check extra tag was created", func() {
-			algorithmAndSHA := strings.Split(imageDigest, "@")[1]
+		logger.Section("Check that repo-based tag was created", func() {
+			algorithmAndSHA := strings.Split(bundleDigest, "@")[1]
 			splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
 			repoStr := strings.Join(strings.Split(env.Image, "/")[1:], "-")
 			tagStartIdx := len(repoStr) - 49
 			if tagStartIdx < 0 {
 				tagStartIdx = 0
 			}
-			extraTaggedRepo := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr[tagStartIdx:], splitAlgAndSHA[0], splitAlgAndSHA[1])
-			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{extraTaggedRepo}))
+			repoBasedTag := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr[tagStartIdx:], splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{repoBasedTag}))
 		})
+	})
+
+	t.Run("2. when copying bundle with --use-repo-based-tags a tag derived from the long name of a source repo is added", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		var bundleDigest, imageDigest string
 
 		//test that source repo path is truncated to the last 49 characters
 		longRepoName := env.Image + "-"
 		i := 0
-		for ; i < 49; i++ {
+		for ; i < 43; i++ {
 			longRepoName += "a"
 		}
 
@@ -160,7 +170,8 @@ images:
 - image: %s%s
 `, longRepoName, imageDigest)
 			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
-			imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", longRepoName, bundleTag), "-f", bundleDir})
+			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", longRepoName, bundleTag), "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 		})
 
 		logger.Section("copy bundle to repository", func() {
@@ -171,16 +182,37 @@ images:
 			)
 		})
 
-		logger.Section("Check extra tag was created", func() {
-			algorithmAndSHA := strings.Split(imageDigest, "@")[1]
-			splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
-			repoStr := strings.Join(strings.Split(longRepoName, "/")[1:], "-")
-			tagStartIdx := len(repoStr) - 49
-			if tagStartIdx < 0 {
-				tagStartIdx = 0
-			}
-			extraTaggedRepo := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr[tagStartIdx:], splitAlgAndSHA[0], splitAlgAndSHA[1])
-			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{extraTaggedRepo}))
+		repoBasedTag := ""
+		algorithmAndSHA := strings.Split(bundleDigest, "@")[1]
+		splitAlgAndSHA := strings.Split(algorithmAndSHA, ":")
+		repoStr := strings.Join(strings.Split(longRepoName, "/")[1:], "-")
+		tagStartIdx := len(repoStr) - 49
+
+		if tagStartIdx < 0 {
+			tagStartIdx = 0
+		}
+
+		repoStr = repoStr[tagStartIdx:]
+		if strings.HasPrefix(repoStr, "-") {
+			repoStr = strings.Replace(repoStr, "-", "", 1)
+		}
+
+		logger.Section("Check that repo-based tag was created", func() {
+			repoBasedTag = fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{repoBasedTag}))
+		})
+
+		logger.Section("copy bundle from repository B to repository C", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", repoBasedTag,
+				"--to-repo", env.RelocationRepo2,
+				"--use-repo-based-tags"},
+			)
+		})
+
+		logger.Section("Check that repo-based tag was created", func() {
+			repoCTag := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo2, repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
+			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{repoCTag}))
 		})
 	})
 

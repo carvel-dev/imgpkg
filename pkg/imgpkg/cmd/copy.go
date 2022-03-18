@@ -68,8 +68,8 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
                 --to-repo other-reg.faz.baz/my-app --use-repo-based-tags
 
     # If the above source repo has a tag sha256:669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be,
-    # an additional tag some-application-app-sha256-669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be.imgpkg
-    # will created in the destination repo. Note that the part of the new tag preceeding '-sha256' will be truncated to
+    # a new tag some-application-app-sha256-669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be.imgpkg
+    # will be created in the destination repo. Note that the part of the new tag preceeding '-sha256' will be truncated to
     # the last 49 charachters`,
 	}
 
@@ -109,7 +109,13 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+	tagGenType := util.DefaultTagGen
+	if c.UseRepoBasedTags {
+		tagGenType = util.RepoBasedTagGen
+	}
+
+	tagGen := util.NewTagGenerator(tagGenType)
+	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
 	var signatureRetriever SignatureRetriever
