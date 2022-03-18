@@ -35,9 +35,6 @@ func NewImageSet(concurrency int, ui goui.UI, tagGen util.TagGenerator) ImageSet
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
 	ids, err := i.Export(foundImages, registry)
-	fmt.Println("+++++++++++--4--+++++++++++++")
-	fmt.Println(ids.Descriptors()[0].OrigRef())
-	fmt.Println("+++++++++++--4--+++++++++++++")
 	if err != nil {
 		return nil, err
 	}

@@ -45,6 +45,7 @@ jobs:
         # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
         export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
         export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+        export IMGPKG_E2E_RELOCATION_REPO_C="$IMGPKG_E2E_RELOCATION_REPO_C-$GITHUB_RUN_ID"
 
         export GOPATH=$(echo `pwd`)
         export PATH="$PATH:$GOPATH/bin"
@@ -81,6 +82,7 @@ jobs:
           # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+          export IMGPKG_E2E_RELOCATION_REPO_C="$IMGPKG_E2E_RELOCATION_REPO_C-$GITHUB_RUN_ID"
 
           export GOPATH=$(echo `pwd`)
           export PATH="$PATH:$GOPATH/bin"

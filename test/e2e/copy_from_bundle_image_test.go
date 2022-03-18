@@ -156,7 +156,7 @@ images:
 		//test that source repo path is truncated to the last 49 characters
 		longRepoName := env.Image + "-"
 		i := 0
-		for ; i < 10; i++ {
+		for ; i < 43; i++ {
 			longRepoName += "a"
 		}
 
