@@ -21,8 +21,9 @@ type ImageOrIndex struct {
 	Index *ImageIndexWithRef
 
 	Labels map[string]string
-}
 
+	OrigRef string
+}
 type ImageWithRef interface {
 	regv1.Image
 	Ref() string
@@ -57,6 +58,7 @@ type ImageIndexDescriptor struct {
 	Digest    string
 	Raw       string
 	Tag       string
+	OrigRef   string
 
 	Labels map[string]string
 }
@@ -68,8 +70,8 @@ type ImageDescriptor struct {
 	Config   ConfigDescriptor
 	Manifest ManifestDescriptor
 	Tag      string
-
-	Labels map[string]string
+	OrigRef  string
+	Labels   map[string]string
 }
 
 type ImageLayerDescriptor struct {
@@ -107,6 +109,17 @@ func (td ImageOrImageIndexDescriptor) SortKey() string {
 		return td.Image.SortKey()
 	default:
 		panic("ImageOrImageIndexDescriptor: expected imageIndex or image to be non-nil")
+	}
+}
+
+func (td ImageOrImageIndexDescriptor) OrigRef() string {
+	switch {
+	case td.Image != nil:
+		return (*td.Image).OrigRef
+	case td.ImageIndex != nil:
+		return (*td.ImageIndex).OrigRef
+	default:
+		panic("Unknown item")
 	}
 }
 

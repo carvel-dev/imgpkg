@@ -71,7 +71,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, c.UseRepoBasedTags)
+		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +110,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, err
 		}
 
-		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry, c.UseRepoBasedTags)
+		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +155,6 @@ func (c CopyRepoSrc) getAllSourceImages() (*ctlimgset.UnprocessedImageRefs, []*c
 
 func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
-
 	switch {
 	case c.LockInputFlags.LockFilePath != "":
 		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
@@ -229,7 +228,7 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 		}
 
 		for _, img := range imagesRef.ImageRefs() {
-			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation(), OrigRef: img.Image})
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
@@ -237,9 +236,9 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 			Tag:       bundle.Tag(),
 			Labels: map[string]string{
 				rootBundleLabelKey: "",
-			}},
+			},
+			OrigRef: bundle.DigestRef()},
 		)
-
 		return unprocessedImageRefs, allBundles, nil
 	}
 }

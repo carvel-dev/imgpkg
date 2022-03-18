@@ -13,15 +13,16 @@ import (
 )
 
 type Env struct {
-	Image          string
-	ImgpkgPath     string
-	RelocationRepo string
-	BundleFactory  BundleFactory
-	Assets         *Assets
-	Assert         Assertion
-	ImageFactory   ImageFactory
-	Logger         *Logger
-	cleanupFuncs   []func()
+	Image           string
+	ImgpkgPath      string
+	RelocationRepo  string
+	RelocationRepo2 string
+	BundleFactory   BundleFactory
+	Assets          *Assets
+	Assert          Assertion
+	ImageFactory    ImageFactory
+	Logger          *Logger
+	cleanupFuncs    []func()
 }
 
 func BuildEnv(t *testing.T) *Env {
@@ -34,11 +35,12 @@ func BuildEnv(t *testing.T) *Env {
 	assets := &Assets{T: t}
 	logger := &Logger{LogLevel: LogDebug}
 	env := Env{
-		Image:          os.Getenv("IMGPKG_E2E_IMAGE"),
-		RelocationRepo: os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
-		ImgpkgPath:     imgpkgPath,
-		BundleFactory:  NewBundleDir(t, assets),
-		Assets:         assets,
+		Image:           os.Getenv("IMGPKG_E2E_IMAGE"),
+		RelocationRepo:  os.Getenv("IMGPKG_E2E_RELOCATION_REPO"),
+		RelocationRepo2: os.Getenv("IMGPKG_E2E_RELOCATION_REPO_C"),
+		ImgpkgPath:      imgpkgPath,
+		BundleFactory:   NewBundleDir(t, assets),
+		Assets:          assets,
 		Assert: Assertion{
 			T:                    t,
 			logger:               logger,
