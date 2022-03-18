@@ -12,8 +12,9 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedigest"
 )
 
-const (
+const ( // DefaultTagGen
 	DefaultTagGen   = "defaultTagGen"
+	// RepoBasedTagGen
 	RepoBasedTagGen = "repoBasedTagGen"
 )
 
@@ -41,10 +42,12 @@ type TagGenerator interface {
 	GenerateTag(item imagedigest.DigestWrap, destinationRepo regname.Repository) (regname.Tag, error)
 }
 
-// DefaultTagGenerator
+// DefaultTagGenerator implements GenerateTag
+// and generates default tag
 type DefaultTagGenerator struct{}
 
-// RepoBasedTagGenerator
+// RepoBasedTagGenerator implements GenerateTag
+// and generates repo-based tag
 type RepoBasedTagGenerator struct{}
 
 // GenerateTag generates default tag
