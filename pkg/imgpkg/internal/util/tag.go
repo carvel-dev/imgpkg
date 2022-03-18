@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	DEFAULT_TAG_GEN    = "defaultTagGen"
-	REPO_BASED_TAG_GEN = "repoBasedTagGen"
+	DefaultTagGen   = "defaultTagGen"
+	RepoBasedTagGen = "repoBasedTagGen"
 )
 
 // WithDigest are items that Digest() can be called on
@@ -22,11 +22,13 @@ type WithDigest interface {
 	Digest() (regv1.Hash, error)
 }
 
+// TagGenDigest contains Algorithm and Hex values of image digest
 type TagGenDigest struct {
 	Algorithm string
 	Hex       string
 }
 
+// Digest returns regv1.Hash instance
 func (t TagGenDigest) Digest() (regv1.Hash, error) {
 	return regv1.Hash{
 		Algorithm: t.Algorithm,
@@ -39,9 +41,13 @@ type TagGenerator interface {
 	GenerateTag(item imagedigest.DigestWrap, destinationRepo regname.Repository) (regname.Tag, error)
 }
 
+// DefaultTagGenerator
 type DefaultTagGenerator struct{}
+
+// RepoBasedTagGenerator
 type RepoBasedTagGenerator struct{}
 
+// GenerateTag generates default tag
 func (tagGen DefaultTagGenerator) GenerateTag(item imagedigest.DigestWrap, importRepo regname.Repository) (regname.Tag, error) {
 	digestArr := strings.Split(item.RegnameDigest().DigestStr(), ":")
 
@@ -52,6 +58,7 @@ func (tagGen DefaultTagGenerator) GenerateTag(item imagedigest.DigestWrap, impor
 	return BuildDefaultUploadTagRef(withDigest, importRepo)
 }
 
+// GenerateTag generates repo-based tags
 func (tagGen RepoBasedTagGenerator) GenerateTag(item imagedigest.DigestWrap, importRepo regname.Repository) (regname.Tag, error) {
 	origRepoPath := ""
 	if item.OrigRef() == "" {
@@ -81,9 +88,10 @@ func (tagGen RepoBasedTagGenerator) GenerateTag(item imagedigest.DigestWrap, imp
 	return uploadTagRef, nil
 }
 
+// NewTagGenerator returns different TagGenerator types
 func NewTagGenerator(tagGenType string) TagGenerator {
 	switch {
-	case tagGenType == REPO_BASED_TAG_GEN:
+	case tagGenType == RepoBasedTagGen:
 		return RepoBasedTagGenerator{}
 	default:
 		return DefaultTagGenerator{}

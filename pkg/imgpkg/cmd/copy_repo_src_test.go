@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 	defer confUI.Flush()
 	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
 
-	tagGen := util.NewTagGenerator(util.DEFAULT_TAG_GEN)
+	tagGen := util.NewTagGenerator(util.DefaultTagGen)
 	imageSet := imageset.NewImageSet(1, confUI, tagGen)
 
 	subject = CopyRepoSrc{

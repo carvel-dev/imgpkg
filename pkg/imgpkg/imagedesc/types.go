@@ -112,6 +112,8 @@ func (td ImageOrImageIndexDescriptor) SortKey() string {
 	}
 }
 
+// OrigRef returns ImagesLock's image value
+// of an Image or an ImageIndex
 func (td ImageOrImageIndexDescriptor) OrigRef() string {
 	switch {
 	case td.Image != nil:

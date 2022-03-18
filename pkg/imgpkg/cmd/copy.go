@@ -109,9 +109,9 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	tagGenType := util.DEFAULT_TAG_GEN
+	tagGenType := util.DefaultTagGen
 	if c.UseRepoBasedTags {
-		tagGenType = util.REPO_BASED_TAG_GEN
+		tagGenType = util.RepoBasedTagGen
 	}
 
 	tagGen := util.NewTagGenerator(tagGenType)
