@@ -12,9 +12,10 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedigest"
 )
 
-const ( // DefaultTagGen
-	DefaultTagGen   = "defaultTagGen"
-	// RepoBasedTagGen
+const (
+	// DefaultTagGen - defaultTagGen
+	DefaultTagGen = "defaultTagGen"
+	// RepoBasedTagGen - repoBasedTagGen
 	RepoBasedTagGen = "repoBasedTagGen"
 )
 
