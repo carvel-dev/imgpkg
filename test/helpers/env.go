@@ -99,7 +99,7 @@ func (e Env) Validate(t *testing.T) {
 	}
 
 	if len(e.RelocationRepo2) == 0 {
-		errStrs = append(errStrs, "Expected environment variable 'IMGPKG_E2E_RELOCATION_REPO_C' to be non-empty. For example `export IMGPKG_E2E_RELOCATION_REPO_C=index.docker.io/k8slt/imgpkg-test-relocation`")
+		errStrs = append(errStrs, "Expected environment variable 'IMGPKG_E2E_RELOCATION_REPO_C' to be non-empty. For example `export IMGPKG_E2E_RELOCATION_REPO_C=index.docker.io/k8slt/imgpkg-test-relocation-c`")
 	} else {
 		parts := strings.SplitN(e.RelocationRepo2, "/", 2)
 		if !(len(parts) == 2 && (strings.ContainsRune(parts[0], '.') || strings.ContainsRune(parts[0], ':'))) {
