@@ -77,6 +77,17 @@ func (i *PlainImage) DigestRef() string {
 	return i.parsedRef.Context().Name() + "@" + i.parsedDigest
 }
 
+// Digest Image Digest
+func (i *PlainImage) Digest() string {
+	if i.parsedRef == nil {
+		panic("Unexpected usage of Digest(); call Fetch before")
+	}
+	if len(i.parsedDigest) == 0 {
+		panic("Unexpected usage of Digest(); call Fetch before")
+	}
+	return i.parsedDigest
+}
+
 func (i *PlainImage) Tag() string {
 	if i.parsedRef == nil {
 		panic("Unexpected usage of Tag(); call Fetch before")

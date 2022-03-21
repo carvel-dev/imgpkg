@@ -16,7 +16,7 @@ go mod tidy
 # Specifically, the docker config.json is loaded before cli flags (and maybe even IaaS metadata services)
 git apply --ignore-space-change --ignore-whitespace ./hack/patch-k8s-pkg-credentialprovider.patch
 
-git diff --exit-code vendor/ || {
+git diff --exit-code vendor/github.com/vdemeester || {
   echo 'found changes in the project. when expected none. exiting'
   exit 1
 }
