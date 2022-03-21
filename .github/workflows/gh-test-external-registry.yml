@@ -37,6 +37,7 @@ jobs:
       env:
         IMGPKG_E2E_IMAGE: "dev.registry.tanzu.vmware.com/imgpkg/github-action-test-relocation"
         IMGPKG_E2E_RELOCATION_REPO: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test"
+        IMGPKG_E2E_RELOCATION_REPO_C: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test-c"
         TanzuNetDevUsername: ${{ secrets.TanzuNetDevUsername }}
         TanzuNetDevPassword: ${{ secrets.TanzuNetDevPassword }}
       run: |
@@ -75,6 +76,7 @@ jobs:
         env:
           IMGPKG_E2E_IMAGE: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-test-relocation"
           IMGPKG_E2E_RELOCATION_REPO: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-imgpkg-test"
+          IMGPKG_E2E_RELOCATION_REPO_C: "gcr.io/cf-k8s-lifecycle-tooling-klt/github-action-imgpkg-test-c"
           GCR_PASSWORD: ${{ secrets.GCR_PASSWORD }}
         run: |
           set -e
