@@ -177,7 +177,7 @@ images:
 		logger.Section("copy bundle to repository", func() {
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", longRepoName, bundleTag),
-				"--to-repo", env.RelocationRepo,
+				"--to-repo", env.RelocationRepo + "/repo-b",
 				"--use-repo-based-tags"},
 			)
 		})
@@ -198,20 +198,20 @@ images:
 		}
 
 		logger.Section("Check that repo-based tag was created", func() {
-			repoBasedTag = fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo, repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
+			repoBasedTag = fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo+"/repo-b", repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{repoBasedTag}))
 		})
 
 		logger.Section("copy bundle from repository B to repository C", func() {
 			imgpkg.Run([]string{"copy",
 				"--bundle", repoBasedTag,
-				"--to-repo", env.RelocationRepo2,
+				"--to-repo", env.RelocationRepo + "/repo-c",
 				"--use-repo-based-tags"},
 			)
 		})
 
 		logger.Section("Check that repo-based tag was created", func() {
-			repoCTag := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo2, repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
+			repoCTag := fmt.Sprintf("%s:%s-%s-%s.imgpkg", env.RelocationRepo+"/repo-c", repoStr, splitAlgAndSHA[0], splitAlgAndSHA[1])
 			require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{repoCTag}))
 		})
 	})
