@@ -30,6 +30,10 @@ type Opts struct {
 
 	IncludeNonDistributableLayers bool
 
+	MutualTLS         bool
+	ClientCertificate string
+	ClientKey         string
+
 	Username string
 	Password string
 	Token    string
@@ -453,9 +457,23 @@ func newHTTPTransport(opts Opts) (*http.Transport, error) {
 	clonedDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
 	clonedDefaultTransport.ForceAttemptHTTP2 = false
 	clonedDefaultTransport.ResponseHeaderTimeout = opts.ResponseHeaderTimeout
-	clonedDefaultTransport.TLSClientConfig = &tls.Config{
-		RootCAs:            pool,
-		InsecureSkipVerify: opts.VerifyCerts == false,
+	if opts.MutualTLS {
+		cert, err := tls.LoadX509KeyPair(opts.ClientCertificate, opts.ClientKey)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read client certificate or key from '%s' and '%s': %s", opts.ClientCertificate, opts.ClientKey, err)
+		}
+		certs := make([]tls.Certificate, 0)
+		certs = append(certs, cert)
+		clonedDefaultTransport.TLSClientConfig = &tls.Config{
+			RootCAs:            pool,
+			Certificates:       certs,
+			InsecureSkipVerify: opts.VerifyCerts == false,
+		}
+	} else {
+		clonedDefaultTransport.TLSClientConfig = &tls.Config{
+			RootCAs:            pool,
+			InsecureSkipVerify: opts.VerifyCerts == false,
+		}
 	}
 
 	return clonedDefaultTransport, nil

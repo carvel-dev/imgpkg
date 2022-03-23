@@ -17,6 +17,10 @@ type RegistryFlags struct {
 	VerifyCerts bool
 	Insecure    bool
 
+	MutualTLS         bool
+	ClientCertificate string
+	ClientKey         string
+
 	Username string
 	Password string
 	Token    string
@@ -32,6 +36,10 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&r.CACertPaths, "registry-ca-cert-path", nil, "Add CA certificates for registry API (format: /tmp/foo) (can be specified multiple times)")
 	cmd.Flags().BoolVar(&r.VerifyCerts, "registry-verify-certs", true, "Set whether to verify server's certificate chain and host name")
 	cmd.Flags().BoolVar(&r.Insecure, "registry-insecure", false, "Allow the use of http when interacting with registries")
+
+	cmd.Flags().BoolVar(&r.MutualTLS, "registry-mutual-tls", false, "Set whether or not to use mutual TLS. If true set registry-client-cert-path and registry-client-key-path")
+	cmd.Flags().StringVar(&r.ClientCertificate, "registry-client-cert-path", "", "Add Client Cert to authenticate against registry with (format: /tmp/foo)")
+	cmd.Flags().StringVar(&r.ClientKey, "registry-client-key-path", "", "Add Client Key to authenticate against registry with (format: /tmp/foo)")
 
 	cmd.Flags().StringVar(&r.Username, "registry-username", "", "Set username for auth ($IMGPKG_USERNAME)")
 	cmd.Flags().StringVar(&r.Password, "registry-password", "", "Set password for auth ($IMGPKG_PASSWORD)")
@@ -70,6 +78,10 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		CACertPaths: r.CACertPaths,
 		VerifyCerts: r.VerifyCerts,
 		Insecure:    r.Insecure,
+
+		MutualTLS:         r.MutualTLS,
+		ClientCertificate: r.ClientCertificate,
+		ClientKey:         r.ClientKey,
 
 		Username: r.Username,
 		Password: r.Password,
