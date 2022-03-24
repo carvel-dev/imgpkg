@@ -103,7 +103,7 @@ images:
 		})
 	})
 
-	t.Run("1. when copying bundle with --use-repo-based-tags a tag derived from the name of a source repo is added", func(t *testing.T) {
+	t.Run("1. when copying bundle with --repo-based-tags a tag derived from the name of a source repo is added", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
@@ -128,7 +128,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleTag),
 				"--to-repo", env.RelocationRepo,
-				"--use-repo-based-tags"},
+				"--repo-based-tags"},
 			)
 		})
 
@@ -145,7 +145,7 @@ images:
 		})
 	})
 
-	t.Run("2. when copying bundle with --use-repo-based-tags a tag derived from the long name of a source repo is added", func(t *testing.T) {
+	t.Run("2. when copying bundle with --repo-based-tags a tag derived from the long name of a source repo is added", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
@@ -178,7 +178,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", longRepoName, bundleTag),
 				"--to-repo", env.RelocationRepo + "/repo-b",
-				"--use-repo-based-tags"},
+				"--repo-based-tags"},
 			)
 		})
 
@@ -206,7 +206,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", repoBasedTag,
 				"--to-repo", env.RelocationRepo + "/repo-c",
-				"--use-repo-based-tags"},
+				"--repo-based-tags"},
 			)
 		})
 
