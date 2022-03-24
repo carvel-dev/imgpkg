@@ -63,9 +63,9 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
     # ##########################################################################
     imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image
 
-    # Copy using image --use-repo-based-tags flag
+    # Copy using image --repo-based-tags flag
     imgpkg copy -i registry.foo.bar/some/application/app \
-                --to-repo other-reg.faz.baz/my-app --use-repo-based-tags
+                --to-repo other-reg.faz.baz/my-app --repo-based-tags
 
     # If the above source repo has a tag sha256:669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be,
     # a new tag some-application-app-sha256-669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be.imgpkg
@@ -84,7 +84,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
 		"Include non-distributable layers when copying an image/bundle")
-	cmd.Flags().BoolVar(&o.UseRepoBasedTags, "use-repo-based-tags", false,
+	cmd.Flags().BoolVar(&o.UseRepoBasedTags, "repo-based-tags", false,
 		"Allow imgpkg to use repository-based tags for convenience")
 	return cmd
 }
@@ -109,12 +109,12 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	tagGenType := util.DefaultTagGen
+	var tagGen util.TagGenerator
+	tagGen = util.DefaultTagGenerator{}
 	if c.UseRepoBasedTags {
-		tagGenType = util.RepoBasedTagGen
+		tagGen = util.RepoBasedTagGenerator{}
 	}
 
-	tagGen := util.NewTagGenerator(tagGenType)
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 

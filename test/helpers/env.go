@@ -13,16 +13,15 @@ import (
 )
 
 type Env struct {
-	Image           string
-	ImgpkgPath      string
-	RelocationRepo  string
-	RelocationRepo2 string
-	BundleFactory   BundleFactory
-	Assets          *Assets
-	Assert          Assertion
-	ImageFactory    ImageFactory
-	Logger          *Logger
-	cleanupFuncs    []func()
+	Image          string
+	ImgpkgPath     string
+	RelocationRepo string
+	BundleFactory  BundleFactory
+	Assets         *Assets
+	Assert         Assertion
+	ImageFactory   ImageFactory
+	Logger         *Logger
+	cleanupFuncs   []func()
 }
 
 func BuildEnv(t *testing.T) *Env {

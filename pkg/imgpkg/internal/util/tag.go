@@ -12,13 +12,6 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedigest"
 )
 
-const (
-	// DefaultTagGen - defaultTagGen
-	DefaultTagGen = "defaultTagGen"
-	// RepoBasedTagGen - repoBasedTagGen
-	RepoBasedTagGen = "repoBasedTagGen"
-)
-
 // WithDigest are items that Digest() can be called on
 type WithDigest interface {
 	Digest() (regv1.Hash, error)
@@ -90,16 +83,6 @@ func (tagGen RepoBasedTagGenerator) GenerateTag(item imagedigest.DigestWrap, imp
 		return regname.Tag{}, fmt.Errorf("building repo-based tag: %s", err)
 	}
 	return uploadTagRef, nil
-}
-
-// NewTagGenerator returns different TagGenerator types
-func NewTagGenerator(tagGenType string) TagGenerator {
-	switch {
-	case tagGenType == RepoBasedTagGen:
-		return RepoBasedTagGenerator{}
-	default:
-		return DefaultTagGenerator{}
-	}
 }
 
 // BuildDefaultUploadTagRef Builds a tag from the digest Algorithm and Digest
