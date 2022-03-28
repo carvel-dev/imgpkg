@@ -70,7 +70,7 @@ type CachingDockerConfigProvider struct {
 
 // Enabled implements dockerConfigProvider
 func (d *defaultDockerConfigProvider) Enabled() bool {
-	return true
+	return false
 }
 
 // Provide implements dockerConfigProvider
