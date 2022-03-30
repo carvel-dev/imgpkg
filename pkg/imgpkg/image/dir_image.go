@@ -124,6 +124,10 @@ func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
 	path := filepath.Join(i.dirPath, header.Name)
 	mode := header.FileInfo().Mode()
 
+	// copy user permissions to group and other
+	userPermission := int64(mode & 0700)
+	permMode := os.FileMode(userPermission | userPermission>>3 | userPermission>>6)
+
 	err := os.MkdirAll(filepath.Dir(path), 0700)
 	if err != nil {
 		return err
@@ -131,13 +135,13 @@ func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
 
 	switch header.Typeflag {
 	case tar.TypeDir:
-		err := os.MkdirAll(path, mode)
+		err := os.MkdirAll(path, permMode)
 		if err != nil {
 			return err
 		}
 
 	case tar.TypeReg, tar.TypeRegA:
-		file, err := os.Create(path)
+		file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, permMode)
 		if err != nil {
 			return err
 		}
@@ -168,25 +172,8 @@ func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
 		}
 	}
 
-	// must be done after chown
-	err = lchmod(header, path, mode)
-	if err != nil {
-		return err
-	}
-
 	// must be done after everything
 	return lchtimes(header, path)
-}
-
-func lchmod(header *tar.Header, path string, mode os.FileMode) error {
-	if header.Typeflag == tar.TypeLink {
-		if fi, err := os.Lstat(header.Linkname); err == nil && (fi.Mode()&os.ModeSymlink == 0) {
-			return os.Chmod(path, mode)
-		}
-	} else if header.Typeflag != tar.TypeSymlink {
-		return os.Chmod(path, mode)
-	}
-	return nil
 }
 
 func lchtimes(header *tar.Header, path string) error {
