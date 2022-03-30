@@ -15,7 +15,7 @@ type UnprocessedImageRef struct {
 	DigestRef string
 	Tag       string
 	Labels    map[string]string
-	OrigRef   string
+	OrigRef   string `json:"-"`
 }
 
 func (u UnprocessedImageRef) Key() string {

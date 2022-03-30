@@ -22,7 +22,7 @@ type ImageOrIndex struct {
 
 	Labels map[string]string
 
-	OrigRef string
+	OrigRef string `json:"-"`
 }
 type ImageWithRef interface {
 	regv1.Image
