@@ -155,7 +155,6 @@ func (c CopyRepoSrc) getAllSourceImages() (*ctlimgset.UnprocessedImageRefs, []*c
 
 func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
-
 	switch {
 	case c.LockInputFlags.LockFilePath != "":
 		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
@@ -229,7 +228,7 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 		}
 
 		for _, img := range imagesRef.ImageRefs() {
-			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation()})
+			unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{DigestRef: img.PrimaryLocation(), OrigRef: img.Image})
 		}
 
 		unprocessedImageRefs.Add(ctlimgset.UnprocessedImageRef{
@@ -237,9 +236,9 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 			Tag:       bundle.Tag(),
 			Labels: map[string]string{
 				rootBundleLabelKey: "",
-			}},
+			},
+			OrigRef: bundle.DigestRef()},
 		)
-
 		return unprocessedImageRefs, allBundles, nil
 	}
 }

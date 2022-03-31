@@ -36,6 +36,7 @@ type CopyOptions struct {
 
 	Concurrency             int
 	IncludeNonDistributable bool
+	UseRepoBasedTags        bool
 }
 
 // NewCopyOptions constructor for building a CopyOptions, holding values derived via flags
@@ -60,7 +61,16 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
     # NOTE: if not using ~/.docker.config for authn, use env vars as described  #
     # in https://carvel.dev/imgpkg/docs/v0.24.0/auth/#via-environment-variables #
     # ##########################################################################
-    imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image`,
+    imgpkg copy -i dkalinin/app1-image --to-repo internal-registry/app1-image
+
+    # Copy using image --repo-based-tags flag
+    imgpkg copy -i registry.foo.bar/some/application/app \
+                --to-repo other-reg.faz.baz/my-app --repo-based-tags
+
+    # If the above source repo has a tag sha256:669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be,
+    # a new tag some-application-app-sha256-669e010b58baf5beb2836b253c1fd5768333f0d1dbcb834f7c07a4dc93f474be.imgpkg
+    # will be created in the destination repo. Note that the part of the new tag preceeding '-sha256' will be truncated to
+    # the last 49 charachters`,
 	}
 
 	o.ImageFlags.SetCopy(cmd)
@@ -74,6 +84,8 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().BoolVar(&o.IncludeNonDistributable, "include-non-distributable-layers", false,
 		"Include non-distributable layers when copying an image/bundle")
+	cmd.Flags().BoolVar(&o.UseRepoBasedTags, "repo-based-tags", false,
+		"Allow imgpkg to use repository-based tags for convenience")
 	return cmd
 }
 
@@ -97,7 +109,13 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger)
+	var tagGen util.TagGenerator
+	tagGen = util.DefaultTagGenerator{}
+	if c.UseRepoBasedTags {
+		tagGen = util.RepoBasedTagGenerator{}
+	}
+
+	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
 	var signatureRetriever SignatureRetriever

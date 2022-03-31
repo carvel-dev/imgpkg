@@ -14,8 +14,8 @@ import (
 type UnprocessedImageRef struct {
 	DigestRef string
 	Tag       string
-
-	Labels map[string]string
+	Labels    map[string]string
+	OrigRef   string
 }
 
 func (u UnprocessedImageRef) Key() string {
