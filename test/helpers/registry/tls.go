@@ -17,7 +17,7 @@ package registry
 import (
 	"net/http/httptest"
 
-	ggcrtest "github.com/google/go-containerregistry/internal/httptest"
+	ggcrtest "github.com/vmware-tanzu/carvel-imgpkg/test/helpers/registry/httptest"
 )
 
 // TLS returns an httptest server, with an http client that has been configured to
