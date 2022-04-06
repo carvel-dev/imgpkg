@@ -83,12 +83,19 @@ type ImagesReaderWriter interface {
 
 var _ Registry = &SimpleRegistry{}
 
+// RoundTripperStorage Storage of RoundTripper that will be used to talk to the registry
+type RoundTripperStorage interface {
+	RoundTripper(repo regname.Repository, scope string) http.RoundTripper
+	CreateRoundTripper(reg regname.Registry, auth regauthn.Authenticator, scope string) (http.RoundTripper, error)
+	BaseRoundTripper() http.RoundTripper
+}
+
 // SimpleRegistry Implements Registry interface
 type SimpleRegistry struct {
 	remoteOpts      []regremote.Option
 	refOpts         []regname.Option
 	keychain        regauthn.Keychain
-	roundTrippers   *RoundTripperStorage
+	roundTrippers   RoundTripperStorage
 	transportAccess *sync.Mutex
 }
 
@@ -150,7 +157,7 @@ func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry,
 		remoteOpts:      regRemoteOptions,
 		refOpts:         refOpts,
 		keychain:        keychain,
-		roundTrippers:   NewRoundTripperStorage(baseRoundTripper),
+		roundTrippers:   NewMultiRoundTripperStorage(baseRoundTripper),
 		transportAccess: &sync.Mutex{},
 	}, nil
 }
@@ -165,12 +172,16 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 	}
 
 	keychain := auth.NewSingleAuthKeychain(imgAuth)
+	rt := r.roundTrippers.RoundTripper(imageRef.Repository, imageRef.Scope(transport.PullScope))
+	if rt == nil {
+		rt = r.roundTrippers.BaseRoundTripper()
+	}
 
 	return &SimpleRegistry{
 		remoteOpts:      r.remoteOpts,
 		refOpts:         r.refOpts,
 		keychain:        keychain,
-		roundTrippers:   r.roundTrippers,
+		roundTrippers:   NewSingleTripperStorage(rt),
 		transportAccess: &sync.Mutex{},
 	}, nil
 }

@@ -15,24 +15,37 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
-// RoundTripperStorage Maintains a storage of all the available RoundTripper for different registries and repositories
-type RoundTripperStorage struct {
+// MultiRoundTripperStorage Maintains a storage of all the available RoundTripper for different registries and repositories
+type MultiRoundTripperStorage struct {
 	baseRoundTripper http.RoundTripper
 	transports       map[string]map[string]map[string]http.RoundTripper
 	readWriteAccess  *sync.Mutex
 }
 
-// NewRoundTripperStorage Creates a struct that holds RoundTripper
-func NewRoundTripperStorage(baseRoundTripper http.RoundTripper) *RoundTripperStorage {
-	return &RoundTripperStorage{
+// NewMultiRoundTripperStorage Creates a struct that holds RoundTripper
+func NewMultiRoundTripperStorage(baseRoundTripper http.RoundTripper) *MultiRoundTripperStorage {
+	return &MultiRoundTripperStorage{
 		baseRoundTripper: baseRoundTripper,
 		readWriteAccess:  &sync.Mutex{},
 		transports:       map[string]map[string]map[string]http.RoundTripper{},
 	}
 }
 
+// NewSingleTripperStorage Creates a struct that holds RoundTripper
+func NewSingleTripperStorage(baseRoundTripper http.RoundTripper) *SingleTripperStorage {
+	return &SingleTripperStorage{
+		baseRoundTripper: baseRoundTripper,
+		readWriteAccess:  &sync.Mutex{},
+	}
+}
+
+// BaseRoundTripper retrieves the base RoundTripper used by the store
+func (r MultiRoundTripperStorage) BaseRoundTripper() http.RoundTripper {
+	return r.baseRoundTripper
+}
+
 // RoundTripper Retrieve the RoundTripper to be used for a particular registry and repository or nil if it cannot be found
-func (r *RoundTripperStorage) RoundTripper(repo regname.Repository, scope string) http.RoundTripper {
+func (r *MultiRoundTripperStorage) RoundTripper(repo regname.Repository, scope string) http.RoundTripper {
 	r.readWriteAccess.Lock()
 	defer r.readWriteAccess.Unlock()
 
@@ -66,7 +79,7 @@ func (r *RoundTripperStorage) RoundTripper(repo regname.Repository, scope string
 // CreateRoundTripper Creates a new RoundTripper
 // scope field has the following format "repository:/org/suborg/repo_name:pull,push"
 //   for more information check https://github.com/distribution/distribution/blob/263da70ea6a4e96f61f7a6770273ec6baac38941/docs/spec/auth/token.md#requesting-a-token
-func (r *RoundTripperStorage) CreateRoundTripper(reg regname.Registry, auth authn.Authenticator, scope string) (http.RoundTripper, error) {
+func (r *MultiRoundTripperStorage) CreateRoundTripper(reg regname.Registry, auth authn.Authenticator, scope string) (http.RoundTripper, error) {
 	r.readWriteAccess.Lock()
 	defer r.readWriteAccess.Unlock()
 
@@ -91,6 +104,43 @@ func (r *RoundTripperStorage) CreateRoundTripper(reg regname.Registry, auth auth
 	}
 
 	r.transports[reg.RegistryStr()][repository][method] = rt
+
+	return rt, nil
+}
+
+// SingleTripperStorage Maintains a storage of all the available RoundTripper for different registries and repositories
+type SingleTripperStorage struct {
+	baseRoundTripper http.RoundTripper
+	transport        http.RoundTripper
+	readWriteAccess  *sync.Mutex
+}
+
+// RoundTripper Retrieve the RoundTripper to be used for a particular registry and repository or nil if it cannot be found
+func (r *SingleTripperStorage) RoundTripper(_ regname.Repository, _ string) http.RoundTripper {
+	r.readWriteAccess.Lock()
+	defer r.readWriteAccess.Unlock()
+
+	return r.transport
+}
+
+// BaseRoundTripper retrieves the base RoundTripper used by the store
+func (r SingleTripperStorage) BaseRoundTripper() http.RoundTripper {
+	return r.baseRoundTripper
+}
+
+// CreateRoundTripper Creates a new RoundTripper
+// scope field has the following format "repository:/org/suborg/repo_name:pull,push"
+//   for more information check https://github.com/distribution/distribution/blob/263da70ea6a4e96f61f7a6770273ec6baac38941/docs/spec/auth/token.md#requesting-a-token
+func (r *SingleTripperStorage) CreateRoundTripper(reg regname.Registry, auth authn.Authenticator, scope string) (http.RoundTripper, error) {
+	r.readWriteAccess.Lock()
+	defer r.readWriteAccess.Unlock()
+
+	rt, err := transport.NewWithContext(context.Background(), reg, auth, r.baseRoundTripper, []string{scope})
+	if err != nil {
+		return nil, fmt.Errorf("Unable to create round tripper: %s", err)
+	}
+
+	r.transport = rt
 
 	return rt, nil
 }

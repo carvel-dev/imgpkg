@@ -45,6 +45,7 @@ type FakeTestRegistryBuilder struct {
 	originalHandler http.Handler
 }
 
+// NewFakeRegistry Creates a registry that uses the ggcr version
 func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
@@ -56,6 +57,14 @@ func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 func NewFakeRegistryWithDiskBackend(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.DiskBlobStorage()))
+
+	return r
+}
+
+// NewFakeRegistryWithRepoSeparation Creates a registry that saves the blobs based on the repository
+func NewFakeRegistryWithRepoSeparation(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
+	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.MemStorageWithRepoSeparation()))
 
 	return r
 }
