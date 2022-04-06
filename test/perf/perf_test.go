@@ -78,7 +78,7 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 }
 
 func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
-	fakeRegistry := helpers.NewFakeRegistry(t, env.Logger)
+	fakeRegistry := helpers.NewFakeRegistryWithDiskBackend(t, env.Logger)
 
 	env.AddCleanup(func() {
 		fakeRegistry.CleanUp()

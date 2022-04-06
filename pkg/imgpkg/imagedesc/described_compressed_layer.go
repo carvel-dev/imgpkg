@@ -44,7 +44,7 @@ func (l DescribedCompressedLayer) Compressed() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("Computing digest: %v", err)
 	}
 
-	rc, err = verify.ReadCloser(rc, h)
+	rc, err = verify.ReadCloser(rc, verify.SizeUnknown, h)
 	if err != nil {
 		return nil, fmt.Errorf("Creating verified reader: %v", err)
 	}

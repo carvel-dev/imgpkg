@@ -1,3 +1,9 @@
+// Copyright 2022 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// Copied from https://github.com/google/go-containerregistry/tree/v0.8.0/pkg/registry
+// Updated to ensure that blobs are mounted instead of re-uploaded
+
 // Copyright 2018 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,8 +83,8 @@ func New(opts ...Option) http.Handler {
 	r := &registry{
 		log: log.New(os.Stderr, "", log.LstdFlags),
 		blobs: blobs{
-			contents: map[string][]byte{},
-			uploads:  map[string][]byte{},
+			blobHandler: &memHandler{m: map[string][]byte{}},
+			uploads:     map[string][]byte{},
 		},
 		manifests: manifests{
 			manifests: map[string]map[string]manifest{},
@@ -100,5 +106,19 @@ func Logger(l *log.Logger) Option {
 	return func(r *registry) {
 		r.log = l
 		r.manifests.log = l
+	}
+}
+
+// DiskBlobStorage Save blobs to disk
+func DiskBlobStorage() Option {
+	return func(r *registry) {
+		r.blobs.blobHandler = newBlobDiskHandler()
+	}
+}
+
+// MemStorageWithRepoSeparation Save the blobs in memory but separated per repository
+func MemStorageWithRepoSeparation() Option {
+	return func(r *registry) {
+		r.blobs.blobHandler = newBlobWithAccessControlHandler()
 	}
 }

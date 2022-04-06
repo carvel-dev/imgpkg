@@ -52,6 +52,14 @@ func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	return r
 }
 
+// NewFakeRegistryWithDiskBackend Creates a registry that saves blobs to disk
+func NewFakeRegistryWithDiskBackend(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
+	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.DiskBlobStorage()))
+
+	return r
+}
+
 func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 	return r.BuildWithRegistryOpts(registry.Opts{
 		EnvironFunc: os.Environ,

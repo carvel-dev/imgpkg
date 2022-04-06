@@ -1060,6 +1060,9 @@ images:
 		assets := &helpers.Assets{T: t}
 		defer assets.CleanCreatedFolders()
 
+		fakeRegistry := helpers.NewFakeRegistryWithDiskBackend(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
 		destinationImageName := fakeRegistry.ReferenceOnTestServer("some/other/copied-img")
 		originImageName := "repo/image"
 
@@ -1084,6 +1087,44 @@ images:
 		// because we are not testing here the authentication of image pushing
 		fakeRegistry.WithBasicAuthPerRepository("repo", "some-user", "some-password")
 		fakeRegistry.WithBasicAuthPerRepository("some/other", "some-other-user", "some-other-password")
+
+		processedImages, err := subject.CopyToRepo(destinationImageName)
+		require.NoError(t, err)
+		require.Len(t, processedImages.All(), 1)
+		assert.Equal(t, image2RefDigest, processedImages.All()[0].UnprocessedImageRef.DigestRef)
+	})
+
+	t.Run("When copying to same registry have permission to mount layer", func(t *testing.T) {
+		assets := &helpers.Assets{T: t}
+		defer assets.CleanCreatedFolders()
+
+		fakeRegistry := helpers.NewFakeRegistryWithDiskBackend(t, &helpers.Logger{LogLevel: helpers.LogDebug})
+		defer fakeRegistry.CleanUp()
+
+		destinationImageName := fakeRegistry.ReferenceOnTestServer("some/other/copied-img")
+		originImageName := "repo/image"
+
+		image2RefDigest := fakeRegistry.WithRandomImage(originImageName).RefDigest
+
+		subject := subject
+		subject.ImageFlags.Image = image2RefDigest
+		subject.registry = fakeRegistry.BuildWithRegistryOpts(registry.Opts{
+			EnvironFunc: func() []string {
+				return []string{
+					"IMGPKG_REGISTRY_HOSTNAME_0=" + fakeRegistry.ReferenceOnTestServer("repo"),
+					"IMGPKG_REGISTRY_USERNAME_0=some-user",
+					"IMGPKG_REGISTRY_PASSWORD_0=some-password",
+					"IMGPKG_REGISTRY_HOSTNAME_1=" + fakeRegistry.ReferenceOnTestServer("some/other"),
+					"IMGPKG_REGISTRY_USERNAME_1=some-user",
+					"IMGPKG_REGISTRY_PASSWORD_1=some-password",
+				}
+			},
+		})
+
+		// Authentication added in this step to ensure the images are created beforehand
+		// because we are not testing here the authentication of image pushing
+		fakeRegistry.WithBasicAuthPerRepository("repo", "some-user", "some-password")
+		fakeRegistry.WithBasicAuthPerRepository("some/other", "some-user", "some-password")
 
 		processedImages, err := subject.CopyToRepo(destinationImageName)
 		require.NoError(t, err)

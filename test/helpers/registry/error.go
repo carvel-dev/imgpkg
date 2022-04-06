@@ -1,3 +1,9 @@
+// Copyright 2022 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// Copied from https://github.com/google/go-containerregistry/tree/v0.8.0/pkg/registry
+// Updated to ensure that blobs are mounted instead of re-uploaded
+
 // Copyright 2018 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,4 +49,37 @@ func (r *regError) Write(resp http.ResponseWriter) error {
 			},
 		},
 	})
+}
+
+// regErrInternal returns an internal server error.
+func regErrInternal(err error) *regError {
+	return &regError{
+		Status:  http.StatusInternalServerError,
+		Code:    "INTERNAL_SERVER_ERROR",
+		Message: err.Error(),
+	}
+}
+
+var regErrBlobUnknown = &regError{
+	Status:  http.StatusNotFound,
+	Code:    "BLOB_UNKNOWN",
+	Message: "Unknown blob",
+}
+
+var regErrUnsupported = &regError{
+	Status:  http.StatusMethodNotAllowed,
+	Code:    "UNSUPPORTED",
+	Message: "Unsupported operation",
+}
+
+var regErrDigestMismatch = &regError{
+	Status:  http.StatusBadRequest,
+	Code:    "DIGEST_INVALID",
+	Message: "digest does not match contents",
+}
+
+var regErrDigestInvalid = &regError{
+	Status:  http.StatusBadRequest,
+	Code:    "NAME_INVALID",
+	Message: "invalid digest",
 }
