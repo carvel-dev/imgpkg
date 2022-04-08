@@ -1,3 +1,9 @@
+// Copyright 2022 VMware, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// Copied from https://github.com/google/go-containerregistry/tree/v0.8.0/pkg/registry
+// Updated to ensure that blobs are mounted instead of re-uploaded
+
 // Copyright 2018 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +23,7 @@ package registry
 import (
 	"net/http/httptest"
 
-	ggcrtest "github.com/google/go-containerregistry/internal/httptest"
+	ggcrtest "github.com/vmware-tanzu/carvel-imgpkg/test/helpers/registry/httptest"
 )
 
 // TLS returns an httptest server, with an http client that has been configured to

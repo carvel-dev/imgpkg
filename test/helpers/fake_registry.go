@@ -22,7 +22,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	regname "github.com/google/go-containerregistry/pkg/name"
-	regregistry "github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -34,6 +33,7 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	regregistry "github.com/vmware-tanzu/carvel-imgpkg/test/helpers/registry"
 )
 
 type FakeTestRegistryBuilder struct {
@@ -45,9 +45,26 @@ type FakeTestRegistryBuilder struct {
 	originalHandler http.Handler
 }
 
+// NewFakeRegistry Creates a registry that uses the ggcr version
 func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
+
+	return r
+}
+
+// NewFakeRegistryWithDiskBackend Creates a registry that saves blobs to disk
+func NewFakeRegistryWithDiskBackend(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
+	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.DiskBlobStorage()))
+
+	return r
+}
+
+// NewFakeRegistryWithRepoSeparation Creates a registry that saves the blobs based on the repository
+func NewFakeRegistryWithRepoSeparation(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
+	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
+	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.MemStorageWithRepoSeparation()))
 
 	return r
 }

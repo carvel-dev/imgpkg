@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Using this code as is from: https://github.com/google/go-containerregistry/tree/master/pkg/v1/internal
+// Using this code as is from: https://github.com/google/go-containerregistry/tree/main/internal
 
 // Copyright 2020 Google LLC All Rights Reserved.
 //
@@ -21,6 +21,8 @@ package verify
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -33,6 +35,7 @@ func mustHash(s string, t *testing.T) v1.Hash {
 	if err != nil {
 		t.Fatalf("v1.SHA256(%s) = %v", s, err)
 	}
+	t.Logf("Hashed: %q -> %q", s, h)
 	return h
 }
 
@@ -40,7 +43,7 @@ func TestVerificationFailure(t *testing.T) {
 	want := "This is the input string."
 	buf := bytes.NewBufferString(want)
 
-	verified, err := ReadCloser(ioutil.NopCloser(buf), mustHash("not the same", t))
+	verified, err := ReadCloser(ioutil.NopCloser(buf), int64(len(want)), mustHash("not the same", t))
 	if err != nil {
 		t.Fatal("ReadCloser() =", err)
 	}
@@ -53,7 +56,20 @@ func TestVerification(t *testing.T) {
 	want := "This is the input string."
 	buf := bytes.NewBufferString(want)
 
-	verified, err := ReadCloser(ioutil.NopCloser(buf), mustHash(want, t))
+	verified, err := ReadCloser(ioutil.NopCloser(buf), int64(len(want)), mustHash(want, t))
+	if err != nil {
+		t.Fatal("ReadCloser() =", err)
+	}
+	if _, err := ioutil.ReadAll(verified); err != nil {
+		t.Error("ReadAll() =", err)
+	}
+}
+
+func TestVerificationSizeUnknown(t *testing.T) {
+	want := "This is the input string."
+	buf := bytes.NewBufferString(want)
+
+	verified, err := ReadCloser(ioutil.NopCloser(buf), SizeUnknown, mustHash(want, t))
 	if err != nil {
 		t.Fatal("ReadCloser() =", err)
 	}
@@ -67,8 +83,70 @@ func TestBadHash(t *testing.T) {
 		Algorithm: "fake256",
 		Hex:       "whatever",
 	}
-	_, err := ReadCloser(ioutil.NopCloser(strings.NewReader("hi")), h)
+	_, err := ReadCloser(ioutil.NopCloser(strings.NewReader("hi")), 0, h)
 	if err == nil {
 		t.Errorf("ReadCloser() = %v, wanted err", err)
+	}
+}
+
+func TestBadSize(t *testing.T) {
+	want := "This is the input string."
+
+	// having too much content or expecting too much content returns an error.
+	for _, size := range []int64{3, 100} {
+		t.Run(fmt.Sprintf("expecting size %d", size), func(t *testing.T) {
+			buf := bytes.NewBufferString(want)
+			rc, err := ReadCloser(ioutil.NopCloser(buf), size, mustHash(want, t))
+			if err != nil {
+				t.Fatal("ReadCloser() =", err)
+			}
+			if b, err := ioutil.ReadAll(rc); err == nil {
+				t.Errorf("ReadAll() = %q; want verification error", string(b))
+			}
+		})
+	}
+}
+
+func TestDescriptor(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		desc v1.Descriptor
+	}{{
+		err: errors.New("error verifying descriptor; Data == nil"),
+	}, {
+		err: errors.New(`error verifying Digest; got "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", want ":"`),
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+		},
+	}, {
+		err: errors.New("error verifying Size; got 3, want 0"),
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Digest: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+			},
+		},
+	}, {
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Size: 3,
+			Digest: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+			},
+		},
+	}} {
+		got, want := Descriptor(tc.desc), tc.err
+
+		if got == nil {
+			if want != nil {
+				t.Errorf("Descriptor(): got nil, want %v", want)
+			}
+		} else if want == nil {
+			t.Errorf("Descriptor(): got %v, want nil", got)
+		} else if got, want := got.Error(), want.Error(); got != want {
+			t.Errorf("Descriptor(): got %q, want %q", got, want)
+		}
 	}
 }

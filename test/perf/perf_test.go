@@ -55,18 +55,19 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 	defer env.Cleanup()
 
 	imgpkg := helpers.Imgpkg{T: t, L: logger, ImgpkgPath: env.ImgpkgPath}
+	perfTestingRepo := startRegistryForPerfTesting(t, env)
 
-	imgpkg.Run([]string{"push", "-f", "./assets/cf-for-k8s-bundle", "-b", env.RelocationRepo})
+	imgpkg.Run([]string{"push", "-f", "./assets/cf-for-k8s-bundle", "-b", perfTestingRepo})
 
 	benchmarkResultCopyLargeBundle := testing.Benchmark(func(b *testing.B) {
-		imgpkg.Run([]string{"copy", "-b", env.RelocationRepo, "--to-repo", env.RelocationRepo + "copy"})
+		imgpkg.Run([]string{"copy", "-b", perfTestingRepo, "--to-repo", perfTestingRepo + "copy"})
 	})
 
 	logger.Debugf("imgpkg copy took: %v\n", benchmarkResultCopyLargeBundle.T)
 
 	actualTimeTaken := benchmarkResultCopyLargeBundle.T.Nanoseconds()
 
-	reference, err := regname.ParseReference(env.RelocationRepo)
+	reference, err := regname.ParseReference(perfTestingRepo)
 	require.NoError(t, err)
 
 	maxTimeCopyShouldTake := time.Minute.Nanoseconds()
@@ -78,7 +79,7 @@ func TestBenchmarkCopyingLargeBundleThatContainsImagesMostlyOnDockerHub(t *testi
 }
 
 func startRegistryForPerfTesting(t *testing.T, env *helpers.Env) string {
-	fakeRegistry := helpers.NewFakeRegistry(t, env.Logger)
+	fakeRegistry := helpers.NewFakeRegistryWithDiskBackend(t, env.Logger)
 
 	env.AddCleanup(func() {
 		fakeRegistry.CleanUp()
