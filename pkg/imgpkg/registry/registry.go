@@ -100,12 +100,16 @@ type SimpleRegistry struct {
 }
 
 // NewSimpleRegistry Builder for a Simple Registry
-func NewSimpleRegistry(opts Opts, regOpts ...regremote.Option) (*SimpleRegistry, error) {
+func NewSimpleRegistry(opts Opts) (*SimpleRegistry, error) {
 	httpTran, err := newHTTPTransport(opts)
 	if err != nil {
 		return nil, fmt.Errorf("Creating registry HTTP transport: %s", err)
 	}
+	return NewSimpleRegistryWithTransport(opts, httpTran)
+}
 
+// NewSimpleRegistryWithTransport Creates a new Simple Registry using the provided transport
+func NewSimpleRegistryWithTransport(opts Opts, httpTran *http.Transport, regOpts ...regremote.Option) (*SimpleRegistry, error) {
 	var refOpts []regname.Option
 	if opts.Insecure {
 		refOpts = append(refOpts, regname.Insecure)
