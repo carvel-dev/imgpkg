@@ -33,7 +33,7 @@ func (i *DirImage) AsDirectory() error {
 		return fmt.Errorf("Removing output directory: %s", err)
 	}
 
-	err = os.MkdirAll(i.dirPath, 0700)
+	err = os.MkdirAll(i.dirPath, 0777)
 	if err != nil {
 		return fmt.Errorf("Creating output directory: %s", err)
 	}
@@ -128,7 +128,7 @@ func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
 	userPermission := int64(mode & 0700)
 	permMode := os.FileMode(userPermission | userPermission>>3 | userPermission>>6)
 
-	err := os.MkdirAll(filepath.Dir(path), 0700)
+	err := os.MkdirAll(filepath.Dir(path), 0777)
 	if err != nil {
 		return err
 	}
