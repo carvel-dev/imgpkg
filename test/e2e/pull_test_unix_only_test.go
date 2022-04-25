@@ -38,13 +38,19 @@ func TestPull(t *testing.T) {
 		out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image, "-f", folder})
 		imgDigest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
 
-		pullDir := env.Assets.CreateTempFolder("pull-dir-simple-image")
+		pullDir := filepath.Join(env.Assets.CreateTempFolder("pull-dir-simple-image"), "pull-dir")
 		imageRef := fmt.Sprintf("%s%s", env.Image, imgDigest)
 
 		oldMask := unix.Umask(0)
 		defer unix.Umask(oldMask)
 
 		imgpkg.Run([]string{"pull", "-i", imageRef, "-o", pullDir})
+
+		logger.Section("ensures that pull folder is created with 0777 permissions", func() {
+			info, err := os.Stat(pullDir)
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0777).String(), (info.Mode() & 0777).String(), "outer folder permission should be set to 0777")
+		})
 
 		info, err := os.Stat(filepath.Join(pullDir, "all-on-user-only"))
 		require.NoError(t, err)
@@ -86,6 +92,11 @@ func TestPull(t *testing.T) {
 		defer unix.Umask(oldMask)
 
 		imgpkg.Run([]string{"pull", "-i", imageRef, "-o", pullDir})
+		logger.Section("ensures that pull folder is created with 0766 permissions", func() {
+			info, err := os.Stat(pullDir)
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0766).String(), (info.Mode() & 0777).String(), "outer folder permission should be set to 0766")
+		})
 
 		logger.Section("check permissions inside a subfolder", func() {
 			info, err := os.Stat(filepath.Join(pullDir, "some-folder"))
