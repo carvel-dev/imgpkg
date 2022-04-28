@@ -76,7 +76,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	o.ImageFlags.SetCopy(cmd)
 	o.BundleFlags.SetCopy(cmd)
 	o.LockInputFlags.Set(cmd)
-	o.LockOutputFlags.Set(cmd)
+	o.LockOutputFlags.SetOnCopy(cmd)
 	o.TarFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.SignatureFlags.Set(cmd)

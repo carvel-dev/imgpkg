@@ -43,7 +43,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	}
 	o.ImageFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
-	o.LockOutputFlags.Set(cmd)
+	o.LockOutputFlags.SetOnPush(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	return cmd
