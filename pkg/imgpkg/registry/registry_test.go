@@ -4,6 +4,7 @@
 package registry_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -99,4 +101,153 @@ func TestRegistry_Get(t *testing.T) {
 			fmt.Sprintf("error returned from Get was expected to be about protocol but was: %v", err))
 	})
 
+}
+
+func TestInsecureRegistryFlag(t *testing.T) {
+	tests := []struct {
+		fName string
+		exec  func(t *testing.T, r registry.Registry) error
+	}{
+		{
+			fName: "Get",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				_, err = r.Get(img)
+				return err
+			},
+		},
+		{
+			fName: "Digest",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				_, err = r.Digest(img)
+				return err
+			},
+		},
+		{
+			fName: "Image",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				_, err = r.Image(img)
+				return err
+			},
+		},
+		{
+			fName: "Index",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				_, err = r.Index(img)
+				return err
+			},
+		},
+		{
+			fName: "ListTags",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				_, err = r.ListTags(img.Context())
+				return err
+			},
+		},
+		{
+			fName: "MultiWrite",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				return r.MultiWrite(map[name.Reference]regremote.Taggable{img: nil}, 1, nil)
+			},
+		},
+		{
+			fName: "WriteImage",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				return r.WriteImage(img, nil)
+			},
+		},
+		{
+			fName: "WriteIndex",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.ParseReference("my.registry.io/some/image")
+				require.NoError(t, err)
+				return r.WriteIndex(img, nil)
+			},
+		},
+		{
+			fName: "WriteTag",
+			exec: func(t *testing.T, r registry.Registry) error {
+				img, err := name.NewTag("my.registry.io/some/image:tag")
+				require.NoError(t, err)
+				return r.WriteTag(img, nil)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("when insecure-registry flag is present, %s uses HTTP", test.fName), func(t *testing.T) {
+			reqNumber := 0
+			rTripper := &notFoundRoundTripper{
+				do: func(request *http.Request) (*http.Response, error) {
+					defer func() { reqNumber++ }()
+					if reqNumber == 1 {
+						assert.Equal(t, "http", request.URL.Scheme)
+						return &http.Response{
+							Status:     "Not Found",
+							StatusCode: http.StatusNotFound,
+						}, nil
+					}
+
+					assert.Equal(t, "https", request.URL.Scheme)
+					return &http.Response{
+						Status:     "Not Found",
+						StatusCode: http.StatusNotFound,
+					}, errors.New("not found")
+
+				},
+			}
+			subject, err := registry.NewSimpleRegistryWithTransport(registry.Opts{
+				Insecure: true,
+			}, rTripper)
+			require.NoError(t, err)
+
+			err = test.exec(t, subject)
+
+			assert.Equal(t, 2, reqNumber, "Should call the registry twice, once with https and a second one with http")
+			require.ErrorContains(t, err, "404 Not Found")
+		})
+
+		t.Run(fmt.Sprintf("when insecure-registry flag is set to false, %s uses HTTPS", test.fName), func(t *testing.T) {
+			reqNumber := 0
+			rTripper := &notFoundRoundTripper{
+				do: func(request *http.Request) (*http.Response, error) {
+					defer func() { reqNumber++ }()
+					assert.Equal(t, "https", request.URL.Scheme)
+					return &http.Response{
+						Status:     "Not Found",
+						StatusCode: http.StatusNotFound,
+					}, errors.New("not found")
+				},
+			}
+			subject, err := registry.NewSimpleRegistryWithTransport(registry.Opts{
+				Insecure: false,
+			}, rTripper)
+			require.NoError(t, err)
+
+			err = test.exec(t, subject)
+
+			assert.Equal(t, 1, reqNumber, "Should call the registry once, once with https")
+			require.ErrorContains(t, err, "not found")
+		})
+	}
+}
+
+type notFoundRoundTripper struct {
+	do func(request *http.Request) (*http.Response, error)
+}
+
+func (n *notFoundRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return n.do(request)
 }
