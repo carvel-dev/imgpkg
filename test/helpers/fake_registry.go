@@ -50,6 +50,7 @@ func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
 
+	r.auth = authn.Anonymous
 	return r
 }
 
@@ -58,6 +59,7 @@ func NewFakeRegistryWithDiskBackend(t *testing.T, logger *Logger) *FakeTestRegis
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.DiskBlobStorage()))
 
+	r.auth = authn.Anonymous
 	return r
 }
 
@@ -66,6 +68,7 @@ func NewFakeRegistryWithRepoSeparation(t *testing.T, logger *Logger) *FakeTestRe
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
 	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)), regregistry.MemStorageWithRepoSeparation()))
 
+	r.auth = authn.Anonymous
 	return r
 }
 
