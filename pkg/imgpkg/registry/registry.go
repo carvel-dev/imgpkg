@@ -109,7 +109,7 @@ func NewSimpleRegistry(opts Opts) (*SimpleRegistry, error) {
 }
 
 // NewSimpleRegistryWithTransport Creates a new Simple Registry using the provided transport
-func NewSimpleRegistryWithTransport(opts Opts, httpTran *http.Transport, regOpts ...regremote.Option) (*SimpleRegistry, error) {
+func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOpts ...regremote.Option) (*SimpleRegistry, error) {
 	var refOpts []regname.Option
 	if opts.Insecure {
 		refOpts = append(refOpts, regname.Insecure)
@@ -149,9 +149,9 @@ func NewSimpleRegistryWithTransport(opts Opts, httpTran *http.Transport, regOpts
 	}
 	regRemoteOptions = append(regRemoteOptions, regremote.WithRetryBackoff(retryBackoff))
 
-	baseRoundTripper := http.RoundTripper(httpTran)
+	baseRoundTripper := rTripper
 	if logs.Enabled(logs.Debug) {
-		baseRoundTripper = transport.NewLogger(httpTran)
+		baseRoundTripper = transport.NewLogger(rTripper)
 	}
 
 	// Wrap the transport in something that can retry network flakes.
@@ -239,7 +239,7 @@ func (r *SimpleRegistry) Get(ref regname.Reference) (*regremote.Descriptor, erro
 	if err != nil {
 		return nil, err
 	}
-	opts, err := r.readOpts(ref)
+	opts, err := r.readOpts(overriddenRef)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (r *SimpleRegistry) Digest(ref regname.Reference) (regv1.Hash, error) {
 		return regv1.Hash{}, err
 	}
 
-	opts, err := r.readOpts(ref)
+	opts, err := r.readOpts(overriddenRef)
 	if err != nil {
 		return regv1.Hash{}, err
 	}
@@ -282,7 +282,7 @@ func (r *SimpleRegistry) Image(ref regname.Reference) (regv1.Image, error) {
 		return nil, err
 	}
 
-	opts, err := r.readOpts(ref)
+	opts, err := r.readOpts(overriddenRef)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,7 @@ func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) erro
 		return err
 	}
 
-	opts, err := r.writeOpts(ref)
+	opts, err := r.writeOpts(overriddenRef)
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (r *SimpleRegistry) Index(ref regname.Reference) (regv1.ImageIndex, error) 
 	if err != nil {
 		return nil, err
 	}
-	opts, err := r.readOpts(ref)
+	opts, err := r.readOpts(overriddenRef)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +367,7 @@ func (r *SimpleRegistry) WriteIndex(ref regname.Reference, idx regv1.ImageIndex)
 		return err
 	}
 
-	opts, err := r.writeOpts(ref)
+	opts, err := r.writeOpts(overriddenRef)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func (r *SimpleRegistry) WriteTag(ref regname.Tag, taggagle regremote.Taggable) 
 		return err
 	}
 
-	opts, err := r.writeOpts(ref)
+	opts, err := r.writeOpts(overriddenRef)
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func (r *SimpleRegistry) ListTags(repo regname.Repository) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	repoRef, err := regname.ParseReference(overriddenRepo.String())
+	repoRef, err := regname.ParseReference(overriddenRepo.String(), r.refOpts...)
 	if err != nil {
 		return nil, err
 	}
