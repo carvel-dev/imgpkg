@@ -1,17 +1,16 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package signature
+package artifacts
 
 import (
-	"fmt"
 	"net/http"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/artifacts/cosign"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
 )
 
 // DigestReader Interface that knows how to read a Digest from a registry
@@ -31,11 +30,35 @@ func NewCosign(reg DigestReader) *Cosign {
 
 // Signature retrieves the Image information that contains the signature for the provided Image
 func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef, error) {
-	sigTagRef, err := c.signatureTag(imageRef)
+	sigTagRef, err := cosign.SignatureTag(imageRef)
 	if err != nil {
 		return imageset.UnprocessedImageRef{}, err
 	}
 
+	return c.findArtifact(imageRef, err, sigTagRef)
+}
+
+// SBOM retrieves the Image information that contains the signature for the provided Image
+func (c Cosign) SBOM(imageRef regname.Digest) (imageset.UnprocessedImageRef, error) {
+	sigTagRef, err := cosign.SBOMTag(imageRef)
+	if err != nil {
+		return imageset.UnprocessedImageRef{}, err
+	}
+
+	return c.findArtifact(imageRef, err, sigTagRef)
+}
+
+// Attestation retrieves the Image information that contains the signature for the provided Image
+func (c Cosign) Attestation(imageRef regname.Digest) (imageset.UnprocessedImageRef, error) {
+	sigTagRef, err := cosign.AttestationTag(imageRef)
+	if err != nil {
+		return imageset.UnprocessedImageRef{}, err
+	}
+
+	return c.findArtifact(imageRef, err, sigTagRef)
+}
+
+func (c Cosign) findArtifact(imageRef regname.Digest, err error, sigTagRef regname.Tag) (imageset.UnprocessedImageRef, error) {
 	sigDigest, err := c.registry.Digest(sigTagRef)
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok {
@@ -53,12 +76,4 @@ func (c Cosign) Signature(imageRef regname.Digest) (imageset.UnprocessedImageRef
 		DigestRef: imageRef.Digest(sigDigest.String()).Name(),
 		Tag:       sigTagRef.TagStr(),
 	}, nil
-}
-
-func (c Cosign) signatureTag(reference regname.Digest) (regname.Tag, error) {
-	digest, err := regv1.NewHash(reference.DigestStr())
-	if err != nil {
-		return regname.Tag{}, fmt.Errorf("Converting to hash: %s", err)
-	}
-	return regname.NewTag(reference.Repository.Name() + ":" + cosign.Munge(regv1.Descriptor{Digest: digest}))
 }

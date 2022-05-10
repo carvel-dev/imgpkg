@@ -11,13 +11,12 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/artifacts/cosign"
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
@@ -61,21 +60,24 @@ func TestDescribeBundle(t *testing.T) {
 			},
 		},
 		{
-			description: "Bundle with signed images, includes signatures on output",
+			description: "Bundle with cosign artifact images, includes artifacts on output",
 			subject: testBundle{
 				name:      "simple/only-images-bundle",
 				signImage: true,
 				images: []testImage{
 					{
 						testBundle{
-							name:      "app/img2",
-							signImage: true,
+							name:             "app/img2",
+							signImage:        true,
+							sBOMImage:        true,
+							attestationImage: true,
 						},
 					},
 					{
 						testBundle{
-							name:      "app/img1",
-							signImage: true,
+							name:             "app/img1",
+							signImage:        true,
+							attestationImage: true,
 						},
 					},
 				},
@@ -83,7 +85,7 @@ func TestDescribeBundle(t *testing.T) {
 			includeCosignArtifacts: true,
 		},
 		{
-			description: "Bundle with signed images, excludes signatures on output",
+			description: "Bundle with cosign artifact images, excludes artifacts on output",
 			subject: testBundle{
 				name:      "simple/only-images-bundle",
 				signImage: true,
@@ -326,12 +328,15 @@ func TestDescribeBundle(t *testing.T) {
 		logger.LogLevel = helpers.LogTrace
 		fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
 		img1 := fakeRegBuilder.WithRandomImage("other-repo/some-random-img")
-		hash, err := regv1.NewHash(img1.Digest)
-		require.NoError(t, err)
 		b := fakeRegBuilder.
 			WithRandomBundle("repo/bundle-with-sig-error").
 			WithImageRefs([]lockconfig.ImageRef{{Image: img1.RefDigest}})
-		signToDeny := fakeRegBuilder.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
+
+		pImage, err := name.ParseReference(img1.RefDigest)
+		require.NoError(t, err)
+		signatureTag, err := cosign.SignatureTag(pImage)
+		require.NoError(t, err)
+		signToDeny := fakeRegBuilder.WithRandomTaggedImage(b.RefDigest, signatureTag.TagStr())
 
 		fakeRegBuilder.Build()
 		fakeRegBuilder.WithHandlerFunc(func(writer http.ResponseWriter, request *http.Request) bool {
@@ -340,7 +345,7 @@ func TestDescribeBundle(t *testing.T) {
 			}
 
 			if request.Method == "GET" || request.Method == "HEAD" {
-				if strings.Contains(request.URL.String(), cosign.Munge(regv1.Descriptor{Digest: hash})) {
+				if strings.Contains(request.URL.String(), signatureTag.TagStr()) {
 					writer.WriteHeader(403)
 					writer.Write([]byte("{\"errors\":[{\"code\":\"UNKNOWN\",\"message\":\"denied access\"}]}"))
 					return true
@@ -372,17 +377,21 @@ type testImage struct {
 }
 
 type testBundle struct {
-	name            string
-	images          []testImage
-	annotations     map[string]string
-	signImage       bool
-	locationPresent bool
+	name             string
+	images           []testImage
+	annotations      map[string]string
+	signImage        bool
+	sBOMImage        bool
+	attestationImage bool
+	locationPresent  bool
 }
 
 type createdImage struct {
 	createdBundle
-	isSignature bool
-	isLocations bool
+	isSignature   bool
+	isLocations   bool
+	isSBOM        bool
+	isAttestation bool
 }
 type createdBundle struct {
 	name        string
@@ -405,6 +414,10 @@ func (c createdBundle) Print(prefix string) {
 				fmt.Printf("%s%sLocations Image: %s\n", prefix, prefix, image.refDigest)
 			} else if image.isSignature {
 				fmt.Printf("%s%sSignature Image: %s\n", prefix, prefix, image.refDigest)
+			} else if image.isAttestation {
+				fmt.Printf("%s%sAttestation Image: %s\n", prefix, prefix, image.refDigest)
+			} else if image.isSBOM {
+				fmt.Printf("%s%sSBOM Image: %s\n", prefix, prefix, image.refDigest)
 			} else {
 				fmt.Printf("%s%sImage: %s\n", prefix, prefix, image.refDigest)
 				fmt.Printf("%s%s%sAnnotations: %s\n", prefix, prefix, prefix, image.annotations)
@@ -423,6 +436,10 @@ func printDescribedBundle(prefix string, bundle v1.Description) {
 		switch image.ImageType {
 		case ctlbundle.SignatureImage:
 			fmt.Printf("%s%sSignature Image: %s\n", prefix, prefix, image.Image)
+		case ctlbundle.SBOMImage:
+			fmt.Printf("%s%sSBOM Image: %s\n", prefix, prefix, image.Image)
+		case ctlbundle.AttestationImage:
+			fmt.Printf("%s%sAttestation Image: %s\n", prefix, prefix, image.Image)
 		case ctlbundle.InternalImage:
 			fmt.Printf("%s%sLocations Image: %s\n", prefix, prefix, image.Image)
 		default:
@@ -447,7 +464,7 @@ func assertBundleResult(t *testing.T, expectedBundle createdBundle, result v1.De
 		} else {
 			_, imgInfo, ok := findImageWithRef(result, image.refDigest)
 			if assert.True(t, ok, fmt.Sprintf("unable to find image %s in the bundle %s", image.refDigest, result.Image)) {
-				if !image.isSignature && !image.isLocations {
+				if !image.isSignature && !image.isLocations && !image.isSBOM && !image.isAttestation {
 					assert.Equal(t, ctlbundle.ContentImage, imgInfo.ImageType)
 					if len(image.annotations) > 0 {
 						assert.Equal(t, image.annotations, imgInfo.Annotations)
@@ -517,10 +534,10 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 		if image.signImage {
 			digest, err := name.NewDigest(imgDigestRef)
 			require.NoError(t, err)
-			hash, err := regv1.NewHash(digest.DigestStr())
-			require.NoError(t, err)
 
-			signImg := reg.WithRandomTaggedImage(imgDigestRef, cosign.Munge(regv1.Descriptor{Digest: hash}))
+			signTag, err := cosign.SignatureTag(digest)
+			require.NoError(t, err)
+			signImg := reg.WithRandomTaggedImage(imgDigestRef, signTag.TagStr())
 
 			if includeCosignArtifacts {
 				createdImg := createdImage{
@@ -529,6 +546,44 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 						refDigest: signImg.RefDigest,
 					},
 					isSignature: true,
+				}
+				result.images = append(result.images, createdImg)
+			}
+		}
+		if image.sBOMImage {
+			digest, err := name.NewDigest(imgDigestRef)
+			require.NoError(t, err)
+
+			sbomTag, err := cosign.SBOMTag(digest)
+			require.NoError(t, err)
+			sbomImg := reg.WithRandomTaggedImage(imgDigestRef, sbomTag.TagStr())
+
+			if includeCosignArtifacts {
+				createdImg := createdImage{
+					createdBundle: createdBundle{
+						name:      sbomImg.Digest,
+						refDigest: sbomImg.RefDigest,
+					},
+					isSBOM: true,
+				}
+				result.images = append(result.images, createdImg)
+			}
+		}
+		if image.attestationImage {
+			digest, err := name.NewDigest(imgDigestRef)
+			require.NoError(t, err)
+
+			attestationTag, err := cosign.AttestationTag(digest)
+			require.NoError(t, err)
+			attestationImg := reg.WithRandomTaggedImage(imgDigestRef, attestationTag.TagStr())
+
+			if includeCosignArtifacts {
+				createdImg := createdImage{
+					createdBundle: createdBundle{
+						name:      attestationImg.Digest,
+						refDigest: attestationImg.RefDigest,
+					},
+					isAttestation: true,
 				}
 				result.images = append(result.images, createdImg)
 			}
@@ -551,10 +606,13 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 		})
 	}
 	if bToCreate.signImage {
-		hash, err := regv1.NewHash(b.Digest)
+		digest, err := name.NewDigest(b.RefDigest)
 		require.NoError(t, err)
 
-		signImg := reg.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
+		signTag, err := cosign.SignatureTag(digest)
+		require.NoError(t, err)
+
+		signImg := reg.WithRandomTaggedImage(b.RefDigest, signTag.TagStr())
 
 		if includeCosignArtifacts {
 			createdImg := createdImage{

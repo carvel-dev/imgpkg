@@ -347,7 +347,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			imgpkg.Run([]string{"copy",
 				"-i", tagRef,
 				"--to-tar", tarFilePath,
-				"--cosign-signatures",
+				"--cosign-artifacts",
 			})
 		})
 

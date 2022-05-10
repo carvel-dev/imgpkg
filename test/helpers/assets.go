@@ -15,6 +15,7 @@ import (
 type Assets struct {
 	T              *testing.T
 	CreatedFolders []string
+	TmpFolder      string
 }
 
 func (a Assets) SimpleAppDir() string {
@@ -87,6 +88,19 @@ func (a *Assets) CreateTempFolder(prefix string) string {
 	require.NoError(a.T, err, "creating bundle folder")
 	a.CreatedFolders = append(a.CreatedFolders, rDir)
 	return rDir
+}
+
+// CreateTempFile Creates a file in a temporary folder that will be deleted when the test execution end
+func (a *Assets) CreateTempFile(prefix string) *os.File {
+	a.T.Helper()
+
+	if a.TmpFolder == "" {
+		a.TmpFolder = a.CreateTempFolder("main-tmp-folder")
+	}
+
+	f, err := os.CreateTemp(a.TmpFolder, prefix)
+	require.NoError(a.T, err, "creating temporary file in: %s", a.TmpFolder)
+	return f
 }
 
 func (a *Assets) CleanCreatedFolders() {

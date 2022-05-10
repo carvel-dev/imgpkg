@@ -9,10 +9,10 @@ import (
 	"sort"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/artifacts"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
 )
 
 // Author information from a Bundle
@@ -64,9 +64,9 @@ type DescribeOpts struct {
 	IncludeCosignArtifacts bool
 }
 
-// SignatureFetcher Interface to retrieve signatures associated with Images
-type SignatureFetcher interface {
-	FetchForImageRefs(images []lockconfig.ImageRef) ([]lockconfig.ImageRef, error)
+// ArtifactFetcher Interface to retrieve signatures associated with Images
+type ArtifactFetcher interface {
+	FetchForImageRefs(images []lockconfig.ImageRef) ([]artifacts.ArtifactImageRef, error)
 }
 
 // Describe Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
@@ -76,18 +76,18 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 		return Description{}, err
 	}
 
-	var signatureRetriever SignatureFetcher
+	var artifactFetcher ArtifactFetcher
 	if !opts.IncludeCosignArtifacts {
-		signatureRetriever = signature.NewNoop()
+		artifactFetcher = artifacts.NewNoop()
 	} else {
-		signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), opts.Concurrency)
+		artifactFetcher = artifacts.NewArtifacts(artifacts.NewCosign(reg), opts.Concurrency)
 	}
 
-	return DescribeWithRegistryAndSignatureFetcher(bundleImage, opts, reg, signatureRetriever)
+	return DescribeWithRegistryAndArtifactFetcher(bundleImage, opts, reg, artifactFetcher)
 }
 
-// DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
-func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg bundle.ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
+// DescribeWithRegistryAndArtifactFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
+func DescribeWithRegistryAndArtifactFetcher(bundleImage string, opts DescribeOpts, reg bundle.ImagesMetadata, artifactFetcher ArtifactFetcher) (Description, error) {
 	newBundle := bundle.NewBundle(bundleImage, reg)
 	isBundle, err := newBundle.IsBundle()
 	if err != nil {
@@ -97,7 +97,7 @@ func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOp
 		return Description{}, fmt.Errorf("Only bundles can be described, and %s is not a bundle", bundleImage)
 	}
 
-	allBundles, err := newBundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, sigFetcher)
+	allBundles, err := newBundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, artifactFetcher)
 	if err != nil {
 		return Description{}, fmt.Errorf("Retrieving Images from bundle: %s", err)
 	}
