@@ -87,9 +87,9 @@ jobs:
           set -e -x
           VERSION=`echo ${{ github.ref }}  | grep -Eo '[0-9].*'`
 
-          ./hack/build-binaries.sh "$VERSION" > ./go-checksums
-          cat ./go-checksums
-          diff ./go-checksums <(cat <<EOF
+          ./hack/build-binaries.sh "$VERSION" > /tmp/go-checksums
+          cat /tmp/go-checksums
+          diff /tmp/go-checksums <(cat <<EOF
           ${{steps.get-checksums-from-draft-release.outputs.result}}
           EOF
           )
