@@ -1,8 +1,4 @@
-/imgpkg
-/imgpkg-darwin-amd64
-/imgpkg-darwin-arm64
-/imgpkg-linux-amd64
-/imgpkg-windows-amd64.exe
+/imgpkg*
 /tmp
 .DS_Store
 /test/e2e/assets/simple-app/empty-dir
