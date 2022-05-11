@@ -4,7 +4,6 @@ set -e -x -u
 
 # makes builds reproducible
 export CGO_ENABLED=0
-LDFLAGS="-buildid="
 
 go fmt ./cmd/... ./pkg/... ./test/...
 go mod vendor
@@ -22,7 +21,7 @@ git diff --exit-code vendor/github.com/vdemeester || {
 }
 
 # export GOOS=linux GOARCH=amd64
-go build -ldflags="$LDFLAGS" -trimpath -o "imgpkg${IMGPKG_BINARY_EXT-}" ./cmd/imgpkg/...
+go build -trimpath -o "imgpkg${IMGPKG_BINARY_EXT-}" ./cmd/imgpkg/...
 ./imgpkg version
 
 # compile tests, but do not run them: https://github.com/golang/go/issues/15513#issuecomment-839126426

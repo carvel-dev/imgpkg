@@ -23,7 +23,6 @@ builds:
       - -trimpath
 
     ldflags:
-      - -buildid=
       - -X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
 
 archives:
