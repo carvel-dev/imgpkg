@@ -4,7 +4,6 @@ set -e -x -u
 
 # makes builds reproducible
 export CGO_ENABLED=0
-LDFLAGS="-buildid="
 
 go fmt ./cmd/... ./pkg/... ./test/...
 go mod vendor
