@@ -6,7 +6,6 @@ package cmd
 import (
 	"io"
 
-	"github.com/cppforlife/cobrautil"
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/spf13/cobra"
 )
@@ -55,18 +54,6 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	tagCmd.AddCommand(NewTagListCmd(NewTagListOptions(o.ui)))
 	tagCmd.AddCommand(NewTagResolveCmd(NewTagResolveOptions(o.ui)))
 	cmd.AddCommand(tagCmd)
-
-	// Last one runs first
-	cobrautil.VisitCommands(cmd, cobrautil.ReconfigureCmdWithSubcmd)
-	cobrautil.VisitCommands(cmd, cobrautil.DisallowExtraArgs)
-
-	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(func(*cobra.Command, []string) error {
-		o.UIFlags.ConfigureUI(o.ui)
-		o.DebugFlags.ConfigureDebug()
-		return nil
-	}))
-
-	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(cobrautil.ResolveFlagsForCmd))
 
 	// Completion command have to be added after the VisitCommands
 	// This due to the ReconfigureLeafCmds that we do not want to have enforced for the completion
