@@ -45,7 +45,7 @@ func TestInvalidArgsPassed(t *testing.T) {
 		t.Fatalf("Expected error from executing imgpkg pull command: %v", err)
 	}
 
-	expected := "command 'imgpkg pull' does not accept extra arguments 'k8slt/image'"
+	expected := `unknown command "k8slt/image" for "imgpkg pull"`
 	if expected != err.Error() {
 		t.Fatalf("\nExpceted: %s\nGot: %s", expected, err.Error())
 	}

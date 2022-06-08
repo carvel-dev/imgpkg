@@ -35,6 +35,7 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 		Use:   "pull",
 		Short: "Pull files from bundle, image, or bundle lock file",
 		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
+		Args:  cobra.NoArgs,
 		Example: `
   # Pull bundle repo/app1-bundle and extract into /tmp/app1-bundle
   imgpkg pull -b repo/app1-bundle -o /tmp/app1-bundle
