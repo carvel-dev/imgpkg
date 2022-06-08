@@ -33,6 +33,4 @@ func main() {
 		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))
 		os.Exit(1)
 	}
-
-	confUI.PrintLinef("Succeeded")
 }
