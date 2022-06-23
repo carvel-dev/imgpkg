@@ -60,6 +60,10 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	cobrautil.VisitCommands(cmd, cobrautil.ReconfigureCmdWithSubcmd)
 	cobrautil.VisitCommands(cmd, cobrautil.DisallowExtraArgs)
 
+	// Completion command have to be added after the DisallowExtraArgs
+	// This configurations forces all nodes to do not accept extra args, but the completion requires 1 extra arg
+	cmd.AddCommand(NewCompletionCmd())
+
 	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(func(*cobra.Command, []string) error {
 		o.UIFlags.ConfigureUI(o.ui)
 		o.DebugFlags.ConfigureDebug()
@@ -67,11 +71,6 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	}))
 
 	cobrautil.VisitCommands(cmd, cobrautil.WrapRunEForCmd(cobrautil.ResolveFlagsForCmd))
-
-	// Completion command have to be added after the VisitCommands
-	// This due to the ReconfigureLeafCmds that we do not want to have enforced for the completion
-	// This configurations forces all nodes to do not accept extra args, but the completion requires 1 extra arg
-	cmd.AddCommand(NewCompletionCmd())
 
 	return cmd
 }
