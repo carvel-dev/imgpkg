@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -40,29 +39,6 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 
 	cmd.Flags().DurationVar(&r.ResponseHeaderTimeout, "registry-response-header-timeout", 30*time.Second, "Maximum time to allow a request to wait for a server's response headers from the registry (ms|s|m|h)")
 	cmd.Flags().IntVar(&r.RetryCount, "registry-retry-count", 5, "Set the number of times imgpkg retries to send requests to the registry in case of an error")
-
-	cmd.Flags().String("registry-azure-cr-config", "", "Path to the file containing Azure container registry configuration information. ($IMGPKG_REGISTRY_AZURE_CR_CONFIG)")
-
-	err := cmd.LocalFlags().MarkHidden("azure-container-registry-config")
-	if err != nil {
-		panic(fmt.Sprintf("Unable to hide flag: %s", err))
-	}
-
-	if cmd.PersistentPreRunE != nil {
-		panic("Internal inconsistency: PersistentPreRunE was already set")
-	}
-
-	cmd.PersistentPreRunE = func(subCmd *cobra.Command, args []string) error {
-		registryAzureContainerConfigFlag := subCmd.Flag("registry-azure-cr-config")
-		if registryAzureContainerConfigFlag == nil {
-			return nil
-		}
-
-		if registryAzureContainerConfigFlag.Value.String() != "" {
-			return cmd.Flags().Set("azure-container-registry-config", registryAzureContainerConfigFlag.Value.String())
-		}
-		return cmd.Flags().Set("azure-container-registry-config", os.Getenv("IMGPKG_REGISTRY_AZURE_CR_CONFIG"))
-	}
 }
 
 func (r *RegistryFlags) AsRegistryOpts() registry.Opts {

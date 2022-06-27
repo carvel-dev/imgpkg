@@ -5,14 +5,15 @@ package auth
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
-	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 )
 
 var _ regauthn.Keychain = &EnvKeychain{}
@@ -54,7 +55,7 @@ func (k *EnvKeychain) Resolve(target regauthn.Resource) (regauthn.Authenticator,
 	}
 
 	for _, info := range infos {
-		registryURLMatches, err := credentialprovider.URLsMatchStr(info.URL, target.String())
+		registryURLMatches, err := urlsMatchStr(info.URL, target.String())
 		if err != nil {
 			return nil, err
 		}
@@ -209,4 +210,78 @@ func (k *EnvKeychain) collect() ([]envKeychainInfo, error) {
 	k.collected = true
 
 	return append([]envKeychainInfo{}, k.infos...), nil
+}
+
+// urlsMatchStr is wrapper for URLsMatch, operating on strings instead of URLs.
+func urlsMatchStr(glob string, target string) (bool, error) {
+	globURL, err := parseSchemelessURL(glob)
+	if err != nil {
+		return false, err
+	}
+	targetURL, err := parseSchemelessURL(target)
+	if err != nil {
+		return false, err
+	}
+	return urlsMatch(globURL, targetURL)
+}
+
+// parseSchemelessURL parses a schemeless url and returns a url.URL
+// url.Parse require a scheme, but ours don't have schemes.  Adding a
+// scheme to make url.Parse happy, then clear out the resulting scheme.
+func parseSchemelessURL(schemelessURL string) (*url.URL, error) {
+	parsed, err := url.Parse("https://" + schemelessURL)
+	if err != nil {
+		return nil, err
+	}
+	// clear out the resulting scheme
+	parsed.Scheme = ""
+	return parsed, nil
+}
+
+// splitURL splits the host name into parts, as well as the port
+func splitURL(url *url.URL) (parts []string, port string) {
+	host, port, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		// could not parse port
+		host, port = url.Host, ""
+	}
+	return strings.Split(host, "."), port
+}
+
+// urlsMatch checks whether the given target url matches the glob url, which may have
+// glob wild cards in the host name.
+//
+// Examples:
+//    globURL=*.docker.io, targetURL=blah.docker.io => match
+//    globURL=*.docker.io, targetURL=not.right.io   => no match
+//
+// Note that we don't support wildcards in ports and paths yet.
+func urlsMatch(globURL *url.URL, targetURL *url.URL) (bool, error) {
+	globURLParts, globPort := splitURL(globURL)
+	targetURLParts, targetPort := splitURL(targetURL)
+	if globPort != targetPort {
+		// port doesn't match
+		return false, nil
+	}
+	if len(globURLParts) != len(targetURLParts) {
+		// host name does not have the same number of parts
+		return false, nil
+	}
+	if !strings.HasPrefix(targetURL.Path, globURL.Path) {
+		// the path of the credential must be a prefix
+		return false, nil
+	}
+	for k, globURLPart := range globURLParts {
+		targetURLPart := targetURLParts[k]
+		matched, err := filepath.Match(globURLPart, targetURLPart)
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			// glob mismatch for some part
+			return false, nil
+		}
+	}
+	// everything matches
+	return true, nil
 }
