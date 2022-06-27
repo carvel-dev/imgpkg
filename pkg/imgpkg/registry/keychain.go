@@ -4,9 +4,14 @@
 package registry
 
 import (
-	"context"
+	"io/ioutil"
 
+	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
+	"github.com/google/go-containerregistry/pkg/authn"
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/github"
+	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -15,10 +20,14 @@ import (
 // keychains that contain credentials for 'any' target. i.e. env keychain takes precedence over the custom keychain.
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
 func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (regauthn.Keychain, error) {
-	iaasKeychain, err := auth.NewIaasKeychain(context.Background(), environFunc)
-	if err != nil {
-		return nil, err
+	keychain := []authn.Keychain{
+		auth.CustomRegistryKeychain{Opts: keychainOpts},
+		auth.NewEnvKeychain(environFunc),
+		google.Keychain,
+		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+		github.Keychain,
 	}
 
-	return regauthn.NewMultiKeychain(auth.NewEnvKeychain(environFunc), iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts}), nil
+	return regauthn.NewMultiKeychain(keychain...), nil
 }
