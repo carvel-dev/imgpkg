@@ -11,7 +11,7 @@ require (
 	github.com/google/go-containerregistry v0.8.0
 	github.com/mattn/go-isatty v0.0.14
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.7.1
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.22.4
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
