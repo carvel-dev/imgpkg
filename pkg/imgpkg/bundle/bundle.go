@@ -30,6 +30,7 @@ type Logger interface {
 	Warnf(msg string, args ...interface{})
 	Debugf(msg string, args ...interface{})
 	Tracef(msg string, args ...interface{})
+	Logf(msg string, args ...interface{})
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockReader
