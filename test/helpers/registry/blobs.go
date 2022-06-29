@@ -144,10 +144,14 @@ func (m *memHandler) Put(_ context.Context, _ string, h v1.Hash, rc io.ReadClose
 }
 
 // Mount is a no-op since all the blobs are store indexed by sha
-func (m *memHandler) Mount(_ context.Context, _, _ string, _ v1.Hash) error {
+func (m *memHandler) Mount(_ context.Context, repo, from string, h v1.Hash) error {
+	// Mount(ctx context.Context, repo, from string, h v1.Hash) error
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if _, found := m.m[h.String()]; !found {
+		return errors.New("blob not found")
+	}
 	return nil
 }
 
@@ -347,12 +351,12 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 			}
 
 			err = bmh.Mount(req.Context(), repo, from, h)
-			if err != nil {
-				return regErrInternal(err)
+			if err == nil {
+				resp.Header().Set("Docker-Content-Digest", h.String())
+				resp.WriteHeader(http.StatusCreated)
+				return nil
 			}
-			resp.Header().Set("Docker-Content-Digest", h.String())
-			resp.WriteHeader(http.StatusCreated)
-			return nil
+			// check err type??
 		}
 
 		id := fmt.Sprint(rand.Int63())
