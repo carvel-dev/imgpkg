@@ -20,14 +20,20 @@ import (
 // keychains that contain credentials for 'any' target. i.e. env keychain takes precedence over the custom keychain.
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
 func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (regauthn.Keychain, error) {
-	keychain := []authn.Keychain{
-		auth.CustomRegistryKeychain{Opts: keychainOpts},
-		auth.NewEnvKeychain(environFunc),
-		google.Keychain,
-		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
-		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
-		github.Keychain,
+	// env keychain comes first
+	keychain := []authn.Keychain{auth.NewEnvKeychain(environFunc)}
+
+	if keychainOpts.EnableIaasAuthProviders {
+		// if enabled, fall back to iaas keychains
+		keychain = append(keychain,
+			google.Keychain,
+			authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+			authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+			github.Keychain,
+		)
 	}
+	// command-line flags and docker keychain comes last
+	keychain = append(keychain, auth.CustomRegistryKeychain{Opts: keychainOpts})
 
 	return regauthn.NewMultiKeychain(keychain...), nil
 }

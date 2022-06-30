@@ -70,6 +70,9 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	if os.Getenv("IMGPKG_ANON") == "true" {
 		opts.Anon = true
 	}
+	if os.Getenv("IMGPKG_ENABLE_IAAS_AUTH") != "false" {
+		opts.EnableIaasAuthProviders = true
+	}
 
 	return opts
 }
