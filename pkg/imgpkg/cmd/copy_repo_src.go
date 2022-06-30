@@ -125,6 +125,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	informUserToUseTheNonDistributableFlagWithDescriptors(
 		c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
 
+	c.ui.Logf("Tagging images\n")
 	err = c.tagAllImages(processedImages)
 	if err != nil {
 		return nil, fmt.Errorf("Tagging images: %s", err)

@@ -978,13 +978,9 @@ func TestToRepoImage(t *testing.T) {
 		subject.IncludeNonDistributable = true
 
 		_, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer("fakeregistry/some-repo"))
-		if err != nil {
-			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
-		}
+		require.NoError(t, err)
 
-		if !strings.HasSuffix(stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n") {
-			t.Fatalf("Expected command to give warning message, but got: %s", stdOut.String())
-		}
+		require.Contains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
 	})
 
 	t.Run("When an ImageLock file is provided it should copy every image from the file", func(t *testing.T) {
@@ -1015,9 +1011,7 @@ images:
 		subject.registry = fakeRegistry.Build()
 
 		processedImages, err := subject.CopyToRepo(fakeRegistry.ReferenceOnTestServer(destinationImageName))
-		if err != nil {
-			t.Fatalf("Expected CopyToRepo() to succeed but got: %s", err)
-		}
+		require.NoError(t, err)
 
 		require.Len(t, processedImages.All(), 2)
 
