@@ -36,6 +36,8 @@ type Opts struct {
 	Token    string
 	Anon     bool
 
+	EnableIaasAuthProviders bool
+
 	ResponseHeaderTimeout time.Duration
 	RetryCount            int
 
@@ -120,10 +122,11 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOp
 
 	keychain, err := Keychain(
 		auth.KeychainOpts{
-			Username: opts.Username,
-			Password: opts.Password,
-			Token:    opts.Token,
-			Anon:     opts.Anon,
+			Username:                opts.Username,
+			Password:                opts.Password,
+			Token:                   opts.Token,
+			Anon:                    opts.Anon,
+			EnableIaasAuthProviders: opts.EnableIaasAuthProviders,
 		},
 		opts.EnvironFunc,
 	)

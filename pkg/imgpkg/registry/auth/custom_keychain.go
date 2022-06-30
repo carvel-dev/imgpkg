@@ -15,10 +15,11 @@ var _ regauthn.Keychain = CustomRegistryKeychain{}
 
 // KeychainOpts Contains credentials (passed down via flags) used by custom keychain to auth with a registry
 type KeychainOpts struct {
-	Username string
-	Password string
-	Token    string
-	Anon     bool
+	Username                string
+	Password                string
+	Token                   string
+	Anon                    bool
+	EnableIaasAuthProviders bool
 }
 
 // NewSingleAuthKeychain Builds a SingleAuthKeychain struct
