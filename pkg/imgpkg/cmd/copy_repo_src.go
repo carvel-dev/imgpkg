@@ -52,7 +52,7 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	}
 
 	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.ui, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+		c.ui, c.IncludeNonDistributable, getNonDistributableLayersFromImageDescriptors(ids))
 
 	return nil
 }
@@ -123,7 +123,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	}
 
 	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		c.ui, c.IncludeNonDistributable, processedImagesNonDistLayer(processedImages))
 
 	c.ui.Logf("Tagging images\n")
 	err = c.tagAllImages(processedImages)

@@ -247,7 +247,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			})
 
 			logger.Section("Check that non distributable layer was not copied", func() {
-				require.Contains(t, stdOutWriter.String(), "Skipped layer due to it being non-distributable.")
+				require.Contains(t, stdOutWriter.String(), "Skipped the followings layer(s) due")
 
 				digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
 				require.NoError(t, err)

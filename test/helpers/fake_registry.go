@@ -492,13 +492,13 @@ func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ..
 	}
 }
 
-func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() *ImageOrImageIndexWithTarPath {
+func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() (*ImageOrImageIndexWithTarPath, v1.Layer) {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	require.NoError(r.t, err)
 
 	r.Image, err = mutate.AppendLayers(r.Image, layer)
 	require.NoError(r.t, err)
-	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path, "")
+	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path, ""), layer
 }
 
 func (r *FakeTestRegistryBuilder) CleanUp() {

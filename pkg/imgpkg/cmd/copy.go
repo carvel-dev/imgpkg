@@ -7,10 +7,11 @@ import (
 	"fmt"
 
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	ctlimgset "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
@@ -309,25 +310,84 @@ func (c *CopyOptions) writeBundleLockOutput(bundle *bundle.Bundle) error {
 	return bundleLock.WriteToPath(c.LockOutputFlags.LockFilePath)
 }
 
-func processedImagesMediaType(processedImages *ctlimgset.ProcessedImages) []string {
-	everyMediaType := []string{}
-	for _, image := range processedImages.All() {
-		if image.ImageIndex != nil {
-			mediaTypes := everyMediaTypeForAnImageIndex(image.ImageIndex)
-			everyMediaType = append(everyMediaType, mediaTypes...)
-		} else if image.Image != nil {
-			mediaTypes := everyMediaTypeForAnImage(image.Image)
-			everyMediaType = append(everyMediaType, mediaTypes...)
-		}
-	}
-	return everyMediaType
+type nonDistributableLayers struct {
+	imgRef     string
+	imgFullRef string
+	layers     []string
 }
 
-func everyMediaTypeForAnImageIndex(imageIndex regv1.ImageIndex) []string {
-	everyMediaType := []string{}
+func getNonDistributableLayersFromImageDescriptors(ids *imagedesc.ImageRefDescriptors) []nonDistributableLayers {
+	var nonDistLayers []nonDistributableLayers
+
+	for _, descriptor := range ids.Descriptors() {
+		if descriptor.Image != nil {
+			nonDistLayers = append(nonDistLayers, nonDistributableLayersFromImageDescriptors(*descriptor.Image)...)
+		} else if descriptor.ImageIndex != nil {
+			nonDistLayers = append(nonDistLayers, nonDistributableLayersFromIndexDescriptors(*descriptor.ImageIndex)...)
+		}
+	}
+	return nonDistLayers
+}
+
+func nonDistributableLayersFromImageDescriptors(descriptor imagedesc.ImageDescriptor) []nonDistributableLayers {
+	var nonDistLayers []nonDistributableLayers
+	imgLayers := nonDistributableLayers{
+		imgFullRef: descriptor.Refs[0],
+	}
+	for _, layerDescriptor := range descriptor.Layers {
+		if !layerDescriptor.IsDistributable() {
+			imgLayers.layers = append(imgLayers.layers, layerDescriptor.Digest)
+		}
+	}
+	if len(imgLayers.layers) > 0 {
+		nonDistLayers = append(nonDistLayers, imgLayers)
+	}
+	return nonDistLayers
+}
+
+func nonDistributableLayersFromIndexDescriptors(descriptor imagedesc.ImageIndexDescriptor) []nonDistributableLayers {
+	var nonDistLayers []nonDistributableLayers
+	for _, image := range descriptor.Images {
+		nonDistLayers = append(nonDistLayers, nonDistributableLayersFromImageDescriptors(image)...)
+	}
+	for _, index := range descriptor.Indexes {
+		nonDistLayers = append(nonDistLayers, nonDistributableLayersFromIndexDescriptors(index)...)
+	}
+	return nonDistLayers
+}
+
+func processedImagesNonDistLayer(processedImages *ctlimgset.ProcessedImages) []nonDistributableLayers {
+	var everyNonDistImages []nonDistributableLayers
+	for _, image := range processedImages.All() {
+		ref, err := name.ParseReference(image.DigestRef)
+		if err != nil {
+			panic(fmt.Sprintf("Internal consistency: '%s' should be a valid reference: %s", image.DigestRef, err))
+		}
+		if image.ImageIndex != nil {
+			imagesNonDistributableLayers := everyNonDistributableLayerForAnImageIndex(image.ImageIndex)
+			for i, layer := range imagesNonDistributableLayers {
+				digestRef := ref.Context().Digest(layer.imgRef)
+				imagesNonDistributableLayers[i].imgFullRef = digestRef.String()
+			}
+			everyNonDistImages = append(everyNonDistImages, imagesNonDistributableLayers...)
+		} else if image.Image != nil {
+			imagesNonDistributableLayers := everyNonDistributableLayerForAnImage(image.Image)
+			for i, layer := range imagesNonDistributableLayers {
+				digestRef := ref.Context().Digest(layer.imgRef)
+				imagesNonDistributableLayers[i].imgFullRef = digestRef.String()
+			}
+			everyNonDistImages = append(everyNonDistImages, imagesNonDistributableLayers...)
+		}
+	}
+
+	return everyNonDistImages
+}
+
+func everyNonDistributableLayerForAnImageIndex(imageIndex regv1.ImageIndex) []nonDistributableLayers {
+	var everyNonDistImages []nonDistributableLayers
 	indexManifest, err := imageIndex.IndexManifest()
 	if err != nil {
-		return []string{}
+		return nil
 	}
 	for _, descriptor := range indexManifest.Manifests {
 		if descriptor.MediaType.IsIndex() {
@@ -335,50 +395,65 @@ func everyMediaTypeForAnImageIndex(imageIndex regv1.ImageIndex) []string {
 			if err != nil {
 				continue
 			}
-			mediaTypesForImageIndex := everyMediaTypeForAnImageIndex(imageIndex)
-			everyMediaType = append(everyMediaType, mediaTypesForImageIndex...)
+			mediaTypesForImageIndex := everyNonDistributableLayerForAnImageIndex(imageIndex)
+			everyNonDistImages = append(everyNonDistImages, mediaTypesForImageIndex...)
 		} else {
 			image, err := imageIndex.Image(descriptor.Digest)
 			if err != nil {
 				continue
 			}
-			mediaTypeForImage := everyMediaTypeForAnImage(image)
-			everyMediaType = append(everyMediaType, mediaTypeForImage...)
+			mediaTypeForImage := everyNonDistributableLayerForAnImage(image)
+			everyNonDistImages = append(everyNonDistImages, mediaTypeForImage...)
 		}
 	}
-	return everyMediaType
+
+	return everyNonDistImages
 }
 
-func everyMediaTypeForAnImage(image regv1.Image) []string {
-	var everyMediaType []string
-
+func everyNonDistributableLayerForAnImage(image regv1.Image) []nonDistributableLayers {
+	digest, err := image.Digest()
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: cannot retrieve digest from image"))
+	}
+	imgLayers := nonDistributableLayers{
+		imgRef: digest.String(),
+	}
 	layers, err := image.Layers()
 	if err != nil {
-		return everyMediaType
+		panic(fmt.Sprintf("Internal inconsistency: cannot retrieve layers from image '%s'", digest))
 	}
 
-	for _, layer := range layers {
-		mediaType, err := layer.MediaType()
+	for _, layerDescriptor := range layers {
+		mediaType, err := layerDescriptor.MediaType()
 		if err != nil {
 			continue
 		}
-		everyMediaType = append(everyMediaType, string(mediaType))
-	}
-	return everyMediaType
-}
-
-func informUserToUseTheNonDistributableFlagWithDescriptors(ui util.UIWithLevels, includeNonDistributableFlag bool, everyMediaType []string) {
-	noNonDistributableLayers := true
-
-	for _, mediaType := range everyMediaType {
-		if !types.MediaType(mediaType).IsDistributable() {
-			noNonDistributableLayers = false
+		if !mediaType.IsDistributable() {
+			hash, err := layerDescriptor.Digest()
+			if err != nil {
+				continue
+			}
+			imgLayers.layers = append(imgLayers.layers, hash.String())
 		}
 	}
+	if len(imgLayers.layers) > 0 {
+		return []nonDistributableLayers{imgLayers}
+	}
+	return nil
+}
 
-	if includeNonDistributableFlag && noNonDistributableLayers {
+func informUserToUseTheNonDistributableFlagWithDescriptors(ui util.UIWithLevels, includeNonDistributableFlag bool, everyImageWithNonDistLayer []nonDistributableLayers) {
+	if includeNonDistributableFlag && len(everyImageWithNonDistLayer) == 0 {
 		ui.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
-	} else if !includeNonDistributableFlag && !noNonDistributableLayers {
-		ui.Warnf("Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
+	} else if !includeNonDistributableFlag && len(everyImageWithNonDistLayer) > 0 {
+		msg := "Skipped the followings layer(s) due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag"
+		for _, img := range everyImageWithNonDistLayer {
+			msg += "\n - Image: " + img.imgFullRef
+			msg += "\n   Layers:"
+			for _, layer := range img.layers {
+				msg += "\n     - " + layer
+			}
+		}
+		ui.Warnf(msg)
 	}
 }

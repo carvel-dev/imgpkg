@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -68,7 +69,7 @@ func TestCopyTarSrc(t *testing.T) {
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
-		imageWithNonDistributableLayer := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
+		imageWithNonDistributableLayer, nonDistLayer := fakeRegistry.WithRandomImage("repo/image_belonging_to_image_index").WithNonDistributableLayer()
 		nestedImageIndex := fakeRegistry.WithImageIndex("repo/nestedimageindex", imageWithNonDistributableLayer.Image)
 
 		randomImage := fakeRegistry.WithRandomImage("repo/randomimage")
@@ -89,7 +90,16 @@ func TestCopyTarSrc(t *testing.T) {
 			StdoutWriter: outputBuffer,
 		})
 
-		assert.Contains(t, outputBuffer.String(), "Skipped layer due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag")
+		digest, err := nonDistLayer.Digest()
+		require.NoError(t, err)
+
+		ref, err := name.ParseReference(fakeRegistry.ReferenceOnTestServer("copied-bundle"))
+		require.NoError(t, err)
+		expectedOutput := fmt.Sprintf(`Skipped the followings layer(s) due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag
+copy |  - Image: %s
+copy |    Layers:
+copy |      - %s`, ref.Context().Digest(imageWithNonDistributableLayer.Digest).String(), digest.String())
+		assert.Contains(t, outputBuffer.String(), expectedOutput)
 	})
 
 	t.Run("When an ImageIndex", func(t *testing.T) {
