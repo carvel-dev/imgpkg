@@ -8,7 +8,6 @@ import (
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
-	"github.com/google/go-containerregistry/pkg/authn"
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
@@ -21,14 +20,14 @@ import (
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
 func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (regauthn.Keychain, error) {
 	// env keychain comes first
-	keychain := []authn.Keychain{auth.NewEnvKeychain(environFunc)}
+	keychain := []regauthn.Keychain{auth.NewEnvKeychain(environFunc)}
 
 	if keychainOpts.EnableIaasAuthProviders {
 		// if enabled, fall back to iaas keychains
 		keychain = append(keychain,
 			google.Keychain,
-			authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
-			authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+			regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+			regauthn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 			github.Keychain,
 		)
 	}
