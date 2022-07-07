@@ -131,7 +131,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	defer fakeRegistry.CleanUp()
 	randomImage := fakeRegistry.WithRandomImage("library/image_with_config")
-	randomImageWithNonDistributableLayer := fakeRegistry.
+	randomImageWithNonDistributableLayer, nonDistributableLayer := fakeRegistry.
 		WithRandomImage("library/image_with_non_dist_layer").WithNonDistributableLayer()
 
 	fakeRegistry.WithBundleFromPath(bundleName, "test_assets/bundle_with_mult_images").
@@ -163,7 +163,13 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		err := subject.CopyToTar(imageTarPath)
 		require.NoError(t, err)
 
-		require.Regexp(t, "Skipped layer due to it being non-distributable\\. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag", stdOut)
+		digest, err := nonDistributableLayer.Digest()
+		require.NoError(t, err)
+		expectedOutput := fmt.Sprintf(`Skipped the followings layer(s) due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag
+ - Image: %s
+   Layers:
+     - %s`, randomImageWithNonDistributableLayer.RefDigest, digest.String())
+		require.Contains(t, stdOut.String(), expectedOutput)
 	})
 
 	t.Run("When Include-non-distributable-layers flag is provided the tarball should contain every layer", func(t *testing.T) {
@@ -191,7 +197,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotContains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
-		assert.NotContains(t, stdOut.String(), "Skipped layer due to it being non-distributable.")
+		assert.NotContains(t, stdOut.String(), "Skipped the followings layer(s) due")
 	})
 
 	t.Run("When a bundle contains a bundle with non distributable layer, it copies all layers to tar", func(t *testing.T) {

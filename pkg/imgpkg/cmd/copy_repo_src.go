@@ -8,7 +8,6 @@ import (
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	ctlimgset "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
@@ -52,7 +51,7 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 	}
 
 	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.ui, c.IncludeNonDistributable, imageRefDescriptorsMediaTypes(ids))
+		c.ui, c.IncludeNonDistributable, getNonDistributableLayersFromImageDescriptors(ids))
 
 	return nil
 }
@@ -123,7 +122,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	}
 
 	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.ui, c.IncludeNonDistributable, processedImagesMediaType(processedImages))
+		c.ui, c.IncludeNonDistributable, processedImagesNonDistLayer(processedImages))
 
 	c.ui.Logf("Tagging images\n")
 	err = c.tagAllImages(processedImages)
@@ -259,19 +258,6 @@ func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Reading Images from Bundle: %s", err)
 	}
 	return bundle, nestedBundles, imageRefs, nil
-}
-
-func imageRefDescriptorsMediaTypes(ids *imagedesc.ImageRefDescriptors) []string {
-	mediaTypes := []string{}
-	for _, descriptor := range ids.Descriptors() {
-		if descriptor.Image != nil {
-			for _, layerDescriptor := range (*descriptor.Image).Layers {
-				mediaTypes = append(mediaTypes, layerDescriptor.MediaType)
-			}
-		}
-
-	}
-	return mediaTypes
 }
 
 func (c CopyRepoSrc) tagAllImages(processedImages *ctlimgset.ProcessedImages) error {

@@ -447,6 +447,7 @@ func (r *FakeTestRegistryBuilder) CopyFromImageRef(imageRef, to string) *ImageOr
 	return r.updateState(to, img.Image, nil, "", "")
 }
 
+// CopyAllImagesFromRepo Copies all images in a particular repository to a destination
 func (r *FakeTestRegistryBuilder) CopyAllImagesFromRepo(imageRef, to string) {
 	digest, err := name.NewDigest(imageRef)
 	require.NoError(r.t, err)
@@ -466,6 +467,7 @@ func (r *FakeTestRegistryBuilder) CopyAllImagesFromRepo(imageRef, to string) {
 	}
 }
 
+// CopyBundleImage Copies a bundle metadata that will create a bundle in to location
 func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to string) BundleInfo {
 	newBundle := *r.images[bundleInfo.BundleName]
 	r.updateState(to, bundleInfo.Image, nil, "", "")
@@ -473,6 +475,7 @@ func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to stri
 		newBundle.Digest, newBundle.RefDigest}
 }
 
+// WithARandomImageIndex Creates random index with reference imageName and with numImages images
 func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string, numImages int64) *ImageOrImageIndexWithTarPath {
 	index, err := random.Index(1024, 1, numImages)
 	require.NoError(r.t, err)
@@ -480,6 +483,8 @@ func (r *FakeTestRegistryBuilder) WithARandomImageIndex(imageName string, numIma
 	return r.updateState(imageName, nil, index, "", "")
 }
 
+// WithNonDistributableLayerInImage Adds non-distributable layer of the type
+// types.OCIUncompressedRestrictedLayer to all the provided images
 func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ...string) {
 	for _, imageName := range imageNames {
 		layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
@@ -492,13 +497,15 @@ func (r *FakeTestRegistryBuilder) WithNonDistributableLayerInImage(imageNames ..
 	}
 }
 
-func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() *ImageOrImageIndexWithTarPath {
+// WithNonDistributableLayer Adds non-distributable layer of the type
+// types.OCIUncompressedRestrictedLayer to the current image
+func (r *ImageOrImageIndexWithTarPath) WithNonDistributableLayer() (*ImageOrImageIndexWithTarPath, v1.Layer) {
 	layer, err := random.Layer(1024, types.OCIUncompressedRestrictedLayer)
 	require.NoError(r.t, err)
 
 	r.Image, err = mutate.AppendLayers(r.Image, layer)
 	require.NoError(r.t, err)
-	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path, "")
+	return r.fakeRegistry.updateState(r.RefDigest, r.Image, r.ImageIndex, r.path, ""), layer
 }
 
 func (r *FakeTestRegistryBuilder) CleanUp() {
