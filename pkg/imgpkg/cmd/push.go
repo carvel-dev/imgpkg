@@ -137,6 +137,7 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	if isBundle {
 		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
+	fmt.Printf("labels: %v", po.ImageFlags.Labels)
 
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, po.ui)
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, po.ImageFlags.Labels, registry, po.ui)
 }
