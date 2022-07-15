@@ -81,7 +81,7 @@ func (i *DirImage) writeLayer(stream io.Reader) error {
 			return err
 		}
 
-		path := filepath.Join(i.dirPath, filepath.Clean(hdr.Name))
+		path := i.hydrateFilepath(hdr.Name)
 		base := filepath.Base(path)
 
 		const (
@@ -121,7 +121,7 @@ func (i *DirImage) writeLayer(stream io.Reader) error {
 // Taken from https://github.com/concourse/go-archive/blob/f26802964d15194bddb07bf116ea567c56af973f/tarfs/extract.go
 
 func (i *DirImage) extractTarEntry(header *tar.Header, input io.Reader) error {
-	path := filepath.Join(i.dirPath, header.Name)
+	path := i.hydrateFilepath(header.Name)
 	mode := header.FileInfo().Mode()
 
 	// copy user permissions to group and other
@@ -192,4 +192,17 @@ func lchtimes(header *tar.Header, path string) error {
 	}
 
 	return nil
+}
+
+// hydrateFilepath ensures that the file is correct based on the OS.
+func (i *DirImage) hydrateFilepath(fPath string) string {
+	var lPath string
+	// We need to check the existance of \ type paths in the images because in previous versions of imgpkg images that
+	// were created on Windows would have the path using \ instead of the new OS-agnostic version
+	if strings.Contains(fPath, "\\") {
+		lPath = filepath.Join(strings.Split(fPath, "\\")...)
+	} else {
+		lPath = filepath.Join(strings.Split(fPath, "/")...)
+	}
+	return filepath.Join(i.dirPath, lPath)
 }

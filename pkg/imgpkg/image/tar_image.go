@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -104,6 +106,11 @@ func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.
 
 	i.infoLog.Write([]byte(fmt.Sprintf("dir: %s\n", relPath)))
 
+	// Ensure that images will always have the same path format
+	if runtime.GOOS == "windows" {
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+	}
+
 	header := &tar.Header{
 		Name:     relPath,
 		Mode:     0700,        // static
@@ -127,6 +134,11 @@ func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarW
 	}
 
 	defer file.Close()
+
+	// Ensure that images will always have the same path format
+	if runtime.GOOS == "windows" {
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+	}
 
 	header := &tar.Header{
 		Name:     relPath,
