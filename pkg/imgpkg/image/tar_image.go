@@ -78,7 +78,7 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 					if i.isExcluded(relPath) {
 						return filepath.SkipDir
 					}
-					return i.addDirToTar(relPath, info, tarWriter)
+					return i.addDirToTar(relPath, tarWriter)
 				}
 				if (info.Mode() & os.ModeType) != 0 {
 					return fmt.Errorf("Expected file '%s' to be a regular file", walkedPath)
@@ -99,7 +99,7 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 	return nil
 }
 
-func (i *TarImage) addDirToTar(relPath string, info os.FileInfo, tarWriter *tar.Writer) error {
+func (i *TarImage) addDirToTar(relPath string, tarWriter *tar.Writer) error {
 	if i.isExcluded(relPath) {
 		panic("Unreachable") // directories excluded above
 	}
