@@ -8,7 +8,7 @@ require (
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-logr/logr v1.2.3
-	github.com/google/go-containerregistry v0.8.0
+	github.com/google/go-containerregistry v0.10.0
 	github.com/mattn/go-isatty v0.0.14
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/spf13/cobra v1.5.0
