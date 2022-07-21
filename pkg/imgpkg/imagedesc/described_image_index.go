@@ -48,6 +48,7 @@ func (i DescribedImageIndex) IndexManifest() (*regv1.IndexManifest, error) {
 	return manifest, nil
 }
 
+// Image retrieve the image that matches the provided digest
 func (i DescribedImageIndex) Image(digest regv1.Hash) (regv1.Image, error) {
 	for _, img := range i.images {
 		imgDigest, err := img.Digest()
@@ -61,6 +62,17 @@ func (i DescribedImageIndex) Image(digest regv1.Hash) (regv1.Image, error) {
 	return nil, fmt.Errorf("Expected to find image '%s' by digest", digest)
 }
 
+// Images retrieve all images associated with the described image
+func (i DescribedImageIndex) Images() []regv1.Image {
+	return i.images
+}
+
+// Indexes retrieve all indexes associated with the described image
+func (i DescribedImageIndex) Indexes() []regv1.ImageIndex {
+	return i.indexes
+}
+
+// ImageIndex retrieve the index that matches the provided digest
 func (i DescribedImageIndex) ImageIndex(digest regv1.Hash) (regv1.ImageIndex, error) {
 	for _, idx := range i.indexes {
 		idxDigest, err := idx.Digest()

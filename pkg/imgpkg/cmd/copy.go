@@ -146,9 +146,13 @@ func (c *CopyOptions) Run() error {
 		if c.LockOutputFlags.LockFilePath != "" {
 			return fmt.Errorf("Cannot output lock file with tar destination")
 		}
-		return repoSrc.CopyToTar(c.TarFlags.TarDst)
+		return repoSrc.CopyToTar(c.TarFlags.TarDst, c.TarFlags.Resume)
 
 	case c.isRepoDst():
+		if c.TarFlags.Resume {
+			return fmt.Errorf("Flag --resume can only be used when copying to tar")
+		}
+
 		processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
 		if err != nil {
 			return err
