@@ -43,7 +43,7 @@ func TestCopyingLargeImageWithinSameRegistryShouldBeFast(t *testing.T) {
 	logger.Debugf("initial push took: %v\n", benchmarkResultInitialPush.T)
 	logger.Debugf("imgpkg copy took: %v\n", benchmarkResultCopyInSameRegistry.T)
 
-	expectedMaxTimeToTake := benchmarkResultInitialPush.T.Nanoseconds() / 15
+	expectedMaxTimeToTake := benchmarkResultInitialPush.T.Nanoseconds() / 10
 	actualTimeTaken := benchmarkResultCopyInSameRegistry.T.Nanoseconds()
 
 	require.Greaterf(t, expectedMaxTimeToTake, actualTimeTaken, "copying a large image took too long. Expected it to take maximum [%v] but it took [%v]", time.Duration(expectedMaxTimeToTake), time.Duration(actualTimeTaken))
