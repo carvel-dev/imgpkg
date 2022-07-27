@@ -57,8 +57,12 @@ func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]r
 }
 
 // WriteImage Upload Image to registry
-func (w *WithProgress) WriteImage(reference regname.Reference, image regv1.Image) error {
-	return w.delegate.WriteImage(reference, image)
+func (w *WithProgress) WriteImage(reference regname.Reference, image regv1.Image, _ chan regv1.Update) error {
+	uploadProgress := make(chan regv1.Update)
+	w.logger.Start(uploadProgress)
+	defer w.logger.End()
+
+	return w.delegate.WriteImage(reference, image, uploadProgress)
 }
 
 // WriteIndex Uploads the Index manifest to the registry

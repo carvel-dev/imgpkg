@@ -594,7 +594,7 @@ func (fake *FakeImagesReaderWriter) MultiWriteReturnsOnCall(i int, result1 error
 	}{result1}
 }
 
-func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Image) error {
+func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Image, arg3 chan v1.Update ) error {
 	fake.writeImageMutex.Lock()
 	ret, specificReturn := fake.writeImageReturnsOnCall[len(fake.writeImageArgsForCall)]
 	fake.writeImageArgsForCall = append(fake.writeImageArgsForCall, struct {

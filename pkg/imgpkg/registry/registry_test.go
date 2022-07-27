@@ -166,7 +166,7 @@ func TestInsecureRegistryFlag(t *testing.T) {
 			exec: func(t *testing.T, r registry.Registry) error {
 				img, err := name.ParseReference("my.registry.io/some/image")
 				require.NoError(t, err)
-				return r.WriteImage(img, nil)
+				return r.WriteImage(img, nil, nil)
 			},
 		},
 		{

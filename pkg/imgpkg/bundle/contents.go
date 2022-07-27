@@ -30,7 +30,7 @@ type Contents struct {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadataWriter
 type ImagesMetadataWriter interface {
 	ImagesMetadata
-	WriteImage(regname.Reference, regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteTag(ref regname.Tag, taggagle regremote.Taggable) error
 }
 

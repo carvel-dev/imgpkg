@@ -50,7 +50,7 @@ type Registry interface {
 	FirstImageExists(digests []string) (string, error)
 
 	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
-	WriteImage(reference regname.Reference, image regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteIndex(reference regname.Reference, index regv1.ImageIndex) error
 	WriteTag(tag regname.Tag, taggable regremote.Taggable) error
 
@@ -74,7 +74,7 @@ type ImagesReader interface {
 type ImagesReaderWriter interface {
 	ImagesReader
 	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
-	WriteImage(regname.Reference, regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
 
@@ -319,7 +319,7 @@ func (r *SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference
 }
 
 // WriteImage Upload Image to registry
-func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error {
+func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image, updatesCh chan regv1.Update) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -332,7 +332,9 @@ func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) erro
 	if err != nil {
 		return err
 	}
-
+	if updatesCh != nil {
+		opts = append(opts, regremote.WithProgress(updatesCh))
+	}
 	err = regremote.Write(overriddenRef, img, opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)

@@ -18,12 +18,13 @@ import (
 )
 
 type Contents struct {
-	paths         []string
-	excludedPaths []string
+	paths           []string
+	excludedPaths   []string
+	displayProgress bool
 }
 
 type ImagesWriter interface {
-	WriteImage(regname.Reference, regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteTag(ref regname.Tag, taggagle regremote.Taggable) error
 }
 
@@ -46,7 +47,8 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 
 	defer img.Remove()
 
-	err = writer.WriteImage(uploadRef, img)
+	err = writer.WriteImage(uploadRef, img, nil)
+
 	if err != nil {
 		return "", fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
 	}
