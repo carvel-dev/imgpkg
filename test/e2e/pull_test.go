@@ -186,8 +186,9 @@ func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
 	registry.Build()
 	defer registry.ResetHandler()
 
-	registry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) {
+	registry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) bool {
 		time.Sleep(5 * time.Second)
+		return false
 	})
 
 	actualErrOut := bytes.NewBufferString("")

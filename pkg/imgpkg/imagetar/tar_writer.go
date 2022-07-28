@@ -37,11 +37,21 @@ type TarWriter struct {
 	opts                  TarWriterOpts
 	ui                    goui.UI
 	imageLayerWriterCheck ImageLayerWriterFilter
+	layersFromOtherSource []regv1.Layer
 }
 
 // NewTarWriter constructor returning a mechanism to write image refs / layers to a tarball on disk.
-func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error), opts TarWriterOpts, ui goui.UI, imageLayerWriterCheck ImageLayerWriterFilter) *TarWriter {
-	return &TarWriter{ids: ids, dstOpener: dstOpener, opts: opts, ui: ui, imageLayerWriterCheck: imageLayerWriterCheck}
+func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error),
+	opts TarWriterOpts, ui goui.UI, imageLayerWriterCheck ImageLayerWriterFilter,
+	layersFromOtherSource []regv1.Layer) *TarWriter {
+	return &TarWriter{
+		ids:                   ids,
+		dstOpener:             dstOpener,
+		opts:                  opts,
+		ui:                    ui,
+		imageLayerWriterCheck: imageLayerWriterCheck,
+		layersFromOtherSource: layersFromOtherSource,
+	}
 }
 
 func (w *TarWriter) Write() error {
@@ -167,14 +177,30 @@ func (w *TarWriter) writeLayers() error {
 		if isInflatable {
 			stream = nil
 		} else {
-			foundLayer, err := w.ids.FindLayer(imgLayer)
-			if err != nil {
-				return err
+			for _, layer := range w.layersFromOtherSource {
+				d, err := layer.Digest()
+				if err != nil {
+					return fmt.Errorf("Retrieving digest: %s", err)
+				}
+				if d.String() == imgLayer.Digest {
+					stream, err = layer.Compressed()
+					if err != nil {
+						return fmt.Errorf("Retrieve layer from file: %s", err)
+					}
+					break
+				}
 			}
 
-			stream, err = foundLayer.Open()
-			if err != nil {
-				return err
+			if stream == nil {
+				foundLayer, err := w.ids.FindLayer(imgLayer)
+				if err != nil {
+					return err
+				}
+
+				stream, err = foundLayer.Open()
+				if err != nil {
+					return err
+				}
 			}
 		}
 

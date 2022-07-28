@@ -36,7 +36,8 @@ type CopyRepoSrc struct {
 	signatureRetriever SignatureRetriever
 }
 
-func (c CopyRepoSrc) CopyToTar(dstPath string) error {
+// CopyToTar copies image or bundle into the provided path
+func (c CopyRepoSrc) CopyToTar(dstPath string, resume bool) error {
 	c.ui.Tracef("CopyToTar\n")
 
 	unprocessedImageRefs, _, err := c.getAllSourceImages()
@@ -44,8 +45,8 @@ func (c CopyRepoSrc) CopyToTar(dstPath string) error {
 		return err
 	}
 
-	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry,
-		imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable))
+	c.ui.Tracef("Exporting images to tar\n")
+	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable), resume)
 	if err != nil {
 		return err
 	}

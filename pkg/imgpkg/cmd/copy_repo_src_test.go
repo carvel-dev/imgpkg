@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -79,7 +80,7 @@ func TestToTarBundle(t *testing.T) {
 		bundleTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(bundleTarPath)
 
-		err := subject.CopyToTar(bundleTarPath)
+		err := subject.CopyToTar(bundleTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsEveryLayer(t, bundleTarPath)
@@ -117,7 +118,7 @@ bundle:
 		bundleTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(bundleTarPath)
 
-		err = subject.CopyToTar(bundleTarPath)
+		err = subject.CopyToTar(bundleTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsOnlyDistributableLayers(bundleTarPath, t)
@@ -148,7 +149,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
@@ -160,7 +161,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		digest, err := nonDistributableLayer.Digest()
@@ -179,7 +180,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsEveryLayer(t, imageTarPath)
@@ -193,7 +194,7 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assert.NotContains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
@@ -223,7 +224,7 @@ images:
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsOnlyDistributableLayers(imageTarPath, t)
@@ -232,8 +233,10 @@ images:
 
 func TestToTarImage(t *testing.T) {
 	imageName := "library/image"
+	randomImageName := "my/image/one"
 	fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 	fakeRegistry.WithImageFromPath(imageName, "test_assets/image_with_config", map[string]string{})
+	fakeRegistry.WithRandomImageWithLayers(randomImageName, 20)
 	defer fakeRegistry.CleanUp()
 
 	subject := subject
@@ -246,7 +249,7 @@ func TestToTarImage(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsEveryLayer(t, imageTarPath)
@@ -259,7 +262,7 @@ func TestToTarImage(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
 		assertTarballContainsEveryLayer(t, imageTarPath)
@@ -273,10 +276,84 @@ func TestToTarImage(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		require.NoError(t, err)
 
-		assert.Contains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n")
+		require.Contains(t, stdOut.String(), "Warning: '--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n")
+	})
+
+	t.Run("When copy to tar fails the first time but second call with resume completes successfully", func(t *testing.T) {
+		numberOfRequests := 0
+		var failedDigest regv1.Hash
+		var layersInTar []regv1.Layer
+		fakeRegistry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) bool {
+			matched, err := regexp.MatchString("/v2/.+/blobs", request.URL.Path)
+			require.NoError(t, err)
+
+			if matched && request.Method == "GET" {
+				parts := strings.Split(request.URL.Path, "/")
+				sha := parts[len(parts)-1]
+				hash, err := regv1.NewHash(sha)
+				// This loop ensures that if a layer is in the tar already we can return gibberish\
+				// because imgpkg is not going to use this information
+				for _, layer := range layersInTar {
+					digest, err := layer.Digest()
+					require.NoError(t, err)
+					if hash.String() == digest.String() {
+						size, err := layer.Size()
+						require.NoError(t, err)
+						bs := make([]byte, size)
+						writer.Write(bs)
+						return true
+					}
+				}
+
+				numberOfRequests++
+				// This if statement makes sure that in the 5th layer that imgpkg tries to retrieve some gibberish
+				// is returned to simulate a failure in communication
+				if numberOfRequests == 5 {
+					require.NoError(t, err)
+					if !fakeRegistry.IsConfigBlobLayer(hash) {
+						layer, err := fakeRegistry.Layer(hash)
+						require.NoError(t, err)
+						size, err := layer.Size()
+						require.NoError(t, err)
+						writer.WriteHeader(http.StatusOK)
+						bs := make([]byte, size)
+						writer.Write(bs)
+						failedDigest = hash
+						return true
+					}
+
+					// Found configuration layer, it doesn't count as content blob
+					numberOfRequests--
+				}
+			}
+
+			return false
+		})
+
+		imageTarPath := filepath.Join(os.TempDir(), " imgpkg-test-img.tar")
+		if _, err := os.Stat(imageTarPath); err == nil {
+			os.Remove(imageTarPath)
+		}
+		defer os.Remove(imageTarPath)
+
+		subject := subject
+		subject.ImageFlags = ImageFlags{
+			fakeRegistry.ReferenceOnTestServer(randomImageName),
+		}
+		err := subject.CopyToTar(imageTarPath, false)
+		require.ErrorContains(t, err, "error verifying sha256 checksum")
+		layersInTar, err = imagetar.NewTarReader(imageTarPath).PresentLayers()
+		require.NoError(t, err)
+		require.Greater(t, len(layersInTar), 1)
+		require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
+
+		err = subject.CopyToTar(imageTarPath, true)
+		require.NoError(t, err)
+
+		assertTarballContainsEveryLayer(t, imageTarPath)
 	})
 }
 
@@ -296,7 +373,7 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		if err != nil {
 			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
 		}
@@ -310,7 +387,7 @@ func TestToTarImageContainingNonDistributableLayers(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		if err != nil {
 			t.Fatalf("Expected CopyToTar() to succeed but got: %s", err)
 		}
@@ -335,7 +412,7 @@ func TestToTarImageIndex(t *testing.T) {
 		imageTarPath := filepath.Join(os.TempDir(), "bundle.tar")
 		defer os.Remove(imageTarPath)
 
-		err := subject.CopyToTar(imageTarPath)
+		err := subject.CopyToTar(imageTarPath, false)
 		assert.NoError(t, err)
 
 		assertTarballContainsEveryImageInImageIndex(t, imageTarPath, int(numOfImagesForImageIndex))
@@ -642,7 +719,7 @@ func TestToRepoBundleCreatesValidLocationOCI(t *testing.T) {
 		destRepo := fakeRegistry.ReferenceOnTestServer("library/bundle-copy")
 
 		logger.Section("create Tar file with bundle", func() {
-			err := subject.CopyToTar(tarFile)
+			err := subject.CopyToTar(tarFile, false)
 			require.NoError(t, err)
 		})
 
@@ -781,7 +858,7 @@ func TestToRepoFromTar(t *testing.T) {
 		subject.registry = fakeRegistry.Build()
 
 		logger.Section("create Tar file with bundle", func() {
-			err := subject.CopyToTar(tarFile)
+			err := subject.CopyToTar(tarFile, false)
 			require.NoError(t, err)
 		})
 

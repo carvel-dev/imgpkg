@@ -48,7 +48,8 @@ type FakeTestRegistryBuilder struct {
 // NewFakeRegistry Creates a registry that uses the ggcr version
 func NewFakeRegistry(t *testing.T, logger *Logger) *FakeTestRegistryBuilder {
 	r := &FakeTestRegistryBuilder{images: map[string]*ImageOrImageIndexWithTarPath{}, t: t, logger: logger}
-	r.server = httptest.NewServer(regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0))))
+	reg := regregistry.New(regregistry.Logger(log.New(io.Discard, "", 0)))
+	r.server = httptest.NewServer(reg)
 
 	r.auth = authn.Anonymous
 	return r
@@ -119,6 +120,47 @@ func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) regi
 	reg, err := registry.NewSimpleRegistry(opts)
 	assert.NoError(r.t, err)
 	return reg
+}
+
+// IsConfigBlobLayer checks if digest is from configuration blob
+func (r *FakeTestRegistryBuilder) IsConfigBlobLayer(digest v1.Hash) bool {
+	for _, img := range r.images {
+		if img.Image != nil {
+			m, err := img.Image.Manifest()
+			if err != nil {
+				panic(fmt.Sprintf("Something went wrong..... %s", err))
+			}
+			if m.Config.Digest == digest {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// Layer retrieves a layer from images
+// At this point the function does *NOT* search on Indexes
+func (r *FakeTestRegistryBuilder) Layer(digest v1.Hash) (v1.Layer, error) {
+	for _, img := range r.images {
+		if img.Image != nil {
+			layers, err := img.Image.Layers()
+			if err != nil {
+				return nil, err
+			}
+			for _, layer := range layers {
+				h, err := layer.Digest()
+				if err != nil {
+					return nil, err
+				}
+				if h.Hex == digest.Hex {
+					return layer, nil
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("Unable to find layer with digest '%s'", digest.String())
 }
 
 func (r *FakeTestRegistryBuilder) WithBasicAuth(username string, password string) {
@@ -410,8 +452,14 @@ func (r *FakeTestRegistryBuilder) WithLocationsImage(bundleRef string, tmpFolder
 	return r.WithImageFromPath(bundleRefDigest.Context().Tag(locationsImageTag).Name(), folder, nil)
 }
 
+// WithRandomImage adds a new random image with 3 layers
 func (r *FakeTestRegistryBuilder) WithRandomImage(imageNameFromTest string) *ImageOrImageIndexWithTarPath {
-	img, err := random.Image(500, 3)
+	return r.WithRandomImageWithLayers(imageNameFromTest, 3)
+}
+
+// WithRandomImageWithLayers adds a new random image with n number of layers provided
+func (r *FakeTestRegistryBuilder) WithRandomImageWithLayers(imageNameFromTest string, n int64) *ImageOrImageIndexWithTarPath {
+	img, err := random.Image(500, n)
 	require.NoError(r.t, err, "create image from tar")
 
 	newImg := r.updateState(imageNameFromTest, img, nil, "", "")
@@ -644,12 +692,16 @@ func (r *FakeTestRegistryBuilder) ResetHandler() *FakeTestRegistryBuilder {
 	return r
 }
 
-func (r *FakeTestRegistryBuilder) WithCustomHandler(handler http.HandlerFunc) {
+// WithCustomHandler Adds the provided http handler that will be called before the default one
+// If the provided handler returns true it means that no further processing is needed.
+// this will skip any further handlers
+func (r *FakeTestRegistryBuilder) WithCustomHandler(handler func(http.ResponseWriter, *http.Request) bool) {
 	parentHandler := r.server.Config.Handler
 
 	r.server.Config.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		handler(writer, request)
-		parentHandler.ServeHTTP(writer, request)
+		if !handler(writer, request) {
+			parentHandler.ServeHTTP(writer, request)
+		}
 	})
 }
 
