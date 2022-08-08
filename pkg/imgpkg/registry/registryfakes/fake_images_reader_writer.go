@@ -7,10 +7,22 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type FakeImagesReaderWriter struct {
+	CloneWithLoggerStub        func(util.ProgressLogger) registry.Registry
+	cloneWithLoggerMutex       sync.RWMutex
+	cloneWithLoggerArgsForCall []struct {
+		arg1 util.ProgressLogger
+	}
+	cloneWithLoggerReturns struct {
+		result1 registry.Registry
+	}
+	cloneWithLoggerReturnsOnCall map[int]struct {
+		result1 registry.Registry
+	}
 	CloneWithSingleAuthStub        func(name.Tag) (registry.Registry, error)
 	cloneWithSingleAuthMutex       sync.RWMutex
 	cloneWithSingleAuthArgsForCall []struct {
@@ -102,11 +114,12 @@ type FakeImagesReaderWriter struct {
 	multiWriteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	WriteImageStub        func(name.Reference, v1.Image) error
+	WriteImageStub        func(name.Reference, v1.Image, chan v1.Update) error
 	writeImageMutex       sync.RWMutex
 	writeImageArgsForCall []struct {
 		arg1 name.Reference
 		arg2 v1.Image
+		arg3 chan v1.Update
 	}
 	writeImageReturns struct {
 		result1 error
@@ -140,6 +153,67 @@ type FakeImagesReaderWriter struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLogger(arg1 util.ProgressLogger) registry.Registry {
+	fake.cloneWithLoggerMutex.Lock()
+	ret, specificReturn := fake.cloneWithLoggerReturnsOnCall[len(fake.cloneWithLoggerArgsForCall)]
+	fake.cloneWithLoggerArgsForCall = append(fake.cloneWithLoggerArgsForCall, struct {
+		arg1 util.ProgressLogger
+	}{arg1})
+	stub := fake.CloneWithLoggerStub
+	fakeReturns := fake.cloneWithLoggerReturns
+	fake.recordInvocation("CloneWithLogger", []interface{}{arg1})
+	fake.cloneWithLoggerMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLoggerCallCount() int {
+	fake.cloneWithLoggerMutex.RLock()
+	defer fake.cloneWithLoggerMutex.RUnlock()
+	return len(fake.cloneWithLoggerArgsForCall)
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLoggerCalls(stub func(util.ProgressLogger) registry.Registry) {
+	fake.cloneWithLoggerMutex.Lock()
+	defer fake.cloneWithLoggerMutex.Unlock()
+	fake.CloneWithLoggerStub = stub
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLoggerArgsForCall(i int) util.ProgressLogger {
+	fake.cloneWithLoggerMutex.RLock()
+	defer fake.cloneWithLoggerMutex.RUnlock()
+	argsForCall := fake.cloneWithLoggerArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLoggerReturns(result1 registry.Registry) {
+	fake.cloneWithLoggerMutex.Lock()
+	defer fake.cloneWithLoggerMutex.Unlock()
+	fake.CloneWithLoggerStub = nil
+	fake.cloneWithLoggerReturns = struct {
+		result1 registry.Registry
+	}{result1}
+}
+
+func (fake *FakeImagesReaderWriter) CloneWithLoggerReturnsOnCall(i int, result1 registry.Registry) {
+	fake.cloneWithLoggerMutex.Lock()
+	defer fake.cloneWithLoggerMutex.Unlock()
+	fake.CloneWithLoggerStub = nil
+	if fake.cloneWithLoggerReturnsOnCall == nil {
+		fake.cloneWithLoggerReturnsOnCall = make(map[int]struct {
+			result1 registry.Registry
+		})
+	}
+	fake.cloneWithLoggerReturnsOnCall[i] = struct {
+		result1 registry.Registry
+	}{result1}
 }
 
 func (fake *FakeImagesReaderWriter) CloneWithSingleAuth(arg1 name.Tag) (registry.Registry, error) {
@@ -594,19 +668,20 @@ func (fake *FakeImagesReaderWriter) MultiWriteReturnsOnCall(i int, result1 error
 	}{result1}
 }
 
-func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Image, arg3 chan v1.Update ) error {
+func (fake *FakeImagesReaderWriter) WriteImage(arg1 name.Reference, arg2 v1.Image, arg3 chan v1.Update) error {
 	fake.writeImageMutex.Lock()
 	ret, specificReturn := fake.writeImageReturnsOnCall[len(fake.writeImageArgsForCall)]
 	fake.writeImageArgsForCall = append(fake.writeImageArgsForCall, struct {
 		arg1 name.Reference
 		arg2 v1.Image
-	}{arg1, arg2})
+		arg3 chan v1.Update
+	}{arg1, arg2, arg3})
 	stub := fake.WriteImageStub
 	fakeReturns := fake.writeImageReturns
-	fake.recordInvocation("WriteImage", []interface{}{arg1, arg2})
+	fake.recordInvocation("WriteImage", []interface{}{arg1, arg2, arg3})
 	fake.writeImageMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -620,17 +695,17 @@ func (fake *FakeImagesReaderWriter) WriteImageCallCount() int {
 	return len(fake.writeImageArgsForCall)
 }
 
-func (fake *FakeImagesReaderWriter) WriteImageCalls(stub func(name.Reference, v1.Image) error) {
+func (fake *FakeImagesReaderWriter) WriteImageCalls(stub func(name.Reference, v1.Image, chan v1.Update) error) {
 	fake.writeImageMutex.Lock()
 	defer fake.writeImageMutex.Unlock()
 	fake.WriteImageStub = stub
 }
 
-func (fake *FakeImagesReaderWriter) WriteImageArgsForCall(i int) (name.Reference, v1.Image) {
+func (fake *FakeImagesReaderWriter) WriteImageArgsForCall(i int) (name.Reference, v1.Image, chan v1.Update) {
 	fake.writeImageMutex.RLock()
 	defer fake.writeImageMutex.RUnlock()
 	argsForCall := fake.writeImageArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeImagesReaderWriter) WriteImageReturns(result1 error) {
@@ -783,6 +858,8 @@ func (fake *FakeImagesReaderWriter) WriteTagReturnsOnCall(i int, result1 error) 
 func (fake *FakeImagesReaderWriter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.cloneWithLoggerMutex.RLock()
+	defer fake.cloneWithLoggerMutex.RUnlock()
 	fake.cloneWithSingleAuthMutex.RLock()
 	defer fake.cloneWithSingleAuthMutex.RUnlock()
 	fake.digestMutex.RLock()

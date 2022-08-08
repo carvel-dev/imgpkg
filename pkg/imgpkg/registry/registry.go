@@ -20,6 +20,7 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -57,6 +58,7 @@ type Registry interface {
 	ListTags(repo regname.Repository) ([]string, error)
 
 	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
+	CloneWithLogger(logger util.ProgressLogger) Registry
 }
 
 // ImagesReader Interface for Reading Images
@@ -79,6 +81,7 @@ type ImagesReaderWriter interface {
 	WriteTag(regname.Tag, regremote.Taggable) error
 
 	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
+	CloneWithLogger(logger util.ProgressLogger) Registry
 }
 
 var _ Registry = &SimpleRegistry{}
@@ -188,6 +191,18 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 		roundTrippers:   NewSingleTripperStorage(rt),
 		transportAccess: &sync.Mutex{},
 	}, nil
+}
+
+// CloneWithLogger Clones the provided registry updating the progress logger to NoTTYLogger
+// that does not display the progress bar
+func (r SimpleRegistry) CloneWithLogger(_ util.ProgressLogger) Registry {
+	return &SimpleRegistry{
+		remoteOpts:      r.remoteOpts,
+		refOpts:         r.refOpts,
+		keychain:        r.keychain,
+		roundTrippers:   r.roundTrippers,
+		transportAccess: &sync.Mutex{},
+	}
 }
 
 // readOpts Returns the readOpts + the keychain
