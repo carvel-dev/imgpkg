@@ -18,9 +18,8 @@ import (
 )
 
 type Contents struct {
-	paths           []string
-	excludedPaths   []string
-	displayProgress bool
+	paths         []string
+	excludedPaths []string
 }
 
 type ImagesWriter interface {

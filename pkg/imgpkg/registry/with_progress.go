@@ -4,7 +4,7 @@
 package registry
 
 import (
-	context "context"
+	"context"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
