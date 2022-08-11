@@ -20,6 +20,7 @@ import (
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -50,13 +51,14 @@ type Registry interface {
 	FirstImageExists(digests []string) (string, error)
 
 	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
-	WriteImage(reference regname.Reference, image regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteIndex(reference regname.Reference, index regv1.ImageIndex) error
 	WriteTag(tag regname.Tag, taggable regremote.Taggable) error
 
 	ListTags(repo regname.Repository) ([]string, error)
 
 	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
+	CloneWithLogger(logger util.ProgressLogger) Registry
 }
 
 // ImagesReader Interface for Reading Images
@@ -74,11 +76,12 @@ type ImagesReader interface {
 type ImagesReaderWriter interface {
 	ImagesReader
 	MultiWrite(imageOrIndexesToUpload map[regname.Reference]regremote.Taggable, concurrency int, updatesCh chan regv1.Update) error
-	WriteImage(regname.Reference, regv1.Image) error
+	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteIndex(regname.Reference, regv1.ImageIndex) error
 	WriteTag(regname.Tag, regremote.Taggable) error
 
 	CloneWithSingleAuth(imageRef regname.Tag) (Registry, error)
+	CloneWithLogger(logger util.ProgressLogger) Registry
 }
 
 var _ Registry = &SimpleRegistry{}
@@ -188,6 +191,18 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 		roundTrippers:   NewSingleTripperStorage(rt),
 		transportAccess: &sync.Mutex{},
 	}, nil
+}
+
+// CloneWithLogger Clones the provided registry updating the progress logger to NoTTYLogger
+// that does not display the progress bar
+func (r SimpleRegistry) CloneWithLogger(_ util.ProgressLogger) Registry {
+	return &SimpleRegistry{
+		remoteOpts:      r.remoteOpts,
+		refOpts:         r.refOpts,
+		keychain:        r.keychain,
+		roundTrippers:   r.roundTrippers,
+		transportAccess: &sync.Mutex{},
+	}
 }
 
 // readOpts Returns the readOpts + the keychain
@@ -319,7 +334,7 @@ func (r *SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference
 }
 
 // WriteImage Upload Image to registry
-func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) error {
+func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image, updatesCh chan regv1.Update) error {
 	if err := r.validateRef(ref); err != nil {
 		return err
 	}
@@ -332,7 +347,9 @@ func (r *SimpleRegistry) WriteImage(ref regname.Reference, img regv1.Image) erro
 	if err != nil {
 		return err
 	}
-
+	if updatesCh != nil {
+		opts = append(opts, regremote.WithProgress(updatesCh))
+	}
 	err = regremote.Write(overriddenRef, img, opts...)
 	if err != nil {
 		return fmt.Errorf("Writing image: %s", err)

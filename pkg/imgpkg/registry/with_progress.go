@@ -4,6 +4,8 @@
 package registry
 
 import (
+	"context"
+
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -50,15 +52,19 @@ func (w *WithProgress) FirstImageExists(digests []string) (string, error) {
 // MultiWrite Upload multiple Images in Parallel to the Registry
 func (w *WithProgress) MultiWrite(imageOrIndexesToUpload map[regname.Reference]remote.Taggable, concurrency int, _ chan regv1.Update) error {
 	uploadProgress := make(chan regv1.Update)
-	w.logger.Start(uploadProgress)
+	w.logger.Start(context.Background(), uploadProgress)
 	defer w.logger.End()
 
 	return w.delegate.MultiWrite(imageOrIndexesToUpload, concurrency, uploadProgress)
 }
 
 // WriteImage Upload Image to registry
-func (w *WithProgress) WriteImage(reference regname.Reference, image regv1.Image) error {
-	return w.delegate.WriteImage(reference, image)
+func (w *WithProgress) WriteImage(reference regname.Reference, image regv1.Image, _ chan regv1.Update) error {
+	uploadProgress := make(chan regv1.Update)
+	w.logger.Start(context.Background(), uploadProgress)
+	defer w.logger.End()
+
+	return w.delegate.WriteImage(reference, image, uploadProgress)
 }
 
 // WriteIndex Uploads the Index manifest to the registry
@@ -86,4 +92,9 @@ func (w WithProgress) CloneWithSingleAuth(imageRef regname.Tag) (Registry, error
 	}
 
 	return &WithProgress{delegate: delegate}, nil
+}
+
+// CloneWithLogger Clones the provided registry updating the progress
+func (w WithProgress) CloneWithLogger(logger util.ProgressLogger) Registry {
+	return &WithProgress{delegate: w.delegate, logger: logger}
 }
