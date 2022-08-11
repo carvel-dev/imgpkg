@@ -31,6 +31,7 @@ type Logger interface {
 	Debugf(msg string, args ...interface{})
 	Tracef(msg string, args ...interface{})
 	Logf(msg string, args ...interface{})
+	UI() goui.UI
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesLockReader
@@ -45,10 +46,22 @@ type ImagesMetadata interface {
 	FirstImageExists(digests []string) (string, error)
 }
 
+// GraphNode Node information of a Bundle
+type GraphNode struct {
+	Path          string
+	ImageRef      string
+	NestedBundles []GraphNode
+}
+
+// Bundle struct that represents a bundle
 type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
+
+	// cachedNestedBundleGraph stores a graph with all the nested
+	// bundles associated with the current bundle
+	cachedNestedBundleGraph []GraphNode
 
 	// cachedImageRefs stores set of ImageRefs that were
 	// discovered as part of reading the bundle.
@@ -81,6 +94,9 @@ func (o *Bundle) Repo() string { return o.plainImg.Repo() }
 
 // Tag Bundle Tag
 func (o *Bundle) Tag() string { return o.plainImg.Tag() }
+
+// NestedBundles Provides information about the Graph of nested bundles associated with the current bundle
+func (o *Bundle) NestedBundles() []GraphNode { return o.cachedNestedBundleGraph }
 
 func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
 	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)
@@ -149,10 +165,11 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	return NewLocations(ui).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
 }
 
-func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
+// Pull Downloads bundle image to disk and checks if it can update the ImagesLock file
+func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) (bool, error) {
 	isRootBundleRelocated, err := o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	ui.BeginLinef("\nLocating image lock file images...\n")
@@ -161,7 +178,7 @@ func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) err
 	} else {
 		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
 	}
-	return nil
+	return isRootBundleRelocated, nil
 }
 
 func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) (bool, error) {
@@ -246,6 +263,12 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			if err != nil {
 				return false, err
 			}
+
+			o.cachedNestedBundleGraph = append(o.cachedNestedBundleGraph, GraphNode{
+				Path:          filepath.Join(baseOutputPath, o.subBundlePath(bundleDigest)),
+				ImageRef:      bundleImgRef.PrimaryLocation(),
+				NestedBundles: subBundle.cachedNestedBundleGraph,
+			})
 		}
 	}
 

@@ -105,7 +105,7 @@ func (c *CopyOptions) Run() error {
 
 	prefixedLogger := util.NewUIPrefixedWriter("copy | ", c.ui)
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
-	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
+	imagesUploaderLogger := util.NewProgressBar(levelLogger.UI(), "done uploading images", "Error uploading images")
 
 	var tagGen util.TagGenerator
 	tagGen = util.DefaultTagGenerator{}

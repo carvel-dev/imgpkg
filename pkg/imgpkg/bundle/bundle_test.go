@@ -39,7 +39,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -68,7 +68,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 		require.DirExists(t, outputPath)
 
@@ -96,7 +96,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -122,7 +122,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -151,7 +151,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		// assert icecream bundle was recursively pulled onto disk
@@ -202,7 +202,7 @@ func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -260,7 +260,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		outputDirImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(icecreamBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
@@ -342,7 +342,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -410,7 +410,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -478,7 +478,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -542,7 +542,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -579,7 +579,7 @@ func TestPullBundleOutputToUser(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -606,7 +606,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -648,7 +648,7 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -680,7 +680,7 @@ The bundle repo \(%s\) is hosting every image specified in the bundle's Images L
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		icecreamBundleName := fakeRegistry.ReferenceOnTestServer("icecream/bundle")
@@ -724,7 +724,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -768,7 +768,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleW
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, writerUI, pullNestedBundles)
 		require.NoError(t, err)
 
 		//assert log message

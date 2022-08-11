@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	goui "github.com/cppforlife/go-cli-ui/ui"
 )
 
 type LogLevel int
@@ -45,6 +47,11 @@ func (l Logger) Tracef(msg string, args ...interface{}) {
 	if l.LogLevel == LogTrace {
 		fmt.Printf(msg, args...)
 	}
+}
+
+// UI returns the UI associated with the logger
+func (l Logger) UI() goui.UI {
+	return goui.NewConfUI(goui.NewNoopLogger())
 }
 
 func init() {

@@ -15,6 +15,7 @@ type UIWithLevels interface {
 	Debugf(msg string, args ...interface{})
 	Tracef(msg string, args ...interface{})
 	Logf(msg string, args ...interface{})
+	UI() goui.UI
 }
 
 const (
@@ -29,14 +30,14 @@ const (
 // NewUILevelLogger is a UILevelWriter constructor, wrapping a ui.UI with a specific log level
 func NewUILevelLogger(level LogLevel, ui goui.UI) *UILevelWriter {
 	return &UILevelWriter{
-		UI:       ui,
+		ui:       ui,
 		LogLevel: level,
 	}
 }
 
 // UILevelWriter allows specifying a log level to a ui.UI
 type UILevelWriter struct {
-	goui.UI
+	ui       goui.UI
 	LogLevel LogLevel
 }
 
@@ -54,7 +55,7 @@ func (l UILevelWriter) Warnf(msg string, args ...interface{}) {
 
 // Logf logs the provided message
 func (l UILevelWriter) Logf(msg string, args ...interface{}) {
-	l.BeginLinef(msg, args...)
+	l.ui.BeginLinef(msg, args...)
 }
 
 // Debugf used to log debug related messages
@@ -69,4 +70,9 @@ func (l UILevelWriter) Tracef(msg string, args ...interface{}) {
 	if l.LogLevel == LogTrace {
 		l.Logf(msg, args...)
 	}
+}
+
+// UI Provides the goui.UI used by the logger
+func (l UILevelWriter) UI() goui.UI {
+	return l.ui
 }
