@@ -110,6 +110,8 @@ func (r LocationsConfigs) LocationsImageDigest(registry ImagesMetadata, bundleRe
 	return bundleRef.Digest(digest.String()), nil
 }
 
+// Save the locations information for the bundle in the registry
+// This function will create an OCI Image that contains the Location information of all the images that are part of the Bundle
 func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, logger Logger) error {
 	r.ui.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
 

@@ -22,6 +22,7 @@ type Logger interface {
 	Logf(string, ...interface{})
 }
 
+// PlainImage struct that represents an OCI Image
 type PlainImage struct {
 	imagesDescriptor ImagesDescriptor
 
@@ -32,10 +33,13 @@ type PlainImage struct {
 	fetchedImage regv1.Image
 }
 
+// NewPlainImage creates the struct that represents the OCI Image referenced by ref
 func NewPlainImage(ref string, imgDescriptor ImagesDescriptor) *PlainImage {
 	return &PlainImage{unparsedRef: ref, imagesDescriptor: imgDescriptor}
 }
 
+// NewFetchedPlainImageWithTag creates the struct that represents the OCI Image reference by the fetchedImage
+// This function should only be used after an initial retrieval of information from registry
 func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv1.Image) *PlainImage {
 	if fetchedImage == nil {
 		panic("Expected a pre-fetched image")
@@ -63,6 +67,7 @@ func NewFetchedPlainImageWithTag(digestRef string, tag string, fetchedImage regv
 	}
 }
 
+// Repo Repository where the image is stored
 func (i *PlainImage) Repo() string {
 	if i.parsedRef == nil {
 		panic("Unexpected usage of Repo(); call Fetch before")
@@ -92,6 +97,7 @@ func (i *PlainImage) Digest() string {
 	return i.parsedDigest
 }
 
+// Tag of the image or "" if the image is referenced by digest
 func (i *PlainImage) Tag() string {
 	if i.parsedRef == nil {
 		panic("Unexpected usage of Tag(); call Fetch before")
@@ -102,6 +108,7 @@ func (i *PlainImage) Tag() string {
 	return "" // was a digest ref, so no tag
 }
 
+// Fetch the information about the referenced image
 func (i *PlainImage) Fetch() (regv1.Image, error) {
 	var err error
 	if i.fetchedImage != nil {
@@ -138,6 +145,7 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 	return i.fetchedImage, nil
 }
 
+// IsImage checks if the provided reference is an OCI Image
 func (i *PlainImage) IsImage() (bool, error) {
 	img, err := i.Fetch()
 	if img == nil && err == nil {
@@ -154,6 +162,7 @@ func (i *PlainImage) IsImage() (bool, error) {
 	return true, nil
 }
 
+// Pull the OCI Image to disk
 func (i *PlainImage) Pull(outputPath string, logger Logger) error {
 	img, err := i.Fetch()
 	if err != nil {

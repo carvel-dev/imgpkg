@@ -95,6 +95,7 @@ func (l LevelLogger) Tracef(msg string, args ...interface{}) {
 	}
 }
 
+// Level retrieve the current log level for this logger
 func (l LevelLogger) Level() LogLevel {
 	return l.LogLevel
 }

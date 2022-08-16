@@ -27,10 +27,13 @@ type DirImage struct {
 	logger      Logger
 }
 
+// NewDirImage given an OCI Image representation creates a struct that will allow that image to be
+// extracted into the provided directory
 func NewDirImage(dirPath string, img regv1.Image, logger Logger) *DirImage {
 	return &DirImage{dirPath, img, os.Getuid() == 0, logger}
 }
 
+// AsDirectory extracts the OCI image to the provided location in disk
 func (i *DirImage) AsDirectory() error {
 	err := os.RemoveAll(i.dirPath)
 	if err != nil {

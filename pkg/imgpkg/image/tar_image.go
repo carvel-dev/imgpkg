@@ -21,10 +21,12 @@ type TarImage struct {
 	logger       Logger
 }
 
+// NewTarImage creates a struct that will allow users to create a representation of a set of paths as an OCI Image
 func NewTarImage(files []string, excludePaths []string, logger Logger) *TarImage {
 	return &TarImage{files, excludePaths, logger}
 }
 
+// AsFileImage Creates an OCI Image representation of the provided folders
 func (i *TarImage) AsFileImage(labels map[string]string) (*FileImage, error) {
 	tmpFile, err := ioutil.TempFile("", "imgpkg-tar-image")
 	if err != nil {

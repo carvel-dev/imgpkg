@@ -40,6 +40,7 @@ func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
+// Push the contents of the bundle to the registry as an OCI Image
 func (b Contents) Push(uploadRef regname.Tag, registry ImagesMetadataWriter, logger Logger) (string, error) {
 	err := b.validate()
 	if err != nil {
@@ -50,6 +51,7 @@ func (b Contents) Push(uploadRef regname.Tag, registry ImagesMetadataWriter, log
 	return plainimage.NewContents(b.paths, b.excludedPaths).Push(uploadRef, labels, registry, logger)
 }
 
+// PresentsAsBundle checks if the provided folders have the needed structure to be a bundle
 func (b Contents) PresentsAsBundle() (bool, error) {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
