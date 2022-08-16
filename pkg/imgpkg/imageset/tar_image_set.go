@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
@@ -20,12 +19,12 @@ import (
 type TarImageSet struct {
 	imageSet    ImageSet
 	concurrency int
-	ui          goui.UI
+	logger      Logger
 }
 
 // NewTarImageSet provides export/import operations on a tarball for a set of images
-func NewTarImageSet(imageSet ImageSet, concurrency int, ui goui.UI) TarImageSet {
-	return TarImageSet{imageSet, concurrency, ui}
+func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger) TarImageSet {
+	return TarImageSet{imageSet, concurrency, logger}
 }
 
 // Export Creates a Tar with the provided Images
@@ -72,7 +71,7 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 				return nil, fmt.Errorf("Reading previously created tar '%s': %s", outputPath, err)
 			}
 
-			i.ui.BeginLinef("Going to reuse %d layers from the tar already in disk\n", len(alreadyDownloadedLayers))
+			i.logger.Logf("Going to reuse %d layers from the tar already in disk\n", len(alreadyDownloadedLayers))
 		}
 	}
 
@@ -116,11 +115,11 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 		return os.OpenFile(outputPath, os.O_RDWR, 0755)
 	}
 
-	i.ui.BeginLinef("writing layers...\n")
+	i.logger.Logf("writing layers...\n")
 
 	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
 
-	err = imagetar.NewTarWriter(ids, outputFileOpener, opts, i.ui, imageLayerWriterCheck, alreadyDownloadedLayers).Write()
+	err = imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck, alreadyDownloadedLayers).Write()
 	return ids, err
 }
 

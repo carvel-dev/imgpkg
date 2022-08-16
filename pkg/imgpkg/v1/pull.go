@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
@@ -20,7 +19,7 @@ type Logger interface {
 	Warnf(msg string, args ...interface{})
 	Debugf(msg string, args ...interface{})
 	Tracef(msg string, args ...interface{})
-	UI() goui.UI
+	Logf(msg string, args ...interface{})
 }
 
 // PullOpts Option that can be provided to the pull request
@@ -141,7 +140,7 @@ func PullRecursive(imageRef string, outputPath string, pullOptions PullOpts, reg
 // pullBundle Downloads the contents of the Bundle Image referenced by imageRef to the folder outputPath.
 // This functions should error out when imageRef does not point to a Bundle
 func pullBundle(imgRef string, bundleToPull *bundle.Bundle, outputPath string, pullOptions PullOpts, pullNestedBundles bool) (Status, error) {
-	isRootBundleRelocated, err := bundleToPull.Pull(outputPath, pullOptions.Logger.UI(), pullNestedBundles)
+	isRootBundleRelocated, err := bundleToPull.Pull(outputPath, pullOptions.Logger, pullNestedBundles)
 	if err != nil {
 		return Status{}, err
 	}
@@ -176,7 +175,7 @@ func pullImage(imageRef string, outputPath string, pullOptions PullOpts, reg reg
 		return Status{}, fmt.Errorf("Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
 	}
 
-	err = plainImg.Pull(outputPath, pullOptions.Logger.UI())
+	err = plainImg.Pull(outputPath, pullOptions.Logger)
 	if err != nil {
 		return Status{}, err
 	}

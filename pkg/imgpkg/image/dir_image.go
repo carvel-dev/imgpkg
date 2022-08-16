@@ -12,19 +12,23 @@ import (
 	"runtime"
 	"strings"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 )
+
+// Logger used to print messages
+type Logger interface {
+	Logf(msg string, args ...interface{})
+}
 
 type DirImage struct {
 	dirPath     string
 	img         regv1.Image
 	shouldChown bool
-	ui          goui.UI
+	logger      Logger
 }
 
-func NewDirImage(dirPath string, img regv1.Image, ui goui.UI) *DirImage {
-	return &DirImage{dirPath, img, os.Getuid() == 0, ui}
+func NewDirImage(dirPath string, img regv1.Image, logger Logger) *DirImage {
+	return &DirImage{dirPath, img, os.Getuid() == 0, logger}
 }
 
 func (i *DirImage) AsDirectory() error {
@@ -49,7 +53,7 @@ func (i *DirImage) AsDirectory() error {
 			return err
 		}
 
-		i.ui.BeginLinef("Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
+		i.logger.Logf("Extracting layer '%s' (%d/%d)\n", digest, idx+1, len(layers))
 
 		layerStream, err := imgLayer.Uncompressed()
 		if err != nil {

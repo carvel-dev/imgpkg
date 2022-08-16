@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -31,13 +30,13 @@ func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
-func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, ui ui.UI) (string, error) {
+func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, logger Logger) (string, error) {
 	err := i.validate()
 	if err != nil {
 		return "", err
 	}
 
-	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, InfoLog{ui})
+	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, logger)
 
 	img, err := tarImg.AsFileImage(labels)
 	if err != nil {

@@ -63,7 +63,7 @@ func (d *DescribeOptions) Run() error {
 		return err
 	}
 
-	levelLogger := util.NewUILevelLogger(util.LogWarn, d.ui)
+	levelLogger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(d.ui))
 	description, err := bundle.Describe(
 		d.BundleFlags.Bundle,
 		bundle.DescribeOpts{
@@ -77,10 +77,10 @@ func (d *DescribeOptions) Run() error {
 	}
 
 	if d.OutputType == "text" {
-		p := bundleTextPrinter{ui: d.ui}
+		p := bundleTextPrinter{logger: levelLogger}
 		p.Print(description)
 	} else if d.OutputType == "yaml" {
-		p := bundleYAMLPrinter{ui: d.ui}
+		p := bundleYAMLPrinter{logger: levelLogger}
 		return p.Print(description)
 	}
 	return nil
@@ -101,72 +101,71 @@ func (d *DescribeOptions) validateFlags() error {
 }
 
 type bundleTextPrinter struct {
-	ui goui.UI
+	logger Logger
 }
 
 func (p bundleTextPrinter) Print(description bundle.Description) {
-	logger := util.NewUIPrefixedWriter("", p.ui)
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {
 		panic(fmt.Sprintf("Internal consistency: expected %s to be a digest reference", description.Image))
 	}
-	logger.BeginLinef("Bundle SHA: %s\n", bundleRef.Identifier())
+	p.logger.Logf("Bundle SHA: %s\n", bundleRef.Identifier())
 
-	logger.BeginLinef("\n")
-	p.printerRec(description, logger, logger)
+	p.logger.Logf("\n")
+	p.printerRec(description, p.logger, p.logger)
 }
 
-func (p bundleTextPrinter) printerRec(description bundle.Description, originalLogger goui.UI, logger goui.UI) {
-	indentLogger := goui.NewIndentingUI(logger)
+func (p bundleTextPrinter) printerRec(description bundle.Description, originalLogger Logger, logger Logger) {
+	indentLogger := util.NewIndentedLogger(logger)
 	if len(description.Content.Bundles) == 0 && len(description.Content.Images) == 0 {
 		return
 	}
 	if originalLogger == logger {
-		originalLogger.BeginLinef("Images:\n")
+		originalLogger.Logf("Images:\n")
 	} else {
-		indentLogger.BeginLinef("Images:\n")
+		indentLogger.Logf("Images:\n")
 	}
 	firstBundle := true
 	for _, b := range description.Content.Bundles {
 		if !firstBundle {
-			originalLogger.BeginLinef("\n")
+			originalLogger.Logf("\n")
 		} else {
 			firstBundle = false
 		}
-		indentLogger.BeginLinef("- Image: %s\n", b.Image)
-		indentLogger.BeginLinef("  Type: Bundle\n")
-		indentLogger.BeginLinef("  Origin: %s\n", b.Origin)
+		indentLogger.Logf("- Image: %s\n", b.Image)
+		indentLogger.Logf("  Type: Bundle\n")
+		indentLogger.Logf("  Origin: %s\n", b.Origin)
 		annotations := b.Annotations
 
-		p.printAnnotations(annotations, goui.NewIndentingUI(indentLogger))
+		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
 		p.printerRec(b, originalLogger, indentLogger)
 	}
 
 	if len(description.Content.Bundles) > 0 {
-		originalLogger.BeginLinef("")
+		originalLogger.Logf("")
 	}
 
 	firstImage := true
 	for _, image := range description.Content.Images {
 		if !firstImage {
-			originalLogger.BeginLinef("")
+			originalLogger.Logf("")
 		} else {
 			firstImage = false
 		}
-		indentLogger.BeginLinef("- Image: %s\n", image.Image)
-		indentLogger.BeginLinef("  Type: %s\n", image.ImageType)
+		indentLogger.Logf("- Image: %s\n", image.Image)
+		indentLogger.Logf("  Type: %s\n", image.ImageType)
 		if image.ImageType == bundle.ContentImage {
-			indentLogger.BeginLinef("  Origin: %s\n", image.Origin)
+			indentLogger.Logf("  Origin: %s\n", image.Origin)
 		}
 		annotations := image.Annotations
-		p.printAnnotations(annotations, goui.NewIndentingUI(indentLogger))
+		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
 	}
 }
 
-func (p bundleTextPrinter) printAnnotations(annotations map[string]string, indentLogger *goui.IndentingUI) {
+func (p bundleTextPrinter) printAnnotations(annotations map[string]string, indentLogger Logger) {
 	if len(annotations) > 0 {
-		indentLogger.BeginLinef("Annotations:\n")
-		annIndentLogger := goui.NewIndentingUI(indentLogger)
+		indentLogger.Logf("Annotations:\n")
+		annIndentLogger := util.NewIndentedLogger(indentLogger)
 
 		var annotationKeys []string
 		for key := range annotations {
@@ -174,17 +173,16 @@ func (p bundleTextPrinter) printAnnotations(annotations map[string]string, inden
 		}
 		sort.Strings(annotationKeys)
 		for _, key := range annotationKeys {
-			annIndentLogger.BeginLinef("%s: %s\n", key, annotations[key])
+			annIndentLogger.Logf("%s: %s\n", key, annotations[key])
 		}
 	}
 }
 
 type bundleYAMLPrinter struct {
-	ui goui.UI
+	logger Logger
 }
 
 func (p bundleYAMLPrinter) Print(description bundle.Description) error {
-	logger := util.NewUIPrefixedWriter("", p.ui)
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {
 		panic(fmt.Sprintf("Internal consistency: expected %s to be a digest reference", description.Image))
@@ -195,8 +193,8 @@ func (p bundleYAMLPrinter) Print(description bundle.Description) error {
 		return err
 	}
 
-	logger.BeginLinef("sha: %s\n", bundleRef.Identifier())
-	logger.BeginLinef(string(yamlDesc))
+	p.logger.Logf("sha: %s\n", bundleRef.Identifier())
+	p.logger.Logf(string(yamlDesc))
 
 	return nil
 }

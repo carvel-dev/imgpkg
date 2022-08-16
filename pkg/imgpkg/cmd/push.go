@@ -10,6 +10,7 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
@@ -94,7 +95,8 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
 	}
 
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, po.ui)
+	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, logger)
 	if err != nil {
 		return "", err
 	}
@@ -138,5 +140,6 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
 
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, po.ui)
+	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, logger)
 }

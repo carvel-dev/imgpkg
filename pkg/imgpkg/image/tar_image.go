@@ -18,11 +18,11 @@ import (
 type TarImage struct {
 	files        []string
 	excludePaths []string
-	infoLog      io.Writer
+	logger       Logger
 }
 
-func NewTarImage(files []string, excludePaths []string, infoLog io.Writer) *TarImage {
-	return &TarImage{files, excludePaths, infoLog}
+func NewTarImage(files []string, excludePaths []string, logger Logger) *TarImage {
+	return &TarImage{files, excludePaths, logger}
 }
 
 func (i *TarImage) AsFileImage(labels map[string]string) (*FileImage, error) {
@@ -104,7 +104,7 @@ func (i *TarImage) addDirToTar(relPath string, tarWriter *tar.Writer) error {
 		panic("Unreachable") // directories excluded above
 	}
 
-	i.infoLog.Write([]byte(fmt.Sprintf("dir: %s\n", relPath)))
+	i.logger.Logf("dir: %s\n", relPath)
 
 	// Ensure that images will always have the same path format
 	if runtime.GOOS == "windows" {
@@ -126,7 +126,7 @@ func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarW
 		return nil
 	}
 
-	i.infoLog.Write([]byte(fmt.Sprintf("file: %s\n", relPath)))
+	i.logger.Logf("file: %s\n", relPath)
 
 	file, err := os.Open(fullPath)
 	if err != nil {

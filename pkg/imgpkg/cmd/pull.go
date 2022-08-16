@@ -69,12 +69,13 @@ func (po *PullOptions) Run() error {
 	if err != nil {
 		return err
 	}
-	lui := po.ui
+	var yamlLogger Logger
 	if po.OutputType == "yaml" {
+		yamlLogger = util.NewLoggerNoTTY(po.ui)
 		po.ui = ui.NewNoopUI()
 	}
 
-	levelLogger := util.NewUILevelLogger(util.LogWarn, po.ui)
+	levelLogger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
 	imageRef := ""
 	switch {
 	case len(po.LockInputFlags.LockFilePath) > 0:
@@ -118,7 +119,7 @@ func (po *PullOptions) Run() error {
 	}
 
 	if po.OutputType == "yaml" {
-		err = pullStatusYAMLPrinter{ui: lui}.Print(status)
+		err = pullStatusYAMLPrinter{logger: yamlLogger}.Print(status)
 	}
 
 	return err
@@ -166,17 +167,16 @@ func (po *PullOptions) validate() error {
 }
 
 type pullStatusYAMLPrinter struct {
-	ui ui.UI
+	logger Logger
 }
 
 func (p pullStatusYAMLPrinter) Print(status v1.Status) error {
-	logger := util.NewUIPrefixedWriter("", p.ui)
 	out, err := yaml.Marshal(status)
 	if err != nil {
 		return err
 	}
 
-	logger.BeginLinef(string(out))
+	p.logger.Logf(string(out))
 
 	return nil
 }

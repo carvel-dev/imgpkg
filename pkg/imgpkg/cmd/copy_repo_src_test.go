@@ -16,7 +16,6 @@ import (
 	"strings"
 	"testing"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -24,7 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
@@ -41,22 +39,15 @@ var stdOut *bytes.Buffer
 func TestMain(m *testing.M) {
 	stdOut = bytes.NewBufferString("")
 
-	confUI := &bundlefakes.FakeUI{}
-	confUI.BeginLinefStub = func(s string, i ...interface{}) {
-		stdOut.Write([]byte(fmt.Sprintf(s, i...)))
-		stdOut.Write([]byte("\n"))
-	}
-
-	defer confUI.Flush()
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(stdOut))
 
 	tagGen := util.DefaultTagGenerator{}
-	imageSet := imageset.NewImageSet(1, confUI, tagGen)
+	imageSet := imageset.NewImageSet(1, uiLogger, tagGen)
 
 	subject = CopyRepoSrc{
-		ui:                 uiLogger,
+		logger:             uiLogger,
 		imageSet:           imageSet,
-		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, confUI),
+		tarImageSet:        imageset.NewTarImageSet(imageSet, 1, uiLogger),
 		Concurrency:        1,
 		signatureRetriever: &fakeSignatureRetriever{},
 	}
@@ -1374,7 +1365,6 @@ func downloadImagesLocation(t *testing.T, imgRef, location string) {
 	require.NoError(t, err)
 
 	output := bytes.NewBufferString("")
-	writerUI := goui.NewWriterUI(output, output, nil)
-	err = ctlimg.NewDirImage(filepath.Join(location), img, writerUI).AsDirectory()
+	err = ctlimg.NewDirImage(filepath.Join(location), img, util.NewBufferLogger(output)).AsDirectory()
 	require.NoError(t, err)
 }

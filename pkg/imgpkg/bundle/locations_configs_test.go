@@ -6,7 +6,6 @@ package bundle_test
 import (
 	"testing"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
@@ -19,11 +18,9 @@ func TestLocations(t *testing.T) {
 		fakeRegistryBuilder := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry := fakeRegistryBuilder.Build()
 
-		confUI := goui.NewConfUI(goui.NewNoopLogger())
-		defer confUI.Flush()
-		uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+		logger := util.NewNoopLevelLogger()
 
-		subject := bundle.NewLocations(uiLogger)
+		subject := bundle.NewLocations(logger)
 
 		bundleRef := fakeRegistryBuilder.ReferenceOnTestServer("some/testing@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93")
 		bundleDigestRef, err := regname.NewDigest(bundleRef)
@@ -47,7 +44,7 @@ func TestLocations(t *testing.T) {
 				},
 			},
 		}
-		err = subject.Save(fakeRegistry, bundleDigestRef, expectedConfig, goui.NewConfUI(goui.NewNoopLogger()))
+		err = subject.Save(fakeRegistry, bundleDigestRef, expectedConfig, logger)
 		require.NoError(t, err)
 
 		cfg, err := subject.Fetch(fakeRegistry, bundleDigestRef)
@@ -60,11 +57,9 @@ func TestLocations(t *testing.T) {
 		fakeRegistryBuilder := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		fakeRegistry := fakeRegistryBuilder.Build()
 
-		confUI := goui.NewConfUI(goui.NewNoopLogger())
-		defer confUI.Flush()
-		uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+		logger := util.NewNoopLevelLogger()
 
-		subject := bundle.NewLocations(uiLogger)
+		subject := bundle.NewLocations(logger)
 
 		bundleRef := fakeRegistryBuilder.ReferenceOnTestServer("some/testing@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93")
 		bundleDigestRef, err := regname.NewDigest(bundleRef)

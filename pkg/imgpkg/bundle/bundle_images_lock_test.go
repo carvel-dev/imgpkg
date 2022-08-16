@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
@@ -44,9 +43,7 @@ type imgAssertion struct {
 func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	defer confUI.Flush()
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{
@@ -459,9 +456,7 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	defer confUI.Flush()
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{
@@ -684,9 +679,7 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
 
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	defer confUI.Flush()
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 
 	allTests := allImagesLockTests{
 		tests: []allImagesLockTest{

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
@@ -31,8 +30,7 @@ func TestPullImage(t *testing.T) {
 	img2 := fakeRegistry.WithRandomImage("some/image-2")
 	randomBundle := createBundleWithImages(fakeRegistry, bundleName, []string{img1.RefDigest, img2.RefDigest})
 	randomImg := fakeRegistry.WithRandomImage(imageName)
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 	fakeRegistry.Tag(randomImg.RefDigest, imageTag)
 
 	defer fakeRegistry.CleanUp()
@@ -123,8 +121,7 @@ func TestPullBundle(t *testing.T) {
 	collocatedBundleRef := createBundleWithImages(fakeRegistry, collocatedBundle, []string{img1.RefDigest, img2.RefDigest})
 	fakeRegistry.Tag(collocatedBundleRef, collocatedBundleTag)
 
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 
 	defer fakeRegistry.CleanUp()
 	fakeRegistry.Build()
@@ -281,8 +278,7 @@ func TestPullBundleRecursively(t *testing.T) {
 	fakeRegistry.Tag(collocatedBundleRef, collocatedBundleTag)
 	fakeRegistry.Tag(bundleWithNested, bundleTag)
 
-	confUI := goui.NewConfUI(goui.NewNoopLogger())
-	uiLogger := util.NewUILevelLogger(util.LogWarn, confUI)
+	uiLogger := util.NewNoopLevelLogger()
 
 	defer fakeRegistry.CleanUp()
 	fakeRegistry.Build()

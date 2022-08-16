@@ -9,7 +9,6 @@ import (
 	"os"
 
 	pb "github.com/cheggaaa/pb/v3"
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/mattn/go-isatty"
 )
@@ -22,12 +21,12 @@ type ProgressLogger interface {
 
 // NewProgressBar constructor to build a ProgressLogger responsible for printing out a progress bar using updates when
 // writing to a registry via ggcr
-func NewProgressBar(ui goui.UI, finalMessage, errorMessagePrefix string) ProgressLogger {
+func NewProgressBar(logger LoggerWithLevels, finalMessage, errorMessagePrefix string) ProgressLogger {
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		return &ProgressBarLogger{ui: ui, finalMessage: finalMessage, errorMessagePrefix: errorMessagePrefix}
+		return &ProgressBarLogger{logger: logger, finalMessage: finalMessage, errorMessagePrefix: errorMessagePrefix}
 	}
 
-	return &ProgressBarNoTTYLogger{ui: ui, finalMessage: finalMessage}
+	return &ProgressBarNoTTYLogger{logger: logger, finalMessage: finalMessage}
 }
 
 // NewNoopProgressBar constructs a Noop Progress bar that will not display anything
@@ -39,7 +38,7 @@ func NewNoopProgressBar() ProgressLogger {
 type ProgressBarLogger struct {
 	cancelFunc         context.CancelFunc
 	bar                *pb.ProgressBar
-	ui                 goui.UI
+	logger             LoggerWithLevels
 	finalMessage       string
 	errorMessagePrefix string
 }
@@ -60,7 +59,7 @@ func (l *ProgressBarLogger) Start(ctx context.Context, progressChan <-chan regv1
 				return
 			case update := <-progressChan:
 				if update.Error != nil {
-					l.ui.ErrorLinef("%s: %s\n", l.errorMessagePrefix, update.Error)
+					l.logger.Errorf("%s: %s\n", l.errorMessagePrefix, update.Error)
 					continue
 				}
 
@@ -84,13 +83,13 @@ func (l *ProgressBarLogger) End() {
 		l.cancelFunc()
 	}
 	l.bar.Finish()
-	l.ui.BeginLinef("\n%s", l.finalMessage)
+	l.logger.Logf("\n%s", l.finalMessage)
 }
 
 // ProgressBarNoTTYLogger does not display the progress bar
 type ProgressBarNoTTYLogger struct {
 	cancelFunc   context.CancelFunc
-	ui           goui.UI
+	logger       Logger
 	finalMessage string
 }
 
@@ -114,7 +113,7 @@ func (l *ProgressBarNoTTYLogger) End() {
 	if l.cancelFunc != nil {
 		l.cancelFunc()
 	}
-	if l.ui != nil && l.finalMessage != "" {
-		l.ui.BeginLinef(l.finalMessage)
+	if l.logger != nil && l.finalMessage != "" {
+		l.logger.Logf(l.finalMessage)
 	}
 }

@@ -11,9 +11,42 @@ import (
 	goui "github.com/cppforlife/go-cli-ui/ui"
 )
 
-// NewUIPrefixedWriter constructor for building a UI with a prefix when logging a message
-func NewUIPrefixedWriter(prefix string, ui goui.UI) *UIPrefixWriter {
-	return &UIPrefixWriter{ui, prefix, &sync.Mutex{}}
+// NewIndentedLogger creates a new logger indented by 2 spaces
+func NewIndentedLogger(logger Logger) *PrefixedLogger {
+	return NewPrefixedLogger("  ", logger)
+}
+
+// NewPrefixedLogger constructor for building a UI with a prefix when logging a message
+func NewPrefixedLogger(prefix string, logger Logger) *PrefixedLogger {
+	return &PrefixedLogger{logger, prefix, &sync.Mutex{}}
+}
+
+// PrefixedLogger Logger that attached a prefix to each line
+type PrefixedLogger struct {
+	parent     Logger
+	prefix     string
+	writerLock *sync.Mutex
+}
+
+// Logf logs message provided
+// adds the prefix to each new line of the msg parameter
+func (p PrefixedLogger) Logf(msg string, args ...interface{}) {
+	data := fmt.Sprintf(msg, args...)
+	newData := make([]byte, len(data))
+	copy(newData, data)
+
+	endsWithNl := bytes.HasSuffix(newData, []byte("\n"))
+	if endsWithNl {
+		newData = newData[0 : len(newData)-1]
+	}
+	newData = bytes.Replace(newData, []byte("\n"), []byte("\n"+p.prefix), -1)
+	newData = append(newData, []byte("\n")...)
+	newData = append([]byte(p.prefix), newData...)
+
+	p.writerLock.Lock()
+	defer p.writerLock.Unlock()
+
+	p.parent.Logf(string(newData))
 }
 
 // UIPrefixWriter prints a prefix when the underlying ui prints a message

@@ -905,7 +905,7 @@ images:
 
 		var outputTarExport string
 		logger.Section("export full bundle to tar", func() {
-			outputTarExport = imgpkg.Run([]string{"copy", "-b", relocatedOuterBundle + outerBundleDigest, "--to-tar", tarFilePath})
+			outputTarExport = imgpkg.Run([]string{"copy", "--tty", "-b", relocatedOuterBundle + outerBundleDigest, "--to-tar", tarFilePath})
 		})
 
 		logger.Section("import bundle to new repository", func() {
@@ -914,7 +914,7 @@ images:
 
 		var secondOutputTarExport string
 		logger.Section("export again to a tar", func() {
-			secondOutputTarExport = imgpkg.Run([]string{"copy", "-b", env.RelocationRepo + outerBundleDigest, "--to-tar", secondTarFilePath})
+			secondOutputTarExport = imgpkg.Run([]string{"copy", "--tty", "-b", env.RelocationRepo + outerBundleDigest, "--to-tar", secondTarFilePath})
 		})
 
 		require.Contains(t, outputTarExport, "exporting 4 images...")

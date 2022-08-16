@@ -27,9 +27,6 @@ func TestTarImage(t *testing.T) {
 	})
 }
 
-type testLogger struct {
-}
+type testLogger struct{}
 
-func (l testLogger) Write(data []byte) (int, error) {
-	return len(data), nil
-}
+func (l testLogger) Logf(string, ...interface{}) {}

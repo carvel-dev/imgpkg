@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -18,18 +17,18 @@ import (
 )
 
 type Logger interface {
-	WriteStr(str string, args ...interface{}) error
+	Logf(str string, args ...interface{})
 }
 
 type ImageSet struct {
 	concurrency int
-	ui          goui.UI
+	logger      Logger
 	tagGen      util.TagGenerator
 }
 
 // NewImageSet constructor for creating an ImageSet
-func NewImageSet(concurrency int, ui goui.UI, tagGen util.TagGenerator) ImageSet {
-	return ImageSet{concurrency, ui, tagGen}
+func NewImageSet(concurrency int, logger Logger, tagGen util.TagGenerator) ImageSet {
+	return ImageSet{concurrency, logger, tagGen}
 }
 
 func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
@@ -49,8 +48,8 @@ func (i ImageSet) Relocate(foundImages *UnprocessedImageRefs,
 func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 	imagesMetadata registry.ImagesReader) (*imagedesc.ImageRefDescriptors, error) {
 
-	i.ui.BeginLinef("exporting %d images...\n", len(foundImages.All()))
-	defer func() { i.ui.BeginLinef("exported %d images\n", len(foundImages.All())) }()
+	i.logger.Logf("exporting %d images...\n", len(foundImages.All()))
+	defer func() { i.logger.Logf("exported %d images\n", len(foundImages.All())) }()
 
 	var refs []imagedesc.Metadata
 
@@ -60,7 +59,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 			return nil, err
 		}
 
-		i.ui.BeginLinef("will export %s\n", img.DigestRef)
+		i.logger.Logf("will export %s\n", img.DigestRef)
 		refs = append(refs, imagedesc.Metadata{Ref: ref, Tag: img.Tag, Labels: img.Labels, OrigRef: img.OrigRef})
 	}
 
@@ -77,7 +76,7 @@ func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 
 	importedImages := NewProcessedImages()
 
-	i.ui.BeginLinef("importing %d images...\n", len(imgOrIndexes))
+	i.logger.Logf("importing %d images...\n", len(imgOrIndexes))
 
 	importThrottle := util.NewThrottle(i.concurrency)
 

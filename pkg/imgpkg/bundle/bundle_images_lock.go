@@ -24,10 +24,10 @@ func (o *Bundle) ImagesRefs() []ImageRef {
 }
 
 // AllImagesLockRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) AllImagesLockRefs(concurrency int, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
+func (o *Bundle) AllImagesLockRefs(concurrency int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
 
-	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, ui)
+	bundles, allImageRefs, err := o.buildAllImagesLock(&throttleReq, &processedImages{processedImgs: map[string]struct{}{}}, logger)
 	if err != nil {
 		return nil, ImageRefs{}, err
 	}
@@ -82,7 +82,7 @@ func (o *Bundle) UpdateImageRefs(bundles []*Bundle) error {
 	return nil
 }
 
-func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, ui util.UIWithLevels) ([]*Bundle, ImageRefs, error) {
+func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *processedImages, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	o.cachedImageRefs = newImageRefCache()
 
 	img, err := o.checkedImage()
@@ -96,7 +96,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 	}
 
 	locationsConfig := LocationsConfig{
-		ui:              ui,
+		logger:          logger,
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	}
@@ -130,7 +130,7 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, processedImgs *p
 
 		image := image.DeepCopy()
 		go func() {
-			nestedBundles, nestedBundlesProcessedImageRefs, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs, ui)
+			nestedBundles, nestedBundlesProcessedImageRefs, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, processedImgs, logger)
 			if err != nil {
 				errChan <- err
 				return
@@ -184,7 +184,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, locationsConfig ImageRefLocatio
 	return refs, nil
 }
 
-func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, processedImgs *processedImages, ui util.UIWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, processedImgs *processedImages, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
 	throttleReq.Take()
 	// We need to check where we can find the image we are looking for.
 	// First checks the current bundle repository and if it cannot be found there
@@ -208,7 +208,7 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRe
 	var processedImageRefs ImageRefs
 	var nestedBundles []*Bundle
 	if isBundle {
-		nestedBundles, processedImageRefs, err = bundle.buildAllImagesLock(throttleReq, processedImgs, ui)
+		nestedBundles, processedImageRefs, err = bundle.buildAllImagesLock(throttleReq, processedImgs, logger)
 		if err != nil {
 			return nil, ImageRefs{}, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
 		}
@@ -286,13 +286,13 @@ func (o *singleLayerReader) Read(img regv1.Image) (lockconfig.ImagesLock, error)
 }
 
 type LocationsConfig struct {
-	ui              util.UIWithLevels
+	logger          util.LoggerWithLevels
 	imgRetriever    ImagesMetadata
 	bundleDigestRef regname.Digest
 }
 
 func (l LocationsConfig) Config() (ImageLocationsConfig, error) {
-	return NewLocations(l.ui).Fetch(l.imgRetriever, l.bundleDigestRef)
+	return NewLocations(l.logger).Fetch(l.imgRetriever, l.bundleDigestRef)
 }
 
 // NotFoundLocationsConfig Noop Locations Configuration retrieval
