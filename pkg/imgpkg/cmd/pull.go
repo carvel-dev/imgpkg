@@ -6,19 +6,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
-	"sigs.k8s.io/yaml"
-)
-
-var (
-	// PullOutputType Possible output options
-	PullOutputType = []string{"yaml"}
 )
 
 type PullOptions struct {
@@ -31,8 +24,6 @@ type PullOptions struct {
 	LockInputFlags       LockInputFlags
 	BundleRecursiveFlags BundleRecursiveFlags
 	OutputPath           string
-
-	OutputType string
 }
 
 func NewPullOptions(ui ui.UI) *PullOptions {
@@ -58,7 +49,6 @@ func NewPullCmd(o *PullOptions) *cobra.Command {
 	o.BundleRecursiveFlags.Set(cmd)
 	o.LockInputFlags.Set(cmd)
 	cmd.Flags().StringVarP(&o.OutputPath, "output", "o", "", "Output directory path")
-	cmd.Flags().StringVarP(&o.OutputType, "output-type", "", "", "Will print machine readable output on standard out: [yaml]")
 	cmd.MarkFlagRequired("output")
 
 	return cmd
@@ -68,11 +58,6 @@ func (po *PullOptions) Run() error {
 	err := po.validate()
 	if err != nil {
 		return err
-	}
-	var yamlLogger Logger
-	if po.OutputType == "yaml" {
-		yamlLogger = util.NewLoggerNoTTY(po.ui)
-		po.ui = ui.NewNoopUI()
 	}
 
 	levelLogger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
@@ -99,11 +84,10 @@ func (po *PullOptions) Run() error {
 		AsImage:  !po.ImageIsBundleCheck,
 		IsBundle: len(po.ImageFlags.Image) == 0,
 	}
-	var status v1.Status
 	if po.BundleRecursiveFlags.Recursive {
-		status, err = v1.PullRecursive(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
+		_, err = v1.PullRecursive(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
 	} else {
-		status, err = v1.Pull(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
+		_, err = v1.Pull(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
 	}
 
 	if errors.Is(err, &v1.ErrIsBundle{}) {
@@ -116,10 +100,6 @@ func (po *PullOptions) Run() error {
 		}
 	} else if len(po.ImageFlags.Image) == 0 && errors.Is(err, &v1.ErrIsNotBundle{}) {
 		return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-	}
-
-	if po.OutputType == "yaml" {
-		err = pullStatusYAMLPrinter{logger: yamlLogger}.Print(status)
 	}
 
 	return err
@@ -150,33 +130,5 @@ func (po *PullOptions) validate() error {
 	if po.BundleRecursiveFlags.Recursive && len(po.ImageFlags.Image) > 0 {
 		return fmt.Errorf("Cannot use --recursive (-r) flag when pulling a bundle")
 	}
-
-	if len(po.OutputType) > 0 {
-		found := false
-		for _, s := range PullOutputType {
-			if s == po.OutputType {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("Possible values for --output-type are: [%s]", strings.Join(PullOutputType, ","))
-		}
-	}
-	return nil
-}
-
-type pullStatusYAMLPrinter struct {
-	logger Logger
-}
-
-func (p pullStatusYAMLPrinter) Print(status v1.Status) error {
-	out, err := yaml.Marshal(status)
-	if err != nil {
-		return err
-	}
-
-	p.logger.Logf(string(out))
-
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -34,12 +33,6 @@ func TestPushPull(t *testing.T) {
 			"config/config.yml",
 			"config/inner-dir/README.txt",
 		})
-	})
-
-	t.Run("when pulling using a label the yaml output is not cacheable", func(t *testing.T) {
-		output := imgpkg.Run([]string{"pull", "-i", imageRefWithTag, "-o", testDir, "--output-type=yaml"})
-		require.YAMLEq(t, fmt.Sprintf(`cacheable: false
-image: %s@%s`, env.Image, digest), output)
 	})
 }
 
