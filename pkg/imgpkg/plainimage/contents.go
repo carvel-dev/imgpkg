@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -17,27 +16,31 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
+// Contents of the OCI Image
 type Contents struct {
 	paths         []string
 	excludedPaths []string
 }
 
+// ImagesWriter defines the needed functions to write to the registry
 type ImagesWriter interface {
 	WriteImage(regname.Reference, regv1.Image, chan regv1.Update) error
 	WriteTag(ref regname.Tag, taggagle regremote.Taggable) error
 }
 
+// NewContents creates the struct that represent an OCI Image based on the provided paths
 func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
-func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, ui ui.UI) (string, error) {
+// Push the OCI Image to the registry
+func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer ImagesWriter, logger Logger) (string, error) {
 	err := i.validate()
 	if err != nil {
 		return "", err
 	}
 
-	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, InfoLog{ui})
+	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, logger)
 
 	img, err := tarImg.AsFileImage(labels)
 	if err != nil {

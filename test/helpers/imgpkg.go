@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type Imgpkg struct {
@@ -81,7 +83,7 @@ func (i Imgpkg) RunWithOpts(args []string, opts RunOpts) (string, error) {
 		err = fmt.Errorf("Execution error: stdout: '%s' stderr: '%s' error: '%s'", stdoutStr, stderr.String(), err)
 
 		if !opts.AllowError {
-			i.T.Fatalf("Failed to successfully execute '%s': %v", i.cmdDesc(args, opts), err)
+			require.Failf(i.T, "Failed to successfully execute '%s': %v", i.cmdDesc(args, opts), err)
 		}
 	}
 

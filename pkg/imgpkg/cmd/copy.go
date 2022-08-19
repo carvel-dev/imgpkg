@@ -103,7 +103,7 @@ func (c *CopyOptions) Run() error {
 		return err
 	}
 
-	prefixedLogger := util.NewUIPrefixedWriter("copy | ", c.ui)
+	prefixedLogger := util.NewPrefixedLogger("copy | ", util.NewLogger(c.ui))
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
@@ -131,7 +131,7 @@ func (c *CopyOptions) Run() error {
 		IncludeNonDistributable: c.IncludeNonDistributable,
 		Concurrency:             c.Concurrency,
 
-		ui:                 levelLogger,
+		logger:             levelLogger,
 		registry:           registry.NewRegistryWithProgress(reg, imagesUploaderLogger),
 		imageSet:           imageSet,
 		tarImageSet:        tarImageSet,

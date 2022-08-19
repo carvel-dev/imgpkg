@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -150,7 +149,7 @@ func (i *ImageFactory) Download(imgRef, location string) {
 	require.NoError(i.T, err)
 
 	output := bytes.NewBufferString("")
-	writerUI := goui.NewWriterUI(output, output, nil)
-	err = ctlimg.NewDirImage(filepath.Join(location), img, writerUI).AsDirectory()
+	logger := Logger{Buf: output}
+	err = ctlimg.NewDirImage(filepath.Join(location), img, logger).AsDirectory()
 	require.NoError(i.T, err)
 }

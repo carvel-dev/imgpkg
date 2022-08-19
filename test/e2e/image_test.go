@@ -24,13 +24,15 @@ func TestPushPull(t *testing.T) {
 
 	splits := strings.Split(digest, ":")
 	imageRefWithTag := env.Image + ":" + fmt.Sprintf("%s-%s.imgpkg", splits[0], splits[1])
-	imgpkg.Run([]string{"pull", "-i", imageRefWithTag, "-o", testDir})
+	t.Run("ensure all files are present in the pushed image", func(t *testing.T) {
+		imgpkg.Run([]string{"pull", "-i", imageRefWithTag, "-o", testDir})
 
-	env.Assets.ValidateFilesAreEqual(env.Assets.SimpleAppDir(), testDir, []string{
-		"README.md",
-		"LICENSE",
-		"config/config.yml",
-		"config/inner-dir/README.txt",
+		env.Assets.ValidateFilesAreEqual(env.Assets.SimpleAppDir(), testDir, []string{
+			"README.md",
+			"LICENSE",
+			"config/config.yml",
+			"config/inner-dir/README.txt",
+		})
 	})
 }
 

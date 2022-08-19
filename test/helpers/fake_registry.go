@@ -386,22 +386,37 @@ func (r *FakeTestRegistryBuilder) WithRegistryToken(regToken string) {
 	r.server.Config.Handler = authHandlerFunc
 }
 
+// Tag the referenced image
+func (r *FakeTestRegistryBuilder) Tag(imageRef, tag string) {
+	for _, img := range r.images {
+		if img.RefDigest == imageRef {
+			img.Tag = tag
+			return
+		}
+	}
+}
+
+// WithBundleFromPath Creates bundle from the provided path
 func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path string) BundleInfo {
+	tag := ""
 	tarballLayer, err := compress(path)
 	require.NoError(r.t, err)
 	label := map[string]string{"dev.carvel.imgpkg.bundle": ""}
 
-	bundle, err := image.NewFileImage(tarballLayer.Name(), label)
+	bundleImg, err := image.NewFileImage(tarballLayer.Name(), label)
 	require.NoError(r.t, err)
 
-	r.updateState(bundleName, bundle, nil, path, "")
-	digest, err := bundle.Digest()
+	r.updateState(bundleName, bundleImg, nil, path, tag)
+	digest, err := bundleImg.Digest()
 	assert.NoError(r.t, err)
 
-	return BundleInfo{r, bundle, bundleName, path,
-		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String())}
+	return BundleInfo{r, bundleImg, bundleName, path,
+		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String()), tag}
 }
 
+// WithRandomBundle Dummy function
+// This function creates a bundle image, but WithImageRefs or WithEveryImageFromPath needs to be called
+// on the return value of this function to ensure that a bundle is correctly created on the registry
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
 	b, err := random.Image(500, 5)
 	require.NoError(r.t, err)
@@ -426,7 +441,7 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	bDir := filepath.Join(tmpDir, bundle.ImgpkgDir)
 	require.NoError(r.t, os.MkdirAll(bDir, 0777))
 	return BundleInfo{r, b, bundleName, tmpDir,
-		digest.String(), bundleRef}
+		digest.String(), bundleRef, ""}
 }
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
@@ -520,7 +535,7 @@ func (r *FakeTestRegistryBuilder) CopyBundleImage(bundleInfo BundleInfo, to stri
 	newBundle := *r.images[bundleInfo.BundleName]
 	r.updateState(to, bundleInfo.Image, nil, "", "")
 	return BundleInfo{r, newBundle.Image, to, "",
-		newBundle.Digest, newBundle.RefDigest}
+		newBundle.Digest, to + "@" + newBundle.Digest, ""}
 }
 
 // WithARandomImageIndex Creates random index with reference imageName and with numImages images
@@ -712,6 +727,7 @@ type BundleInfo struct {
 	BundlePath string
 	Digest     string
 	RefDigest  string
+	Tag        string
 }
 
 func (b BundleInfo) WithEveryImageFromPath(path string, labels map[string]string) BundleInfo {

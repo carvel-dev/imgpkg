@@ -145,9 +145,9 @@ func everyNonDistributableLayerForAnImage(image regv1.Image) []nonDistributableL
 	return nil
 }
 
-func informUserToUseTheNonDistributableFlagWithDescriptors(ui util.UIWithLevels, includeNonDistributableFlag bool, everyImageWithNonDistLayer []nonDistributableLayers) {
+func informUserToUseTheNonDistributableFlagWithDescriptors(ui util.LoggerWithLevels, includeNonDistributableFlag bool, everyImageWithNonDistLayer []nonDistributableLayers) {
 	if includeNonDistributableFlag && len(everyImageWithNonDistLayer) == 0 {
-		ui.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.")
+		ui.Warnf("'--include-non-distributable-layers' flag provided, but no images contained a non-distributable layer.\n")
 	} else if !includeNonDistributableFlag && len(everyImageWithNonDistLayer) > 0 {
 		msg := "Skipped the followings layer(s) due to it being non-distributable. If you would like to include non-distributable layers, use the --include-non-distributable-layers flag"
 		for _, img := range everyImageWithNonDistLayer {

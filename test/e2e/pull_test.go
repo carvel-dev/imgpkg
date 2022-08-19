@@ -142,26 +142,37 @@ func TestPullBundleOfBundles(t *testing.T) {
 	defer env.Cleanup()
 
 	bundleDigestRef := ""
-	bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 	logger.Section("create inner bundle", func() {
+		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 		out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image, "-f", bundleDir})
 		bundleDigestRef = helpers.ExtractDigest(t, out)
 	})
 
+	innerBundleRef := fmt.Sprintf("%s@%s", env.Image, bundleDigestRef)
+
+	outerBundleDigest := ""
+	outerBundle := env.RelocationRepo
+	outerBundleTag := fmt.Sprintf("some-tag-%d", time.Now().Nanosecond())
 	logger.Section("create new bundle with bundles", func() {
+		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 		imagesLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
 images:
 - image: %s
-`, fmt.Sprintf("%s@%s", env.Image, bundleDigestRef))
+`, innerBundleRef)
 		env.BundleFactory.AddFileToBundle(filepath.Join(".imgpkg", "images.yml"), imagesLockYAML)
 
-		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
+		out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s:%s", outerBundle, outerBundleTag), "-f", bundleDir})
+		outerBundleDigest = helpers.ExtractDigest(t, out)
+	})
 
+	outerBundleRef := fmt.Sprintf("%s@%s", outerBundle, outerBundleDigest)
+
+	t.Run("pull bundle recursively and downloads the ImagesLock for all nested bundles", func(t *testing.T) {
 		outDir := env.Assets.CreateTempFolder("bundle-annotation")
 
-		imgpkg.Run([]string{"pull", "--recursive", "-b", env.Image, "-o", outDir})
+		imgpkg.Run([]string{"pull", "--recursive", "-b", outerBundleRef, "-o", outDir})
 
 		subBundleDirectoryPath := strings.ReplaceAll(bundleDigestRef, "sha256:", "sha256-")
 		assert.DirExists(t, filepath.Join(outDir, ".imgpkg", "bundles", subBundleDirectoryPath))
@@ -172,6 +183,10 @@ images:
 		assert.NoError(t, err)
 		assert.Equal(t, helpers.ImagesYAML, string(innerBundleImagesYmlContent))
 	})
+}
+
+func TestPullImage(t *testing.T) {
+
 }
 
 func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
@@ -224,4 +239,35 @@ func TestPullImageIndexShouldError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, out.String(), "Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
+}
+
+func TestPullImageOfBundle(t *testing.T) {
+	logger := &helpers.Logger{}
+
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	registry := helpers.NewFakeRegistry(t, logger)
+	randomBundle := registry.WithBundleFromPath("repo/some-bundle-name", "assets/bundle")
+	registry.Build()
+	defer registry.CleanUp()
+
+	t.Run("when --image-is-bundle-check is NOT provided it fails", func(t *testing.T) {
+		pullDir := env.Assets.CreateTempFolder("unused-pull-bundle-image")
+		out := bytes.NewBufferString("")
+		_, err := imgpkg.RunWithOpts([]string{"pull", "--tty", "-i", randomBundle.RefDigest, "-o", pullDir}, helpers.RunOpts{
+			AllowError:   true,
+			StderrWriter: out,
+			StdoutWriter: out,
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, out.String(), "Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
+	})
+
+	t.Run("when --image-is-bundle-check=false is provided downloads the OCI Image of the bundle", func(t *testing.T) {
+		pullDir := env.Assets.CreateTempFolder("pull-bundle-image")
+		imgpkg.RunWithOpts([]string{"pull", "--tty", "-i", randomBundle.RefDigest, "-o", pullDir, "--image-is-bundle-check=false"}, helpers.RunOpts{})
+	})
 }

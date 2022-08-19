@@ -11,13 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cppforlife/go-cli-ui/ui"
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
@@ -26,7 +23,7 @@ import (
 )
 
 func TestPullBundleWritingContentsToDisk(t *testing.T) {
-	fakeUI := &bundlefakes.FakeUI{}
+	logger := util.NewNoopLevelLogger()
 	pullNestedBundles := false
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
@@ -39,7 +36,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -68,7 +65,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 		require.DirExists(t, outputPath)
 
@@ -83,7 +80,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 }
 
 func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
-	fakeUI := &bundlefakes.FakeUI{}
+	logger := util.NewNoopLevelLogger()
 	pullNestedBundles := true
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
@@ -96,7 +93,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -122,7 +119,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -151,7 +148,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		// assert icecream bundle was recursively pulled onto disk
@@ -176,7 +173,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 }
 
 func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
-	fakeUI := &bundlefakes.FakeUI{}
+	logger := util.NewNoopLevelLogger()
 	pullNestedBundles := true
 
 	t.Run("bundle referencing another bundle in the same repo updates both bundle's imageslock", func(t *testing.T) {
@@ -202,7 +199,7 @@ func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -260,7 +257,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		outputDirImagesYmlFile := filepath.Join(outputPath, ".imgpkg", "bundles", strings.ReplaceAll(icecreamBundle.Digest, "sha256:", "sha256-"), ".imgpkg", "images.yml")
@@ -290,7 +287,7 @@ kind: ImagesLock
 }
 
 func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
-	fakeUI := &bundlefakes.FakeUI{}
+	logger := util.NewNoopLevelLogger()
 	pullNestedBundles := true
 
 	t.Run("bundle referencing another bundle in the same repo updates both bundle's imageslock", func(t *testing.T) {
@@ -342,7 +339,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -410,7 +407,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -478,7 +475,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -542,7 +539,7 @@ kind: ImagesLock
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, fakeUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -566,7 +563,7 @@ func TestPullBundleOutputToUser(t *testing.T) {
 
 	t.Run("bundle referencing an image", func(t *testing.T) {
 		output := bytes.NewBufferString("")
-		writerUI := ui.NewWriterUI(output, output, nil)
+		logger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(output))
 
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
@@ -579,7 +576,7 @@ func TestPullBundleOutputToUser(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -592,7 +589,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 
 	t.Run("bundle referencing another bundle", func(t *testing.T) {
 		output := bytes.NewBufferString("")
-		writerUI := ui.NewWriterUI(output, output, nil)
+		logger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(output))
 		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		defer fakeRegistry.CleanUp()
 
@@ -606,7 +603,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -621,7 +618,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 	pullNestedBundles := true
 	output := bytes.NewBufferString("")
-	writerUI := ui.NewWriterUI(output, output, nil)
+	logger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(output))
 
 	t.Run("bundle referencing another collocated bundle", func(t *testing.T) {
 		defer output.Reset()
@@ -648,7 +645,7 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		assert.Regexp(t,
@@ -680,7 +677,7 @@ The bundle repo \(%s\) is hosting every image specified in the bundle's Images L
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		icecreamBundleName := fakeRegistry.ReferenceOnTestServer("icecream/bundle")
@@ -724,7 +721,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
 
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		require.DirExists(t, outputPath)
@@ -768,7 +765,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleW
 		defer os.Remove(outputPath)
 
 		// test subject
-		err = subject.Pull(outputPath, writerUI, pullNestedBundles)
+		_, err = subject.Pull(outputPath, logger, pullNestedBundles)
 		require.NoError(t, err)
 
 		//assert log message
@@ -822,9 +819,7 @@ func TestNoteCopy(t *testing.T) {
 		fakeRegistry.WithImmutableTags("repo/bundle-with-collocated-bundles", locationsImageTag)
 		defer fakeRegistry.ResetHandler()
 
-		confUI := goui.NewConfUI(goui.NewNoopLogger())
-		defer confUI.Flush()
-		uiLogger := util.NewUILevelLogger(util.LogDebug, confUI)
+		uiLogger := util.NewUILevelLogger(util.LogDebug, util.NewNoopLogger())
 
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
 		_, _, err = subject.AllImagesLockRefs(1, uiLogger)

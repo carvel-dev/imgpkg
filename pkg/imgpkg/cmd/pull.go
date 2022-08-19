@@ -4,14 +4,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
 type PullOptions struct {
@@ -60,58 +60,49 @@ func (po *PullOptions) Run() error {
 		return err
 	}
 
-	reg, err := registry.NewSimpleRegistry(po.RegistryFlags.AsRegistryOpts())
-	if err != nil {
-		return err
-	}
-
+	levelLogger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+	imageRef := ""
 	switch {
-	case len(po.LockInputFlags.LockFilePath) > 0 || len(po.BundleFlags.Bundle) > 0:
-		bundleRef := po.BundleFlags.Bundle
-
+	case len(po.LockInputFlags.LockFilePath) > 0:
 		if len(po.LockInputFlags.LockFilePath) > 0 {
 			bundleLock, err := lockconfig.NewBundleLockFromPath(po.LockInputFlags.LockFilePath)
 			if err != nil {
 				return err
 			}
-			bundleRef = bundleLock.Bundle.Image
+			imageRef = bundleLock.Bundle.Image
 		}
-
-		err := bundle.NewBundle(bundleRef, reg).Pull(po.OutputPath, po.ui, po.BundleRecursiveFlags.Recursive)
-		if err != nil {
-			if bundle.IsNotBundleError(err) {
-				return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
-			}
-			return err
-		}
-		return nil
-
+	case len(po.BundleFlags.Bundle) > 0:
+		imageRef = po.BundleFlags.Bundle
 	case len(po.ImageFlags.Image) > 0:
-		plainImg := plainimage.NewPlainImage(po.ImageFlags.Image, reg)
-
-		isImage, err := plainImg.IsImage()
-		if err != nil {
-			return err
-		}
-		if !isImage {
-			return fmt.Errorf("Unable to pull non-images, such as image indexes. (hint: provide a specific digest to the image instead)")
-		}
-
-		if po.ImageIsBundleCheck {
-			isBundle, err := bundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
-			if err != nil {
-				return err
-			}
-			if isBundle {
-				return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
-			}
-		}
-
-		return plainImg.Pull(po.OutputPath, po.ui)
-
+		imageRef = po.ImageFlags.Image
 	default:
 		panic("Unreachable code")
 	}
+
+	pullOpts := v1.PullOpts{
+		Logger:   levelLogger,
+		AsImage:  !po.ImageIsBundleCheck,
+		IsBundle: len(po.ImageFlags.Image) == 0,
+	}
+	if po.BundleRecursiveFlags.Recursive {
+		_, err = v1.PullRecursive(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
+	} else {
+		_, err = v1.Pull(imageRef, po.OutputPath, pullOpts, po.RegistryFlags.AsRegistryOpts())
+	}
+
+	if errors.Is(err, &v1.ErrIsBundle{}) {
+		if len(po.ImageFlags.Image) == 0 {
+			if po.ImageIsBundleCheck {
+				return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
+			}
+		} else {
+			return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
+		}
+	} else if len(po.ImageFlags.Image) == 0 && errors.Is(err, &v1.ErrIsNotBundle{}) {
+		return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+	}
+
+	return err
 }
 
 func (po *PullOptions) validate() error {
@@ -134,6 +125,10 @@ func (po *PullOptions) validate() error {
 	}
 	if presentInputParams == 0 {
 		return fmt.Errorf("Expected either image or bundle reference")
+	}
+
+	if po.BundleRecursiveFlags.Recursive && len(po.ImageFlags.Image) > 0 {
+		return fmt.Errorf("Cannot use --recursive (-r) flag when pulling a bundle")
 	}
 	return nil
 }

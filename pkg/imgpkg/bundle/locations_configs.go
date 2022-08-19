@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -42,7 +41,7 @@ func (n LocationsNotFound) Error() string {
 
 type LocationsConfigs struct {
 	reader LocationImageReader
-	ui     util.UIWithLevels
+	ui     util.LoggerWithLevels
 }
 
 type LocationImageReader interface {
@@ -50,12 +49,12 @@ type LocationImageReader interface {
 }
 
 // NewLocations constructor for creating a LocationsConfigs
-func NewLocations(ui util.UIWithLevels) *LocationsConfigs {
+func NewLocations(ui util.LoggerWithLevels) *LocationsConfigs {
 	return NewLocationsWithReader(&locationsSingleLayerReader{}, ui)
 }
 
 // NewLocationsWithReader constructor for LocationsConfigs
-func NewLocationsWithReader(reader LocationImageReader, ui util.UIWithLevels) *LocationsConfigs {
+func NewLocationsWithReader(reader LocationImageReader, ui util.LoggerWithLevels) *LocationsConfigs {
 	return &LocationsConfigs{reader: reader, ui: ui}
 }
 
@@ -111,7 +110,9 @@ func (r LocationsConfigs) LocationsImageDigest(registry ImagesMetadata, bundleRe
 	return bundleRef.Digest(digest.String()), nil
 }
 
-func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, ui ui.UI) error {
+// Save the locations information for the bundle in the registry
+// This function will create an OCI Image that contains the Location information of all the images that are part of the Bundle
+func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, config ImageLocationsConfig, logger Logger) error {
 	r.ui.Tracef("saving Locations OCI Image for bundle: %s\n", bundleRef.Name())
 
 	locRef, err := r.locationsRefFromBundleRef(bundleRef)
@@ -132,7 +133,7 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 
 	r.ui.Tracef("Pushing image\n")
 
-	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg.CloneWithLogger(util.NewNoopProgressBar()), ui)
+	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg.CloneWithLogger(util.NewNoopProgressBar()), logger)
 	if err != nil {
 		// Immutable tag errors within registries are not standardized.
 		// Assume word "immutable" would be present in most cases.

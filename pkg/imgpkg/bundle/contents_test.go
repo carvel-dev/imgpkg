@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/fake"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -21,7 +22,6 @@ kind: ImagesLock
 images:
 - image: my.registry.io/bundle@sha256:703218c0465075f4425e58fac086e09e1de5c340b12976ab9eb8ad26615c3715
 `
-	fakeUI := &bundlefakes.FakeUI{}
 	fakeRegistry := &bundlefakes.FakeImagesMetadataWriter{}
 	assets := &helpers.Assets{T: t}
 	defer assets.CleanCreatedFolders()
@@ -44,7 +44,7 @@ images:
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, fakeRegistry, fakeUI)
+		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}
@@ -58,7 +58,6 @@ kind: ImagesLock
 images:
 - image: my.registry.io/image1@sha256:703218c0465075f4425e58fac086e09e1de5c340b12976ab9eb8ad26615c3715
 `
-	fakeUI := &bundlefakes.FakeUI{}
 	fakeRegistry := &bundlefakes.FakeImagesMetadataWriter{}
 	assets := &helpers.Assets{T: t}
 	defer assets.CleanCreatedFolders()
@@ -79,7 +78,7 @@ images:
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, fakeRegistry, fakeUI)
+		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}

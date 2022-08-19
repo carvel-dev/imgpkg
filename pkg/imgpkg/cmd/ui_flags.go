@@ -10,8 +10,7 @@ import (
 )
 
 type Logger interface {
-	Write(data []byte) (int, error)
-	WriteStr(str string, args ...interface{}) error
+	Logf(str string, args ...interface{})
 }
 
 type UIFlags struct {

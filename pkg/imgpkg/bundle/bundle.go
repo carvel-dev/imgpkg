@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -45,10 +44,22 @@ type ImagesMetadata interface {
 	FirstImageExists(digests []string) (string, error)
 }
 
+// GraphNode Node information of a Bundle
+type GraphNode struct {
+	Path          string
+	ImageRef      string
+	NestedBundles []GraphNode
+}
+
+// Bundle struct that represents a bundle
 type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
+
+	// cachedNestedBundleGraph stores a graph with all the nested
+	// bundles associated with the current bundle
+	cachedNestedBundleGraph []GraphNode
 
 	// cachedImageRefs stores set of ImageRefs that were
 	// discovered as part of reading the bundle.
@@ -81,6 +92,9 @@ func (o *Bundle) Repo() string { return o.plainImg.Repo() }
 
 // Tag Bundle Tag
 func (o *Bundle) Tag() string { return o.plainImg.Tag() }
+
+// NestedBundles Provides information about the Graph of nested bundles associated with the current bundle
+func (o *Bundle) NestedBundles() []GraphNode { return o.cachedNestedBundleGraph }
 
 func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
 	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)
@@ -115,7 +129,7 @@ func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 }
 
 // NoteCopy writes an image-location representing the bundle / images that have been copied
-func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, ui util.UIWithLevels) error {
+func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesMetadataWriter, ui util.LoggerWithLevels) error {
 	locationsCfg := ImageLocationsConfig{
 		APIVersion: LocationAPIVersion,
 		Kind:       ImageLocationsKind,
@@ -145,35 +159,36 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 
 	ui.Debugf("creating Locations OCI Image\n")
 
-	// Using NewNoopUI because we do not want to have output from this push
-	return NewLocations(ui).Save(reg, destinationRef, locationsCfg, goui.NewNoopUI())
+	// Using NewNoopLevelLogger because we do not want to have output from this push
+	return NewLocations(ui).Save(reg, destinationRef, locationsCfg, util.NewNoopLevelLogger())
 }
 
-func (o *Bundle) Pull(outputPath string, ui goui.UI, pullNestedBundles bool) error {
-	isRootBundleRelocated, err := o.pull(outputPath, ui, pullNestedBundles, "", map[string]bool{}, 0)
+// Pull Downloads bundle image to disk and checks if it can update the ImagesLock file
+func (o *Bundle) Pull(outputPath string, logger Logger, pullNestedBundles bool) (bool, error) {
+	isRootBundleRelocated, err := o.pull(outputPath, logger, pullNestedBundles, "", map[string]bool{}, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	ui.BeginLinef("\nLocating image lock file images...\n")
+	logger.Logf("\nLocating image lock file images...\n")
 	if isRootBundleRelocated {
-		ui.BeginLinef("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
+		logger.Logf("The bundle repo (%s) is hosting every image specified in the bundle's Images Lock file (.imgpkg/images.yml)\n", o.Repo())
 	} else {
-		ui.BeginLinef("One or more images not found in bundle repo; skipping lock file update\n")
+		logger.Logf("One or more images not found in bundle repo; skipping lock file update\n")
 	}
-	return nil
+	return isRootBundleRelocated, nil
 }
 
-func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) (bool, error) {
+func (o *Bundle) pull(baseOutputPath string, logger Logger, pullNestedBundles bool, bundlePath string, imagesProcessed map[string]bool, numSubBundles int) (bool, error) {
 	img, err := o.checkedImage()
 	if err != nil {
 		return false, err
 	}
 
 	if o.rootBundle(bundlePath) {
-		ui.BeginLinef("Pulling bundle '%s'\n", o.DigestRef())
+		logger.Logf("Pulling bundle '%s'\n", o.DigestRef())
 	} else {
-		ui.BeginLinef("Pulling nested bundle '%s'\n", o.DigestRef())
+		logger.Logf("Pulling nested bundle '%s'\n", o.DigestRef())
 	}
 
 	bundleDigestRef, err := regname.NewDigest(o.plainImg.DigestRef())
@@ -181,7 +196,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		return false, err
 	}
 
-	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, goui.NewIndentingUI(ui)).AsDirectory()
+	err = ctlimg.NewDirImage(filepath.Join(baseOutputPath, bundlePath), img, util.NewIndentedLevelLogger(logger)).AsDirectory()
 	if err != nil {
 		return false, fmt.Errorf("Extracting bundle into directory: %s", err)
 	}
@@ -192,7 +207,7 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 	}
 
 	bundleImageRefs, err := NewImageRefsFromImagesLock(imagesLock, LocationsConfig{
-		ui:              util.NewUILevelLogger(util.LogWarn, ui),
+		logger:          logger,
 		imgRetriever:    o.imgRetriever,
 		bundleDigestRef: bundleDigestRef,
 	})
@@ -209,8 +224,8 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 		for _, bundleImgRef := range bundleImageRefs.ImageRefs() {
 			if isBundle, alreadyProcessedImage := imagesProcessed[bundleImgRef.Image]; alreadyProcessedImage {
 				if isBundle {
-					goui.NewIndentingUI(ui).BeginLinef("Pulling nested bundle '%s'\n", bundleImgRef.Image)
-					goui.NewIndentingUI(ui).BeginLinef("Skipped, already downloaded\n")
+					util.NewIndentedLevelLogger(logger).Logf("Pulling nested bundle '%s'\n", bundleImgRef.Image)
+					util.NewIndentedLevelLogger(logger).Logf("Skipped, already downloaded\n")
 				}
 				continue
 			}
@@ -236,16 +251,22 @@ func (o *Bundle) pull(baseOutputPath string, ui goui.UI, pullNestedBundles bool,
 			numSubBundles++
 
 			if o.shouldPrintNestedBundlesHeader(bundlePath, numSubBundles) {
-				ui.BeginLinef("\nNested bundles\n")
+				logger.Logf("\nNested bundles\n")
 			}
 			bundleDigest, err := regname.NewDigest(bundleImgRef.Image)
 			if err != nil {
 				return false, err
 			}
-			_, err = subBundle.pull(baseOutputPath, goui.NewIndentingUI(ui), pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
+			_, err = subBundle.pull(baseOutputPath, util.NewIndentedLevelLogger(logger), pullNestedBundles, o.subBundlePath(bundleDigest), imagesProcessed, numSubBundles)
 			if err != nil {
 				return false, err
 			}
+
+			o.cachedNestedBundleGraph = append(o.cachedNestedBundleGraph, GraphNode{
+				Path:          filepath.Join(baseOutputPath, o.subBundlePath(bundleDigest)),
+				ImageRef:      bundleImgRef.PrimaryLocation(),
+				NestedBundles: subBundle.cachedNestedBundleGraph,
+			})
 		}
 	}
 
