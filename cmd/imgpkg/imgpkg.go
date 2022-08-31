@@ -28,6 +28,13 @@ func main() {
 
 	command := cmd.NewDefaultImgpkgCmd(confUI)
 
+	// Deprecation warning section
+	_, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
+	if found {
+		confUI.PrintLinef("IMGPKG_ENABLE_IAAS_AUTH environment variable will be deprecated, please use the flag --activate-keychain to activate the needed keychains")
+	}
+	// End
+
 	err := command.Execute()
 	if err != nil {
 		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))

@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -30,7 +31,26 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (rega
 			regauthn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 			github.Keychain,
 		)
+	} else {
+		for _, activeKeychain := range keychainOpts.ActiveKeychains {
+			var k regauthn.Keychain
+			fmt.Println(activeKeychain)
+			switch activeKeychain {
+			case auth.GKEKeychain:
+				k = google.Keychain
+			case auth.ECRKeychain:
+				k = regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)))
+			case auth.AKSKeychain:
+				k = regauthn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
+			case auth.GithubKeychain:
+				k = github.Keychain
+			default:
+				return nil, fmt.Errorf("Unable to load keychain for %s, available keychains [aks, ecr, gke, github]]", string(activeKeychain))
+			}
+			keychain = append(keychain, k)
+		}
 	}
+
 	// command-line flags and docker keychain comes last
 	keychain = append(keychain, auth.CustomRegistryKeychain{Opts: keychainOpts})
 

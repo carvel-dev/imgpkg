@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
 type RegistryFlags struct {
@@ -24,6 +26,7 @@ type RegistryFlags struct {
 	RetryCount int
 
 	ResponseHeaderTimeout time.Duration
+	ActiveKeychains       string
 }
 
 // Set Registers the flags available to the provided command
@@ -70,8 +73,24 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	if os.Getenv("IMGPKG_ANON") == "true" {
 		opts.Anon = true
 	}
-	if os.Getenv("IMGPKG_ENABLE_IAAS_AUTH") != "false" {
-		opts.EnableIaasAuthProviders = true
+	iaasAuth, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
+	if found {
+		if iaasAuth == "true" {
+			opts.EnableIaasAuthProviders = true
+		}
+	}
+
+	keychains, found := os.LookupEnv("IMGPKG_ACTIVE_KEYCHAINS")
+	if found {
+		if len(keychains) > 0 {
+			if strings.Contains(keychains, ",") {
+				for _, keychainName := range strings.Split(r.ActiveKeychains, ",") {
+					opts.ActiveKeychains = append(opts.ActiveKeychains, auth.IAASKeychain(strings.TrimSpace(keychainName)))
+				}
+			} else {
+				opts.ActiveKeychains = append(opts.ActiveKeychains, auth.IAASKeychain(strings.TrimSpace(keychains)))
+			}
+		}
 	}
 
 	return opts

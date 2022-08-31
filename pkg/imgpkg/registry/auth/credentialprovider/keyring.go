@@ -29,8 +29,9 @@ func URLsMatchStr(glob string, target string) (bool, error) {
 // glob wild cards in the host name.
 //
 // Examples:
-//    globURL=*.docker.io, targetURL=blah.docker.io => match
-//    globURL=*.docker.io, targetURL=not.right.io   => no match
+//
+//	globURL=*.docker.io, targetURL=blah.docker.io => match
+//	globURL=*.docker.io, targetURL=not.right.io   => no match
 //
 // Note that we don't support wildcards in ports and paths yet.
 func URLsMatch(globURL *url.URL, targetURL *url.URL) (bool, error) {

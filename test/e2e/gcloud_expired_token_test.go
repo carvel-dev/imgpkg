@@ -62,6 +62,7 @@ images:
 		EnvVars: []string{
 			fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets")),
 			fmt.Sprintf("DOCKER_CONFIG=%s", dockerConfigDir),
+			"IMGPKG_ACTIVE_KEYCHAINS=gke",
 		},
 	})
 
