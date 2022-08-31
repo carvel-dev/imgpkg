@@ -7,7 +7,6 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -334,7 +333,7 @@ func (r *FakeTestRegistryBuilder) WithIdentityToken(idToken string) {
 		}
 
 		if strings.HasSuffix(request.URL.String(), "/id_token_auth") {
-			requestBody, err := ioutil.ReadAll(request.Body)
+			requestBody, err := io.ReadAll(request.Body)
 			assert.NoError(r.t, err)
 			if !strings.Contains(string(requestBody), "&refresh_token="+idToken) {
 				writer.WriteHeader(401)
@@ -436,7 +435,7 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	require.NoError(r.t, err)
 	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
 	r.logger.Tracef("created bundle %s\n", bundleRef)
-	tmpDir, err := ioutil.TempDir("", digest.Hex)
+	tmpDir, err := os.MkdirTemp("", digest.Hex)
 	require.NoError(r.t, err)
 	bDir := filepath.Join(tmpDir, bundle.ImgpkgDir)
 	require.NoError(r.t, os.MkdirAll(bDir, 0777))
@@ -799,7 +798,7 @@ func compress(src string) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to compress because file not found: %s", err)
 	}
-	tempTarFile, err := ioutil.TempFile(os.TempDir(), "compressed-layer")
+	tempTarFile, err := os.CreateTemp(os.TempDir(), "compressed-layer")
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,7 @@ package registry
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
@@ -27,7 +27,7 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (rega
 		// if enabled, fall back to iaas keychains
 		keychain = append(keychain,
 			google.Keychain,
-			regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+			regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
 			regauthn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 			github.Keychain,
 		)
@@ -39,7 +39,7 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (rega
 			case auth.GKEKeychain:
 				k = google.Keychain
 			case auth.ECRKeychain:
-				k = regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)))
+				k = regauthn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
 			case auth.AKSKeychain:
 				k = regauthn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
 			case auth.GithubKeychain:

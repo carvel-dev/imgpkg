@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -128,14 +127,14 @@ func (m *memHandler) Get(_ context.Context, _ string, h v1.Hash) (io.ReadCloser,
 	if !found {
 		return nil, errNotFound
 	}
-	return ioutil.NopCloser(bytes.NewReader(b)), nil
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
 func (m *memHandler) Put(_ context.Context, _ string, h v1.Hash, rc io.ReadCloser) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	defer rc.Close()
-	all, err := ioutil.ReadAll(rc)
+	all, err := io.ReadAll(rc)
 	if err != nil {
 		return err
 	}
@@ -222,7 +221,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 				return regErrInternal(err)
 			}
 			defer rc.Close()
-			size, err = io.Copy(ioutil.Discard, rc)
+			size, err = io.Copy(io.Discard, rc)
 			if err != nil {
 				return regErrInternal(err)
 			}
@@ -455,7 +454,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 		}
 
 		defer req.Body.Close()
-		in := ioutil.NopCloser(io.MultiReader(bytes.NewBuffer(b.uploads[target]), req.Body))
+		in := io.NopCloser(io.MultiReader(bytes.NewBuffer(b.uploads[target]), req.Body))
 
 		size := int64(verify.SizeUnknown)
 		if req.ContentLength > 0 {
