@@ -143,8 +143,7 @@ func (m *memHandler) Put(_ context.Context, _ string, h v1.Hash, rc io.ReadClose
 }
 
 // Mount is a no-op since all the blobs are store indexed by sha
-func (m *memHandler) Mount(_ context.Context, repo, from string, h v1.Hash) error {
-	// Mount(ctx context.Context, repo, from string, h v1.Hash) error
+func (m *memHandler) Mount(_ context.Context, _, _ string, h v1.Hash) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 

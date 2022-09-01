@@ -74,10 +74,8 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		opts.Anon = true
 	}
 	iaasAuth, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
-	if found {
-		if iaasAuth == "true" {
-			opts.EnableIaasAuthProviders = true
-		}
+	if found && strings.ToLower(iaasAuth) == "true" {
+		opts.EnableIaasAuthProviders = true
 	}
 
 	keychains, found := os.LookupEnv("IMGPKG_ACTIVE_KEYCHAINS")

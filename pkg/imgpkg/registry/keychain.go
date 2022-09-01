@@ -34,7 +34,6 @@ func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) (rega
 	} else {
 		for _, activeKeychain := range keychainOpts.ActiveKeychains {
 			var k regauthn.Keychain
-			fmt.Println(activeKeychain)
 			switch activeKeychain {
 			case auth.GKEKeychain:
 				k = google.Keychain
