@@ -1,13 +1,14 @@
 // Copyright 2022 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package bundle
+package v1
 
 import (
 	"fmt"
 	"sort"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
@@ -36,7 +37,7 @@ type ImageInfo struct {
 	Image       string            `json:"image"`
 	Origin      string            `json:"origin"`
 	Annotations map[string]string `json:"annotations,omitempty"`
-	ImageType   ImageType         `json:"imageType"`
+	ImageType   bundle.ImageType  `json:"imageType"`
 }
 
 // Content Contents present in a Bundle
@@ -56,7 +57,7 @@ type Description struct {
 
 // DescribeOpts Options used when calling the Describe function
 type DescribeOpts struct {
-	Logger                 Logger
+	Logger                 bundle.Logger
 	Concurrency            int
 	IncludeCosignArtifacts bool
 }
@@ -84,30 +85,38 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 }
 
 // DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
-func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
-	bundle := NewBundle(bundleImage, reg)
-	allBundles, err := bundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, sigFetcher)
+func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg bundle.ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
+	newBundle := bundle.NewBundle(bundleImage, reg)
+	isBundle, err := newBundle.IsBundle()
+	if err != nil {
+		return Description{}, fmt.Errorf("Unable to check if %s is a bundle: %s", bundleImage, err)
+	}
+	if !isBundle {
+		return Description{}, fmt.Errorf("Only bundles can be described, and %s is not a bundle", bundleImage)
+	}
+
+	allBundles, err := newBundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, sigFetcher)
 	if err != nil {
 		return Description{}, fmt.Errorf("Retrieving Images from bundle: %s", err)
 	}
 
 	topBundle := refWithDescription{
-		imgRef: NewBundleImageRef(lockconfig.ImageRef{Image: bundle.DigestRef()}),
+		imgRef: bundle.NewBundleImageRef(lockconfig.ImageRef{Image: newBundle.DigestRef()}),
 	}
 	return topBundle.DescribeBundle(allBundles), nil
 }
 
 type refWithDescription struct {
-	imgRef ImageRef
+	imgRef bundle.ImageRef
 	bundle Description
 }
 
-func (r *refWithDescription) DescribeBundle(bundles []*Bundle) Description {
+func (r *refWithDescription) DescribeBundle(bundles []*bundle.Bundle) Description {
 	var visitedImgs map[string]refWithDescription
 	return r.describeBundleRec(visitedImgs, r.imgRef, bundles)
 }
 
-func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle ImageRef, bundles []*Bundle) Description {
+func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle bundle.ImageRef, bundles []*bundle.Bundle) Description {
 	desc, wasVisited := visitedImgs[currentBundle.Image]
 	if wasVisited {
 		return desc.bundle
@@ -126,18 +135,18 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 			},
 		},
 	}
-	var bundle *Bundle
+	var newBundle *bundle.Bundle
 	for _, b := range bundles {
 		if b.DigestRef() == currentBundle.PrimaryLocation() {
-			bundle = b
+			newBundle = b
 			break
 		}
 	}
-	if bundle == nil {
+	if newBundle == nil {
 		panic("Internal consistency: bundle could not be found in list of bundles")
 	}
 
-	imagesRefs := bundle.ImagesRefs()
+	imagesRefs := newBundle.ImagesRefs()
 	sort.Slice(imagesRefs, func(i, j int) bool {
 		return imagesRefs[i].Image < imagesRefs[j].Image
 	})

@@ -1,7 +1,7 @@
 // Copyright 2022 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package bundle_test
+package v1_test
 
 import (
 	"fmt"
@@ -17,6 +17,7 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -291,14 +292,14 @@ func TestDescribeBundle(t *testing.T) {
 	for _, test := range allTests {
 		t.Run(test.description, func(t *testing.T) {
 			fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
-			topBundle := createBundle(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{}, test.includeCosignArtifacts)
+			topBundle := createBundleRec(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{}, test.includeCosignArtifacts)
 			fakeRegBuilder.Build()
 
 			fmt.Printf("Expected structure:\n\n")
 			topBundle.Print("")
 			fmt.Printf("++++++++++++++++\n\n")
 
-			bundleDescription, err := ctlbundle.Describe(topBundle.refDigest, ctlbundle.DescribeOpts{
+			bundleDescription, err := v1.Describe(topBundle.refDigest, v1.DescribeOpts{
 				Logger:                 logger,
 				Concurrency:            1,
 				IncludeCosignArtifacts: test.includeCosignArtifacts,
@@ -367,7 +368,7 @@ func (c createdBundle) Print(prefix string) {
 	}
 }
 
-func printDescribedBundle(prefix string, bundle ctlbundle.Description) {
+func printDescribedBundle(prefix string, bundle v1.Description) {
 	fmt.Printf("%sBundle: %s\n", prefix, bundle.Image)
 	fmt.Printf("%s%sAnnotations: %v\n", prefix, prefix, bundle.Annotations)
 	for _, b := range bundle.Content.Bundles {
@@ -386,7 +387,7 @@ func printDescribedBundle(prefix string, bundle ctlbundle.Description) {
 	}
 }
 
-func assertBundleResult(t *testing.T, expectedBundle createdBundle, result ctlbundle.Description) {
+func assertBundleResult(t *testing.T, expectedBundle createdBundle, result v1.Description) {
 	for _, image := range expectedBundle.images {
 		if len(image.images) > 0 {
 			bundleDesc, imgInfo, ok := findImageWithRef(result, image.refDigest)
@@ -413,10 +414,10 @@ func assertBundleResult(t *testing.T, expectedBundle createdBundle, result ctlbu
 		}
 	}
 }
-func findImageWithRef(bundle ctlbundle.Description, refDigest string) (ctlbundle.Description, ctlbundle.ImageInfo, bool) {
+func findImageWithRef(bundle v1.Description, refDigest string) (v1.Description, v1.ImageInfo, bool) {
 	for _, bundleDesc := range bundle.Content.Bundles {
 		if bundleDesc.Image == refDigest {
-			return bundleDesc, ctlbundle.ImageInfo{
+			return bundleDesc, v1.ImageInfo{
 				Image:       bundle.Image,
 				Origin:      bundle.Origin,
 				Annotations: bundle.Annotations,
@@ -425,13 +426,13 @@ func findImageWithRef(bundle ctlbundle.Description, refDigest string) (ctlbundle
 	}
 	for _, img := range bundle.Content.Images {
 		if img.Image == refDigest {
-			return ctlbundle.Description{}, img, true
+			return v1.Description{}, img, true
 		}
 	}
-	return ctlbundle.Description{}, ctlbundle.ImageInfo{}, false
+	return v1.Description{}, v1.ImageInfo{}, false
 }
 
-func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath, includeCosignArtifacts bool) createdBundle {
+func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate testBundle, allBundlesCreated map[string]*createdBundle, createdImages map[string]*helpers.ImageOrImageIndexWithTarPath, includeCosignArtifacts bool) createdBundle {
 	if cb, ok := allBundlesCreated[bToCreate.name]; ok {
 		return *cb
 	}
@@ -444,7 +445,7 @@ func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate 
 	for _, image := range bToCreate.images {
 		imgDigestRef := ""
 		if len(image.images) > 0 {
-			innerBundle := createBundle(t, reg, image.testBundle, allBundlesCreated, createdImages, includeCosignArtifacts)
+			innerBundle := createBundleRec(t, reg, image.testBundle, allBundlesCreated, createdImages, includeCosignArtifacts)
 			imgs = append(imgs, lockconfig.ImageRef{Image: innerBundle.refDigest})
 			result.images = append(result.images, createdImage{createdBundle: innerBundle})
 			imgDigestRef = innerBundle.refDigest
