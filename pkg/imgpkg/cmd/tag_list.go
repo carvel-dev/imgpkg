@@ -6,9 +6,8 @@ package cmd
 import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
-	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
 type TagListOptions struct {
@@ -38,17 +37,7 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 }
 
 func (t *TagListOptions) Run() error {
-	reg, err := registry.NewSimpleRegistry(t.RegistryFlags.AsRegistryOpts())
-	if err != nil {
-		return err
-	}
-
-	ref, err := regname.ParseReference(t.ImageFlags.Image, regname.WeakValidation)
-	if err != nil {
-		return err
-	}
-
-	tags, err := reg.ListTags(ref.Context())
+	tagInfo, err := v1.TagList(t.ImageFlags.Image, t.Digests, t.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return err
 	}
@@ -70,26 +59,10 @@ func (t *TagListOptions) Run() error {
 		},
 	}
 
-	for _, tag := range tags {
-		var digest string
-
-		if t.Digests {
-			tagRef, err := regname.NewTag(ref.Context().String()+":"+tag, regname.WeakValidation)
-			if err != nil {
-				return err
-			}
-
-			hash, err := reg.Digest(tagRef)
-			if err != nil {
-				return err
-			}
-
-			digest = hash.String()
-		}
-
+	for _, tag := range tagInfo.Tags {
 		table.Rows = append(table.Rows, []uitable.Value{
-			uitable.NewValueString(tag),
-			uitable.NewValueString(digest),
+			uitable.NewValueString(tag.Tag),
+			uitable.NewValueString(tag.Digest),
 		})
 	}
 
