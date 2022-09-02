@@ -82,7 +82,7 @@ func (d *DescribeOptions) Run() error {
 		p := bundleTextPrinter{logger: levelLogger}
 		p.Print(description)
 	} else if d.OutputType == "yaml" {
-		p := bundleYAMLPrinter{logger: levelLogger}
+		p := bundleYAMLPrinter{logger: util.NewUILevelLogger(logLevel, util.NewLoggerNoTTY(d.ui))}
 		return p.Print(description)
 	}
 	return nil

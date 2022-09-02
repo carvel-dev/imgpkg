@@ -397,7 +397,105 @@ origin: %s%s
 		})
 	})
 
-	t.Run("bundle with bundle collocated with text output", func(t *testing.T) {
+	t.Run("bundle prints output even when tty=false", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
+		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest string
+		logger.Section("create bundle with image", func() {
+			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
+
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s%s
+  annotations:
+    some.other.annotation: some other value
+    some.annotation: some value
+`, env.Image, imageDigest)
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+
+			out := imgpkg.Run([]string{"push", "--tty", "-b", fmt.Sprintf("%s%s", env.Image, bundleTag), "-f", bundleDir})
+			bundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+
+			logger.Section("sign image and Bundle", func() {
+				imgSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, imageDigest))
+				imgSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, imgSigTag))
+				bundleSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSigTag))
+			})
+		})
+
+		logger.Section("copy bundle to repository", func() {
+			imgpkg.Run([]string{"copy",
+				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
+				"--to-repo", env.RelocationRepo,
+				"--cosign-signatures",
+			},
+			)
+		})
+
+		logger.Section("executes describe command", func() {
+			stdout := imgpkg.Run(
+				[]string{"describe",
+					"--tty=false", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
+					"-o", "yaml",
+				},
+			)
+			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
+
+			require.YAMLEq(t, fmt.Sprintf(`content:
+  images:
+    "%s":
+      annotations:
+        some.annotation: some value
+        some.other.annotation: some other value
+      image: %s%s
+      imageType: Image
+      origin: %s%s
+    "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: Signature
+      origin: %s@%s
+    "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: Signature
+      origin: %s@%s
+    "%s":
+      image: %s@%s
+      imageType: Internal
+      origin: %s@%s
+metadata: {}
+image: %s%s
+origin: %s%s
+sha: %s
+`,
+				imageDigest[1:],
+				env.RelocationRepo, imageDigest,
+				env.Image, imageDigest,
+				bundleSigDigest,
+				bundleSigTag,
+				env.RelocationRepo, bundleSigDigest,
+				env.RelocationRepo, bundleSigDigest,
+				imgSigDigest,
+				imgSigTag,
+				env.RelocationRepo, imgSigDigest,
+				env.RelocationRepo, imgSigDigest,
+				locationsImgDigest,
+				env.RelocationRepo, locationsImgDigest,
+				env.RelocationRepo, locationsImgDigest,
+				env.RelocationRepo, bundleDigest, env.RelocationRepo, bundleDigest, bundleDigest[1:]), stdout)
+		})
+	})
+
+	t.Run("bundle with bundle collocated with yaml output", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()
