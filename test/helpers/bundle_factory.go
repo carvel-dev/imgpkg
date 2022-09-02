@@ -4,7 +4,6 @@
 package helpers
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,10 +29,10 @@ func (b *BundleFactory) CreateBundleDir(bYml, iYml string) string {
 	err := os.Mkdir(imgpkgDir, 0700)
 	require.NoError(b.t, err, "unable to create .imgpkg folder")
 
-	err = ioutil.WriteFile(filepath.Join(imgpkgDir, BundleFile), []byte(bYml), 0600)
+	err = os.WriteFile(filepath.Join(imgpkgDir, BundleFile), []byte(bYml), 0600)
 	require.NoError(b.t, err, "unable to create bundle lock file")
 
-	err = ioutil.WriteFile(filepath.Join(imgpkgDir, ImageFile), []byte(iYml), 0600)
+	err = os.WriteFile(filepath.Join(imgpkgDir, ImageFile), []byte(iYml), 0600)
 	require.NoError(b.t, err, "unable to create images lock file")
 
 	b.bundleFolder = outDir
@@ -49,6 +48,6 @@ func (b *BundleFactory) AddFileToBundle(path, content string) {
 		require.NoError(b.t, err, "unable to add subfolders to bundle")
 	}
 
-	err := ioutil.WriteFile(filepath.Join(b.bundleFolder, path), []byte(content), 0600)
+	err := os.WriteFile(filepath.Join(b.bundleFolder, path), []byte(content), 0600)
 	require.NoError(b.t, err)
 }

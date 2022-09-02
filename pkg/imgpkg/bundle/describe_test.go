@@ -5,7 +5,6 @@ package bundle_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -491,7 +490,7 @@ func createBundle(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCreate 
 	}
 	b = b.WithImageRefs(imgs)
 	if bToCreate.locationPresent {
-		tmpDir, err := ioutil.TempDir("", strings.Split(b.RefDigest, "sha256:")[1])
+		tmpDir, err := os.MkdirTemp("", strings.Split(b.RefDigest, "sha256:")[1])
 		require.NoError(t, err)
 		locImg := reg.WithLocationsImage(b.RefDigest, tmpDir, ctlbundle.ImageLocationsConfig{
 			APIVersion: ctlbundle.LocationAPIVersion,
