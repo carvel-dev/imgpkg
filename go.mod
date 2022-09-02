@@ -10,12 +10,12 @@ require (
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/google/go-containerregistry v0.10.0
-	github.com/mattn/go-isatty v0.0.14
+	github.com/mattn/go-isatty v0.0.16
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.7.5
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
 	sigs.k8s.io/yaml v1.3.0
 )
 
