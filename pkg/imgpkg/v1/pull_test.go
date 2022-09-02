@@ -48,7 +48,7 @@ func TestPullImage(t *testing.T) {
 		}
 		status, err := v1.Pull(fakeRegistry.ReferenceOnTestServer(imageName)+":"+imageTag, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: randomImg.RefDigest,
 			},
@@ -69,7 +69,7 @@ func TestPullImage(t *testing.T) {
 		}
 		status, err := v1.Pull(randomImg.RefDigest, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: randomImg.RefDigest,
 			},
@@ -136,7 +136,7 @@ func TestPullBundle(t *testing.T) {
 		}
 		status, err := v1.Pull(randomBundle, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: randomBundle,
 				ImagesLock: &v1.ImagesLockInfo{
@@ -161,7 +161,7 @@ func TestPullBundle(t *testing.T) {
 		}
 		status, err := v1.Pull(randomBundle, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: randomBundle,
 			},
@@ -182,7 +182,7 @@ func TestPullBundle(t *testing.T) {
 		}
 		status, err := v1.Pull(collocatedBundleRef, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: collocatedBundleRef,
 				ImagesLock: &v1.ImagesLockInfo{
@@ -208,7 +208,7 @@ func TestPullBundle(t *testing.T) {
 		}
 		status, err := v1.Pull(collocatedBundleRef, outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: collocatedBundleRef,
 			},
@@ -232,7 +232,7 @@ func TestPullBundle(t *testing.T) {
 		}
 		status, err := v1.Pull(imgTag.String(), outputFolder, opts, registry.Opts{})
 		require.NoError(t, err)
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: collocatedBundleRef,
 			},
@@ -300,7 +300,7 @@ func TestPullBundleRecursively(t *testing.T) {
 		require.NoError(t, err)
 		expectedNestedBundlePath := filepath.Join(outputFolder, ".imgpkg", "bundles", fmt.Sprintf("%s-%s", hash.Algorithm, hash.Hex))
 
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: bundleWithNested,
 				ImagesLock: &v1.ImagesLockInfo{
@@ -373,7 +373,7 @@ func TestPullBundleRecursively(t *testing.T) {
 		require.NoError(t, err)
 		collocatedSimpleBundleRef := colBundleDigest.Digest(digest.DigestStr())
 
-		require.Equal(t, v1.Status{
+		require.Equal(t, v1.PullStatus{
 			BundleInfo: v1.BundleInfo{
 				ImageRef: collocatedBundleRef,
 				ImagesLock: &v1.ImagesLockInfo{
