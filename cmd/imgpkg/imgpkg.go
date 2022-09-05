@@ -8,10 +8,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	uierrs "github.com/cppforlife/go-cli-ui/errors"
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd"
 )
 
@@ -33,5 +35,21 @@ func main() {
 		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))
 		os.Exit(1)
 	}
+	if len(os.Args) > 1 {
+		cmdPathPieces := os.Args[1:]
 
+		var cmdName string // first "non-flag" arguments
+		for _, arg := range cmdPathPieces {
+			if !strings.HasPrefix(arg, "-") {
+				cmdName = arg
+				break
+			}
+		}
+		switch cmdName {
+		case "help", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			// do not print Succeeded
+		default:
+			confUI.PrintLinef("Succeeded")
+		}
+	}
 }
