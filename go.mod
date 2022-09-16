@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cheggaaa/pb/v3 v3.1.0
-	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72
+	github.com/cppforlife/cobrautil v0.0.0-20220907150944-da5ee3a6ab1f
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-logr/logr v1.2.3
