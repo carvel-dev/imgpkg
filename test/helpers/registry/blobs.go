@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -128,14 +127,14 @@ func (m *memHandler) Get(_ context.Context, _ string, h v1.Hash) (io.ReadCloser,
 	if !found {
 		return nil, errNotFound
 	}
-	return ioutil.NopCloser(bytes.NewReader(b)), nil
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
 func (m *memHandler) Put(_ context.Context, _ string, h v1.Hash, rc io.ReadCloser) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	defer rc.Close()
-	all, err := ioutil.ReadAll(rc)
+	all, err := io.ReadAll(rc)
 	if err != nil {
 		return err
 	}
@@ -144,10 +143,13 @@ func (m *memHandler) Put(_ context.Context, _ string, h v1.Hash, rc io.ReadClose
 }
 
 // Mount is a no-op since all the blobs are store indexed by sha
-func (m *memHandler) Mount(_ context.Context, _, _ string, _ v1.Hash) error {
+func (m *memHandler) Mount(_ context.Context, _, _ string, h v1.Hash) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if _, found := m.m[h.String()]; !found {
+		return errors.New("blob not found")
+	}
 	return nil
 }
 
@@ -218,7 +220,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 				return regErrInternal(err)
 			}
 			defer rc.Close()
-			size, err = io.Copy(ioutil.Discard, rc)
+			size, err = io.Copy(io.Discard, rc)
 			if err != nil {
 				return regErrInternal(err)
 			}
@@ -347,12 +349,12 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 			}
 
 			err = bmh.Mount(req.Context(), repo, from, h)
-			if err != nil {
-				return regErrInternal(err)
+			if err == nil {
+				resp.Header().Set("Docker-Content-Digest", h.String())
+				resp.WriteHeader(http.StatusCreated)
+				return nil
 			}
-			resp.Header().Set("Docker-Content-Digest", h.String())
-			resp.WriteHeader(http.StatusCreated)
-			return nil
+			// check err type??
 		}
 
 		id := fmt.Sprint(rand.Int63())
@@ -451,7 +453,7 @@ func (b *blobs) handle(resp http.ResponseWriter, req *http.Request) *regError {
 		}
 
 		defer req.Body.Close()
-		in := ioutil.NopCloser(io.MultiReader(bytes.NewBuffer(b.uploads[target]), req.Body))
+		in := io.NopCloser(io.MultiReader(bytes.NewBuffer(b.uploads[target]), req.Body))
 
 		size := int64(verify.SizeUnknown)
 		if req.ContentLength > 0 {

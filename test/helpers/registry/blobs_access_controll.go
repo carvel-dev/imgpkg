@@ -6,9 +6,9 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -121,6 +121,9 @@ func (m *diskHandler) Mount(_ context.Context, repo, from string, h v1.Hash) err
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if _, found := m.m[h.String()]; !found {
+		return errors.New("blob not found")
+	}
 	m.access[m.accessKey(repo, h)] = h.String()
 	return nil
 }
@@ -161,14 +164,14 @@ func (m *memWithAccessControlHandler) Get(_ context.Context, repo string, h v1.H
 	if !found {
 		return nil, errNotFound
 	}
-	return ioutil.NopCloser(bytes.NewReader(b)), nil
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
 func (m *memWithAccessControlHandler) Put(_ context.Context, repo string, h v1.Hash, rc io.ReadCloser) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	defer rc.Close()
-	all, err := ioutil.ReadAll(rc)
+	all, err := io.ReadAll(rc)
 	if err != nil {
 		return err
 	}
@@ -178,6 +181,10 @@ func (m *memWithAccessControlHandler) Put(_ context.Context, repo string, h v1.H
 func (m *memWithAccessControlHandler) Mount(_ context.Context, repo, from string, h v1.Hash) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
+	if _, found := m.m[accessKey(from, h)]; !found {
+		return errors.New("blob not found")
+	}
 
 	m.m[accessKey(repo, h)] = m.m[accessKey(from, h)]
 	return nil

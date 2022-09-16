@@ -4,7 +4,6 @@
 package helpers
 
 import (
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
@@ -15,10 +14,10 @@ import (
 
 func CompareFiles(t *testing.T, path1, path2 string) {
 	t.Helper()
-	path1Bs, err := ioutil.ReadFile(path1)
+	path1Bs, err := os.ReadFile(path1)
 	require.NoError(t, err, "reading path1")
 
-	path2Bs, err := ioutil.ReadFile(path2)
+	path2Bs, err := os.ReadFile(path2)
 	require.NoError(t, err, "reading path2")
 
 	require.Equal(t, string(path2Bs), string(path1Bs))
