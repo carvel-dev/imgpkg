@@ -35,3 +35,29 @@ func TestAuthErr(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, errOut, "incorrect username or password")
 }
+
+func TestKeychainErrors(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+	t.Run("when providing multiple keychains the failure", func(t *testing.T) {
+
+		var stderrBs bytes.Buffer
+		_, err := imgpkg.RunWithOpts([]string{
+			"pull", "-i", "some-image", "-o", "something",
+		}, helpers.RunOpts{AllowError: true, EnvVars: []string{"IMGPKG_ACTIVE_KEYCHAINS=gke,aks"}, StderrWriter: &stderrBs})
+
+		require.Error(t, err)
+		require.Contains(t, stderrBs.String(), "UNAUTHORIZED: authentication required")
+	})
+
+	t.Run("keychain provider name is unknown", func(t *testing.T) {
+
+		var stderrBs bytes.Buffer
+		_, err := imgpkg.RunWithOpts([]string{
+			"pull", "-i", "some-image", "-o", "something",
+		}, helpers.RunOpts{AllowError: true, EnvVars: []string{"IMGPKG_ACTIVE_KEYCHAINS=gke,random-name"}, StderrWriter: &stderrBs})
+
+		require.Error(t, err)
+		require.Contains(t, stderrBs.String(), "Unable to load keychain for random-name, available keychains [aks, ecr, gke, github]")
+	})
+}

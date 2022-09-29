@@ -82,7 +82,7 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	if found {
 		if len(keychains) > 0 {
 			if strings.Contains(keychains, ",") {
-				for _, keychainName := range strings.Split(r.ActiveKeychains, ",") {
+				for _, keychainName := range strings.Split(keychains, ",") {
 					opts.ActiveKeychains = append(opts.ActiveKeychains, auth.IAASKeychain(strings.TrimSpace(keychainName)))
 				}
 			} else {
