@@ -12,7 +12,7 @@ require (
 	github.com/google/go-containerregistry v0.11.0
 	github.com/mattn/go-isatty v0.0.16
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
-	github.com/spf13/cobra v1.5.0
+	github.com/spf13/cobra v1.6.0
 	github.com/stretchr/testify v1.7.5
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
@@ -53,7 +53,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.15.8 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
