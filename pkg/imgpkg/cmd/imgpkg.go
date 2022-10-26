@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"io"
+	"os"
 
 	"github.com/cppforlife/cobrautil"
 	"github.com/cppforlife/go-cli-ui/ui"
@@ -40,7 +41,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 	// setting output for cmd.Help()
 	blockWriter := uiBlockWriter{o.ui}
 	cmd.SetOut(blockWriter)
-	cmd.SetErr(blockWriter)
+	cmd.SetErr(os.Stderr)
 
 	o.UIFlags.Set(cmd)
 	o.DebugFlags.Set(cmd)
