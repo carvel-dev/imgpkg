@@ -41,7 +41,7 @@ func main() {
 		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))
 		os.Exit(1)
 	}
-	if !cobrautil.IsCobraInternalCommand(os.Args) {
+	if !cobrautil.IsCobraManagedCommand(os.Args) {
 		confUI.PrintLinef("Succeeded")
 	}
 }
