@@ -5,6 +5,7 @@ package v1_test
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -320,6 +321,50 @@ func TestDescribeBundle(t *testing.T) {
 			assertBundleResult(t, topBundle, bundleDescription)
 		})
 	}
+
+	t.Run("When denied error occur retrieving a signature, it provide the error information for the signature", func(t *testing.T) {
+		logger.LogLevel = helpers.LogTrace
+		fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
+		img1 := fakeRegBuilder.WithRandomImage("other-repo/some-random-img")
+		hash, err := regv1.NewHash(img1.Digest)
+		require.NoError(t, err)
+		b := fakeRegBuilder.
+			WithRandomBundle("repo/bundle-with-sig-error").
+			WithImageRefs([]lockconfig.ImageRef{{Image: img1.RefDigest}})
+		signToDeny := fakeRegBuilder.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
+
+		fakeRegBuilder.Build()
+		fakeRegBuilder.WithHandlerFunc(func(writer http.ResponseWriter, request *http.Request) bool {
+			if strings.HasSuffix(request.URL.String(), "/v2/") {
+				return false
+			}
+
+			if request.Method == "GET" || request.Method == "HEAD" {
+				if strings.Contains(request.URL.String(), cosign.Munge(regv1.Descriptor{Digest: hash})) {
+					writer.WriteHeader(403)
+					writer.Write([]byte("{\"errors\":[{\"code\":\"UNKNOWN\",\"message\":\"denied access\"}]}"))
+					return true
+				}
+			}
+			return false
+		})
+
+		bundleDescription, err := v1.Describe(b.RefDigest, v1.DescribeOpts{
+			Logger:                 logger,
+			Concurrency:            1,
+			IncludeCosignArtifacts: true,
+		},
+			registry.Opts{
+				EnvironFunc: os.Environ,
+				RetryCount:  3,
+			},
+		)
+		require.NoError(t, err)
+
+		require.Len(t, bundleDescription.Content.Images, 2)
+		require.Equal(t, ctlbundle.ImageType("Signature"), bundleDescription.Content.Images[signToDeny.Tag].ImageType)
+		require.Equal(t, "access denied", bundleDescription.Content.Images[signToDeny.Tag].Error)
+	})
 }
 
 type testImage struct {

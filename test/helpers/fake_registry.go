@@ -90,16 +90,18 @@ func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) regi
 		auth := regremote.WithAuth(r.auth)
 
 		if val.Image != nil {
-			r.logger.Tracef("build: creating image on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
+			r.logger.Tracef("build: creating image on registry: %s", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
 			if val.Tag != "" {
+				r.logger.Tracef(" with tag: %s", val.Tag)
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.Image, auth)
 				assert.NoError(r.t, err)
 			} else {
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
 				assert.NoError(r.t, err)
 			}
+			r.logger.Tracef("\n")
 		}
 
 		if val.ImageIndex != nil {
