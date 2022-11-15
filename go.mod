@@ -12,7 +12,7 @@ require (
 	github.com/google/go-containerregistry v0.12.1
 	github.com/mattn/go-isatty v0.0.16
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.2.0
