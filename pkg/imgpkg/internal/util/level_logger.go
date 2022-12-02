@@ -1,6 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+// Package util contains tools used by imgpkg internally
 package util
 
 import goui "github.com/cppforlife/go-cli-ui/ui"
