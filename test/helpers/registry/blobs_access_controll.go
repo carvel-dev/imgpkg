@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -161,14 +160,14 @@ func (m *memWithAccessControlHandler) Get(_ context.Context, repo string, h v1.H
 	if !found {
 		return nil, errNotFound
 	}
-	return ioutil.NopCloser(bytes.NewReader(b)), nil
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
 func (m *memWithAccessControlHandler) Put(_ context.Context, repo string, h v1.Hash, rc io.ReadCloser) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	defer rc.Close()
-	all, err := ioutil.ReadAll(rc)
+	all, err := io.ReadAll(rc)
 	if err != nil {
 		return err
 	}
