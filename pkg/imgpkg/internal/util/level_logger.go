@@ -1,6 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+// Package util contains tools used by imgpkg internally
 package util
 
 // LogLevel specifies logging level (i.e. DEBUG, WARN)

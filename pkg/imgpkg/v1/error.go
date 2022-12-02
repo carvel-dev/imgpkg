@@ -1,6 +1,7 @@
 // Copyright 2022 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+// Package v1 contains the Public API to use imgpkg as a library
 package v1
 
 // ErrIsBundle Error when the provided Image Reference is a Bundle
