@@ -62,6 +62,7 @@ type Registry interface {
 }
 
 // ImagesReader Interface for Reading Images
+//
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReader
 type ImagesReader interface {
 	Get(regname.Reference) (*regremote.Descriptor, error)
@@ -72,6 +73,7 @@ type ImagesReader interface {
 }
 
 // ImagesReaderWriter Interface for Reading and Writing Images
+//
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesReaderWriter
 type ImagesReaderWriter interface {
 	ImagesReader
