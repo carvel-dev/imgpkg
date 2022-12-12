@@ -96,6 +96,9 @@ func (o *Bundle) Tag() string { return o.plainImg.Tag() }
 // NestedBundles Provides information about the Graph of nested bundles associated with the current bundle
 func (o *Bundle) NestedBundles() []GraphNode { return o.cachedNestedBundleGraph }
 
+// ImagesMetadata returns ImagesMetadata
+func (o *Bundle) ImagesMetadata() ImagesMetadata { return o.imgRetriever }
+
 func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
 	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)
 	img := ref.DeepCopy()

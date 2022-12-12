@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
+	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -161,6 +161,8 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		}
 		annotations := image.Annotations
 		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
+		layers := image.Layers
+		p.printLayers(layers, util.NewIndentedLogger(indentLogger))
 	}
 }
 
@@ -176,6 +178,17 @@ func (p bundleTextPrinter) printAnnotations(annotations map[string]string, inden
 		sort.Strings(annotationKeys)
 		for _, key := range annotationKeys {
 			annIndentLogger.Logf("%s: %s\n", key, annotations[key])
+		}
+	}
+}
+
+func (p bundleTextPrinter) printLayers(layers []map[string]string, indentLogger Logger) {
+	if len(layers) > 0 {
+		indentLogger.Logf("Layers:\n")
+		layerIndentLogger := util.NewIndentedLogger(indentLogger)
+
+		for i := range layers {
+			layerIndentLogger.Logf(" - Digest: %s\n", layers[i]["digest"])
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
@@ -34,11 +35,12 @@ type Metadata struct {
 
 // ImageInfo URLs where the image can be found as well as annotations provided in the Images Lock
 type ImageInfo struct {
-	Image       string            `json:"image,omitempty"`
-	Origin      string            `json:"origin,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-	ImageType   bundle.ImageType  `json:"imageType"`
-	Error       string            `json:"error,omitempty"`
+	Image       string              `json:"image,omitempty"`
+	Origin      string              `json:"origin,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty"`
+	ImageType   bundle.ImageType    `json:"imageType"`
+	Error       string              `json:"error,omitempty"`
+	Layers      []map[string]string `json:"layers,omitempty"`
 }
 
 // Content Contents present in a Bundle
@@ -170,11 +172,23 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 				if err != nil {
 					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", ref.Image))
 				}
+
+				layers := []map[string]string{}
+
+				parsedImgRef, _ := regname.ParseReference(ref.Image)
+				v1Img, _ := newBundle.ImagesMetadata().Image(parsedImgRef)
+				imgLayers, _ := v1Img.Layers()
+				for _, imgLayer := range imgLayers {
+					digHash, _ := imgLayer.Digest()
+					layers = append(layers, map[string]string{"digest": fmt.Sprintf("%s:%s", digHash.Algorithm, digHash.Hex)})
+				}
+
 				desc.bundle.Content.Images[digest.DigestStr()] = ImageInfo{
 					Image:       ref.PrimaryLocation(),
 					Origin:      ref.Image,
 					Annotations: ref.Annotations,
 					ImageType:   ref.ImageType,
+					Layers:      layers,
 				}
 			} else {
 				desc.bundle.Content.Images[ref.Image] = ImageInfo{
