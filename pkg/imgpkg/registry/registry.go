@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"runtime"
 	"sync"
 	"time"
 
