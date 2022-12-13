@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
@@ -175,8 +177,8 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 
 				layers := []map[string]string{}
 
-				parsedImgRef, _ := regname.ParseReference(ref.Image)
-				v1Img, _ := newBundle.ImagesMetadata().Image(parsedImgRef)
+				parsedImgRef, _ := regname.ParseReference(ref.Image, regname.WeakValidation)
+				v1Img, _ := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 				imgLayers, _ := v1Img.Layers()
 				for _, imgLayer := range imgLayers {
 					digHash, _ := imgLayer.Digest()
