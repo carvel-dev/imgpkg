@@ -8,14 +8,16 @@ import (
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	"github.com/spf13/cobra"
 	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
+	"strings"
 )
 
 type TagListOptions struct {
 	ui ui.UI
 
-	ImageFlags    ImageFlags
-	RegistryFlags RegistryFlags
-	Digests       bool
+	ImageFlags          ImageFlags
+	RegistryFlags       RegistryFlags
+	Digests             bool
+	IncludeInternalTags bool
 }
 
 func NewTagListOptions(ui ui.UI) *TagListOptions {
@@ -33,6 +35,7 @@ func NewTagListCmd(o *TagListOptions) *cobra.Command {
 	o.RegistryFlags.Set(cmd)
 	// Too slow to resolve each tag to digest individually (no bulk API).
 	cmd.Flags().BoolVar(&o.Digests, "digests", false, "Include digests")
+	cmd.Flags().BoolVar(&o.IncludeInternalTags, "imgpkg-internal-tags", false, "Include internal .imgpkg tags")
 	return cmd
 }
 
@@ -60,10 +63,12 @@ func (t *TagListOptions) Run() error {
 	}
 
 	for _, tag := range tagInfo.Tags {
-		table.Rows = append(table.Rows, []uitable.Value{
-			uitable.NewValueString(tag.Tag),
-			uitable.NewValueString(tag.Digest),
-		})
+		if !strings.HasSuffix(tag.Tag, ".imgpkg") || t.IncludeInternalTags {
+			table.Rows = append(table.Rows, []uitable.Value{
+				uitable.NewValueString(tag.Tag),
+				uitable.NewValueString(tag.Digest),
+			})
+		}
 	}
 
 	t.ui.PrintTable(table)
