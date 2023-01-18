@@ -44,6 +44,30 @@ type Opts struct {
 	ActiveKeychains []auth.IAASKeychain
 }
 
+// DeepCopy the options to a new struct
+func (o Opts) DeepCopy() Opts {
+	result := Opts{
+		VerifyCerts:                   o.VerifyCerts,
+		Insecure:                      o.Insecure,
+		IncludeNonDistributableLayers: o.IncludeNonDistributableLayers,
+		Username:                      o.Username,
+		Password:                      o.Password,
+		Token:                         o.Token,
+		Anon:                          o.Anon,
+		EnableIaasAuthProviders:       o.EnableIaasAuthProviders,
+		ResponseHeaderTimeout:         o.ResponseHeaderTimeout,
+		RetryCount:                    o.RetryCount,
+		EnvironFunc:                   o.EnvironFunc,
+	}
+	for _, path := range o.CACertPaths {
+		result.CACertPaths = append(result.CACertPaths, path)
+	}
+	for _, keychain := range o.ActiveKeychains {
+		result.ActiveKeychains = append(result.ActiveKeychains, keychain)
+	}
+	return result
+}
+
 // Registry Interface to access the registry
 type Registry interface {
 	Get(reference regname.Reference) (*regremote.Descriptor, error)
