@@ -5,14 +5,14 @@ package cmd
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
+	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
+// RegistryFlags command line flags to configure the registry connection
 type RegistryFlags struct {
 	CACertPaths []string
 	VerifyCerts bool
@@ -44,6 +44,7 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&r.RetryCount, "registry-retry-count", 5, "Set the number of times imgpkg retries to send requests to the registry in case of an error")
 }
 
+// AsRegistryOpts convert command flags and environment variables into registry.Opts
 func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	opts := registry.Opts{
 		CACertPaths: r.CACertPaths,
@@ -61,35 +62,5 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		EnvironFunc: os.Environ,
 	}
 
-	if len(opts.Username) == 0 {
-		opts.Username = os.Getenv("IMGPKG_USERNAME")
-	}
-	if len(opts.Password) == 0 {
-		opts.Password = os.Getenv("IMGPKG_PASSWORD")
-	}
-	if len(opts.Token) == 0 {
-		opts.Token = os.Getenv("IMGPKG_TOKEN")
-	}
-	if os.Getenv("IMGPKG_ANON") == "true" {
-		opts.Anon = true
-	}
-	iaasAuth, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
-	if found && strings.ToLower(iaasAuth) == "true" {
-		opts.EnableIaasAuthProviders = true
-	}
-
-	keychains, found := os.LookupEnv("IMGPKG_ACTIVE_KEYCHAINS")
-	if found {
-		if len(keychains) > 0 {
-			if strings.Contains(keychains, ",") {
-				for _, keychainName := range strings.Split(keychains, ",") {
-					opts.ActiveKeychains = append(opts.ActiveKeychains, auth.IAASKeychain(strings.TrimSpace(keychainName)))
-				}
-			} else {
-				opts.ActiveKeychains = append(opts.ActiveKeychains, auth.IAASKeychain(strings.TrimSpace(keychains)))
-			}
-		}
-	}
-
-	return opts
+	return v1.OptsFromEnv(opts, os.LookupEnv)
 }
