@@ -5,8 +5,8 @@
 - Website: [https://carvel.dev/imgpkg](https://carvel.dev/imgpkg)
 - Slack: [#carvel in Kubernetes slack](https://kubernetes.slack.com/archives/CH8KCCKA5)
 - [Docs](https://carvel.dev/imgpkg/docs/latest/) with example workflow and other details
-- Install: Grab prebuilt binaries from the [Releases page](https://github.com/vmware-tanzu/carvel-imgpkg/releases) or [Homebrew Carvel tap](https://github.com/vmware-tanzu/homebrew-carvel)
-- Backlog: [See what we're up to](https://github.com/orgs/vmware-tanzu/projects/16/views/1?filterQuery=repo%3A%22vmware-tanzu%2Fcarvel-imgpkg%22).
+- Install: Grab prebuilt binaries from the [Releases page](https://github.com/carvel-dev/imgpkg/releases) or [Homebrew Carvel tap](https://github.com/carvel-dev/homebrew)
+- Backlog: [See what we're up to](https://github.com/orgs/carvel-dev/projects/1/views/1?filterQuery=repo%3A%22carvel-dev%2Fimgpkg%22).
 
 `imgpkg` (pronounced: "image package") is a tool that allows users to store a set of arbitrary files as an OCI image. One of the driving use cases is to store Kubernetes configuration (plain YAML, ytt templates, Helm templates, etc.) in OCI registry as an image.
 
@@ -35,7 +35,7 @@ Please join us during our online community meetings. Details can be found on our
 
 You can chat with us on Kubernetes Slack in the #carvel channel and follow us on Twitter at @carvel_dev.
 
-Check out which organizations are using and contributing to Carvel: [Adopter's list](https://github.com/vmware-tanzu/carvel/blob/master/ADOPTERS.md)
+Check out which organizations are using and contributing to Carvel: [Adopter's list](https://github.com/carvel-dev/carvel/blob/master/ADOPTERS.md)
 
 ## Development
 
@@ -59,8 +59,8 @@ export DOCKERHUB_PROXY=<my-registry.local.sometld/my-dockerhub-proxy> && ./hack/
 ```
 
 ### Source Code Changes
-To keep source code documentation up to date, imgpkg uses [godoc](https://go.dev/blog/godoc). To document a type, variable, constant, function, or a package, write a regular comment directly preceding its declaration that begins with the name of the element it describes. See the [registry package](https://github.com/vmware-tanzu/carvel-imgpkg/blob/develop/pkg/imgpkg/registry/doc.go) for an example. When contributing new source code via a PR, the [GitHub Action linter](https://github.com/vmware-tanzu/carvel-imgpkg/blob/develop/.github/workflows/golangci-lint.yml) will ensure that godocs are included in the changes.
+To keep source code documentation up to date, imgpkg uses [godoc](https://go.dev/blog/godoc). To document a type, variable, constant, function, or a package, write a regular comment directly preceding its declaration that begins with the name of the element it describes. See the [registry package](https://github.com/carvel-dev/imgpkg/blob/develop/pkg/imgpkg/registry/doc.go) for an example. When contributing new source code via a PR, the [GitHub Action linter](https://github.com/carvel-dev/imgpkg/blob/develop/.github/workflows/golangci-lint.yml) will ensure that godocs are included in the changes.
 
 To view the docs
-1. install godoc: `go get -v  golang.org/x/tools/cmd/godoc`
+1. install godoc: `go install golang.org/x/tools/cmd/godoc@latest`
 1. Start the server: `godoc -http=:6060` and visit [`http://localhost:6060/pkg/github.com/vmware-tanzu/carvel-imgpkg/`](http://localhost:6060/pkg/github.com/vmware-tanzu/carvel-imgpkg/).
