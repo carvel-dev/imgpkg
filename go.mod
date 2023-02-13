@@ -14,8 +14,8 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.22.4
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/sys v0.3.0
+	golang.org/x/sync v0.1.0
+	golang.org/x/sys v0.5.0
 	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.23.0 // indirect
 	k8s.io/klog/v2 v2.70.1
