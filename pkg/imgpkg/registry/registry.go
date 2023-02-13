@@ -126,6 +126,7 @@ type SimpleRegistry struct {
 	remoteOpts      []regremote.Option
 	refOpts         []regname.Option
 	keychain        regauthn.Keychain
+	authn           map[string]regauthn.Authenticator
 	roundTrippers   RoundTripperStorage
 	transportAccess *sync.Mutex
 }
@@ -195,6 +196,7 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOp
 		refOpts:         refOpts,
 		keychain:        keychain,
 		roundTrippers:   NewMultiRoundTripperStorage(baseRoundTripper),
+		authn:           map[string]regauthn.Authenticator{},
 		transportAccess: &sync.Mutex{},
 	}, nil
 }
@@ -219,6 +221,7 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 		refOpts:         r.refOpts,
 		keychain:        keychain,
 		roundTrippers:   NewSingleTripperStorage(rt),
+		authn:           map[string]regauthn.Authenticator{},
 		transportAccess: &sync.Mutex{},
 	}, nil
 }
@@ -237,42 +240,53 @@ func (r SimpleRegistry) CloneWithLogger(_ util.ProgressLogger) Registry {
 
 // readOpts Returns the readOpts + the keychain
 func (r *SimpleRegistry) readOpts(ref regname.Reference) ([]regremote.Option, error) {
-	rt, err := r.transport(ref, ref.Scope(transport.PullScope))
+	rt, authn, err := r.transport(ref, ref.Scope(transport.PullScope))
 	if err != nil {
 		return nil, err
 	}
-	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain), regremote.WithTransport(rt)}, r.remoteOpts...), nil
+	return append([]regremote.Option{regremote.WithAuth(authn), regremote.WithTransport(rt)}, r.remoteOpts...), nil
 }
 
 // writeOpts Returns the writeOpts + the keychain
 func (r *SimpleRegistry) writeOpts(ref regname.Reference) ([]regremote.Option, error) {
-	rt, err := r.transport(ref, ref.Scope(transport.PushScope))
+	rt, auth, err := r.transport(ref, ref.Scope(transport.PushScope))
 	if err != nil {
 		return nil, err
 	}
 
-	return append([]regremote.Option{regremote.WithAuthFromKeychain(r.keychain), regremote.WithTransport(rt)}, r.remoteOpts...), nil
+	return append([]regremote.Option{regremote.WithAuth(auth), regremote.WithTransport(rt)}, r.remoteOpts...), nil
 }
 
 // transport Retrieve the RoundTripper that can be used to access the repository
-func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.RoundTripper, error) {
+func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.RoundTripper, regauthn.Authenticator, error) {
+	registry := ref.Context()
 	// The idea is that we can only retrieve 1 RoundTripper at a time to ensure that we do not create
 	// the same RoundTripper multiple times
 	r.transportAccess.Lock()
 	defer r.transportAccess.Unlock()
-	rt := r.roundTrippers.RoundTripper(ref.Context(), scope)
+	rt := r.roundTrippers.RoundTripper(registry, scope)
 	if rt == nil {
-		resolvedAuth, err := r.keychain.Resolve(ref.Context())
+		resolvedAuth, err := r.keychain.Resolve(registry)
 		if err != nil {
-			return nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)
+			return nil, nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)
 		}
-		rt, err = r.roundTrippers.CreateRoundTripper(ref.Context().Registry, resolvedAuth, scope)
+		rt, err = r.roundTrippers.CreateRoundTripper(registry.Registry, resolvedAuth, scope)
 		if err != nil {
-			return nil, fmt.Errorf("Error while preparing a transport to talk with the registry: %s", err)
+			return nil, nil, fmt.Errorf("Error while preparing a transport to talk with the registry: %s", err)
 		}
 	}
 
-	return rt, nil
+	auth, ok := r.authn[registry.Name()]
+	if !ok {
+		regauth, err := r.keychain.Resolve(registry)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Unable to get authenticator for registry %s: %s", ref.Context().Name(), err)
+		}
+		r.authn[registry.Name()] = regauth
+		auth = regauth
+	}
+
+	return rt, auth, nil
 }
 
 // Get Retrieve Image descriptor for an Image reference
