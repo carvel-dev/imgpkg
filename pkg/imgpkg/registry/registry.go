@@ -261,33 +261,36 @@ func (r *SimpleRegistry) writeOpts(ref regname.Reference) ([]regremote.Option, e
 // transport Retrieve the RoundTripper that can be used to access the repository
 func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.RoundTripper, regauthn.Authenticator, error) {
 	registry := ref.Context()
+	registryKey := registry.Name()
 	// The idea is that we can only retrieve 1 RoundTripper at a time to ensure that we do not create
 	// the same RoundTripper multiple times
 	r.transportAccess.Lock()
 	defer r.transportAccess.Unlock()
+	if r.authn == nil {
+		// This shouldn't happen, but let's defend in depth
+		r.authn = map[string]regauthn.Authenticator{}
+	}
+
 	rt := r.roundTrippers.RoundTripper(registry, scope)
 	if rt == nil {
 		resolvedAuth, err := r.keychain.Resolve(registry)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)
 		}
+		r.authn[registryKey] = resolvedAuth
 		rt, err = r.roundTrippers.CreateRoundTripper(registry.Registry, resolvedAuth, scope)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Error while preparing a transport to talk with the registry: %s", err)
 		}
 	}
 
-	if r.authn == nil {
-		// This shouldn't happen, but let's defend in depth
-		r.authn = map[string]regauthn.Authenticator{}
-	}
-	auth, ok := r.authn[registry.Name()]
+	auth, ok := r.authn[registryKey]
 	if !ok {
 		regauth, err := r.keychain.Resolve(registry)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Unable to get authenticator for registry %s: %s", ref.Context().Name(), err)
 		}
-		r.authn[registry.Name()] = regauth
+		r.authn[registryKey] = regauth
 		auth = regauth
 	}
 
