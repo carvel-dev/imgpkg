@@ -234,6 +234,7 @@ func (r SimpleRegistry) CloneWithLogger(_ util.ProgressLogger) Registry {
 		refOpts:         r.refOpts,
 		keychain:        r.keychain,
 		roundTrippers:   r.roundTrippers,
+		authn:           map[string]regauthn.Authenticator{},
 		transportAccess: &sync.Mutex{},
 	}
 }
@@ -276,6 +277,10 @@ func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.Ro
 		}
 	}
 
+	if r.authn == nil {
+		// This shouldn't happen, but let's defend in depth
+		r.authn = map[string]regauthn.Authenticator{}
+	}
 	auth, ok := r.authn[registry.Name()]
 	if !ok {
 		regauth, err := r.keychain.Resolve(registry)
