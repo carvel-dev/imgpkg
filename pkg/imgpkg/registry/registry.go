@@ -131,6 +131,15 @@ type SimpleRegistry struct {
 	transportAccess *sync.Mutex
 }
 
+// NewBasicRegistry does not provide any special behavior and all the options as passed as is to the underlying library
+func NewBasicRegistry(regOpts ...regremote.Option) (*SimpleRegistry, error) {
+	return &SimpleRegistry{
+		remoteOpts:      regOpts,
+		roundTrippers:   NewNoopRoundTripperStorage(),
+		transportAccess: &sync.Mutex{},
+	}, nil
+}
+
 // NewSimpleRegistry Builder for a Simple Registry
 func NewSimpleRegistry(opts Opts) (*SimpleRegistry, error) {
 	httpTran, err := newHTTPTransport(opts)
@@ -141,7 +150,7 @@ func NewSimpleRegistry(opts Opts) (*SimpleRegistry, error) {
 }
 
 // NewSimpleRegistryWithTransport Creates a new Simple Registry using the provided transport
-func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOpts ...regremote.Option) (*SimpleRegistry, error) {
+func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper) (*SimpleRegistry, error) {
 	var refOpts []regname.Option
 	if opts.Insecure {
 		refOpts = append(refOpts, regname.Insecure)
@@ -165,9 +174,6 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOp
 	var regRemoteOptions []regremote.Option
 	if opts.IncludeNonDistributableLayers {
 		regRemoteOptions = append(regRemoteOptions, regremote.WithNondistributable)
-	}
-	if regOpts != nil {
-		regRemoteOptions = append(regRemoteOptions, regOpts...)
 	}
 	tries := opts.RetryCount
 	if tries == 0 {
@@ -201,10 +207,14 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper, regOp
 	}, nil
 }
 
-// CloneWithSingleAuth Clones the provided registry replacing the Keychain with a Keychain that can only authenticate
-// the image provided
+// CloneWithSingleAuth produces a copy of this Registry whose keychain has exactly one auth — the one that can be used
+// to access imageRef. If no keychain is explicitly configured on this Registry, the copy is a BasicRegistry.
 // A Registry need to be provided as the first parameter or the function will panic
 func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, error) {
+	if r.keychain == nil { // If no keychain is present it assumes NewBasicRegistry was used to create the Registry. So we short circuit this execution
+		return NewBasicRegistry(r.remoteOpts...)
+	}
+
 	imgAuth, err := r.keychain.Resolve(imageRef)
 	if err != nil {
 		return nil, err
@@ -216,11 +226,16 @@ func (r SimpleRegistry) CloneWithSingleAuth(imageRef regname.Tag) (Registry, err
 		rt = r.roundTrippers.BaseRoundTripper()
 	}
 
+	var singleRt RoundTripperStorage = NewNoopRoundTripperStorage()
+	if rt != nil {
+		singleRt = NewSingleTripperStorage(rt)
+	}
+
 	return &SimpleRegistry{
 		remoteOpts:      r.remoteOpts,
 		refOpts:         r.refOpts,
 		keychain:        keychain,
-		roundTrippers:   NewSingleTripperStorage(rt),
+		roundTrippers:   singleRt,
 		authn:           map[string]regauthn.Authenticator{},
 		transportAccess: &sync.Mutex{},
 	}, nil
@@ -273,6 +288,10 @@ func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.Ro
 
 	rt := r.roundTrippers.RoundTripper(registry, scope)
 	if rt == nil {
+		if r.keychain == nil {
+			return nil, nil, nil
+		}
+
 		resolvedAuth, err := r.keychain.Resolve(registry)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)

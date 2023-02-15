@@ -244,10 +244,72 @@ func TestInsecureRegistryFlag(t *testing.T) {
 	}
 }
 
+func TestBasicRegistry(t *testing.T) {
+	t.Run("When transport is provided it uses it", func(t *testing.T) {
+		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     "Not Found",
+				StatusCode: http.StatusNotFound,
+			}, errors.New("not found")
+		}}
+		reg, err := registry.NewBasicRegistry(regremote.WithTransport(rt))
+		require.NoError(t, err)
+		ref, err := name.ParseReference("localhost:1111/does/not/exist")
+		require.NoError(t, err)
+		_, err = reg.Get(ref)
+		require.Error(t, err)
+		require.Equal(t, 2, rt.RoundTripNumCalls)
+	})
+
+	t.Run("When cloned with CloneWithLogger it still uses initial transport", func(t *testing.T) {
+		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     "Not Found",
+				StatusCode: http.StatusNotFound,
+			}, errors.New("not found")
+		}}
+		reg, err := registry.NewBasicRegistry(regremote.WithTransport(rt))
+		require.NoError(t, err)
+
+		cReg := reg.CloneWithLogger(nil)
+		ref, err := name.ParseReference("localhost:1111/does/not/exist")
+		require.NoError(t, err)
+		_, err = cReg.Get(ref)
+		require.Error(t, err)
+		require.Equal(t, 2, rt.RoundTripNumCalls)
+	})
+
+	t.Run("When cloned with CloneWithAuth it still uses initial transport", func(t *testing.T) {
+		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     "Not Found",
+				StatusCode: http.StatusNotFound,
+			}, errors.New("not found")
+		}}
+		reg, err := registry.NewBasicRegistry(regremote.WithTransport(rt))
+		require.NoError(t, err)
+
+		tag, err := name.NewTag("localhost:1111/some:tag")
+		require.NoError(t, err)
+
+		cReg, err := reg.CloneWithSingleAuth(tag)
+		require.NoError(t, err)
+
+		ref, err := name.ParseReference("localhost:1111/does/not/exist")
+		require.NoError(t, err)
+
+		_, err = cReg.Get(ref)
+		require.Error(t, err)
+		require.Equal(t, 2, rt.RoundTripNumCalls)
+	})
+}
+
 type notFoundRoundTripper struct {
-	do func(request *http.Request) (*http.Response, error)
+	RoundTripNumCalls int
+	do                func(request *http.Request) (*http.Response, error)
 }
 
 func (n *notFoundRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	n.RoundTripNumCalls++
 	return n.do(request)
 }
