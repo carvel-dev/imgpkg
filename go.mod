@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
 	github.com/spf13/cobra v1.6.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.5.0
 	sigs.k8s.io/yaml v1.3.0
