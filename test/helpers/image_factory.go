@@ -120,8 +120,40 @@ func (i *ImageFactory) PushImageIndex(imgRef string) {
 	require.NoError(i.T, err)
 }
 
-func (i *ImageFactory) SignImage(imgRef string) string {
-	cmdArgs := []string{"sign", "-key", filepath.Join(i.signatureKeyLocation, "cosign.key"), imgRef}
+// AttestImage Creates an attestation for the provided image
+func (i *ImageFactory) AttestImage(imgRef string) string {
+	attText := `something`
+	attF := i.Assets.CreateTempFile("attestation")
+	_, err := attF.Write([]byte(attText))
+	attF.Close()
+	require.NoError(i.T, err, "writing attestation predicate file")
+
+	cmdArgs := []string{"attest", "--key", filepath.Join(i.signatureKeyLocation, "cosign.key"), "--predicate", attF.Name(), imgRef}
+	i.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
+
+	cmd := exec.Command("cosign", cmdArgs...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "COSIGN_PASSWORD=")
+
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	err = cmd.Run()
+	require.NoError(i.T, err, fmt.Sprintf("error: %s", stderr.String()))
+
+	imageReg, err := name.ParseReference(imgRef, name.WeakValidation)
+	require.NoError(i.T, err)
+	img, err := remote.Head(imageReg, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	return fmt.Sprintf("%s-%s.att", img.Digest.Algorithm, img.Digest.Hex)
+}
+
+// SBOMImage creates an SBOM Image for the provided image
+func (i *ImageFactory) SBOMImage(imgRef string) string {
+	cmdArgs := []string{"attach", "sbom", imgRef}
 	i.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
 
 	cmd := exec.Command("cosign", cmdArgs...)
@@ -137,9 +169,34 @@ func (i *ImageFactory) SignImage(imgRef string) string {
 	require.NoError(i.T, err, fmt.Sprintf("error: %s", stderr.String()))
 
 	stderrStr := stderr.String()
-	match := regexp.MustCompile(":(sha256-[0123456789abcdef]{64}.*)").FindStringSubmatch(stderrStr)
+	match := regexp.MustCompile(":(sha256-[0123456789abcdef]{64}[^]]*)").FindStringSubmatch(stderrStr)
 	require.Len(i.T, match, 2)
 	return match[1]
+}
+
+// SignImage Signs the provided images using a key that was previously created
+func (i *ImageFactory) SignImage(imgRef string) string {
+	cmdArgs := []string{"sign", "--key", filepath.Join(i.signatureKeyLocation, "cosign.key"), imgRef}
+	i.logger.Debugf("Running 'cosign %s'\n", strings.Join(cmdArgs, " "))
+
+	cmd := exec.Command("cosign", cmdArgs...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "COSIGN_PASSWORD=")
+
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	err := cmd.Run()
+	require.NoError(i.T, err, fmt.Sprintf("error: %s", stderr.String()))
+
+	imageReg, err := name.ParseReference(imgRef, name.WeakValidation)
+	require.NoError(i.T, err)
+	img, err := remote.Head(imageReg, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	return fmt.Sprintf("%s-%s.sig", img.Digest.Algorithm, img.Digest.Hex)
 }
 
 func (i *ImageFactory) Download(imgRef, location string) {

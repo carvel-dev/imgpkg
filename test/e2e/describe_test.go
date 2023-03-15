@@ -24,7 +24,7 @@ func TestDescribe_TextOutput(t *testing.T) {
 		defer env.Cleanup()
 
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest string
+		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest, bundleAttDigest, bundleAttTag, bundleSBOMDigest, bundleSBOMTag string
 		logger.Section("create bundle with image", func() {
 			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
 
@@ -47,6 +47,10 @@ images:
 				imgSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, imgSigTag))
 				bundleSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
 				bundleSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSigTag))
+				bundleAttTag = env.ImageFactory.AttestImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleAttDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleAttTag))
+				bundleSBOMTag = env.ImageFactory.SBOMImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleSBOMDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSBOMTag))
 			})
 		})
 
@@ -55,7 +59,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
 				"--to-repo", env.RelocationRepo,
-				"--cosign-signatures",
+				"--cosign-artifacts",
 			},
 			)
 			locationsImgDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
@@ -89,6 +93,18 @@ images:
     Annotations:
       tag: %s
 `, env.RelocationRepo, bundleSigDigest, bundleSigTag))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
+    Type: Attestation
+    Annotations:
+      tag: %s
+`, env.RelocationRepo, bundleAttDigest, bundleAttTag))
+			assert.Contains(t, stdout, fmt.Sprintf(
+				`  - Image: %s@%s
+    Type: SBOM
+    Annotations:
+      tag: %s
+`, env.RelocationRepo, bundleSBOMDigest, bundleSBOMTag))
 
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
@@ -303,7 +319,7 @@ func TestDescribe_YAMLOutput(t *testing.T) {
 		defer env.Cleanup()
 
 		bundleTag := fmt.Sprintf(":%d", time.Now().UnixNano())
-		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest string
+		var bundleDigest, imageDigest, imgSigTag, bundleSigTag, imgSigDigest, bundleSigDigest, bundleAttTag, bundleAttDigest, bundleSBOMTag, bundleSBOMDigest string
 		logger.Section("create bundle with image", func() {
 			imageDigest = env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image)
 
@@ -326,6 +342,10 @@ images:
 				imgSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, imgSigTag))
 				bundleSigTag = env.ImageFactory.SignImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
 				bundleSigDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSigTag))
+				bundleAttTag = env.ImageFactory.AttestImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleAttDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleAttTag))
+				bundleSBOMTag = env.ImageFactory.SBOMImage(fmt.Sprintf("%s%s", env.Image, bundleTag))
+				bundleSBOMDigest = env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s", env.Image, bundleSBOMTag))
 			})
 		})
 
@@ -333,7 +353,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
 				"--to-repo", env.RelocationRepo,
-				"--cosign-signatures",
+				"--cosign-artifacts",
 			},
 			)
 		})
@@ -372,6 +392,18 @@ content:
       imageType: Signature
       origin: %s@%s
     "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: SBOM
+      origin: %s@%s
+    "%s":
+      annotations:
+        tag: %s
+      image: %s@%s
+      imageType: Attestation
+      origin: %s@%s
+    "%s":
       image: %s@%s
       imageType: Internal
       origin: %s@%s
@@ -390,6 +422,14 @@ origin: %s%s
 				imgSigTag,
 				env.RelocationRepo, imgSigDigest,
 				env.RelocationRepo, imgSigDigest,
+				bundleSBOMDigest,
+				bundleSBOMTag,
+				env.RelocationRepo, bundleSBOMDigest,
+				env.RelocationRepo, bundleSBOMDigest,
+				bundleAttDigest,
+				bundleAttTag,
+				env.RelocationRepo, bundleAttDigest,
+				env.RelocationRepo, bundleAttDigest,
 				locationsImgDigest,
 				env.RelocationRepo, locationsImgDigest,
 				env.RelocationRepo, locationsImgDigest,
@@ -433,7 +473,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", fmt.Sprintf("%s%s", env.Image, bundleDigest),
 				"--to-repo", env.RelocationRepo,
-				"--cosign-signatures",
+				"--cosign-artifacts",
 			},
 			)
 		})

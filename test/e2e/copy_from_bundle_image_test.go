@@ -454,7 +454,7 @@ images:
 			imgpkg.Run([]string{"copy",
 				"--bundle", outerBundle + outerBundleDigest,
 				"--to-repo", env.RelocationRepo,
-				"--cosign-signatures",
+				"--cosign-artifacts",
 			},
 			)
 		})
@@ -1032,7 +1032,7 @@ images:
 		})
 
 		logger.Section("copy images to a tar file", func() {
-			imgpkg.Run([]string{"copy", "-b", env.Image, "--to-tar", tarFilePath, "--cosign-signatures"})
+			imgpkg.Run([]string{"copy", "-b", env.Image, "--to-tar", tarFilePath, "--cosign-artifacts"})
 		})
 
 		logger.Section("import images to the new registry", func() {

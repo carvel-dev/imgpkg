@@ -50,7 +50,7 @@ jobs:
         export GOPATH=$(echo `pwd`)
         export PATH="$GOPATH/bin:$PATH"
 
-        go install github.com/sigstore/cosign/cmd/cosign@v0.5.0
+        go install github.com/sigstore/cosign/cmd/cosign@v1.7.2
 
         alias cosign=cosign.exe
         '
