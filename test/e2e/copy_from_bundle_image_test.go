@@ -747,6 +747,70 @@ images:
 			})
 		})
 	})
+
+	t.Run("when a image that is present in 2 nested bundles and only 1 is collocated, it should be copied correctly to this and back to the registry", func(t *testing.T) {
+		// repo1/-shared-img
+		//
+		// repo2/
+		//   bundle-1
+		//   -shared-img
+		//
+		// repo3/
+		//   bundle-2
+		//   -shared-img
+		//   bundle-3 (This points to repo2 bundle1 and bundle2)
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+
+		sharedImgRef := env.Image + "-shared-img" + env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, env.Image+"-shared-img")
+		imageLockYAML := fmt.Sprintf(`---
+kind: ImagesLock
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+`, sharedImgRef)
+		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+		out := imgpkg.Run([]string{"push", "--tty", "-b", env.Image + "-bundle-1", "-f", bundleDir})
+		bundle1Digest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		bundle1DigestRef := env.Image + "-bundle-1" + bundle1Digest
+
+		imageLock2YAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+images:
+- image: %s
+kind: ImagesLock
+`, sharedImgRef)
+		bundleDir = env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLock2YAML)
+		out = imgpkg.Run([]string{"push", "--tty", "-b", env.Image + "-bundle-2", "-f", bundleDir})
+		bundle2Digest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		bundle2DigestRef := env.Image + "-bundle-2" + bundle2Digest
+
+		imgpkg.Run([]string{"copy", "--bundle", bundle1DigestRef, "--to-repo", env.RelocationRepo + "-repo2"})
+		imgpkg.Run([]string{"copy", "--bundle", bundle2DigestRef, "--to-repo", env.RelocationRepo + "-repo2"})
+
+		imgpkg.Run([]string{"copy", "--bundle", bundle1DigestRef, "--to-repo", env.RelocationRepo + "-repo3"})
+
+		imageLock3YAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+- image: %s
+`, env.RelocationRepo+"-repo2"+bundle1Digest, env.RelocationRepo+"-repo2"+bundle2Digest)
+		bundleDir = env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLock3YAML)
+		out = imgpkg.Run([]string{"push", "--tty", "-b", env.RelocationRepo + "-repo3", "-f", bundleDir})
+		bundle3Digest := fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		bundle3DigestRef := env.RelocationRepo + "-repo3" + bundle3Digest
+
+		tarFilePath := filepath.Join(env.Assets.CreateTempFolder("imgpkg-create-tar"), "test.tar")
+
+		logger.Section("export full bundle to tar", func() {
+			imgpkg.Run([]string{"copy", "-b", bundle3DigestRef, "--to-tar", tarFilePath})
+		})
+
+		imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", env.RelocationRepo + "-repo4"})
+	})
 }
 
 func downloadAndCheckLocationsFile(t *testing.T, env *helpers.Env, bundleDigest string, expectedLocation bundle.ImageLocationsConfig) {
