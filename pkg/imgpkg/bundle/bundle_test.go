@@ -31,7 +31,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		defer fakeRegistry.CleanUp()
 
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/some-bundle-name"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/some-bundle-name"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -59,7 +59,7 @@ func TestPullBundleWritingContentsToDisk(t *testing.T) {
 		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -88,7 +88,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		defer fakeRegistry.CleanUp()
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/some-bundle-name"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/some-bundle-name"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -114,7 +114,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_with_mult_images").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -142,7 +142,7 @@ func TestPullNestedBundlesWritingContentsToDisk(t *testing.T) {
 		iceCreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -194,7 +194,7 @@ func TestPullNestedBundlesLocalizesImagesLockFile(t *testing.T) {
 			{Image: icecreamBundle.RefDigest},
 		})
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -252,7 +252,7 @@ kind: ImagesLock
 		})
 
 		fakePublicRegistry.Build()
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_and_apple"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_and_apple"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -334,7 +334,7 @@ func TestPullNestedBundlesLocalizesImagesLockFileWithLocationOCI(t *testing.T) {
 		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
 		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+relocatedIcecreamBundle.Digest, locationPath, locationForNestedBundle)
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -402,7 +402,7 @@ kind: ImagesLock
 
 		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+rootBundle.Digest, locationPath, locationForRootBundle)
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -470,7 +470,7 @@ kind: ImagesLock
 
 		fakeRegistry.WithLocationsImage("repo/bundle-with-collocated-bundles@"+relocatedIcecreamBundle.Digest, locationPath, locationForNestedBundle)
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -534,7 +534,7 @@ kind: ImagesLock
 
 		fakeRegistry.WithLocationsImage("repo/root-bundle@"+rootBundle.Digest, locationPath, locs)
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -571,7 +571,7 @@ func TestPullBundleOutputToUser(t *testing.T) {
 		fakeRegistry.WithBundleFromPath("repo/some-bundle-name", "test_assets/bundle").WithEveryImageFromPath("test_assets/image_with_config", map[string]string{})
 		bundleName := fakeRegistry.ReferenceOnTestServer("repo/some-bundle-name")
 
-		subject := bundle.NewBundle(bundleName, fakeRegistry.Build())
+		subject := bundle.NewBundle(bundleName, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -598,7 +598,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		bundleName := fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle")
 
-		subject := bundle.NewBundle(bundleName, fakeRegistry.Build())
+		subject := bundle.NewBundle(bundleName, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -640,7 +640,7 @@ func TestPullAllNestedBundlesOutputToUser(t *testing.T) {
 			{Image: icecreamBundle.RefDigest},
 		})
 
-		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build())
+		subject := bundle.NewBundle(rootBundle.RefDigest, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -672,7 +672,7 @@ The bundle repo \(%s\) is hosting every image specified in the bundle's Images L
 		fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		bundleName := fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle")
 
-		subject := bundle.NewBundle(bundleName, fakeRegistry.Build())
+		subject := bundle.NewBundle(bundleName, fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -716,7 +716,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleN
 			{Image: imageWithFrown.RefDigest},
 		})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_with_multiple_bundle"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_with_multiple_bundle"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)
@@ -759,7 +759,7 @@ One or more images not found in bundle repo; skipping lock file update`, bundleW
 		icecreamBundle := fakeRegistry.WithBundleFromPath("icecream/bundle", "test_assets/bundle_apples_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_with_mult_images", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 		icecreamWithSingleBundle := fakeRegistry.WithBundleFromPath("repo/bundle_icecream_with_single_bundle", "test_assets/bundle_icecream_with_single_bundle").WithEveryImageFromPath("test_assets/bundle_apples_with_single_bundle", map[string]string{"dev.carvel.imgpkg.bundle": ""})
 
-		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build())
+		subject := bundle.NewBundle(fakeRegistry.ReferenceOnTestServer("repo/bundle_icecream_with_single_bundle"), fakeRegistry.Build(), bundle.NewImagesLockReader())
 		outputPath, err := os.MkdirTemp(os.TempDir(), "test-output-bundle-path")
 		require.NoError(t, err)
 		defer os.Remove(outputPath)

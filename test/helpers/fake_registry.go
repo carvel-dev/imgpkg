@@ -408,11 +408,16 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 	require.NoError(r.t, err)
 
 	r.updateState(bundleName, bundleImg, nil, path, tag)
+
 	digest, err := bundleImg.Digest()
 	assert.NoError(r.t, err)
+	imgName, err := name.ParseReference(bundleName)
+	require.NoError(r.t, err)
+	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
+	r.logger.Tracef("created bundle from path %s\n", bundleRef)
 
 	return BundleInfo{r, bundleImg, bundleName, path,
-		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String()), tag}
+		digest.String(), bundleRef, tag}
 }
 
 // WithRandomBundle sample function
@@ -443,6 +448,30 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	require.NoError(r.t, os.MkdirAll(bDir, 0777))
 	return BundleInfo{r, b, bundleName, tmpDir,
 		digest.String(), bundleRef, ""}
+}
+
+// WithRandomBundleAndImages creates a random bundle image with the provided images
+func (r *FakeTestRegistryBuilder) WithRandomBundleAndImages(bundleName string, imageRefs []lockconfig.ImageRef) BundleInfo {
+	tmpDir, err := os.MkdirTemp("", "imgpkg-random-bundle-with-images")
+	require.NoError(r.t, err)
+	defer os.RemoveAll(tmpDir)
+
+	imagesLock := lockconfig.ImagesLock{
+		LockVersion: lockconfig.LockVersion{
+			APIVersion: lockconfig.ImagesLockAPIVersion,
+			Kind:       lockconfig.ImagesLockKind,
+		},
+	}
+
+	err = os.WriteFile(filepath.Join(tmpDir, "random.txt"), []byte(randString(500)), 0777)
+	require.NoError(r.t, err)
+
+	err = os.MkdirAll(filepath.Join(tmpDir, bundle.ImgpkgDir), 0777)
+	assert.NoError(r.t, err)
+	imagesLock.Images = imageRefs
+	err = imagesLock.WriteToPath(filepath.Join(tmpDir, bundle.ImgpkgDir, bundle.ImagesLockFile))
+	assert.NoError(r.t, err)
+	return r.WithBundleFromPath(bundleName, tmpDir)
 }
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
@@ -479,7 +508,7 @@ func (r *FakeTestRegistryBuilder) WithRandomImageWithLayers(imageNameFromTest st
 	require.NoError(r.t, err, "create image from tar")
 
 	newImg := r.updateState(imageNameFromTest, img, nil, "", "")
-	r.logger.Tracef("created image %s\n", newImg.RefDigest)
+	r.logger.Tracef("created image %s with ref %s\n", imageNameFromTest, newImg.RefDigest)
 	return newImg
 }
 

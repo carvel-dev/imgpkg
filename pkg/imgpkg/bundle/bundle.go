@@ -67,18 +67,18 @@ type Bundle struct {
 	cachedImageRefs imageRefCache
 }
 
-func NewBundle(ref string, imagesMetadata ImagesMetadata) *Bundle {
-	return NewBundleWithReader(ref, imagesMetadata, &singleLayerReader{})
-}
-
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata) *Bundle {
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
-		imagesLockReader: &singleLayerReader{}}
+		imagesLockReader: NewImagesLockReader()}
 }
 
-func NewBundleWithReader(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
-	return &Bundle{plainImg: plainimg.NewPlainImage(ref, imagesMetadata),
-		imgRetriever: imagesMetadata, imagesLockReader: imagesLockReader}
+func NewBundleFromPlainImageAndImagesLockReader(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
+		imagesLockReader: imagesLockReader}
+}
+
+func NewBundle(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+	return NewBundleFromPlainImageAndImagesLockReader(plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader)
 }
 
 // DigestRef Bundle full location including registry, repository and digest
@@ -136,6 +136,7 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	}
 	var bundleProcessedImage imageset.ProcessedImage
 	for _, image := range processedImages.All() {
+		//ref, found := o.findCachedImageRef(image.UnprocessedImageRef.OrigRef) Possible fix
 		ref, found := o.findCachedImageRef(image.UnprocessedImageRef.DigestRef)
 		if found {
 			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
@@ -143,13 +144,18 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 				IsBundle: *ref.IsBundle,
 			})
 		}
-		if image.UnprocessedImageRef.DigestRef == o.DigestRef() {
+		imgDigest, err := regname.NewDigest(image.UnprocessedImageRef.DigestRef)
+		if err != nil {
+			panic(fmt.Sprintf("Internal inconsistency: Image '%s' is not a valid Digest Reference", err))
+		}
+
+		if imgDigest.DigestStr() == o.Digest() {
 			bundleProcessedImage = image
 		}
 	}
 
 	if len(locationsCfg.Images) != o.cachedImageRefs.Size() {
-		panic(fmt.Sprintf("Expected: %d images to be written to Location OCI. Actual: %d were written", o.cachedImageRefs.Size(), len(locationsCfg.Images)))
+		panic(fmt.Sprintf("Expected: on bundle %s %d images to be written to Location OCI. Actual: %d were written", o.DigestRef(), o.cachedImageRefs.Size(), len(locationsCfg.Images)))
 	}
 
 	destinationRef, err := regname.NewDigest(bundleProcessedImage.DigestRef)
@@ -230,7 +236,7 @@ func (o *Bundle) pull(baseOutputPath string, logger Logger, pullNestedBundles bo
 				continue
 			}
 
-			subBundle := NewBundle(bundleImgRef.PrimaryLocation(), o.imgRetriever)
+			subBundle := NewBundle(bundleImgRef.PrimaryLocation(), o.imgRetriever, o.imagesLockReader)
 
 			var isBundle bool
 			if bundleImgRef.IsBundle != nil {
@@ -323,7 +329,12 @@ type imageRefCache struct {
 func (i *imageRefCache) ImageRef(imageRef string) (ImageRef, bool) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	foundImgRef, found := i.cache[imageRef]
+	ref, err := regname.NewDigest(imageRef)
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: Image '%s' needs to be a full reference", imageRef))
+	}
+
+	foundImgRef, found := i.cache[ref.DigestStr()]
 	return foundImgRef, found
 }
 
@@ -346,5 +357,17 @@ func (i *imageRefCache) All() []ImageRef {
 func (i *imageRefCache) StoreImageRef(imageRef ImageRef) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	i.cache[imageRef.Image] = imageRef
+	key := ""
+	if imageRef.Error != "" {
+		key = imageRef.Image
+	} else {
+		ref, err := regname.NewDigest(imageRef.Image)
+		if err != nil {
+			panic(fmt.Sprintf("Internal inconsistency: Image '%s' needs to be a full reference", imageRef.Image))
+		}
+
+		key = ref.DigestStr()
+	}
+
+	i.cache[key] = imageRef
 }

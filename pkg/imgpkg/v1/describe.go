@@ -88,7 +88,7 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 
 // DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
 func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg bundle.ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
-	newBundle := bundle.NewBundle(bundleImage, reg)
+	newBundle := bundle.NewBundle(bundleImage, reg, bundle.NewImagesLockReader())
 	isBundle, err := newBundle.IsBundle()
 	if err != nil {
 		return Description{}, fmt.Errorf("Unable to check if %s is a bundle: %s", bundleImage, err)

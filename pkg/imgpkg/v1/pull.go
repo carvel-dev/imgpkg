@@ -94,7 +94,7 @@ func Pull(imageRef string, outputPath string, pullOptions PullOpts, registryOpts
 
 // PullWithRegistry Download the contents of the image referenced by imageRef to the folder outputPath
 func PullWithRegistry(imageRef string, outputPath string, pullOptions PullOpts, reg registry.Registry) (PullStatus, error) {
-	bundleToPull := bundle.NewBundle(imageRef, reg)
+	bundleToPull := bundle.NewBundle(imageRef, reg, bundle.NewImagesLockReader())
 	isBundle, err := bundleToPull.IsBundle()
 	if err != nil {
 		return PullStatus{}, err
@@ -139,7 +139,7 @@ func PullRecursive(imageRef string, outputPath string, pullOptions PullOpts, reg
 // PullRecursiveWithRegistry Downloads the contents of the Bundle and Nested Bundles referenced by imageRef to the folder outputPath.
 // This functions should error out when imageRef does not point to a Bundle
 func PullRecursiveWithRegistry(imageRef string, outputPath string, pullOptions PullOpts, reg registry.Registry) (PullStatus, error) {
-	bundleToPull := bundle.NewBundle(imageRef, reg)
+	bundleToPull := bundle.NewBundle(imageRef, reg, bundle.NewImagesLockReader())
 	isBundle, err := bundleToPull.IsBundle()
 	if err != nil {
 		return PullStatus{}, err
