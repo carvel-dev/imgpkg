@@ -99,7 +99,7 @@ func (r TarReader) presentLayersForImage(img v1.Image) ([]v1.Layer, error) {
 
 func (r TarReader) presentLayersForIndex(indexRef string, idx v1.ImageIndex) ([]v1.Layer, error) {
 	var result []v1.Layer
-	dIdx, correct := idx.(*imagedesc.DescribedImageIndex)
+	dIdx, correct := idx.(imagedesc.DescribedImageIndex)
 	if !correct {
 		panic(fmt.Sprintf("Internal inconsistency: unexpected index type with ref: %s", indexRef))
 	}
