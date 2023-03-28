@@ -413,7 +413,7 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String()), tag}
 }
 
-// WithRandomBundle Dummy function
+// WithRandomBundle sample function
 // This function creates a bundle image, but WithImageRefs or WithEveryImageFromPath needs to be called
 // on the return value of this function to ensure that a bundle is correctly created on the registry
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
