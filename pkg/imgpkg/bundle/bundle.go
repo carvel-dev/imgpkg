@@ -56,6 +56,7 @@ type Bundle struct {
 	plainImg         *plainimg.PlainImage
 	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
+	bundleFetcher    Fetcher
 
 	// cachedNestedBundleGraph stores a graph with all the nested
 	// bundles associated with the current bundle
@@ -67,18 +68,22 @@ type Bundle struct {
 	cachedImageRefs imageRefCache
 }
 
+// NewBundleFromPlainImage Creates a new Bundle with a PlainImage and uses Registry Fetcher
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata) *Bundle {
+	imagesLockReader := NewImagesLockReader()
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
-		imagesLockReader: NewImagesLockReader()}
+		imagesLockReader: imagesLockReader, bundleFetcher: NewRegistryFetcher(imagesMetadata, imagesLockReader)}
 }
 
-func NewBundleFromPlainImageAndImagesLockReader(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
+// NewBundle Creates a new Bundle
+func NewBundle(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader, bundleFetcher Fetcher) *Bundle {
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
-		imagesLockReader: imagesLockReader}
+		imagesLockReader: imagesLockReader, bundleFetcher: bundleFetcher}
 }
 
-func NewBundle(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader) *Bundle {
-	return NewBundleFromPlainImageAndImagesLockReader(plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader)
+// NewBundleFromRef Creates a new Bundle from an image full reference
+func NewBundleFromRef(ref string, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader, bundleFetcher Fetcher) *Bundle {
+	return NewBundle(plainimg.NewPlainImage(ref, imagesMetadata), imagesMetadata, imagesLockReader, bundleFetcher)
 }
 
 // DigestRef Bundle full location including registry, repository and digest
@@ -95,21 +100,6 @@ func (o *Bundle) Tag() string { return o.plainImg.Tag() }
 
 // NestedBundles Provides information about the Graph of nested bundles associated with the current bundle
 func (o *Bundle) NestedBundles() []GraphNode { return o.cachedNestedBundleGraph }
-
-func (o *Bundle) updateCachedImageRefWithoutAnnotations(ref ImageRef) {
-	imgRef, found := o.cachedImageRefs.ImageRef(ref.Image)
-	img := ref.DeepCopy()
-	if !found {
-		o.cachedImageRefs.StoreImageRef(img)
-		return
-	}
-
-	img.Annotations = imgRef.Annotations
-	if img.ImageType == "" {
-		img.ImageType = imgRef.ImageType
-	}
-	o.cachedImageRefs.StoreImageRef(img)
-}
 
 func (o *Bundle) findCachedImageRef(digestRef string) (ImageRef, bool) {
 	ref, found := o.cachedImageRefs.ImageRef(digestRef)
@@ -236,7 +226,7 @@ func (o *Bundle) pull(baseOutputPath string, logger Logger, pullNestedBundles bo
 				continue
 			}
 
-			subBundle := NewBundle(bundleImgRef.PrimaryLocation(), o.imgRetriever, o.imagesLockReader)
+			subBundle := NewBundleFromRef(bundleImgRef.PrimaryLocation(), o.imgRetriever, o.imagesLockReader, o.bundleFetcher)
 
 			var isBundle bool
 			if bundleImgRef.IsBundle != nil {

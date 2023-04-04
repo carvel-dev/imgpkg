@@ -89,7 +89,8 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 				}
 				foundRootBundle = true
 				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
-				parentBundle = ctlbundle.NewBundleFromPlainImageAndImagesLockReader(pImage, c.registry, ctlbundle.NewImagesLockReader())
+				lockReader := ctlbundle.NewImagesLockReader()
+				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
 			}
 		}
 
@@ -246,7 +247,8 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 }
 
 func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
-	bundle := ctlbundle.NewBundle(bundleRef, c.registry, ctlbundle.NewImagesLockReader())
+	lockReader := ctlbundle.NewImagesLockReader()
+	bundle := ctlbundle.NewBundleFromRef(bundleRef, c.registry, lockReader, ctlbundle.NewRegistryFetcher(c.registry, lockReader))
 	isBundle, err := bundle.IsBundle()
 	if err != nil {
 		return nil, nil, ctlbundle.ImageRefs{}, err

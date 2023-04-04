@@ -489,7 +489,6 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 	result := &createdBundle{name: bToCreate.name, images: []createdImage{}, annotations: bToCreate.annotations}
 	allBundlesCreated[bToCreate.name] = result
 
-	b := reg.WithRandomBundle(bToCreate.name)
 	for _, image := range bToCreate.images {
 		imgDigestRef := ""
 		if len(image.images) > 0 {
@@ -537,7 +536,7 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 			}
 		}
 	}
-	b = b.WithImageRefs(imgs)
+	b := reg.WithRandomBundleAndImages(bToCreate.name, imgs)
 	if bToCreate.locationPresent {
 		tmpDir, err := os.MkdirTemp("", strings.Split(b.RefDigest, "sha256:")[1])
 		require.NoError(t, err)
