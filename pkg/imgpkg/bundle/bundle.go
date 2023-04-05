@@ -72,13 +72,15 @@ type Bundle struct {
 func NewBundleFromPlainImage(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata) *Bundle {
 	imagesLockReader := NewImagesLockReader()
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
-		imagesLockReader: imagesLockReader, bundleFetcher: NewRegistryFetcher(imagesMetadata, imagesLockReader)}
+		imagesLockReader: imagesLockReader, bundleFetcher: NewRegistryFetcher(imagesMetadata, imagesLockReader),
+		cachedImageRefs: newImageRefCache()}
 }
 
 // NewBundle Creates a new Bundle
 func NewBundle(plainImg *plainimg.PlainImage, imagesMetadata ImagesMetadata, imagesLockReader ImagesLockReader, bundleFetcher Fetcher) *Bundle {
 	return &Bundle{plainImg: plainImg, imgRetriever: imagesMetadata,
-		imagesLockReader: imagesLockReader, bundleFetcher: bundleFetcher}
+		imagesLockReader: imagesLockReader, bundleFetcher: bundleFetcher,
+		cachedImageRefs: newImageRefCache()}
 }
 
 // NewBundleFromRef Creates a new Bundle from an image full reference
@@ -126,7 +128,6 @@ func (o *Bundle) NoteCopy(processedImages *imageset.ProcessedImages, reg ImagesM
 	}
 	var bundleProcessedImage imageset.ProcessedImage
 	for _, image := range processedImages.All() {
-		//ref, found := o.findCachedImageRef(image.UnprocessedImageRef.OrigRef) Possible fix
 		ref, found := o.findCachedImageRef(image.UnprocessedImageRef.DigestRef)
 		if found {
 			locationsCfg.Images = append(locationsCfg.Images, ImageLocation{
@@ -349,6 +350,9 @@ func (i *imageRefCache) StoreImageRef(imageRef ImageRef) {
 	defer i.mutex.Unlock()
 	key := ""
 	if imageRef.Error != "" {
+		// When an error happen while fetching artifact(signatures or other) images the imageRef.Image is not going to contain
+		// the Digest to the image because we could not get it from the registry.
+		// In this particular case it is ok to use has key whatever is present in the Image field
 		key = imageRef.Image
 	} else {
 		ref, err := regname.NewDigest(imageRef.Image)
