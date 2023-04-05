@@ -323,7 +323,6 @@ func TestDescribeBundle(t *testing.T) {
 	}
 
 	t.Run("When denied error occur retrieving a signature, it provide the error information for the signature", func(t *testing.T) {
-		logger.LogLevel = helpers.LogTrace
 		fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
 		img1 := fakeRegBuilder.WithRandomImage("other-repo/some-random-img")
 		hash, err := regv1.NewHash(img1.Digest)

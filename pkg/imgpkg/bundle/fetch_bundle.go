@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"fmt"
+	"sync"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
@@ -28,6 +29,8 @@ func NewRegistryFetcher(imgRetriever ImagesMetadata, imagesLockReader ImagesLock
 	return &RegistryFetcher{
 		imgRetriever:     imgRetriever,
 		imagesLockReader: imagesLockReader,
+		cacheMutex:       &sync.Mutex{},
+		cache:            map[string]registryImagesRefCacheEntry{},
 	}
 }
 
@@ -81,15 +84,30 @@ func (t *FetcherFromProcessedImages) Bundle(_ *util.Throttle, imgRef ImageRef) (
 	return imgRef.ImageRef, nil, nil
 }
 
+type registryImagesRefCacheEntry struct {
+	bundle *Bundle
+	imgRef lockconfig.ImageRef
+}
+
 // RegistryFetcher struct that implements Fetcher and searches for the bundle in the registry
 type RegistryFetcher struct {
 	imgRetriever     ImagesMetadata
 	imagesLockReader ImagesLockReader
+
+	cache      map[string]registryImagesRefCacheEntry
+	cacheMutex *sync.Mutex
 }
 
 // Bundle search for the imgRef Digest on the registry
 // only returns the *Bundle if the current image is a bundle, if not the return value will be nil
 func (r *RegistryFetcher) Bundle(throttleReq *util.Throttle, imgRef ImageRef) (lockconfig.ImageRef, *Bundle, error) {
+	r.cacheMutex.Lock()
+	cacheEntry, found := r.cache[imgRef.PrimaryLocation()]
+	r.cacheMutex.Unlock()
+	if found {
+		return cacheEntry.imgRef, cacheEntry.bundle, nil
+	}
+
 	throttleReq.Take()
 	// We need to check where we can find the image we are looking for.
 	// First checks the current bundle repository and if it cannot be found there
@@ -109,8 +127,23 @@ func (r *RegistryFetcher) Bundle(throttleReq *util.Throttle, imgRef ImageRef) (l
 	if err != nil {
 		return lockconfig.ImageRef{}, nil, fmt.Errorf("Checking if '%s' is a bundle: %s", imgRef.Image, err)
 	}
+
+	// This cache storing might not prevent us from going twice to the registry because this function might be called
+	// for the same bundle twice in parallel we need to do a more complex mutex here where we only allow 1 call of this
+	// function per imgRef.PrimaryLocation
+	r.cacheMutex.Lock()
+	defer r.cacheMutex.Unlock()
+
 	if isBundle {
+		r.cache[imgRef.PrimaryLocation()] = registryImagesRefCacheEntry{
+			bundle: bundle,
+			imgRef: newImgRef,
+		}
 		return newImgRef, bundle, nil
+	}
+	r.cache[imgRef.PrimaryLocation()] = registryImagesRefCacheEntry{
+		bundle: nil,
+		imgRef: newImgRef,
 	}
 	return newImgRef, nil, nil
 }

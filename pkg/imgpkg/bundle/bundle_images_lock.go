@@ -32,7 +32,9 @@ func (o *Bundle) AllImagesLockRefs(concurrency int, logger util.LoggerWithLevels
 
 // buildAllImagesLock recursive function that will iterate over the Bundle graph and collect all the bundles and images
 func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
-	o.cachedImageRefs = newImageRefCache()
+	if o.cachedImageRefs == nil {
+		o.cachedImageRefs = newImageRefCache()
+	}
 
 	img, err := o.checkedImage()
 	if err != nil {

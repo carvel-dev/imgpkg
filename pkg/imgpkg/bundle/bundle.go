@@ -65,7 +65,7 @@ type Bundle struct {
 	// cachedImageRefs stores set of ImageRefs that were
 	// discovered as part of reading the bundle.
 	// Includes refs only directly referenced by the bundle.
-	cachedImageRefs imageRefCache
+	cachedImageRefs *imageRefCache
 }
 
 // NewBundleFromPlainImage Creates a new Bundle with a PlainImage and uses Registry Fetcher
@@ -304,8 +304,8 @@ func (o *Bundle) checkedImage() (regv1.Image, error) {
 	return img, err
 }
 
-func newImageRefCache() imageRefCache {
-	return imageRefCache{
+func newImageRefCache() *imageRefCache {
+	return &imageRefCache{
 		cache: map[string]ImageRef{},
 		mutex: &sync.Mutex{},
 	}
