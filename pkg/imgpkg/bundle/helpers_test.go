@@ -45,14 +45,14 @@ func (u *uriMetrics) AddMetricsHandler(fakeRegistry *helpers.FakeTestRegistryBui
 	})
 }
 
-func (u *uriMetrics) assertNumberCalls(t *testing.T, imageName, digest, method, asset string, expectedNumberOfCalls int) bool {
+func (u *uriMetrics) AssertNumberCalls(t *testing.T, imageName, digest, method, asset string, expectedNumberOfCalls int) bool {
 	t.Helper()
 	for uri, m := range u.metrics {
 		if strings.Contains(uri, digest) && strings.Contains(uri, fmt.Sprintf("/%s/", asset)) {
 			return assert.Equal(t, expectedNumberOfCalls, m[method], fmt.Sprintf("imgpkg reached %d times to read the %s of bundle %s", m[method], asset, imageName))
 		}
 	}
-	return assert.NotEqualf(t, 0, expectedNumberOfCalls, fmt.Sprintf("imgpkg expected to reach %d times to read the %s of bundle %s but it never did", expectedNumberOfCalls, asset, imageName))
+	return assert.Equalf(t, 0, expectedNumberOfCalls, fmt.Sprintf("imgpkg expected to reach %d times to read the %s of bundle %s but it never did", expectedNumberOfCalls, asset, imageName))
 }
 
 func createImagesAndBundles(t *testing.T, imageTree *imageTree, imgNode *imageNode, bundleAndImages imageOrBundleDef, registryBuilder *helpers.FakeTestRegistryBuilder, tmpFolder string) {

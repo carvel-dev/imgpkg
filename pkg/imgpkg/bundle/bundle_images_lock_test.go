@@ -11,7 +11,9 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
 	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
@@ -34,6 +36,10 @@ type imageOrBundleDef struct {
 type imgAssertion struct {
 	image                  string
 	orderedListOfLocations []string
+}
+type subtest struct {
+	subjectCreator subjectCreator
+	desc           string
 }
 
 func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
@@ -414,44 +420,46 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 		},
 	}
 	for _, test := range allTests.tests {
-		t.Run(test.description, func(t *testing.T) {
-			tmpfolder, err := os.MkdirTemp("", "")
-			require.NoError(t, err)
-			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
-			defer registryFakeBuilder.CleanUp()
-			t.Cleanup(func() {
-				os.Remove(tmpfolder)
-			})
-
-			fmt.Println("setup bundle layout:")
-			imagesTree.PrintTree()
-			fmt.Println("============")
-			fmt.Println("expected image locations:")
-			for _, assertion := range test.assertions {
-				fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
-			}
-			fmt.Println("============")
-			fmt.Println("expected image references per bundle:")
-			imagesTree.PrintBundleImageRefs()
-			fmt.Println("============")
-
-			reg := registryFakeBuilder.Build()
-
-			metrics := createURIMetrics()
-			metrics.AddMetricsHandler(registryFakeBuilder)
-
-			subject := bundle.NewBundleFromRef(topBundleInfo, reg, fakeImagesLockReader, bundle.NewRegistryFetcher(reg, fakeImagesLockReader))
-			bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
-			require.NoError(t, err)
-
-			runAssertions(t, test.assertions, imagesRefs, imagesTree)
-			checkBundlesPresence(t, bundles, imagesTree)
-			for _, node := range imagesTree.GetBundles() {
-				bundleDigest, err := regname.NewDigest(node.imageRef)
+		for _, subTest := range []subtest{
+			{
+				subjectCreator: accessToRegistry{},
+				desc:           "accessing the registry",
+			},
+			{
+				subjectCreator: noAccessToRegistry{},
+				desc:           "no accessing the registry",
+			},
+		} {
+			t.Run(fmt.Sprintf("%s %s", subTest.desc, test.description), func(t *testing.T) {
+				tmpfolder, err := os.MkdirTemp("", "")
 				require.NoError(t, err)
-				metrics.assertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
-			}
-		})
+				fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
+				defer registryFakeBuilder.CleanUp()
+				t.Cleanup(func() {
+					os.Remove(tmpfolder)
+				})
+
+				fmt.Println("setup bundle layout:")
+				imagesTree.PrintTree()
+				fmt.Println("============")
+				fmt.Println("expected image locations:")
+				for _, assertion := range test.assertions {
+					fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
+				}
+				fmt.Println("============")
+				fmt.Println("expected image references per bundle:")
+				imagesTree.PrintBundleImageRefs()
+				fmt.Println("============")
+
+				subject, metrics := subTest.subjectCreator.BuildSubject(t, registryFakeBuilder, topBundleInfo, fakeImagesLockReader)
+				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
+				require.NoError(t, err)
+
+				runAssertions(t, test.assertions, imagesRefs, imagesTree)
+				checkBundlesPresence(t, bundles, imagesTree)
+				subTest.subjectCreator.AssertCallsToRegistry(t, imagesTree, metrics)
+			})
+		}
 	}
 }
 
@@ -729,7 +737,7 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 			for _, node := range imagesTree.GetBundles() {
 				bundleDigest, err := regname.NewDigest(node.imageRef)
 				require.NoError(t, err)
-				metrics.assertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
+				metrics.AssertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
 			}
 		})
 	}
@@ -1129,43 +1137,45 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		},
 	}
 	for _, test := range allTests.tests {
-		t.Run(test.description, func(t *testing.T) {
-			tmpfolder, err := os.MkdirTemp("", "")
-			require.NoError(t, err)
-			fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
-			defer registryFakeBuilder.CleanUp()
-			t.Cleanup(func() {
-				os.Remove(tmpfolder)
-			})
-			fmt.Println("setup bundle layout:")
-			imagesTree.PrintTree()
-			fmt.Println("============")
-			fmt.Println("expected image locations:")
-			for _, assertion := range test.assertions {
-				fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
-			}
-			fmt.Println("============")
-			fmt.Println("expected image references per bundle:")
-			imagesTree.PrintBundleImageRefs()
-			fmt.Println("============")
-
-			reg := registryFakeBuilder.Build()
-
-			metrics := createURIMetrics()
-			metrics.AddMetricsHandler(registryFakeBuilder)
-
-			subject := bundle.NewBundleFromRef(topBundleInfo, reg, fakeImagesLockReader, bundle.NewRegistryFetcher(reg, fakeImagesLockReader))
-			bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
-			require.NoError(t, err)
-
-			runAssertions(t, test.assertions, imagesRefs, imagesTree)
-			checkBundlesPresence(t, bundles, imagesTree)
-			for _, node := range imagesTree.GetBundles() {
-				bundleDigest, err := regname.NewDigest(node.imageRef)
+		for _, subTest := range []subtest{
+			{
+				subjectCreator: accessToRegistry{},
+				desc:           "accessing the registry",
+			},
+			{
+				subjectCreator: noAccessToRegistry{},
+				desc:           "no accessing the registry",
+			},
+		} {
+			t.Run(fmt.Sprintf("%s %s", subTest.desc, test.description), func(t *testing.T) {
+				tmpfolder, err := os.MkdirTemp("", "")
 				require.NoError(t, err)
-				metrics.assertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
-			}
-		})
+				fakeImagesLockReader, registryFakeBuilder, topBundleInfo, imagesTree := handleSetup(t, test.setup, logger, tmpfolder)
+				defer registryFakeBuilder.CleanUp()
+				t.Cleanup(func() {
+					os.Remove(tmpfolder)
+				})
+				fmt.Println("setup bundle layout:")
+				imagesTree.PrintTree()
+				fmt.Println("============")
+				fmt.Println("expected image locations:")
+				for _, assertion := range test.assertions {
+					fmt.Printf("Image: %s\n\tExpected locations: %v\n", assertion.image, assertion.orderedListOfLocations)
+				}
+				fmt.Println("============")
+				fmt.Println("expected image references per bundle:")
+				imagesTree.PrintBundleImageRefs()
+				fmt.Println("============")
+
+				subject, metrics := subTest.subjectCreator.BuildSubject(t, registryFakeBuilder, topBundleInfo, fakeImagesLockReader)
+				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
+				require.NoError(t, err)
+
+				runAssertions(t, test.assertions, imagesRefs, imagesTree)
+				checkBundlesPresence(t, bundles, imagesTree)
+				subTest.subjectCreator.AssertCallsToRegistry(t, imagesTree, metrics)
+			})
+		}
 	}
 
 	t.Run("when 1 bundle does not have locations, it still is able to gather all the images", func(t *testing.T) {
@@ -1218,9 +1228,59 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		for _, node := range imagesTree.GetBundles() {
 			bundleDigest, err := regname.NewDigest(node.imageRef)
 			require.NoError(t, err)
-			metrics.assertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
+			metrics.AssertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
 		}
 	})
+}
+
+type subjectCreator interface {
+	BuildSubject(t *testing.T, registryFakeBuilder *helpers.FakeTestRegistryBuilder, topBundleInfo string, fakeImagesLockReader bundle.ImagesLockReader) (*bundle.Bundle, *uriMetrics)
+	AssertCallsToRegistry(t *testing.T, imagesTree *imageTree, metrics *uriMetrics)
+}
+type accessToRegistry struct{}
+
+func (accessToRegistry) BuildSubject(t *testing.T, registryFakeBuilder *helpers.FakeTestRegistryBuilder, topBundleInfo string, fakeImagesLockReader bundle.ImagesLockReader) (*bundle.Bundle, *uriMetrics) {
+	reg := registryFakeBuilder.Build()
+
+	metrics := createURIMetrics()
+	metrics.AddMetricsHandler(registryFakeBuilder)
+
+	subject := bundle.NewBundleFromRef(topBundleInfo, reg, fakeImagesLockReader, bundle.NewRegistryFetcher(reg, fakeImagesLockReader))
+	return subject, metrics
+}
+func (accessToRegistry) AssertCallsToRegistry(t *testing.T, imagesTree *imageTree, metrics *uriMetrics) {
+	t.Helper()
+	for _, node := range imagesTree.GetBundles() {
+		bundleDigest, err := regname.NewDigest(node.imageRef)
+		require.NoError(t, err)
+		metrics.AssertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 1)
+	}
+}
+
+type noAccessToRegistry struct{}
+
+func (noAccessToRegistry) BuildSubject(t *testing.T, registryFakeBuilder *helpers.FakeTestRegistryBuilder, topBundleInfo string, fakeImagesLockReader bundle.ImagesLockReader) (*bundle.Bundle, *uriMetrics) {
+	reg := registryFakeBuilder.Build()
+
+	metrics := createURIMetrics()
+	metrics.AddMetricsHandler(registryFakeBuilder)
+
+	pImages := registryFakeBuilder.ProcessedImages()
+	bFetcher := bundle.NewFetcherFromProcessedImages(pImages.All(), reg, fakeImagesLockReader)
+
+	bImage, found := pImages.FindByURL(imageset.UnprocessedImageRef{DigestRef: topBundleInfo, Tag: "latest"})
+	require.True(t, found, fmt.Sprintf("Could not find the top bundle %s in the processed images", topBundleInfo))
+
+	subject := bundle.NewBundle(plainimage.NewFetchedPlainImageWithTag(topBundleInfo, bImage.Tag, bImage.Image), reg, fakeImagesLockReader, bFetcher)
+	return subject, metrics
+}
+func (noAccessToRegistry) AssertCallsToRegistry(t *testing.T, imagesTree *imageTree, metrics *uriMetrics) {
+	t.Helper()
+	for _, node := range imagesTree.GetBundles() {
+		bundleDigest, err := regname.NewDigest(node.imageRef)
+		require.NoError(t, err)
+		metrics.AssertNumberCalls(t, node.image, bundleDigest.DigestStr(), "GET", "manifests", 0)
+	}
 }
 
 func handleSetup(t *testing.T, setup imageOrBundleDef, logger *helpers.Logger, tmpFolder string) (bundle.ImagesLockReader, *helpers.FakeTestRegistryBuilder, string, *imageTree) {

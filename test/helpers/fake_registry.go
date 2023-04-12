@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	regregistry "github.com/vmware-tanzu/carvel-imgpkg/test/helpers/registry"
@@ -42,6 +43,7 @@ type FakeTestRegistryBuilder struct {
 	auth            authn.Authenticator
 	logger          *Logger
 	originalHandler http.Handler
+	processedImages *imageset.ProcessedImages
 }
 
 // NewFakeRegistry Creates a registry that uses the ggcr version
@@ -83,6 +85,7 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) registry.Registry {
 	u, err := url.Parse(r.server.URL)
 	assert.NoError(r.t, err)
+	r.processedImages = imageset.NewProcessedImages()
 
 	for imageRef, val := range r.images {
 		imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
@@ -93,14 +96,33 @@ func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) regi
 			r.logger.Tracef("build: creating image on registry: %s", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
+			usedTag := val.Tag
 			if val.Tag != "" {
 				r.logger.Tracef(" with tag: %s", val.Tag)
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.Image, auth)
 				assert.NoError(r.t, err)
 			} else {
+				usedTag = "latest"
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
 				assert.NoError(r.t, err)
 			}
+
+			file, err := val.Image.ConfigFile()
+			assert.NoError(r.t, err)
+			imageRefWithTestRegistry, err := name.ParseReference(val.RefDigest)
+			assert.NoError(r.t, err)
+			newLocation := strings.ReplaceAll(val.RefDigest, imageRefWithTestRegistry.Context().RegistryStr(), u.Host)
+			r.processedImages.Add(imageset.ProcessedImage{
+				UnprocessedImageRef: imageset.UnprocessedImageRef{
+					DigestRef: newLocation,
+					Tag:       usedTag,
+					Labels:    file.Config.Labels,
+					OrigRef:   val.RefDigest,
+				},
+				DigestRef:  newLocation,
+				Image:      val.Image,
+				ImageIndex: nil,
+			})
 			r.logger.Tracef("\n")
 		}
 
@@ -108,19 +130,42 @@ func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) regi
 			r.logger.Tracef("build: creating index on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
+			usedTag := val.Tag
 			if val.Tag != "" {
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.ImageIndex, auth)
 				assert.NoError(r.t, err)
 			} else {
+				usedTag = "latest"
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
 				assert.NoError(r.t, err)
 			}
+
+			imageRefWithTestRegistry, err := name.ParseReference(val.RefDigest)
+			assert.NoError(r.t, err)
+			newLocation := strings.ReplaceAll(val.RefDigest, imageRefWithTestRegistry.Context().RegistryStr(), u.Host)
+			r.processedImages.Add(imageset.ProcessedImage{
+				UnprocessedImageRef: imageset.UnprocessedImageRef{
+					DigestRef: newLocation,
+					Tag:       usedTag,
+					OrigRef:   val.RefDigest,
+				},
+				DigestRef:  newLocation,
+				ImageIndex: val.ImageIndex,
+			})
 		}
 	}
 
 	reg, err := registry.NewSimpleRegistry(opts)
 	assert.NoError(r.t, err)
 	return reg
+}
+
+// ProcessedImages returns the images that where created in the registry
+func (r *FakeTestRegistryBuilder) ProcessedImages() *imageset.ProcessedImages {
+	if r.processedImages == nil {
+		panic("Internal consistency: ProcessedImages was called before the registry was built. Call Build function first.")
+	}
+	return r.processedImages
 }
 
 // IsConfigBlobLayer checks if digest is from configuration blob
