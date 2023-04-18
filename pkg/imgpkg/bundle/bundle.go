@@ -317,6 +317,7 @@ type imageRefCache struct {
 	mutex *sync.Mutex
 }
 
+// ImageRef retrieves the ImageRef associated with imageRef
 func (i *imageRefCache) ImageRef(imageRef string) (ImageRef, bool) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -329,13 +330,30 @@ func (i *imageRefCache) ImageRef(imageRef string) (ImageRef, bool) {
 	return foundImgRef, found
 }
 
+// Size number of entries in the cache
 func (i *imageRefCache) Size() int {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	return len(i.cache)
 }
 
+// All images from the cache, but it will panic if any ImageRef is not a digest/the error field is set
 func (i *imageRefCache) All() []ImageRef {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	var result []ImageRef
+	for _, ref := range i.cache {
+		// if error is set panic
+		if ref.Error != "" {
+			panic(fmt.Sprintf("Internal consistency: function All called when there was an image '%s' that contains an error. Should call AllImagesWithErrors instead", ref.ImageRef.Image))
+		}
+		result = append(result, ref.DeepCopy())
+	}
+	return result
+}
+
+// AllImagesWithErrors images from the cache even when there is an error
+func (i *imageRefCache) AllImagesWithErrors() []ImageRef {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	var result []ImageRef
@@ -345,6 +363,7 @@ func (i *imageRefCache) All() []ImageRef {
 	return result
 }
 
+// StoreImageRef saves ImageRef into the cache
 func (i *imageRefCache) StoreImageRef(imageRef ImageRef) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()

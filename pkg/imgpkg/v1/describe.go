@@ -149,7 +149,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		panic(fmt.Sprintf("Internal consistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation()))
 	}
 
-	imagesRefs := newBundle.ImagesRefs()
+	imagesRefs := newBundle.ImagesRefsWithErrors()
 	sort.Slice(imagesRefs, func(i, j int) bool {
 		return imagesRefs[i].Image < imagesRefs[j].Image
 	})
