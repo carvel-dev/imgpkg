@@ -76,32 +76,34 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, err
 		}
 
-		var bundles []*ctlbundle.Bundle
-		for _, image := range processedImages.All() {
-			if image.ImageIndex != nil {
+		var parentBundle *ctlbundle.Bundle
+		foundRootBundle := false
+		for _, processedImage := range processedImages.All() {
+			if processedImage.ImageIndex != nil {
 				continue
 			}
 
-			pImage := plainimage.NewFetchedPlainImageWithTag(image.UnprocessedImageRef.DigestRef, image.Tag, image.Image)
-			bundle := ctlbundle.NewBundleFromPlainImage(pImage, c.registry)
-			isBundle, err := bundle.IsBundle()
-			if err != nil {
-				return nil, fmt.Errorf("Unable to check if %s is a bundle: %s", image.DigestRef, err)
+			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+				if foundRootBundle {
+					panic("Internal inconsistency: expected only 1 root bundle")
+				}
+				foundRootBundle = true
+				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
+				lockReader := ctlbundle.NewImagesLockReader()
+				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
 			}
-			if !isBundle {
-				continue
-			}
-
-			bundles = append(bundles, bundle)
 		}
 
-		for _, bundle := range bundles {
-			if err := bundle.UpdateImageRefs(bundles); err != nil {
-				return nil, fmt.Errorf("Updating Image Refs %s: %s", bundle.DigestRef(), err)
+		if foundRootBundle {
+			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+			if err != nil {
+				return nil, err
 			}
 
-			if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
-				return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			for _, bundle := range bundles {
+				if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+					return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+				}
 			}
 		}
 	} else {
@@ -245,7 +247,8 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 }
 
 func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
-	bundle := ctlbundle.NewBundle(bundleRef, c.registry)
+	lockReader := ctlbundle.NewImagesLockReader()
+	bundle := ctlbundle.NewBundleFromRef(bundleRef, c.registry, lockReader, ctlbundle.NewRegistryFetcher(c.registry, lockReader))
 	isBundle, err := bundle.IsBundle()
 	if err != nil {
 		return nil, nil, ctlbundle.ImageRefs{}, err

@@ -323,7 +323,6 @@ func TestDescribeBundle(t *testing.T) {
 	}
 
 	t.Run("When denied error occur retrieving a signature, it provide the error information for the signature", func(t *testing.T) {
-		logger.LogLevel = helpers.LogTrace
 		fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
 		img1 := fakeRegBuilder.WithRandomImage("other-repo/some-random-img")
 		hash, err := regv1.NewHash(img1.Digest)
@@ -331,7 +330,7 @@ func TestDescribeBundle(t *testing.T) {
 		b := fakeRegBuilder.
 			WithRandomBundle("repo/bundle-with-sig-error").
 			WithImageRefs([]lockconfig.ImageRef{{Image: img1.RefDigest}})
-		signToDeny := fakeRegBuilder.WithRandomTaggedImage(b.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
+		signToDeny := fakeRegBuilder.WithRandomTaggedImage(img1.RefDigest, cosign.Munge(regv1.Descriptor{Digest: hash}))
 
 		fakeRegBuilder.Build()
 		fakeRegBuilder.WithHandlerFunc(func(writer http.ResponseWriter, request *http.Request) bool {
@@ -362,8 +361,11 @@ func TestDescribeBundle(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, bundleDescription.Content.Images, 2)
-		require.Equal(t, ctlbundle.ImageType("Signature"), bundleDescription.Content.Images[signToDeny.Tag].ImageType)
-		require.Equal(t, "access denied", bundleDescription.Content.Images[signToDeny.Tag].Error)
+		keySignToDeny, err := name.ParseReference(signToDeny.RefDigest)
+		require.NoError(t, err)
+		keySignToDeny = keySignToDeny.Context().Tag(signToDeny.Tag)
+		require.Equal(t, ctlbundle.ImageType("Signature"), bundleDescription.Content.Images[keySignToDeny.String()].ImageType)
+		require.Equal(t, "access denied", bundleDescription.Content.Images[keySignToDeny.String()].Error)
 	})
 }
 
@@ -486,7 +488,6 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 	result := &createdBundle{name: bToCreate.name, images: []createdImage{}, annotations: bToCreate.annotations}
 	allBundlesCreated[bToCreate.name] = result
 
-	b := reg.WithRandomBundle(bToCreate.name)
 	for _, image := range bToCreate.images {
 		imgDigestRef := ""
 		if len(image.images) > 0 {
@@ -534,7 +535,7 @@ func createBundleRec(t *testing.T, reg *helpers.FakeTestRegistryBuilder, bToCrea
 			}
 		}
 	}
-	b = b.WithImageRefs(imgs)
+	b := reg.WithRandomBundleAndImages(bToCreate.name, imgs)
 	if bToCreate.locationPresent {
 		tmpDir, err := os.MkdirTemp("", strings.Split(b.RefDigest, "sha256:")[1])
 		require.NoError(t, err)
