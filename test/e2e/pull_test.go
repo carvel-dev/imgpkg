@@ -185,10 +185,6 @@ images:
 	})
 }
 
-func TestPullImage(t *testing.T) {
-
-}
-
 func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
 	logger := &helpers.Logger{}
 

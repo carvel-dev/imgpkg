@@ -73,6 +73,6 @@ func (a *blockingProvider) Enabled() bool {
 	}
 }
 
-func (a blockingProvider) Provide(image string) credentialprovider.DockerConfig {
+func (a blockingProvider) Provide(_ string) credentialprovider.DockerConfig {
 	return credentialprovider.DockerConfig{}
 }
