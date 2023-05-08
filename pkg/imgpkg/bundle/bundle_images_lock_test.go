@@ -1239,7 +1239,7 @@ type subjectCreator interface {
 }
 type accessToRegistry struct{}
 
-func (accessToRegistry) BuildSubject(t *testing.T, registryFakeBuilder *helpers.FakeTestRegistryBuilder, topBundleInfo string, fakeImagesLockReader bundle.ImagesLockReader) (*bundle.Bundle, *uriMetrics) {
+func (accessToRegistry) BuildSubject(_ *testing.T, registryFakeBuilder *helpers.FakeTestRegistryBuilder, topBundleInfo string, fakeImagesLockReader bundle.ImagesLockReader) (*bundle.Bundle, *uriMetrics) {
 	reg := registryFakeBuilder.Build()
 
 	metrics := createURIMetrics()
