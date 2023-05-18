@@ -18,6 +18,11 @@ import (
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
+const (
+	// NoDepthLimit results in unlimited max recursion depth
+	NoDepthLimit = 0
+)
+
 // ImagesRefsWithErrors Retrieve the references for the Images of this particular bundle including images that imgpkg
 // was not able to retrieve information for
 func (o *Bundle) ImagesRefsWithErrors() []ImageRef {
@@ -25,14 +30,14 @@ func (o *Bundle) ImagesRefsWithErrors() []ImageRef {
 }
 
 // AllImagesLockRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) AllImagesLockRefs(concurrency int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
+func (o *Bundle) AllImagesLockRefs(concurrency int, maxDepth int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	throttleReq := util.NewThrottle(concurrency)
 
-	return o.buildAllImagesLock(&throttleReq, logger)
+	return o.buildAllImagesLock(&throttleReq, maxDepth, logger)
 }
 
 // buildAllImagesLock recursive function that will iterate over the Bundle graph and collect all the bundles and images
-func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
+func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, maxDepth int, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, error) {
 	img, err := o.checkedImage()
 	if err != nil {
 		return nil, ImageRefs{}, err
@@ -71,9 +76,17 @@ func (o *Bundle) buildAllImagesLock(throttleReq *util.Throttle, logger util.Logg
 			continue
 		}
 
+		if maxDepth == 1 {
+			typedImageRef := NewBundleImageRef(image.ImageRef).DeepCopy()
+			processedImageRefs.AddImagesRef(typedImageRef)
+			o.cachedImageRefs.StoreImageRef(typedImageRef)
+			errChan <- nil
+			continue
+		}
+
 		image := image.DeepCopy()
 		go func() {
-			nestedBundles, nestedBundlesProcessedImageRefs, imgRef, err := o.imagesLockIfIsBundle(throttleReq, image, logger)
+			nestedBundles, nestedBundlesProcessedImageRefs, imgRef, err := o.imagesLockIfIsBundle(throttleReq, maxDepth, image, logger)
 			if err != nil {
 				errChan <- err
 				return
@@ -129,7 +142,7 @@ func (o *Bundle) fetchImagesRef(img regv1.Image, locationsConfig ImageRefLocatio
 }
 
 // imagesLockIfIsBundle retrieve all the images associated with Bundle imgRef. if it is not a bundle will return no new images
-func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRef, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
+func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, maxDepth int, imgRef ImageRef, logger util.LoggerWithLevels) ([]*Bundle, ImageRefs, lockconfig.ImageRef, error) {
 	newImgRef, bundle, err := o.bundleFetcher.Bundle(throttleReq, imgRef)
 	if err != nil {
 		return nil, ImageRefs{}, lockconfig.ImageRef{}, err
@@ -138,7 +151,11 @@ func (o *Bundle) imagesLockIfIsBundle(throttleReq *util.Throttle, imgRef ImageRe
 	var processedImageRefs ImageRefs
 	var nestedBundles []*Bundle
 	if bundle != nil {
-		nestedBundles, processedImageRefs, err = bundle.buildAllImagesLock(throttleReq, logger)
+		var newDepth = maxDepth
+		if maxDepth > 1 {
+			newDepth = maxDepth - 1
+		}
+		nestedBundles, processedImageRefs, err = bundle.buildAllImagesLock(throttleReq, newDepth, logger)
 		if err != nil {
 			return nil, ImageRefs{}, lockconfig.ImageRef{}, fmt.Errorf("Retrieving images for bundle '%s': %s", imgRef.Image, err)
 		}

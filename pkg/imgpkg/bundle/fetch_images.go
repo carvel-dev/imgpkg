@@ -17,8 +17,8 @@ type SignatureFetcher interface {
 }
 
 // FetchAllImagesRefs returns a flat list of nested bundles and every image reference for a specific bundle
-func (o *Bundle) FetchAllImagesRefs(concurrency int, ui Logger, sigFetcher SignatureFetcher) ([]*Bundle, error) {
-	bundles, _, err := o.AllImagesLockRefs(concurrency, ui)
+func (o *Bundle) FetchAllImagesRefs(concurrency int, maxDepth int, ui Logger, sigFetcher SignatureFetcher) ([]*Bundle, error) {
+	bundles, _, err := o.AllImagesLockRefs(concurrency, maxDepth, ui)
 	if err != nil {
 		return nil, err
 	}

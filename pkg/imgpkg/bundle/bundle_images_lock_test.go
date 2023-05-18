@@ -452,7 +452,7 @@ func TestBundle_AllImagesLock_NoLocations_AllImagesCollocated(t *testing.T) {
 				fmt.Println("============")
 
 				subject, metrics := subTest.subjectCreator.BuildSubject(t, registryFakeBuilder, topBundleInfo, fakeImagesLockReader)
-				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
+				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, bundle.NoDepthLimit, uiLogger)
 				require.NoError(t, err)
 
 				runAssertions(t, test.assertions, imagesRefs, imagesTree)
@@ -729,7 +729,7 @@ func TestBundle_AllImagesLock_NoLocations_ImagesNotCollocated(t *testing.T) {
 			metrics.AddMetricsHandler(registryFakeBuilder)
 
 			subject := bundle.NewBundleFromRef(topBundleInfo, reg, fakeImagesLockReader, bundle.NewRegistryFetcher(reg, fakeImagesLockReader))
-			bundles, imagesRefs, err := subject.AllImagesLockRefs(1, uiLogger)
+			bundles, imagesRefs, err := subject.AllImagesLockRefs(1, bundle.NoDepthLimit, uiLogger)
 			require.NoError(t, err)
 
 			runAssertions(t, test.assertions, imagesRefs, imagesTree)
@@ -1168,7 +1168,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 				fmt.Println("============")
 
 				subject, metrics := subTest.subjectCreator.BuildSubject(t, registryFakeBuilder, topBundleInfo, fakeImagesLockReader)
-				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, uiLogger)
+				bundles, imagesRefs, err := subject.AllImagesLockRefs(6, bundle.NoDepthLimit, uiLogger)
 				require.NoError(t, err)
 
 				runAssertions(t, test.assertions, imagesRefs, imagesTree)
@@ -1221,7 +1221,7 @@ func TestBundle_AllImagesLock_Locations_AllImagesCollocated(t *testing.T) {
 		metrics.AddMetricsHandler(registryFakeBuilder)
 
 		subject := bundle.NewBundleFromRef(topBundleInfo, reg, fakeImagesLockReader, bundle.NewRegistryFetcher(reg, fakeImagesLockReader))
-		bundles, _, err := subject.AllImagesLockRefs(6, uiLogger)
+		bundles, _, err := subject.AllImagesLockRefs(6, bundle.NoDepthLimit, uiLogger)
 		require.NoError(t, err)
 
 		checkBundlesPresence(t, bundles, imagesTree)

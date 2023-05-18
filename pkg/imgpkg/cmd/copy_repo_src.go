@@ -95,7 +95,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		}
 
 		if foundRootBundle {
-			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, ctlbundle.NoDepthLimit, c.logger)
 			if err != nil {
 				return nil, err
 			}
@@ -257,7 +257,7 @@ func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	}
 
-	nestedBundles, imageRefs, err := bundle.AllImagesLockRefs(c.Concurrency, c.logger)
+	nestedBundles, imageRefs, err := bundle.AllImagesLockRefs(c.Concurrency, ctlbundle.NoDepthLimit, c.logger)
 	if err != nil {
 		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Reading Images from Bundle: %s", err)
 	}

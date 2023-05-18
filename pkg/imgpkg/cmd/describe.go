@@ -29,6 +29,7 @@ type DescribeOptions struct {
 	RegistryFlags RegistryFlags
 
 	Concurrency            int
+	MaxDepth               int
 	OutputType             string
 	IncludeCosignArtifacts bool
 }
@@ -52,6 +53,7 @@ func NewDescribeCmd(o *DescribeOptions) *cobra.Command {
 	o.BundleFlags.SetCopy(cmd)
 	o.RegistryFlags.Set(cmd)
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
+	cmd.Flags().IntVar(&o.MaxDepth, "max-depth", 0, "Maximum recursion depth (0 is no limit)")
 	cmd.Flags().StringVarP(&o.OutputType, "output-type", "o", "text", "Type of output possible values: [text, yaml]")
 	cmd.Flags().BoolVar(&o.IncludeCosignArtifacts, "cosign-artifacts", true, "Retrieve cosign artifact information (Default: true)")
 	return cmd
@@ -71,6 +73,7 @@ func (d *DescribeOptions) Run() error {
 		v1.DescribeOpts{
 			Logger:                 levelLogger,
 			Concurrency:            d.Concurrency,
+			MaxDepth:               d.MaxDepth,
 			IncludeCosignArtifacts: d.IncludeCosignArtifacts,
 		},
 		d.RegistryFlags.AsRegistryOpts())

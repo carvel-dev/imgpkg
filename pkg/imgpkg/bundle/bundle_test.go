@@ -857,7 +857,7 @@ func TestNoteCopy(t *testing.T) {
 		uiLogger := util.NewUILevelLogger(util.LogDebug, util.NewNoopLogger())
 
 		subject := bundle.NewBundleFromPlainImage(plainimage.NewFetchedPlainImageWithTag(rootBundle.RefDigest, "", rootBundle.Image), reg)
-		_, _, err = subject.AllImagesLockRefs(1, uiLogger)
+		_, _, err = subject.AllImagesLockRefs(1, bundle.NoDepthLimit, uiLogger)
 		require.NoError(t, err)
 
 		processedImages := imageset.NewProcessedImages()
