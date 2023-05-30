@@ -129,6 +129,6 @@ func (kc *keychain) Resolve(target authn.Resource) (authn.Authenticator, error) 
 
 type noOpDockerKeyring struct{}
 
-func (n noOpDockerKeyring) Lookup(image string) ([]credentialprovider.AuthConfig, bool) {
+func (n noOpDockerKeyring) Lookup(_ string) ([]credentialprovider.AuthConfig, bool) {
 	return nil, false
 }

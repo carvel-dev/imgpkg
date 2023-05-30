@@ -116,7 +116,7 @@ func (m *diskHandler) Put(_ context.Context, repo string, h v1.Hash, rc io.ReadC
 	m.access[m.accessKey(repo, h)] = h.String()
 	return nil
 }
-func (m *diskHandler) Mount(_ context.Context, repo, from string, h v1.Hash) error {
+func (m *diskHandler) Mount(_ context.Context, repo, _ string, h v1.Hash) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
