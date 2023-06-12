@@ -88,8 +88,7 @@ func Describe(bundleImage string, opts DescribeOpts, registryOpts registry.Opts)
 
 // DescribeWithRegistryAndSignatureFetcher Given a Bundle URL fetch the information about the contents of the Bundle and Nested Bundles
 func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOpts, reg bundle.ImagesMetadata, sigFetcher SignatureFetcher) (Description, error) {
-	lockReader := bundle.NewImagesLockReader()
-	newBundle := bundle.NewBundleFromRef(bundleImage, reg, lockReader, bundle.NewRegistryFetcher(reg, lockReader))
+	newBundle := bundle.NewBundle(bundleImage, reg)
 	isBundle, err := newBundle.IsBundle()
 	if err != nil {
 		return Description{}, fmt.Errorf("Unable to check if %s is a bundle: %s", bundleImage, err)
@@ -146,10 +145,10 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 	}
 	if newBundle == nil {
-		panic(fmt.Sprintf("Internal consistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation()))
+		panic("Internal consistency: bundle could not be found in list of bundles")
 	}
 
-	imagesRefs := newBundle.ImagesRefsWithErrors()
+	imagesRefs := newBundle.ImagesRefs()
 	sort.Slice(imagesRefs, func(i, j int) bool {
 		return imagesRefs[i].Image < imagesRefs[j].Image
 	})

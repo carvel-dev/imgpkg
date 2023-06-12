@@ -17,8 +17,8 @@ package random
 import (
 	"archive/tar"
 	"bytes"
-	"crypto"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -84,7 +84,7 @@ func Layer(byteSize int64, mt types.MediaType) (v1.Layer, error) {
 
 	// Hash the contents as we write it out to the buffer.
 	var b bytes.Buffer
-	hasher := crypto.SHA256.New()
+	hasher := sha256.New()
 	mw := io.MultiWriter(&b, hasher)
 
 	// Write a single file with a random name and random contents.
@@ -92,7 +92,7 @@ func Layer(byteSize int64, mt types.MediaType) (v1.Layer, error) {
 	if err := tw.WriteHeader(&tar.Header{
 		Name:     fileName,
 		Size:     byteSize,
-		Typeflag: tar.TypeReg,
+		Typeflag: tar.TypeRegA,
 	}); err != nil {
 		return nil, err
 	}

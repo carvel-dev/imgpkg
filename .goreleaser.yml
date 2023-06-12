@@ -20,7 +20,7 @@ builds:
       - -trimpath
 
     ldflags:
-      - -X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version={{ .Version }}
+      - -X github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd.Version=v{{ .Version }}
 
 archives:
   - format: binary
