@@ -49,7 +49,6 @@ type options struct {
 	missedPrioritizedFiles *[]string
 	compression            Compression
 	ctx                    context.Context
-	minChunkSize           int
 }
 
 type Option func(o *options) error
@@ -64,7 +63,6 @@ func WithChunkSize(chunkSize int) Option {
 
 // WithCompressionLevel option specifies the gzip compression level.
 // The default is gzip.BestCompression.
-// This option will be ignored if WithCompression option is used.
 // See also: https://godoc.org/compress/gzip#pkg-constants
 func WithCompressionLevel(level int) Option {
 	return func(o *options) error {
@@ -111,18 +109,6 @@ func WithCompression(compression Compression) Option {
 func WithContext(ctx context.Context) Option {
 	return func(o *options) error {
 		o.ctx = ctx
-		return nil
-	}
-}
-
-// WithMinChunkSize option specifies the minimal number of bytes of data
-// must be written in one gzip stream.
-// By increasing this number, one gzip stream can contain multiple files
-// and it hopefully leads to smaller result blob.
-// NOTE: This adds a TOC property that old reader doesn't understand.
-func WithMinChunkSize(minChunkSize int) Option {
-	return func(o *options) error {
-		o.minChunkSize = minChunkSize
 		return nil
 	}
 }
@@ -194,14 +180,7 @@ func Build(tarBlob *io.SectionReader, opt ...Option) (_ *Blob, rErr error) {
 	if err != nil {
 		return nil, err
 	}
-	var tarParts [][]*entry
-	if opts.minChunkSize > 0 {
-		// Each entry needs to know the size of the current gzip stream so they
-		// cannot be processed in parallel.
-		tarParts = [][]*entry{entries}
-	} else {
-		tarParts = divideEntries(entries, runtime.GOMAXPROCS(0))
-	}
+	tarParts := divideEntries(entries, runtime.GOMAXPROCS(0))
 	writers := make([]*Writer, len(tarParts))
 	payloads := make([]*os.File, len(tarParts))
 	var mu sync.Mutex
@@ -216,13 +195,6 @@ func Build(tarBlob *io.SectionReader, opt ...Option) (_ *Blob, rErr error) {
 			}
 			sw := NewWriterWithCompressor(esgzFile, opts.compression)
 			sw.ChunkSize = opts.chunkSize
-			sw.MinChunkSize = opts.minChunkSize
-			if sw.needsOpenGzEntries == nil {
-				sw.needsOpenGzEntries = make(map[string]struct{})
-			}
-			for _, f := range []string{PrefetchLandmark, NoPrefetchLandmark} {
-				sw.needsOpenGzEntries[f] = struct{}{}
-			}
 			if err := sw.AppendTar(readerFromEntries(parts...)); err != nil {
 				return err
 			}
@@ -237,7 +209,7 @@ func Build(tarBlob *io.SectionReader, opt ...Option) (_ *Blob, rErr error) {
 		rErr = err
 		return nil, err
 	}
-	tocAndFooter, tocDgst, err := closeWithCombine(writers...)
+	tocAndFooter, tocDgst, err := closeWithCombine(opts.compressionLevel, writers...)
 	if err != nil {
 		rErr = err
 		return nil, err
@@ -280,7 +252,7 @@ func Build(tarBlob *io.SectionReader, opt ...Option) (_ *Blob, rErr error) {
 // Writers doesn't write TOC and footer to the underlying writers so they can be
 // combined into a single eStargz and tocAndFooter returned by this function can
 // be appended at the tail of that combined blob.
-func closeWithCombine(ws ...*Writer) (tocAndFooterR io.Reader, tocDgst digest.Digest, err error) {
+func closeWithCombine(compressionLevel int, ws ...*Writer) (tocAndFooterR io.Reader, tocDgst digest.Digest, err error) {
 	if len(ws) == 0 {
 		return nil, "", fmt.Errorf("at least one writer must be passed")
 	}
@@ -423,7 +395,7 @@ func readerFromEntries(entries ...*entry) io.Reader {
 
 func importTar(in io.ReaderAt) (*tarFile, error) {
 	tf := &tarFile{}
-	pw, err := newCountReadSeeker(in)
+	pw, err := newCountReader(in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make position watcher: %w", err)
 	}
@@ -599,19 +571,19 @@ func (tf *tempFiles) cleanupAll() error {
 	return errorutil.Aggregate(allErr)
 }
 
-func newCountReadSeeker(r io.ReaderAt) (*countReadSeeker, error) {
+func newCountReader(r io.ReaderAt) (*countReader, error) {
 	pos := int64(0)
-	return &countReadSeeker{r: r, cPos: &pos}, nil
+	return &countReader{r: r, cPos: &pos}, nil
 }
 
-type countReadSeeker struct {
+type countReader struct {
 	r    io.ReaderAt
 	cPos *int64
 
 	mu sync.Mutex
 }
 
-func (cr *countReadSeeker) Read(p []byte) (int, error) {
+func (cr *countReader) Read(p []byte) (int, error) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -622,7 +594,7 @@ func (cr *countReadSeeker) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (cr *countReadSeeker) Seek(offset int64, whence int) (int64, error) {
+func (cr *countReader) Seek(offset int64, whence int) (int64, error) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -643,7 +615,7 @@ func (cr *countReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return offset, nil
 }
 
-func (cr *countReadSeeker) currentPos() int64 {
+func (cr *countReader) currentPos() int64 {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 

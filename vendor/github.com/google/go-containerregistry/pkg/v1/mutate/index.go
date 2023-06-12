@@ -70,7 +70,6 @@ type index struct {
 	imageMap    map[v1.Hash]v1.Image
 	indexMap    map[v1.Hash]v1.ImageIndex
 	layerMap    map[v1.Hash]v1.Layer
-	subject     *v1.Descriptor
 }
 
 var _ v1.ImageIndex = (*index)(nil)
@@ -143,7 +142,6 @@ func (i *index) compute() error {
 			manifest.Annotations[k] = v
 		}
 	}
-	manifest.Subject = i.subject
 
 	i.manifest = manifest
 	i.computed = true
