@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -61,7 +62,6 @@ images:
 		EnvVars: []string{
 			fmt.Sprintf("PATH=%s:%s", os.Getenv("PATH"), filepath.Join(dir, "assets")),
 			fmt.Sprintf("DOCKER_CONFIG=%s", dockerConfigDir),
-			"IMGPKG_ACTIVE_KEYCHAINS=gke",
 		},
 	})
 
@@ -69,7 +69,7 @@ images:
 }
 
 func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) string {
-	tempDockerCfgDir, err := os.MkdirTemp(os.TempDir(), "dockercfg")
+	tempDockerCfgDir, err := ioutil.TempDir(os.TempDir(), "dockercfg")
 	require.NoError(t, err)
 
 	err = os.MkdirAll(filepath.Join(tempDockerCfgDir, "contexts", "meta"), os.ModePerm)
@@ -77,7 +77,7 @@ func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers
 
 	dockerConfigPath := filepath.Join(tempDockerCfgDir, "config.json")
 
-	err = os.WriteFile(dockerConfigPath, []byte(`{
+	err = ioutil.WriteFile(dockerConfigPath, []byte(`{
 			"credHelpers": {
 					"gcr.io": "gcloud-race-condition-db-error"
 			}

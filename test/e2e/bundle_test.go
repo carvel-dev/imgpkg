@@ -6,7 +6,7 @@ package e2e
 import (
 	"bytes"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -105,7 +105,7 @@ func TestBundleLockFile(t *testing.T) {
 	// push the bundle in the assets dir
 	imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir, "--lock-output", bundleLockFilepath})
 
-	bundleBs, err := os.ReadFile(bundleLockFilepath)
+	bundleBs, err := ioutil.ReadFile(bundleLockFilepath)
 	require.NoError(t, err)
 
 	// Keys are written in alphabetical order

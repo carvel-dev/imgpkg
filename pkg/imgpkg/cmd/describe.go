@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -63,12 +62,11 @@ func (d *DescribeOptions) Run() error {
 	if err != nil {
 		return err
 	}
-	logLevel := util.LogWarn
 
-	levelLogger := util.NewUILevelLogger(logLevel, util.NewLogger(d.ui))
-	description, err := v1.Describe(
+	levelLogger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(d.ui))
+	description, err := bundle.Describe(
 		d.BundleFlags.Bundle,
-		v1.DescribeOpts{
+		bundle.DescribeOpts{
 			Logger:                 levelLogger,
 			Concurrency:            d.Concurrency,
 			IncludeCosignArtifacts: d.IncludeCosignArtifacts,
@@ -82,7 +80,7 @@ func (d *DescribeOptions) Run() error {
 		p := bundleTextPrinter{logger: levelLogger}
 		p.Print(description)
 	} else if d.OutputType == "yaml" {
-		p := bundleYAMLPrinter{logger: util.NewUILevelLogger(logLevel, util.NewLoggerNoTTY(d.ui))}
+		p := bundleYAMLPrinter{logger: levelLogger}
 		return p.Print(description)
 	}
 	return nil
@@ -106,7 +104,7 @@ type bundleTextPrinter struct {
 	logger Logger
 }
 
-func (p bundleTextPrinter) Print(description v1.Description) {
+func (p bundleTextPrinter) Print(description bundle.Description) {
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {
 		panic(fmt.Sprintf("Internal consistency: expected %s to be a digest reference", description.Image))
@@ -117,7 +115,7 @@ func (p bundleTextPrinter) Print(description v1.Description) {
 	p.printerRec(description, p.logger, p.logger)
 }
 
-func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger Logger, logger Logger) {
+func (p bundleTextPrinter) printerRec(description bundle.Description, originalLogger Logger, logger Logger) {
 	indentLogger := util.NewIndentedLogger(logger)
 	if len(description.Content.Bundles) == 0 && len(description.Content.Images) == 0 {
 		return
@@ -184,7 +182,7 @@ type bundleYAMLPrinter struct {
 	logger Logger
 }
 
-func (p bundleYAMLPrinter) Print(description v1.Description) error {
+func (p bundleYAMLPrinter) Print(description bundle.Description) error {
 	bundleRef, err := regname.ParseReference(description.Image)
 	if err != nil {
 		panic(fmt.Sprintf("Internal consistency: expected %s to be a digest reference", description.Image))

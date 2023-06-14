@@ -5,7 +5,7 @@ package e2e
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
@@ -404,7 +404,7 @@ images:
 
 		testDir := env.Assets.CreateTempFolder("copy-image-to-repo-with-lock-file")
 		lockFile := filepath.Join(testDir, "images.lock.yml")
-		err := os.WriteFile(lockFile, []byte(imageLockYAML), 0700)
+		err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
 		require.NoError(t, err)
 
 		logger.Section("copy from lock file", func() {
@@ -434,7 +434,7 @@ images:
 		testDir := env.Assets.CreateTempFolder("copy--image-lock-via-tar-keep-tag")
 		lockFile := filepath.Join(testDir, "images.lock.yml")
 
-		err := os.WriteFile(lockFile, []byte(imageLockYAML), 0700)
+		err := ioutil.WriteFile(lockFile, []byte(imageLockYAML), 0700)
 		require.NoError(t, err)
 
 		tarFilePath := filepath.Join(testDir, "image.tar")

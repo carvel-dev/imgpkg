@@ -34,7 +34,6 @@ type randomIndex struct {
 func Index(byteSize, layers, count int64) (v1.ImageIndex, error) {
 	manifest := v1.IndexManifest{
 		SchemaVersion: 2,
-		MediaType:     types.OCIImageIndex,
 		Manifests:     []v1.Descriptor{},
 	}
 
@@ -74,7 +73,7 @@ func Index(byteSize, layers, count int64) (v1.ImageIndex, error) {
 }
 
 func (i *randomIndex) MediaType() (types.MediaType, error) {
-	return i.manifest.MediaType, nil
+	return types.OCIImageIndex, nil
 }
 
 func (i *randomIndex) Digest() (v1.Hash, error) {

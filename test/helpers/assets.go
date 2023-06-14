@@ -4,6 +4,7 @@
 package helpers
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,9 +45,9 @@ func (a *Assets) copySimpleApp(dst string) error {
 			return os.Mkdir(filepath.Join(dst, relPath), 0755)
 		}
 
-		var data, err1 = os.ReadFile(filepath.Join(source, relPath))
+		var data, err1 = ioutil.ReadFile(filepath.Join(source, relPath))
 		require.NoError(a.T, err1)
-		return os.WriteFile(filepath.Join(dst, relPath), data, 0777)
+		return ioutil.WriteFile(filepath.Join(dst, relPath), data, 0777)
 	})
 	return err
 }
@@ -83,7 +84,7 @@ func (a *Assets) CreateTempFolder(prefix string) string {
 		prefix = "bundle"
 	}
 
-	rDir, err := os.MkdirTemp("", prefix)
+	rDir, err := ioutil.TempDir("", prefix)
 	require.NoError(a.T, err, "creating bundle folder")
 	a.CreatedFolders = append(a.CreatedFolders, rDir)
 	return rDir
@@ -126,6 +127,6 @@ func (a *Assets) AddFileToFolderWithPermissions(path, content string, perm os.Fi
 		require.NoError(a.T, err)
 	}
 
-	err := os.WriteFile(path, []byte(content), perm)
+	err := ioutil.WriteFile(path, []byte(content), perm)
 	require.NoError(a.T, err)
 }

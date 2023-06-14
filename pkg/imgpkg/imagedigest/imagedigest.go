@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package imagedigest utility packages to abstract the retrieval of Digests
+// Package imagedigest used to calculate the digest of an image
 package imagedigest
 
 import (

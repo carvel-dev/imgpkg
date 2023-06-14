@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 	regregistry "github.com/vmware-tanzu/carvel-imgpkg/test/helpers/registry"
@@ -43,7 +43,6 @@ type FakeTestRegistryBuilder struct {
 	auth            authn.Authenticator
 	logger          *Logger
 	originalHandler http.Handler
-	processedImages *imageset.ProcessedImages
 }
 
 // NewFakeRegistry Creates a registry that uses the ggcr version
@@ -85,7 +84,6 @@ func (r *FakeTestRegistryBuilder) Build() registry.Registry {
 func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) registry.Registry {
 	u, err := url.Parse(r.server.URL)
 	assert.NoError(r.t, err)
-	r.processedImages = imageset.NewProcessedImages()
 
 	for imageRef, val := range r.images {
 		imageRefWithTestRegistry, err := name.ParseReference(fmt.Sprintf("%s/%s", u.Host, imageRef))
@@ -93,79 +91,35 @@ func (r *FakeTestRegistryBuilder) BuildWithRegistryOpts(opts registry.Opts) regi
 		auth := regremote.WithAuth(r.auth)
 
 		if val.Image != nil {
-			r.logger.Tracef("build: creating image on registry: %s", fmt.Sprintf("%s/%s", u.Host, imageRef))
+			r.logger.Tracef("build: creating image on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.Write(imageRefWithTestRegistry, val.Image, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			usedTag := val.Tag
 			if val.Tag != "" {
-				r.logger.Tracef(" with tag: %s", val.Tag)
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.Image, auth)
 				assert.NoError(r.t, err)
 			} else {
-				usedTag = "latest"
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.Image, auth)
 				assert.NoError(r.t, err)
 			}
-
-			file, err := val.Image.ConfigFile()
-			assert.NoError(r.t, err)
-			imageRefWithTestRegistry, err := name.ParseReference(val.RefDigest)
-			assert.NoError(r.t, err)
-			newLocation := strings.ReplaceAll(val.RefDigest, imageRefWithTestRegistry.Context().RegistryStr(), u.Host)
-			r.processedImages.Add(imageset.ProcessedImage{
-				UnprocessedImageRef: imageset.UnprocessedImageRef{
-					DigestRef: newLocation,
-					Tag:       usedTag,
-					Labels:    file.Config.Labels,
-					OrigRef:   val.RefDigest,
-				},
-				DigestRef:  newLocation,
-				Image:      val.Image,
-				ImageIndex: nil,
-			})
-			r.logger.Tracef("\n")
 		}
 
 		if val.ImageIndex != nil {
 			r.logger.Tracef("build: creating index on registry: %s\n", fmt.Sprintf("%s/%s", u.Host, imageRef))
 			err = regremote.WriteIndex(imageRefWithTestRegistry, val.ImageIndex, regremote.WithNondistributable, auth)
 			assert.NoError(r.t, err)
-			usedTag := val.Tag
 			if val.Tag != "" {
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag(val.Tag), val.ImageIndex, auth)
 				assert.NoError(r.t, err)
 			} else {
-				usedTag = "latest"
 				err = regremote.Tag(imageRefWithTestRegistry.Context().Tag("latest"), val.ImageIndex, auth)
 				assert.NoError(r.t, err)
 			}
-
-			imageRefWithTestRegistry, err := name.ParseReference(val.RefDigest)
-			assert.NoError(r.t, err)
-			newLocation := strings.ReplaceAll(val.RefDigest, imageRefWithTestRegistry.Context().RegistryStr(), u.Host)
-			r.processedImages.Add(imageset.ProcessedImage{
-				UnprocessedImageRef: imageset.UnprocessedImageRef{
-					DigestRef: newLocation,
-					Tag:       usedTag,
-					OrigRef:   val.RefDigest,
-				},
-				DigestRef:  newLocation,
-				ImageIndex: val.ImageIndex,
-			})
 		}
 	}
 
 	reg, err := registry.NewSimpleRegistry(opts)
 	assert.NoError(r.t, err)
 	return reg
-}
-
-// ProcessedImages returns the images that where created in the registry
-func (r *FakeTestRegistryBuilder) ProcessedImages() *imageset.ProcessedImages {
-	if r.processedImages == nil {
-		panic("Internal consistency: ProcessedImages was called before the registry was built. Call Build function first.")
-	}
-	return r.processedImages
 }
 
 // IsConfigBlobLayer checks if digest is from configuration blob
@@ -380,7 +334,7 @@ func (r *FakeTestRegistryBuilder) WithIdentityToken(idToken string) {
 		}
 
 		if strings.HasSuffix(request.URL.String(), "/id_token_auth") {
-			requestBody, err := io.ReadAll(request.Body)
+			requestBody, err := ioutil.ReadAll(request.Body)
 			assert.NoError(r.t, err)
 			if !strings.Contains(string(requestBody), "&refresh_token="+idToken) {
 				writer.WriteHeader(401)
@@ -453,19 +407,14 @@ func (r *FakeTestRegistryBuilder) WithBundleFromPath(bundleName string, path str
 	require.NoError(r.t, err)
 
 	r.updateState(bundleName, bundleImg, nil, path, tag)
-
 	digest, err := bundleImg.Digest()
 	assert.NoError(r.t, err)
-	imgName, err := name.ParseReference(bundleName)
-	require.NoError(r.t, err)
-	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
-	r.logger.Tracef("created bundle from path %s\n", bundleRef)
 
 	return BundleInfo{r, bundleImg, bundleName, path,
-		digest.String(), bundleRef, tag}
+		digest.String(), r.ReferenceOnTestServer(bundleName + "@" + digest.String()), tag}
 }
 
-// WithRandomBundle sample function
+// WithRandomBundle Dummy function
 // This function creates a bundle image, but WithImageRefs or WithEveryImageFromPath needs to be called
 // on the return value of this function to ensure that a bundle is correctly created on the registry
 func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo {
@@ -487,36 +436,12 @@ func (r *FakeTestRegistryBuilder) WithRandomBundle(bundleName string) BundleInfo
 	require.NoError(r.t, err)
 	bundleRef := r.ReferenceOnTestServer(imgName.Context().RepositoryStr() + "@" + digest.String())
 	r.logger.Tracef("created bundle %s\n", bundleRef)
-	tmpDir, err := os.MkdirTemp("", digest.Hex)
+	tmpDir, err := ioutil.TempDir("", digest.Hex)
 	require.NoError(r.t, err)
 	bDir := filepath.Join(tmpDir, bundle.ImgpkgDir)
 	require.NoError(r.t, os.MkdirAll(bDir, 0777))
 	return BundleInfo{r, b, bundleName, tmpDir,
 		digest.String(), bundleRef, ""}
-}
-
-// WithRandomBundleAndImages creates a random bundle image with the provided images
-func (r *FakeTestRegistryBuilder) WithRandomBundleAndImages(bundleName string, imageRefs []lockconfig.ImageRef) BundleInfo {
-	tmpDir, err := os.MkdirTemp("", "imgpkg-random-bundle-with-images")
-	require.NoError(r.t, err)
-	defer os.RemoveAll(tmpDir)
-
-	imagesLock := lockconfig.ImagesLock{
-		LockVersion: lockconfig.LockVersion{
-			APIVersion: lockconfig.ImagesLockAPIVersion,
-			Kind:       lockconfig.ImagesLockKind,
-		},
-	}
-
-	err = os.WriteFile(filepath.Join(tmpDir, "random.txt"), []byte(randString(500)), 0777)
-	require.NoError(r.t, err)
-
-	err = os.MkdirAll(filepath.Join(tmpDir, bundle.ImgpkgDir), 0777)
-	assert.NoError(r.t, err)
-	imagesLock.Images = imageRefs
-	err = imagesLock.WriteToPath(filepath.Join(tmpDir, bundle.ImgpkgDir, bundle.ImagesLockFile))
-	assert.NoError(r.t, err)
-	return r.WithBundleFromPath(bundleName, tmpDir)
 }
 
 func (r *FakeTestRegistryBuilder) WithImageFromPath(imageNameFromTest string, path string, labels map[string]string) *ImageOrImageIndexWithTarPath {
@@ -553,7 +478,7 @@ func (r *FakeTestRegistryBuilder) WithRandomImageWithLayers(imageNameFromTest st
 	require.NoError(r.t, err, "create image from tar")
 
 	newImg := r.updateState(imageNameFromTest, img, nil, "", "")
-	r.logger.Tracef("created image %s with ref %s\n", imageNameFromTest, newImg.RefDigest)
+	r.logger.Tracef("created image %s\n", newImg.RefDigest)
 	return newImg
 }
 
@@ -874,7 +799,7 @@ func compress(src string) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to compress because file not found: %s", err)
 	}
-	tempTarFile, err := os.CreateTemp(os.TempDir(), "compressed-layer")
+	tempTarFile, err := ioutil.TempFile(os.TempDir(), "compressed-layer")
 	if err != nil {
 		return nil, err
 	}

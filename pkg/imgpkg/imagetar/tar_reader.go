@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageutils/verify"
@@ -50,7 +49,7 @@ func (r TarReader) PresentLayers() ([]v1.Layer, error) {
 			result = append(result, layers...)
 		} else if image.Index != nil {
 			idx := *image.Index
-			layers, err := r.presentLayersForIndex(image.Ref(), idx)
+			layers, err := r.presentLayersForIndex(idx)
 			if err != nil {
 				return nil, fmt.Errorf("Processing Index %s: %s", image.OrigRef, err)
 			}
@@ -97,11 +96,11 @@ func (r TarReader) presentLayersForImage(img v1.Image) ([]v1.Layer, error) {
 	return result, nil
 }
 
-func (r TarReader) presentLayersForIndex(indexRef string, idx v1.ImageIndex) ([]v1.Layer, error) {
+func (r TarReader) presentLayersForIndex(idx v1.ImageIndex) ([]v1.Layer, error) {
 	var result []v1.Layer
-	dIdx, correct := idx.(imagedesc.DescribedImageIndex)
+	dIdx, correct := idx.(*imagedesc.DescribedImageIndex)
 	if !correct {
-		panic(fmt.Sprintf("Internal inconsistency: unexpected index type with ref: %s", indexRef))
+		panic("Internal inconsistency: unexpected index type")
 	}
 	for _, image := range dIdx.Images() {
 		layersPresent, err := r.presentLayersForImage(image)
@@ -110,19 +109,8 @@ func (r TarReader) presentLayersForIndex(indexRef string, idx v1.ImageIndex) ([]
 		}
 		result = append(result, layersPresent...)
 	}
-
-	idxRef, err := name.ParseReference(indexRef)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, idx := range dIdx.Indexes() {
-		digest, err := idx.Digest()
-		if err != nil {
-			return nil, err
-		}
-		idxDigest := idxRef.Context().Digest(digest.String())
-		layersPresent, err := r.presentLayersForIndex(idxDigest.String(), idx)
+		layersPresent, err := r.presentLayersForIndex(idx)
 		if err != nil {
 			return nil, err
 		}

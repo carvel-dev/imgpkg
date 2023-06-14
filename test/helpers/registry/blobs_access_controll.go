@@ -6,7 +6,6 @@ package registry
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,9 +120,6 @@ func (m *diskHandler) Mount(_ context.Context, repo, _ string, h v1.Hash) error 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if _, found := m.m[h.String()]; !found {
-		return errors.New("blob not found")
-	}
 	m.access[m.accessKey(repo, h)] = h.String()
 	return nil
 }
@@ -181,10 +177,6 @@ func (m *memWithAccessControlHandler) Put(_ context.Context, repo string, h v1.H
 func (m *memWithAccessControlHandler) Mount(_ context.Context, repo, from string, h v1.Hash) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-
-	if _, found := m.m[accessKey(from, h)]; !found {
-		return errors.New("blob not found")
-	}
 
 	m.m[accessKey(repo, h)] = m.m[accessKey(from, h)]
 	return nil

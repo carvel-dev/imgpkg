@@ -44,10 +44,14 @@ func (e *doubleFastEncoder) Encode(blk *blockEnc, src []byte) {
 	)
 
 	// Protect against e.cur wraparound.
-	for e.cur >= e.bufferReset-int32(len(e.hist)) {
+	for e.cur >= bufferReset {
 		if len(e.hist) == 0 {
-			e.table = [dFastShortTableSize]tableEntry{}
-			e.longTable = [dFastLongTableSize]tableEntry{}
+			for i := range e.table[:] {
+				e.table[i] = tableEntry{}
+			}
+			for i := range e.longTable[:] {
+				e.longTable[i] = tableEntry{}
+			}
 			e.cur = e.maxMatchOff
 			break
 		}
@@ -123,8 +127,8 @@ encodeLoop:
 				panic("offset0 was 0")
 			}
 
-			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			nextHashS := hashLen(cv, dFastShortTableBits, dFastShortLen)
+			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			candidateL := e.longTable[nextHashL]
 			candidateS := e.table[nextHashS]
 
@@ -384,7 +388,7 @@ func (e *doubleFastEncoder) EncodeNoHist(blk *blockEnc, src []byte) {
 	)
 
 	// Protect against e.cur wraparound.
-	if e.cur >= e.bufferReset {
+	if e.cur >= bufferReset {
 		for i := range e.table[:] {
 			e.table[i] = tableEntry{}
 		}
@@ -435,8 +439,8 @@ encodeLoop:
 		var t int32
 		for {
 
-			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			nextHashS := hashLen(cv, dFastShortTableBits, dFastShortLen)
+			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			candidateL := e.longTable[nextHashL]
 			candidateS := e.table[nextHashS]
 
@@ -681,7 +685,7 @@ encodeLoop:
 	}
 
 	// We do not store history, so we must offset e.cur to avoid false matches for next user.
-	if e.cur < e.bufferReset {
+	if e.cur < bufferReset {
 		e.cur += int32(len(src))
 	}
 }
@@ -696,7 +700,7 @@ func (e *doubleFastEncoderDict) Encode(blk *blockEnc, src []byte) {
 	)
 
 	// Protect against e.cur wraparound.
-	for e.cur >= e.bufferReset-int32(len(e.hist)) {
+	for e.cur >= bufferReset {
 		if len(e.hist) == 0 {
 			for i := range e.table[:] {
 				e.table[i] = tableEntry{}
@@ -781,8 +785,8 @@ encodeLoop:
 				panic("offset0 was 0")
 			}
 
-			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			nextHashS := hashLen(cv, dFastShortTableBits, dFastShortLen)
+			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			candidateL := e.longTable[nextHashL]
 			candidateS := e.table[nextHashS]
 
@@ -965,7 +969,7 @@ encodeLoop:
 		te0 := tableEntry{offset: index0 + e.cur, val: uint32(cv0)}
 		te1 := tableEntry{offset: index1 + e.cur, val: uint32(cv1)}
 		longHash1 := hashLen(cv0, dFastLongTableBits, dFastLongLen)
-		longHash2 := hashLen(cv1, dFastLongTableBits, dFastLongLen)
+		longHash2 := hashLen(cv0, dFastLongTableBits, dFastLongLen)
 		e.longTable[longHash1] = te0
 		e.longTable[longHash2] = te1
 		e.markLongShardDirty(longHash1)
@@ -998,8 +1002,8 @@ encodeLoop:
 			}
 
 			// Store this, since we have it.
-			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 			nextHashS := hashLen(cv, dFastShortTableBits, dFastShortLen)
+			nextHashL := hashLen(cv, dFastLongTableBits, dFastLongLen)
 
 			// We have at least 4 byte match.
 			// No need to check backwards. We come straight from a match
@@ -1099,8 +1103,7 @@ func (e *doubleFastEncoderDict) Reset(d *dict, singleBlock bool) {
 	}
 
 	if allDirty || dirtyShardCnt > dLongTableShardCnt/2 {
-		//copy(e.longTable[:], e.dictLongTable)
-		e.longTable = *(*[dFastLongTableSize]tableEntry)(e.dictLongTable)
+		copy(e.longTable[:], e.dictLongTable)
 		for i := range e.longTableShardDirty {
 			e.longTableShardDirty[i] = false
 		}
@@ -1111,9 +1114,7 @@ func (e *doubleFastEncoderDict) Reset(d *dict, singleBlock bool) {
 			continue
 		}
 
-		// copy(e.longTable[i*dLongTableShardSize:(i+1)*dLongTableShardSize], e.dictLongTable[i*dLongTableShardSize:(i+1)*dLongTableShardSize])
-		*(*[dLongTableShardSize]tableEntry)(e.longTable[i*dLongTableShardSize:]) = *(*[dLongTableShardSize]tableEntry)(e.dictLongTable[i*dLongTableShardSize:])
-
+		copy(e.longTable[i*dLongTableShardSize:(i+1)*dLongTableShardSize], e.dictLongTable[i*dLongTableShardSize:(i+1)*dLongTableShardSize])
 		e.longTableShardDirty[i] = false
 	}
 }

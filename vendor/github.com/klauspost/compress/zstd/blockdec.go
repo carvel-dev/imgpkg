@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -48,8 +49,11 @@ const (
 	// Maximum possible block size (all Raw+Uncompressed).
 	maxBlockSize = (1 << 21) - 1
 
-	maxMatchLen  = 131074
-	maxSequences = 0x7f00 + 0xffff
+	// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#literals_section_header
+	maxCompressedLiteralSize = 1 << 18
+	maxRLELiteralSize        = 1 << 20
+	maxMatchLen              = 131074
+	maxSequences             = 0x7f00 + 0xffff
 
 	// We support slightly less than the reference decoder to be able to
 	// use ints on 32 bit archs.
@@ -82,9 +86,8 @@ type blockDec struct {
 
 	err error
 
-	// Check against this crc, if hasCRC is true.
-	checkCRC uint32
-	hasCRC   bool
+	// Check against this crc
+	checkCRC []byte
 
 	// Frame to use for singlethreaded decoding.
 	// Should not be used by the decoder itself since parent may be another frame.
@@ -102,6 +105,7 @@ type blockDec struct {
 
 	// Block is RLE, this is the size.
 	RLESize uint32
+	tmp     [4]byte
 
 	Type blockType
 
@@ -192,13 +196,15 @@ func (b *blockDec) reset(br byteBuffer, windowSize uint64) error {
 	}
 
 	// Read block data.
-	if _, ok := br.(*byteBuf); !ok && cap(b.dataStorage) < cSize {
-		// byteBuf doesn't need a destination buffer.
+	if cap(b.dataStorage) < cSize {
 		if b.lowMem || cSize > maxCompressedBlockSize {
 			b.dataStorage = make([]byte, 0, cSize+compressedBlockOverAlloc)
 		} else {
 			b.dataStorage = make([]byte, 0, maxCompressedBlockSizeAlloc)
 		}
+	}
+	if cap(b.dst) <= maxSize {
+		b.dst = make([]byte, 0, maxSize+1)
 	}
 	b.data, err = br.readBig(cSize, b.dataStorage)
 	if err != nil {
@@ -207,9 +213,6 @@ func (b *blockDec) reset(br byteBuffer, windowSize uint64) error {
 			printf("%T", br)
 		}
 		return err
-	}
-	if cap(b.dst) <= maxSize {
-		b.dst = make([]byte, 0, maxSize+1)
 	}
 	return nil
 }
@@ -234,7 +237,7 @@ func (b *blockDec) decodeBuf(hist *history) error {
 			if b.lowMem {
 				b.dst = make([]byte, b.RLESize)
 			} else {
-				b.dst = make([]byte, maxCompressedBlockSize)
+				b.dst = make([]byte, maxBlockSize)
 			}
 		}
 		b.dst = b.dst[:b.RLESize]
@@ -365,9 +368,14 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 		}
 		if cap(b.literalBuf) < litRegenSize {
 			if b.lowMem {
-				b.literalBuf = make([]byte, litRegenSize, litRegenSize+compressedBlockOverAlloc)
+				b.literalBuf = make([]byte, litRegenSize)
 			} else {
-				b.literalBuf = make([]byte, litRegenSize, maxCompressedBlockSize+compressedBlockOverAlloc)
+				if litRegenSize > maxCompressedLiteralSize {
+					// Exceptional
+					b.literalBuf = make([]byte, litRegenSize)
+				} else {
+					b.literalBuf = make([]byte, litRegenSize, maxCompressedLiteralSize)
+				}
 			}
 		}
 		literals = b.literalBuf[:litRegenSize]
@@ -397,14 +405,14 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 		// Ensure we have space to store it.
 		if cap(b.literalBuf) < litRegenSize {
 			if b.lowMem {
-				b.literalBuf = make([]byte, 0, litRegenSize+compressedBlockOverAlloc)
+				b.literalBuf = make([]byte, 0, litRegenSize)
 			} else {
-				b.literalBuf = make([]byte, 0, maxCompressedBlockSize+compressedBlockOverAlloc)
+				b.literalBuf = make([]byte, 0, maxCompressedLiteralSize)
 			}
 		}
 		var err error
 		// Use our out buffer.
-		huff.MaxDecodedSize = litRegenSize
+		huff.MaxDecodedSize = maxCompressedBlockSize
 		if fourStreams {
 			literals, err = huff.Decoder().Decompress4X(b.literalBuf[:0:litRegenSize], literals)
 		} else {
@@ -429,9 +437,9 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 		// Ensure we have space to store it.
 		if cap(b.literalBuf) < litRegenSize {
 			if b.lowMem {
-				b.literalBuf = make([]byte, 0, litRegenSize+compressedBlockOverAlloc)
+				b.literalBuf = make([]byte, 0, litRegenSize)
 			} else {
-				b.literalBuf = make([]byte, 0, maxCompressedBlockSize+compressedBlockOverAlloc)
+				b.literalBuf = make([]byte, 0, maxCompressedBlockSize)
 			}
 		}
 		huff := hist.huffTree
@@ -448,7 +456,7 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 			return in, err
 		}
 		hist.huffTree = huff
-		huff.MaxDecodedSize = litRegenSize
+		huff.MaxDecodedSize = maxCompressedBlockSize
 		// Use our out buffer.
 		if fourStreams {
 			literals, err = huff.Decoder().Decompress4X(b.literalBuf[:0:litRegenSize], literals)
@@ -463,8 +471,6 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 		if len(literals) != litRegenSize {
 			return in, fmt.Errorf("literal output size mismatch want %d, got %d", litRegenSize, len(literals))
 		}
-		// Re-cap to get extra size.
-		literals = b.literalBuf[:len(literals)]
 		if debugDecoder {
 			printf("Decompressed %d literals into %d bytes\n", litCompSize, litRegenSize)
 		}
@@ -652,7 +658,7 @@ func (b *blockDec) prepareSequences(in []byte, hist *history) (err error) {
 		fatalErr(binary.Write(&buf, binary.LittleEndian, hist.decoders.matchLengths.fse))
 		fatalErr(binary.Write(&buf, binary.LittleEndian, hist.decoders.offsets.fse))
 		buf.Write(in)
-		os.WriteFile(filepath.Join("testdata", "seqs", fn), buf.Bytes(), os.ModePerm)
+		ioutil.WriteFile(filepath.Join("testdata", "seqs", fn), buf.Bytes(), os.ModePerm)
 	}
 
 	return nil

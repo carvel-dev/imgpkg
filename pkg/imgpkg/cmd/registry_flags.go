@@ -4,15 +4,14 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
-// RegistryFlags command line flags to configure the registry connection
 type RegistryFlags struct {
 	CACertPaths []string
 	VerifyCerts bool
@@ -26,7 +25,6 @@ type RegistryFlags struct {
 	RetryCount int
 
 	ResponseHeaderTimeout time.Duration
-	ActiveKeychains       string
 }
 
 // Set Registers the flags available to the provided command
@@ -42,9 +40,31 @@ func (r *RegistryFlags) Set(cmd *cobra.Command) {
 
 	cmd.Flags().DurationVar(&r.ResponseHeaderTimeout, "registry-response-header-timeout", 30*time.Second, "Maximum time to allow a request to wait for a server's response headers from the registry (ms|s|m|h)")
 	cmd.Flags().IntVar(&r.RetryCount, "registry-retry-count", 5, "Set the number of times imgpkg retries to send requests to the registry in case of an error")
+
+	cmd.Flags().String("registry-azure-cr-config", "", "Path to the file containing Azure container registry configuration information. ($IMGPKG_REGISTRY_AZURE_CR_CONFIG)")
+
+	err := cmd.LocalFlags().MarkHidden("azure-container-registry-config")
+	if err != nil {
+		panic(fmt.Sprintf("Unable to hide flag: %s", err))
+	}
+
+	if cmd.PersistentPreRunE != nil {
+		panic("Internal inconsistency: PersistentPreRunE was already set")
+	}
+
+	cmd.PersistentPreRunE = func(subCmd *cobra.Command, args []string) error {
+		registryAzureContainerConfigFlag := subCmd.Flag("registry-azure-cr-config")
+		if registryAzureContainerConfigFlag == nil {
+			return nil
+		}
+
+		if registryAzureContainerConfigFlag.Value.String() != "" {
+			return cmd.Flags().Set("azure-container-registry-config", registryAzureContainerConfigFlag.Value.String())
+		}
+		return cmd.Flags().Set("azure-container-registry-config", os.Getenv("IMGPKG_REGISTRY_AZURE_CR_CONFIG"))
+	}
 }
 
-// AsRegistryOpts convert command flags and environment variables into registry.Opts
 func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 	opts := registry.Opts{
 		CACertPaths: r.CACertPaths,
@@ -62,5 +82,18 @@ func (r *RegistryFlags) AsRegistryOpts() registry.Opts {
 		EnvironFunc: os.Environ,
 	}
 
-	return v1.OptsFromEnv(opts, os.LookupEnv)
+	if len(opts.Username) == 0 {
+		opts.Username = os.Getenv("IMGPKG_USERNAME")
+	}
+	if len(opts.Password) == 0 {
+		opts.Password = os.Getenv("IMGPKG_PASSWORD")
+	}
+	if len(opts.Token) == 0 {
+		opts.Token = os.Getenv("IMGPKG_TOKEN")
+	}
+	if os.Getenv("IMGPKG_ANON") == "true" {
+		opts.Anon = true
+	}
+
+	return opts
 }
