@@ -1,4 +1,3 @@
-//go:build (linux || darwin || freebsd || netbsd || openbsd || solaris || dragonfly) && !appengine
 // +build linux darwin freebsd netbsd openbsd solaris dragonfly
 // +build !appengine
 
@@ -17,7 +16,6 @@ var (
 	unlockSignals = []os.Signal{
 		os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGKILL,
 	}
-	oldState syscall.Termios
 )
 
 type window struct {
@@ -37,12 +35,6 @@ func init() {
 
 // TerminalWidth returns width of the terminal.
 func TerminalWidth() (int, error) {
-	_, c, err := TerminalSize()
-	return c, err
-}
-
-// TerminalSize returns size of the terminal.
-func TerminalSize() (rows, cols int, err error) {
 	w := new(window)
 	res, _, err := syscall.Syscall(sysIoctl,
 		tty.Fd(),
@@ -50,32 +42,35 @@ func TerminalSize() (rows, cols int, err error) {
 		uintptr(unsafe.Pointer(w)),
 	)
 	if int(res) == -1 {
-		return 0, 0, err
+		return 0, err
 	}
-	return int(w.Row), int(w.Col), nil
+	return int(w.Col), nil
 }
 
-func lockEcho() error {
-	fd := tty.Fd()
+var oldState syscall.Termios
 
-	if _, _, err := syscall.Syscall(sysIoctl, fd, ioctlReadTermios, uintptr(unsafe.Pointer(&oldState))); err != 0 {
-		return fmt.Errorf("error when puts the terminal connected to the given file descriptor: %w", err)
+func lockEcho() (err error) {
+	fd := tty.Fd()
+	if _, _, e := syscall.Syscall6(sysIoctl, fd, ioctlReadTermios, uintptr(unsafe.Pointer(&oldState)), 0, 0, 0); e != 0 {
+		err = fmt.Errorf("Can't get terminal settings: %v", e)
+		return
 	}
 
 	newState := oldState
 	newState.Lflag &^= syscall.ECHO
 	newState.Lflag |= syscall.ICANON | syscall.ISIG
 	newState.Iflag |= syscall.ICRNL
-	if _, _, e := syscall.Syscall(sysIoctl, fd, ioctlWriteTermios, uintptr(unsafe.Pointer(&newState))); e != 0 {
-		return fmt.Errorf("error update terminal settings: %w", e)
+	if _, _, e := syscall.Syscall6(sysIoctl, fd, ioctlWriteTermios, uintptr(unsafe.Pointer(&newState)), 0, 0, 0); e != 0 {
+		err = fmt.Errorf("Can't set terminal settings: %v", e)
+		return
 	}
-	return nil
+	return
 }
 
-func unlockEcho() error {
+func unlockEcho() (err error) {
 	fd := tty.Fd()
-	if _, _, err := syscall.Syscall(sysIoctl, fd, ioctlWriteTermios, uintptr(unsafe.Pointer(&oldState))); err != 0 {
-		return fmt.Errorf("error restores the terminal connected to the given file descriptor: %w", err)
+	if _, _, e := syscall.Syscall6(sysIoctl, fd, ioctlWriteTermios, uintptr(unsafe.Pointer(&oldState)), 0, 0, 0); e != 0 {
+		err = fmt.Errorf("Can't set terminal settings")
 	}
-	return nil
+	return
 }
