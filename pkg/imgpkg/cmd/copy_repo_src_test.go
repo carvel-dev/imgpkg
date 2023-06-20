@@ -196,6 +196,8 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		assets := &helpers.Assets{T: t}
 		bundleBuilder := helpers.NewBundleDir(t, assets)
 		defer assets.CleanCreatedFolders()
+
+		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
