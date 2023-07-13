@@ -4,6 +4,7 @@
 package signature
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -104,7 +105,17 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 	}
 	imagesRefs, err := s.FetchForImageRefs(imgs)
 	if err != nil {
-		return nil, err
+		var fetchError *FetchError
+		if !errors.As(err, &fetchError) {
+			return nil, err
+		}
+
+		for _, fError := range fetchError.AllErrors {
+			var accessDeniedErr AccessDeniedErr
+			if !errors.As(fError, &accessDeniedErr) {
+				return nil, fetchError
+			}
+		}
 	}
 	for _, ref := range imagesRefs {
 		signatures.Add(imageset.UnprocessedImageRef{
@@ -113,7 +124,7 @@ func (s *Signatures) Fetch(images *imageset.UnprocessedImageRefs) (*imageset.Unp
 		})
 	}
 
-	return signatures, err
+	return signatures, nil
 }
 
 // FetchForImageRefs Retrieve the available signatures associated with the images provided
