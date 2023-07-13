@@ -62,9 +62,9 @@ type FetchError struct {
 
 // Error message that contains all errors
 func (f *FetchError) Error() string {
-	msg := "Unable to retrieve the following images:\n"
+	msg := "Unable to retrieve the following images:"
 	for _, err := range f.AllErrors {
-		msg = fmt.Sprintf("%sImage: '%s'\nError:%s", msg, err.ImageRef(), err.Error())
+		msg = fmt.Sprintf("%s\nImage: '%s'\nError: %s", msg, err.ImageRef(), err.Error())
 	}
 	return msg
 }
