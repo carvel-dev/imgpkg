@@ -58,6 +58,11 @@ func (po *PushOptions) Run() error {
 		return err
 	}
 
+	err = po.validateFlags()
+	if err != nil {
+		return err
+	}
+
 	var imageURL string
 
 	isBundle := po.BundleFlags.Bundle != ""
@@ -144,4 +149,18 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
 	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.Labels, registry, logger)
+}
+
+// validateFlags checks if the provided flags are valid
+func (po *PushOptions) validateFlags() error {
+
+	// Verify the user did NOT specify a reserved OCI label
+	_, present := po.Labels[bundle.BundleConfigLabel]
+
+	if present {
+		return fmt.Errorf("label '%s' is reserved and cannot be overriden. Please use a different key", bundle.BundleConfigLabel)
+	}
+
+	return nil
+
 }
