@@ -44,7 +44,7 @@ images:
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
+		_, err = subject.Push(imgTag, make(map[string]string), fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}
@@ -78,7 +78,7 @@ images:
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
+		_, err = subject.Push(imgTag, map[string]string{}, fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}

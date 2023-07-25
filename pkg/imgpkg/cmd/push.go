@@ -24,6 +24,7 @@ type PushOptions struct {
 	LockOutputFlags LockOutputFlags
 	FileFlags       FileFlags
 	RegistryFlags   RegistryFlags
+	Labels          map[string]string
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -47,6 +48,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	o.LockOutputFlags.SetOnPush(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
+	cmd.Flags().StringToStringVarP(&o.Labels, "labels", "l", map[string]string{}, "Set labels on image")
 	return cmd
 }
 
@@ -96,7 +98,7 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, registry, logger)
+	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.Labels, registry, logger)
 	if err != nil {
 		return "", err
 	}
@@ -141,5 +143,5 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, nil, registry, logger)
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.Labels, registry, logger)
 }
