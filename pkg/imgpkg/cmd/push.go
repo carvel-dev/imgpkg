@@ -24,7 +24,7 @@ type PushOptions struct {
 	LockOutputFlags LockOutputFlags
 	FileFlags       FileFlags
 	RegistryFlags   RegistryFlags
-	Labels          map[string]string
+	LabelFlags      LabelFlags
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -48,7 +48,8 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	o.LockOutputFlags.SetOnPush(cmd)
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
-	cmd.Flags().StringToStringVarP(&o.Labels, "labels", "l", map[string]string{}, "Set labels on image")
+	o.LabelFlags.Set(cmd)
+
 	return cmd
 }
 
@@ -67,6 +68,10 @@ func (po *PushOptions) Run() error {
 
 	isBundle := po.BundleFlags.Bundle != ""
 	isImage := po.ImageFlags.Image != ""
+
+	if po.LabelFlags.Labels == nil {
+		po.LabelFlags.Labels = map[string]string{}
+	}
 
 	switch {
 	case isBundle && isImage:
@@ -103,7 +108,7 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.Labels, registry, logger)
+	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
 	if err != nil {
 		return "", err
 	}
@@ -148,14 +153,14 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.Labels, registry, logger)
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
 }
 
 // validateFlags checks if the provided flags are valid
 func (po *PushOptions) validateFlags() error {
 
 	// Verify the user did NOT specify a reserved OCI label
-	_, present := po.Labels[bundle.BundleConfigLabel]
+	_, present := po.LabelFlags.Labels[bundle.BundleConfigLabel]
 
 	if present {
 		return fmt.Errorf("label '%s' is reserved and cannot be overriden. Please use a different key", bundle.BundleConfigLabel)
