@@ -69,10 +69,6 @@ func (po *PushOptions) Run() error {
 	isBundle := po.BundleFlags.Bundle != ""
 	isImage := po.ImageFlags.Image != ""
 
-	if po.LabelFlags.Labels == nil {
-		po.LabelFlags.Labels = map[string]string{}
-	}
-
 	switch {
 	case isBundle && isImage:
 		return fmt.Errorf("Expected only one of image or bundle")

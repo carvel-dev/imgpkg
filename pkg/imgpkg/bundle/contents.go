@@ -49,6 +49,9 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 		return "", err
 	}
 
+	if labels == nil {
+		labels = map[string]string{}
+	}
 	labels[BundleConfigLabel] = "true"
 
 	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).Push(uploadRef, labels, registry, logger)
