@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
@@ -25,6 +26,7 @@ type PushOptions struct {
 	FileFlags       FileFlags
 	RegistryFlags   RegistryFlags
 	LabelFlags      LabelFlags
+	TagFlags        TagFlags
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -49,6 +51,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.LabelFlags.Set(cmd)
+	o.TagFlags.Set(cmd)
 
 	return cmd
 }
@@ -92,52 +95,67 @@ func (po *PushOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	po.ui.BeginLinef("Pushed '%s'", imageURL)
+	po.ui.BeginLinef("Pushed: \n%s\n", imageURL)
 
 	return nil
 }
 
 func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
-	uploadRef, err := regname.NewTag(po.BundleFlags.Bundle, regname.WeakValidation)
-	if err != nil {
-		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
-	}
 
-	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+	imageRefs := []string{}
+
+	baseBundleName, err := po.stripTag()
 	if err != nil {
 		return "", err
 	}
 
-	if po.LockOutputFlags.LockFilePath != "" {
-		bundleLock := lockconfig.BundleLock{
-			LockVersion: lockconfig.LockVersion{
-				APIVersion: lockconfig.BundleLockAPIVersion,
-				Kind:       lockconfig.BundleLockKind,
-			},
-			Bundle: lockconfig.BundleRef{
-				Image: imageURL,
-				Tag:   uploadRef.TagStr(),
-			},
+	// Loop through all tags specified by the user and push the related bundle+tag
+	for _, tag := range po.TagFlags.Tags {
+		uploadRef, err := regname.NewTag(baseBundleName+":"+tag, regname.WeakValidation)
+		if err != nil {
+			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
 		}
 
-		err := bundleLock.WriteToPath(po.LockOutputFlags.LockFilePath)
+		logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+		imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
 		if err != nil {
 			return "", err
 		}
+
+		if po.LockOutputFlags.LockFilePath != "" {
+			bundleLock := lockconfig.BundleLock{
+				LockVersion: lockconfig.LockVersion{
+					APIVersion: lockconfig.BundleLockAPIVersion,
+					Kind:       lockconfig.BundleLockKind,
+				},
+				Bundle: lockconfig.BundleRef{
+					Image: imageURL,
+					Tag:   uploadRef.TagStr(),
+				},
+			}
+
+			err := bundleLock.WriteToPath(po.LockOutputFlags.LockFilePath)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+			imageRefs = append(imageRefs, imageURL)
+		}
 	}
 
-	return imageURL, nil
+	po.ui.BeginLinef("Tags: %s\n", strings.Join(po.TagFlags.Tags, ", "))
+
+	return strings.Join(imageRefs, "\n"), nil
 }
 
 func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
+
+	imageRefs := []string{}
+
 	if po.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
-	}
-
-	uploadRef, err := regname.NewTag(po.ImageFlags.Image, regname.WeakValidation)
-	if err != nil {
-		return "", fmt.Errorf("Parsing '%s': %s", po.ImageFlags.Image, err)
 	}
 
 	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).PresentsAsBundle()
@@ -148,8 +166,33 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
 
-	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+	baseImageName, err := po.stripTag()
+	if err != nil {
+		return "", err
+	}
+
+	// Loop through all tags specified by the user and push the related image+tag
+	for _, tag := range po.TagFlags.Tags {
+
+		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
+		if err != nil {
+			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
+		}
+
+		logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+		imageURL, err := plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+		if err != nil {
+			return "", err
+		}
+
+		if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+			imageRefs = append(imageRefs, imageURL)
+		}
+	}
+
+	po.ui.BeginLinef("Tags: %s\n", strings.Join(po.TagFlags.Tags, ", "))
+
+	return strings.Join(imageRefs, "\n"), nil
 }
 
 // validateFlags checks if the provided flags are valid
@@ -164,4 +207,53 @@ func (po *PushOptions) validateFlags() error {
 
 	return nil
 
+}
+
+func (po *PushOptions) stripTag() (string, error) {
+
+	object := ""
+	isBundle := po.BundleFlags.Bundle != ""
+	isImage := po.ImageFlags.Image != ""
+
+	switch {
+
+	case isBundle:
+		object = po.BundleFlags.Bundle
+
+	case isImage:
+		object = po.ImageFlags.Image
+
+	default:
+		panic("Unreachable code")
+	}
+
+	objectRef, err := regname.NewTag(object, regname.WeakValidation)
+	if err != nil {
+		fmt.Println("FAILING BEFORE TAG STRIP")
+		fmt.Printf("TEST - BUNDLE NAME: %s\n", po.BundleFlags.Bundle)
+		fmt.Printf("TEST - REGISTRY: %s\n", objectRef.RegistryStr())
+		fmt.Printf("TEST - REPOSITORY: %s\n", objectRef.RepositoryStr())
+		fmt.Printf("TEST - NAME: %s\n", objectRef.Name())
+		fmt.Printf("TEST - TAG: %s\n", objectRef.TagStr())
+		return "", fmt.Errorf("Parsing '%s': %s", object, err)
+	}
+
+	embeddedTag := objectRef.TagStr()
+
+	fmt.Printf("TEST - REGISTRY: %s\n", objectRef.RegistryStr())
+	fmt.Printf("TEST - REPOSITORY: %s\n", objectRef.RepositoryStr())
+	fmt.Printf("TEST - NAME: %s\n", objectRef.Name())
+	fmt.Printf("TEST - TAG: %s\n", objectRef.TagStr())
+
+	if embeddedTag != "" {
+		po.TagFlags.Tags = append(po.TagFlags.Tags, embeddedTag)
+	}
+
+	baseObjectName := strings.TrimSuffix(objectRef.Name(), ":"+objectRef.TagStr())
+
+	if baseObjectName == "" {
+		return "", fmt.Errorf("'%s' is not a valid image reference", object)
+	}
+
+	return baseObjectName, nil
 }
