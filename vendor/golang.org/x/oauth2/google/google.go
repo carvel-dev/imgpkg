@@ -231,11 +231,7 @@ func (f *credentialsFile) tokenSource(ctx context.Context, params CredentialsPar
 // Further information about retrieving access tokens from the GCE metadata
 // server can be found at https://cloud.google.com/compute/docs/authentication.
 func ComputeTokenSource(account string, scope ...string) oauth2.TokenSource {
-	return computeTokenSource(account, 0, scope...)
-}
-
-func computeTokenSource(account string, earlyExpiry time.Duration, scope ...string) oauth2.TokenSource {
-	return oauth2.ReuseTokenSourceWithExpiry(nil, computeSource{account: account, scopes: scope}, earlyExpiry)
+	return oauth2.ReuseTokenSource(nil, computeSource{account: account, scopes: scope})
 }
 
 type computeSource struct {

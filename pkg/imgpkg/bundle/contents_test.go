@@ -38,13 +38,13 @@ images:
 	fakeRegistry.ImageReturns(bundleImg, nil)
 
 	t.Run("push is successful", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, false)
+		subject := bundle.NewContents([]string{bundleDir}, nil)
 		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
 		if err != nil {
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, map[string]string{}, fakeRegistry, util.NewNoopLevelLogger())
+		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}
@@ -72,13 +72,13 @@ images:
 	fakeRegistry.ImageReturns(bundleImg, nil)
 
 	t.Run("push is successful", func(t *testing.T) {
-		subject := bundle.NewContents([]string{bundleDir}, nil, false)
+		subject := bundle.NewContents([]string{bundleDir}, nil)
 		imgTag, err := name.NewTag("my.registry.io/new-bundle:tag")
 		if err != nil {
 			t.Fatalf("failed to read tag: %s", err)
 		}
 
-		_, err = subject.Push(imgTag, map[string]string{}, fakeRegistry, util.NewNoopLevelLogger())
+		_, err = subject.Push(imgTag, fakeRegistry, util.NewNoopLevelLogger())
 		if err != nil {
 			t.Fatalf("not expecting push to fail: %s", err)
 		}

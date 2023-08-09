@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -443,9 +442,6 @@ func (b *blockDec) decodeLiterals(in []byte, hist *history) (remain []byte, err 
 			}
 		}
 		var err error
-		if debugDecoder {
-			println("huff table input:", len(literals), "CRC:", crc32.ChecksumIEEE(literals))
-		}
 		huff, literals, err = huff0.ReadTable(literals, huff)
 		if err != nil {
 			println("reading huffman table:", err)

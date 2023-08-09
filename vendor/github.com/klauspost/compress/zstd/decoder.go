@@ -455,7 +455,12 @@ func (d *Decoder) nextBlock(blocking bool) (ok bool) {
 	}
 
 	if len(next.b) > 0 {
-		d.current.crc.Write(next.b)
+		n, err := d.current.crc.Write(next.b)
+		if err == nil {
+			if n != len(next.b) {
+				d.current.err = io.ErrShortWrite
+			}
+		}
 	}
 	if next.err == nil && next.d != nil && next.d.hasCRC {
 		got := uint32(d.current.crc.Sum64())

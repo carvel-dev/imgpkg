@@ -223,9 +223,9 @@ func extractFileFromTar(opener Opener, filePath string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	needClose := true
+	close := true
 	defer func() {
-		if needClose {
+		if close {
 			f.Close()
 		}
 	}()
@@ -244,7 +244,7 @@ func extractFileFromTar(opener Opener, filePath string) (io.ReadCloser, error) {
 				currentDir := filepath.Dir(filePath)
 				return extractFileFromTar(opener, path.Join(currentDir, path.Clean(hdr.Linkname)))
 			}
-			needClose = false
+			close = false
 			return tarFile{
 				Reader: tf,
 				Closer: f,
