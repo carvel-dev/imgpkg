@@ -91,17 +91,24 @@ func (po *PullOptions) Run() error {
 	}
 
 	if errors.Is(err, &v1.ErrIsBundle{}) {
-		if len(po.ImageFlags.Image) == 0 {
+		if pullOpts.IsBundle {
 			if po.ImageIsBundleCheck {
 				return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
+			} else {
+				return fmt.Errorf("Expected image flag when wanting to pull a bundle as OCI image (hint: Use -i instead of -b)")
 			}
 		} else {
 			return fmt.Errorf("Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
 		}
-	} else if len(po.ImageFlags.Image) == 0 && errors.Is(err, &v1.ErrIsNotBundle{}) {
-		return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+	} else if errors.Is(err, &v1.ErrIsNotBundle{}) {
+		if pullOpts.IsBundle {
+			return fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
+		} else {
+			if po.ImageIsBundleCheck {
+				return fmt.Errorf("Expected correct flag with bundle image (hint: Use --image-is-bundle-check=false instead of --image-is-bundle-check=true for images)")
+			}
+		}
 	}
-
 	return err
 }
 

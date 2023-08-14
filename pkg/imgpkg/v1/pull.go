@@ -102,7 +102,10 @@ func PullWithRegistry(imageRef string, outputPath string, pullOptions PullOpts, 
 	}
 
 	switch {
-	case isBundle && pullOptions.AsImage: // Trying to pull the OCI Image of a Bundle
+	case isBundle && pullOptions.AsImage && pullOptions.IsBundle: // Trying to pull a Bundle as an OCI Image with flag -b
+		return PullStatus{}, &ErrIsBundle{}
+
+	case isBundle && pullOptions.AsImage && !pullOptions.IsBundle: // Trying to pull the OCI Image of a Bundle with flag i
 		st, err := pullImage(imageRef, outputPath, pullOptions, reg)
 		if err != nil {
 			return PullStatus{}, err
@@ -116,7 +119,10 @@ func PullWithRegistry(imageRef string, outputPath string, pullOptions PullOpts, 
 	case !isBundle && pullOptions.IsBundle: // Trying to pull an Image as a Bundle
 		return PullStatus{}, &ErrIsNotBundle{}
 
-	case !isBundle && !pullOptions.IsBundle: // Trying to pull an OCI Image
+	case !isBundle && !pullOptions.IsBundle && !pullOptions.AsImage: // Trying to pull an OCI Image
+		return PullStatus{}, &ErrIsBundle{}
+
+	case !isBundle && !pullOptions.IsBundle && pullOptions.AsImage: // Trying to pull an OCI Image
 		return pullImage(imageRef, outputPath, pullOptions, reg)
 
 	case isBundle && !pullOptions.IsBundle: // Trying to pull a Bundle as if it where an OCI Image
