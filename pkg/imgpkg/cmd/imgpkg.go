@@ -35,6 +35,7 @@ func NewImgpkgCmd(o *ImgpkgOptions) *cobra.Command {
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
 		Version:           Version,
+		RunE:              cobrautil.ShowHelp,
 	}
 
 	// TODO bash completion
