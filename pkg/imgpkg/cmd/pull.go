@@ -130,5 +130,9 @@ func (po *PullOptions) validate() error {
 	if po.BundleRecursiveFlags.Recursive && len(po.ImageFlags.Image) > 0 {
 		return fmt.Errorf("Cannot use --recursive (-r) flag when pulling a bundle")
 	}
+
+	if !po.ImageIsBundleCheck && len(po.BundleFlags.Bundle) != 0 {
+		return fmt.Errorf("Cannot set --image-is-bundle-check while using -b flag")
+	}
 	return nil
 }
