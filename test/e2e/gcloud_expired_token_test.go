@@ -88,7 +88,7 @@ func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers
 	// Cache the ubuntu image before the gcloud-race-condition-db-error plugin is called.
 	// test/e2e/assets/docker-credential-gcloud-race-condition-db-error runs a docker command (using the ubuntu:21.04) image. If it isn't cached
 	// then that plugin will download that image (which takes time), and the keychain will timeout/fail. (We want it to fail for a different reason)
-	exec.Command("docker", "pull", "ubuntu:21.04").Run()
+	exec.Command("docker", "pull", helpers.CompleteImageRef("ubuntu:21.04")).Run()
 
 	env.AddCleanup(func() {
 		exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
