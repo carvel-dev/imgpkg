@@ -2,7 +2,11 @@
 
 set -e -x -u
 
-./hack/build.sh
+# By default it will generate binary of imgpkg to run test. 
+# export BUILD_BINARY=false to skip binary generation
+if [ ${BUILD_BINARY:-true} == true ]; then
+    ./hack/build.sh
+fi
 
 export IMGPKG_BINARY="$PWD/imgpkg${IMGPKG_BINARY_EXT-}"
 
