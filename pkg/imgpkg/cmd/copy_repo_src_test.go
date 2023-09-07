@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -448,10 +447,10 @@ images:
   annotations:
     my-annotation: image-index
 `, imageIndexRefDigest)
-		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+		lockFile, err := os.CreateTemp(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
 
 		require.NoError(t, err)
-		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		err = os.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
 		require.NoError(t, err)
 
 		subject := subject
@@ -1076,10 +1075,10 @@ images:
   annotations:
     my-annotation: second-image
 `, image1.RefDigest, image2RefDigest)
-		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+		lockFile, err := os.CreateTemp(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
 
 		require.NoError(t, err)
-		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		err = os.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
 		require.NoError(t, err)
 
 		subject := subject
