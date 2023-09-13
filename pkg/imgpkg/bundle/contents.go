@@ -57,6 +57,22 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).Push(uploadRef, labels, registry, logger)
 }
 
+// MultiTagPush pushes the OCI Bundle to the registry with multiple tags
+func (b Contents) MultiTagPush(uploadRefs []regname.Tag, labels map[string]string, registry ImagesMetadataWriter, logger Logger) (string, error) {
+
+	err := b.validate()
+	if err != nil {
+		return "", err
+	}
+
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[BundleConfigLabel] = "true"
+
+	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).MultiTagPush(uploadRefs, labels, registry, logger)
+}
+
 // PresentsAsBundle checks if the provided folders have the needed structure to be a bundle
 func (b Contents) PresentsAsBundle() (bool, error) {
 	imgpkgDirs, err := b.findImgpkgDirs()
