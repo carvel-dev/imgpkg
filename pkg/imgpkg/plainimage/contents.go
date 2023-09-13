@@ -74,6 +74,56 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	return fmt.Sprintf("%s@%s", uploadRef.Context(), digest), nil
 }
 
+// MultiTagPush pushes the OCI Image to the registry with multiple tags
+func (i Contents) MultiTagPush(uploadRefs []regname.Tag, labels map[string]string, writer ImagesWriter, logger Logger) (string, error) {
+
+	var digest regv1.Hash
+	var primaryUploadRef regname.Tag
+
+	err := i.validate()
+	if err != nil {
+		return "", err
+	}
+
+	tarImg := ctlimg.NewTarImage(i.paths, i.excludedPaths, logger, i.preservePermissions)
+	primaryUploadRef = uploadRefs[0]
+
+	for _, uploadRef := range uploadRefs {
+
+		img, err := tarImg.AsFileImage(labels)
+		if err != nil {
+			return "", err
+		}
+
+		defer img.Remove()
+
+		err = writer.WriteImage(uploadRef, img, nil)
+
+		if err != nil {
+			return "", fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
+		}
+
+		digest, err = img.Digest()
+		if err != nil {
+			return "", err
+		}
+
+		uploadTagRef, err := util.BuildDefaultUploadTagRef(img, uploadRef.Repository)
+		if err != nil {
+			return "", fmt.Errorf("Building default upload tag image ref: %s", err)
+		}
+
+		err = writer.WriteTag(uploadTagRef, img)
+		if err != nil {
+			return "", fmt.Errorf("Writing Tag '%s': %s", uploadRef.Name(), err)
+		}
+
+	}
+
+	return fmt.Sprintf("%s@%s", primaryUploadRef.Context(), digest), nil
+
+}
+
 func (i Contents) validate() error {
 	return i.checkRepeatedPaths()
 }
