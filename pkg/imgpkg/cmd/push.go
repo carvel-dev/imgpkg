@@ -95,64 +95,95 @@ func (po *PushOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	po.ui.BeginLinef("Pushed: \n%s\n", imageURL)
+	po.ui.BeginLinef("\nPushed: \n%s\n", imageURL)
 
 	return nil
 }
 
 func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 
+	imageURL := ""
 	imageRefs := []string{}
+	uploadRefs := []regname.Tag{}
 
-	baseBundleName, err := po.stripTag()
+	baseImageName, err := po.stripTag()
 	if err != nil {
 		return "", err
 	}
 
-	// Loop through all tags specified by the user and push the related bundle+tag
+	baseRef, err := regname.NewTag(po.BundleFlags.Bundle, regname.WeakValidation)
+	if err != nil {
+		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
+	}
+
+	// Append the base image_tag to the list of refs to upload
+	uploadRefs = append(uploadRefs, baseRef)
+
+	// TODO(phenixblue): Cleanup when done testing
+	fmt.Printf("\nAdding base ref to list of tags: %s\n", baseRef)
+
+	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
-		uploadRef, err := regname.NewTag(baseBundleName+":"+tag, regname.WeakValidation)
+
+		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
 		if err != nil {
 			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
 		}
 
-		logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-		imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+		uploadRefs = append(uploadRefs, uploadRef)
+		// TODO(phenixblue): Cleanup when done testing
+		fmt.Printf("\nAdding non-base ref to list of tags: %s\n", uploadRef)
+
+	}
+
+	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+
+	if len(po.TagFlags.Tags) > 1 {
+		imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).MultiTagPush(uploadRefs, po.LabelFlags.Labels, registry, logger)
 		if err != nil {
 			return "", err
 		}
 
-		if po.LockOutputFlags.LockFilePath != "" {
-			bundleLock := lockconfig.BundleLock{
-				LockVersion: lockconfig.LockVersion{
-					APIVersion: lockconfig.BundleLockAPIVersion,
-					Kind:       lockconfig.BundleLockKind,
-				},
-				Bundle: lockconfig.BundleRef{
-					Image: imageURL,
-					Tag:   uploadRef.TagStr(),
-				},
-			}
-
-			err := bundleLock.WriteToPath(po.LockOutputFlags.LockFilePath)
-			if err != nil {
-				return "", err
-			}
-		}
-
-		if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
-			imageRefs = append(imageRefs, imageURL)
+	} else {
+		imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs[0], po.LabelFlags.Labels, registry, logger)
+		if err != nil {
+			return "", err
 		}
 	}
 
-	po.ui.BeginLinef("Tags: %s\n", strings.Join(po.TagFlags.Tags, ", "))
+	if po.LockOutputFlags.LockFilePath != "" {
+		bundleLock := lockconfig.BundleLock{
+			LockVersion: lockconfig.LockVersion{
+				APIVersion: lockconfig.BundleLockAPIVersion,
+				Kind:       lockconfig.BundleLockKind,
+			},
+			Bundle: lockconfig.BundleRef{
+				Image:     imageURL,
+				Tag:       uploadRefs[0].TagStr(),
+				OtherTags: strings.Join(po.TagFlags.Tags, ","),
+			},
+		}
+
+		err := bundleLock.WriteToPath(po.LockOutputFlags.LockFilePath)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+		imageRefs = append(imageRefs, imageURL)
+	}
+
+	po.ui.BeginLinef("\nTags: %s, %s\n", baseRef.TagStr(), strings.Join(po.TagFlags.Tags, ", "))
 
 	return strings.Join(imageRefs, "\n"), nil
 }
 
 func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 
+	imageURL := ""
 	imageRefs := []string{}
+	uploadRefs := []regname.Tag{}
 
 	if po.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
@@ -171,6 +202,14 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", err
 	}
 
+	baseRef, err := regname.NewTag(po.ImageFlags.Image, regname.WeakValidation)
+	if err != nil {
+		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
+	}
+
+	// Append the base image_tag to the list of refs to upload
+	uploadRefs = append(uploadRefs, baseRef)
+
 	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
 
@@ -179,18 +218,29 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
 		}
 
-		logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-		imageURL, err := plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+		uploadRefs = append(uploadRefs, uploadRef)
+
+	}
+
+	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
+
+	if len(po.TagFlags.Tags) > 1 {
+		imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).MultiTagPush(uploadRefs, po.LabelFlags.Labels, registry, logger)
 		if err != nil {
 			return "", err
 		}
-
-		if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
-			imageRefs = append(imageRefs, imageURL)
+	} else {
+		imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs[0], po.LabelFlags.Labels, registry, logger)
+		if err != nil {
+			return "", err
 		}
 	}
 
-	po.ui.BeginLinef("Tags: %s\n", strings.Join(po.TagFlags.Tags, ", "))
+	if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+		imageRefs = append(imageRefs, imageURL)
+	}
+
+	po.ui.BeginLinef("\nTags: %s, %s\n", baseRef.TagStr(), strings.Join(po.TagFlags.Tags, ", "))
 
 	return strings.Join(imageRefs, "\n"), nil
 }
@@ -229,24 +279,7 @@ func (po *PushOptions) stripTag() (string, error) {
 
 	objectRef, err := regname.NewTag(object, regname.WeakValidation)
 	if err != nil {
-		fmt.Println("FAILING BEFORE TAG STRIP")
-		fmt.Printf("TEST - BUNDLE NAME: %s\n", po.BundleFlags.Bundle)
-		fmt.Printf("TEST - REGISTRY: %s\n", objectRef.RegistryStr())
-		fmt.Printf("TEST - REPOSITORY: %s\n", objectRef.RepositoryStr())
-		fmt.Printf("TEST - NAME: %s\n", objectRef.Name())
-		fmt.Printf("TEST - TAG: %s\n", objectRef.TagStr())
 		return "", fmt.Errorf("Parsing '%s': %s", object, err)
-	}
-
-	embeddedTag := objectRef.TagStr()
-
-	fmt.Printf("TEST - REGISTRY: %s\n", objectRef.RegistryStr())
-	fmt.Printf("TEST - REPOSITORY: %s\n", objectRef.RepositoryStr())
-	fmt.Printf("TEST - NAME: %s\n", objectRef.Name())
-	fmt.Printf("TEST - TAG: %s\n", objectRef.TagStr())
-
-	if embeddedTag != "" {
-		po.TagFlags.Tags = append(po.TagFlags.Tags, embeddedTag)
 	}
 
 	baseObjectName := strings.TrimSuffix(objectRef.Name(), ":"+objectRef.TagStr())
