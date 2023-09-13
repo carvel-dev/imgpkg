@@ -42,8 +42,8 @@ func NewContents(paths []string, excludedPaths []string, preservePermissions boo
 	return Contents{paths: paths, excludedPaths: excludedPaths, preservePermissions: preservePermissions}
 }
 
-// Push the contents of the bundle to the registry as an OCI Image
-func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry ImagesMetadataWriter, logger Logger) (string, error) {
+// Push the contents of the bundle to the registry as an OCI Image with one or more tags
+func (b Contents) Push(uploadRefs []regname.Tag, labels map[string]string, registry ImagesMetadataWriter, logger Logger) (string, error) {
 	err := b.validate()
 	if err != nil {
 		return "", err
@@ -54,22 +54,7 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 	}
 	labels[BundleConfigLabel] = "true"
 
-	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).Push(uploadRef, labels, registry, logger)
-}
-
-// MultiTagPush pushes the OCI Bundle to the registry with multiple tags
-func (b Contents) MultiTagPush(uploadRefs []regname.Tag, labels map[string]string, registry ImagesMetadataWriter, logger Logger) (string, error) {
-	err := b.validate()
-	if err != nil {
-		return "", err
-	}
-
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labels[BundleConfigLabel] = "true"
-
-	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).MultiTagPush(uploadRefs, labels, registry, logger)
+	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).Push(uploadRefs, labels, registry, logger)
 }
 
 // PresentsAsBundle checks if the provided folders have the needed structure to be a bundle

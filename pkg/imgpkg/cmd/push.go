@@ -129,17 +129,9 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
 
-	if len(po.TagFlags.Tags) > 1 {
-		imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).MultiTagPush(uploadRefs, po.LabelFlags.Labels, registry, logger)
-		if err != nil {
-			return "", err
-		}
-
-	} else {
-		imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs[0], po.LabelFlags.Labels, registry, logger)
-		if err != nil {
-			return "", err
-		}
+	imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs, po.LabelFlags.Labels, registry, logger)
+	if err != nil {
+		return "", err
 	}
 
 	if po.LockOutputFlags.LockFilePath != "" {
@@ -211,16 +203,9 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
 
-	if len(po.TagFlags.Tags) > 1 {
-		imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).MultiTagPush(uploadRefs, po.LabelFlags.Labels, registry, logger)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs[0], po.LabelFlags.Labels, registry, logger)
-		if err != nil {
-			return "", err
-		}
+	imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs, po.LabelFlags.Labels, registry, logger)
+	if err != nil {
+		return "", err
 	}
 
 	if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
