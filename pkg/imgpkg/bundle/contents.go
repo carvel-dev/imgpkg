@@ -59,7 +59,6 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 
 // MultiTagPush pushes the OCI Bundle to the registry with multiple tags
 func (b Contents) MultiTagPush(uploadRefs []regname.Tag, labels map[string]string, registry ImagesMetadataWriter, logger Logger) (string, error) {
-
 	err := b.validate()
 	if err != nil {
 		return "", err

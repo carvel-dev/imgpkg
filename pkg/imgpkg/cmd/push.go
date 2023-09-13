@@ -101,7 +101,6 @@ func (po *PushOptions) Run() error {
 }
 
 func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
-
 	imageURL := ""
 	imageRefs := []string{}
 	uploadRefs := []regname.Tag{}
@@ -119,21 +118,14 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	// Append the base image_tag to the list of refs to upload
 	uploadRefs = append(uploadRefs, baseRef)
 
-	// TODO(phenixblue): Cleanup when done testing
-	fmt.Printf("\nAdding base ref to list of tags: %s\n", baseRef)
-
 	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
-
 		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
 		if err != nil {
 			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
 		}
 
 		uploadRefs = append(uploadRefs, uploadRef)
-		// TODO(phenixblue): Cleanup when done testing
-		fmt.Printf("\nAdding non-base ref to list of tags: %s\n", uploadRef)
-
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
@@ -180,7 +172,6 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 }
 
 func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
-
 	imageURL := ""
 	imageRefs := []string{}
 	uploadRefs := []regname.Tag{}
@@ -212,14 +203,12 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 
 	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
-
 		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
 		if err != nil {
 			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
 		}
 
 		uploadRefs = append(uploadRefs, uploadRef)
-
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
@@ -260,13 +249,11 @@ func (po *PushOptions) validateFlags() error {
 }
 
 func (po *PushOptions) stripTag() (string, error) {
-
 	object := ""
 	isBundle := po.BundleFlags.Bundle != ""
 	isImage := po.ImageFlags.Image != ""
 
 	switch {
-
 	case isBundle:
 		object = po.BundleFlags.Bundle
 
