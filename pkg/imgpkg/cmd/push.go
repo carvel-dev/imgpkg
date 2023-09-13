@@ -103,7 +103,6 @@ func (po *PushOptions) Run() error {
 func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	imageURL := ""
 	imageRefs := []string{}
-	uploadRefs := []regname.Tag{}
 
 	baseImageName, err := po.stripTag()
 	if err != nil {
@@ -116,7 +115,7 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	}
 
 	// Append the base image_tag to the list of refs to upload
-	uploadRefs = append(uploadRefs, baseRef)
+	uploadRefs := []regname.Tag{baseRef}
 
 	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
@@ -174,7 +173,6 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	imageURL := ""
 	imageRefs := []string{}
-	uploadRefs := []regname.Tag{}
 
 	if po.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
@@ -199,7 +197,7 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	}
 
 	// Append the base image_tag to the list of refs to upload
-	uploadRefs = append(uploadRefs, baseRef)
+	uploadRefs := []regname.Tag{baseRef}
 
 	// Loop through all tags specified by the user and push the related image+tag
 	for _, tag := range po.TagFlags.Tags {
