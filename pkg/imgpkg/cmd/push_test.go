@@ -355,8 +355,8 @@ func TestTags(t *testing.T) {
 			name:          "bundle with inline tag and tag via flag",
 			opType:        "bundle",
 			expectedError: "",
-			tagInput:      "v1.0.2",
-			expectedTags:  []string{"v1.0.1", "v1.0.2"},
+			tagInput:      "v1.2.0-alpha,latest",
+			expectedTags:  []string{"v1.0.1", "v1.2.0-alpha", "latest"},
 			inlineTag:     "v1.0.1",
 		},
 		{
@@ -382,6 +382,14 @@ func TestTags(t *testing.T) {
 			tagInput:      "v1.0.1",
 			expectedTags:  []string{"v1.0.1", "latest"},
 			inlineTag:     "",
+		},
+		{
+			name:          "image with inline tag and tags via flag",
+			opType:        "image",
+			expectedError: "",
+			tagInput:      "latest,stable",
+			expectedTags:  []string{"v1.0.1", "latest"},
+			inlineTag:     "v1.0.1",
 		},
 	}
 
