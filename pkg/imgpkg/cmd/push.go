@@ -248,6 +248,7 @@ func (po *PushOptions) validateFlags() error {
 
 }
 
+// stripTag removes the tag from the provided image or bundle reference
 func (po *PushOptions) stripTag() (string, error) {
 	object := ""
 	isBundle := po.BundleFlags.Bundle != ""
