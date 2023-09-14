@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,7 +180,7 @@ func TestDuplicateFilepathError(t *testing.T) {
 	}
 
 	someFile := filepath.Join(fooDir, "some-file.yml")
-	err = ioutil.WriteFile(someFile, []byte("foo: bar"), 0600)
+	err = os.WriteFile(someFile, []byte("foo: bar"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -342,7 +341,7 @@ func createBundleDir(loc, imagesYaml string) error {
 	if imagesYaml == "" {
 		imagesYaml = emptyImagesYaml
 	}
-	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
+	return os.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
 }
 
 func createEmptyBundleDir(loc string) error {
