@@ -38,7 +38,7 @@ sequenceDecs_decode_amd64_main_loop:
 
 sequenceDecs_decode_amd64_fill_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decode_amd64_fill_check_overread
+	JLE     sequenceDecs_decode_amd64_fill_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decode_amd64_fill_end
 	SHLQ    $0x08, DX
@@ -48,10 +48,6 @@ sequenceDecs_decode_amd64_fill_byte_by_byte:
 	MOVBQZX (R14), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decode_amd64_fill_byte_by_byte
-
-sequenceDecs_decode_amd64_fill_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_amd64_fill_end:
 	// Update offset
@@ -109,7 +105,7 @@ sequenceDecs_decode_amd64_ml_update_zero:
 
 sequenceDecs_decode_amd64_fill_2_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decode_amd64_fill_2_check_overread
+	JLE     sequenceDecs_decode_amd64_fill_2_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decode_amd64_fill_2_end
 	SHLQ    $0x08, DX
@@ -119,10 +115,6 @@ sequenceDecs_decode_amd64_fill_2_byte_by_byte:
 	MOVBQZX (R14), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decode_amd64_fill_2_byte_by_byte
-
-sequenceDecs_decode_amd64_fill_2_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_amd64_fill_2_end:
 	// Update literal length
@@ -328,11 +320,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 // func sequenceDecs_decode_56_amd64(s *sequenceDecs, br *bitReader, ctx *decodeAsmContext) int
 // Requires: CMOV
 TEXT ·sequenceDecs_decode_56_amd64(SB), $8-32
@@ -369,7 +356,7 @@ sequenceDecs_decode_56_amd64_main_loop:
 
 sequenceDecs_decode_56_amd64_fill_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decode_56_amd64_fill_check_overread
+	JLE     sequenceDecs_decode_56_amd64_fill_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decode_56_amd64_fill_end
 	SHLQ    $0x08, DX
@@ -379,10 +366,6 @@ sequenceDecs_decode_56_amd64_fill_byte_by_byte:
 	MOVBQZX (R14), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decode_56_amd64_fill_byte_by_byte
-
-sequenceDecs_decode_56_amd64_fill_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_56_amd64_fill_end:
 	// Update offset
@@ -630,11 +613,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 // func sequenceDecs_decode_bmi2(s *sequenceDecs, br *bitReader, ctx *decodeAsmContext) int
 // Requires: BMI, BMI2, CMOV
 TEXT ·sequenceDecs_decode_bmi2(SB), $8-32
@@ -671,7 +649,7 @@ sequenceDecs_decode_bmi2_main_loop:
 
 sequenceDecs_decode_bmi2_fill_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decode_bmi2_fill_check_overread
+	JLE     sequenceDecs_decode_bmi2_fill_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decode_bmi2_fill_end
 	SHLQ    $0x08, AX
@@ -681,10 +659,6 @@ sequenceDecs_decode_bmi2_fill_byte_by_byte:
 	MOVBQZX (R13), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decode_bmi2_fill_byte_by_byte
-
-sequenceDecs_decode_bmi2_fill_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_bmi2_fill_end:
 	// Update offset
@@ -726,7 +700,7 @@ sequenceDecs_decode_bmi2_fill_end:
 
 sequenceDecs_decode_bmi2_fill_2_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decode_bmi2_fill_2_check_overread
+	JLE     sequenceDecs_decode_bmi2_fill_2_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decode_bmi2_fill_2_end
 	SHLQ    $0x08, AX
@@ -736,10 +710,6 @@ sequenceDecs_decode_bmi2_fill_2_byte_by_byte:
 	MOVBQZX (R13), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decode_bmi2_fill_2_byte_by_byte
-
-sequenceDecs_decode_bmi2_fill_2_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_bmi2_fill_2_end:
 	// Update literal length
@@ -919,11 +889,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 // func sequenceDecs_decode_56_bmi2(s *sequenceDecs, br *bitReader, ctx *decodeAsmContext) int
 // Requires: BMI, BMI2, CMOV
 TEXT ·sequenceDecs_decode_56_bmi2(SB), $8-32
@@ -960,7 +925,7 @@ sequenceDecs_decode_56_bmi2_main_loop:
 
 sequenceDecs_decode_56_bmi2_fill_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decode_56_bmi2_fill_check_overread
+	JLE     sequenceDecs_decode_56_bmi2_fill_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decode_56_bmi2_fill_end
 	SHLQ    $0x08, AX
@@ -970,10 +935,6 @@ sequenceDecs_decode_56_bmi2_fill_byte_by_byte:
 	MOVBQZX (R13), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decode_56_bmi2_fill_byte_by_byte
-
-sequenceDecs_decode_56_bmi2_fill_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decode_56_bmi2_fill_end:
 	// Update offset
@@ -1177,11 +1138,6 @@ sequenceDecs_decode_56_bmi2_error_match_len_too_big:
 	// Return with not enough literals error
 error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
-	RET
-
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
 	RET
 
 // func sequenceDecs_executeSimple_amd64(ctx *executeAsmContext) bool
@@ -1848,7 +1804,7 @@ sequenceDecs_decodeSync_amd64_main_loop:
 
 sequenceDecs_decodeSync_amd64_fill_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decodeSync_amd64_fill_check_overread
+	JLE     sequenceDecs_decodeSync_amd64_fill_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decodeSync_amd64_fill_end
 	SHLQ    $0x08, DX
@@ -1858,10 +1814,6 @@ sequenceDecs_decodeSync_amd64_fill_byte_by_byte:
 	MOVBQZX (R13), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decodeSync_amd64_fill_byte_by_byte
-
-sequenceDecs_decodeSync_amd64_fill_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_amd64_fill_end:
 	// Update offset
@@ -1919,7 +1871,7 @@ sequenceDecs_decodeSync_amd64_ml_update_zero:
 
 sequenceDecs_decodeSync_amd64_fill_2_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decodeSync_amd64_fill_2_check_overread
+	JLE     sequenceDecs_decodeSync_amd64_fill_2_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decodeSync_amd64_fill_2_end
 	SHLQ    $0x08, DX
@@ -1929,10 +1881,6 @@ sequenceDecs_decodeSync_amd64_fill_2_byte_by_byte:
 	MOVBQZX (R13), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decodeSync_amd64_fill_2_byte_by_byte
-
-sequenceDecs_decodeSync_amd64_fill_2_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_amd64_fill_2_end:
 	// Update literal length
@@ -2343,11 +2291,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 	// Return with not enough output space error
 error_not_enough_space:
 	MOVQ ctx+16(FP), AX
@@ -2413,7 +2356,7 @@ sequenceDecs_decodeSync_bmi2_main_loop:
 
 sequenceDecs_decodeSync_bmi2_fill_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decodeSync_bmi2_fill_check_overread
+	JLE     sequenceDecs_decodeSync_bmi2_fill_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decodeSync_bmi2_fill_end
 	SHLQ    $0x08, AX
@@ -2423,10 +2366,6 @@ sequenceDecs_decodeSync_bmi2_fill_byte_by_byte:
 	MOVBQZX (R12), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decodeSync_bmi2_fill_byte_by_byte
-
-sequenceDecs_decodeSync_bmi2_fill_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_bmi2_fill_end:
 	// Update offset
@@ -2468,7 +2407,7 @@ sequenceDecs_decodeSync_bmi2_fill_end:
 
 sequenceDecs_decodeSync_bmi2_fill_2_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decodeSync_bmi2_fill_2_check_overread
+	JLE     sequenceDecs_decodeSync_bmi2_fill_2_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decodeSync_bmi2_fill_2_end
 	SHLQ    $0x08, AX
@@ -2478,10 +2417,6 @@ sequenceDecs_decodeSync_bmi2_fill_2_byte_by_byte:
 	MOVBQZX (R12), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decodeSync_bmi2_fill_2_byte_by_byte
-
-sequenceDecs_decodeSync_bmi2_fill_2_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_bmi2_fill_2_end:
 	// Update literal length
@@ -2866,11 +2801,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 	// Return with not enough output space error
 error_not_enough_space:
 	MOVQ ctx+16(FP), AX
@@ -2936,7 +2866,7 @@ sequenceDecs_decodeSync_safe_amd64_main_loop:
 
 sequenceDecs_decodeSync_safe_amd64_fill_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decodeSync_safe_amd64_fill_check_overread
+	JLE     sequenceDecs_decodeSync_safe_amd64_fill_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decodeSync_safe_amd64_fill_end
 	SHLQ    $0x08, DX
@@ -2946,10 +2876,6 @@ sequenceDecs_decodeSync_safe_amd64_fill_byte_by_byte:
 	MOVBQZX (R13), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decodeSync_safe_amd64_fill_byte_by_byte
-
-sequenceDecs_decodeSync_safe_amd64_fill_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_safe_amd64_fill_end:
 	// Update offset
@@ -3007,7 +2933,7 @@ sequenceDecs_decodeSync_safe_amd64_ml_update_zero:
 
 sequenceDecs_decodeSync_safe_amd64_fill_2_byte_by_byte:
 	CMPQ    SI, $0x00
-	JLE     sequenceDecs_decodeSync_safe_amd64_fill_2_check_overread
+	JLE     sequenceDecs_decodeSync_safe_amd64_fill_2_end
 	CMPQ    BX, $0x07
 	JLE     sequenceDecs_decodeSync_safe_amd64_fill_2_end
 	SHLQ    $0x08, DX
@@ -3017,10 +2943,6 @@ sequenceDecs_decodeSync_safe_amd64_fill_2_byte_by_byte:
 	MOVBQZX (R13), AX
 	ORQ     AX, DX
 	JMP     sequenceDecs_decodeSync_safe_amd64_fill_2_byte_by_byte
-
-sequenceDecs_decodeSync_safe_amd64_fill_2_check_overread:
-	CMPQ BX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_safe_amd64_fill_2_end:
 	// Update literal length
@@ -3533,11 +3455,6 @@ error_not_enough_literals:
 	MOVQ $0x00000004, ret+24(FP)
 	RET
 
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
-	RET
-
 	// Return with not enough output space error
 error_not_enough_space:
 	MOVQ ctx+16(FP), AX
@@ -3603,7 +3520,7 @@ sequenceDecs_decodeSync_safe_bmi2_main_loop:
 
 sequenceDecs_decodeSync_safe_bmi2_fill_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_check_overread
+	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_end
 	SHLQ    $0x08, AX
@@ -3613,10 +3530,6 @@ sequenceDecs_decodeSync_safe_bmi2_fill_byte_by_byte:
 	MOVBQZX (R12), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decodeSync_safe_bmi2_fill_byte_by_byte
-
-sequenceDecs_decodeSync_safe_bmi2_fill_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_safe_bmi2_fill_end:
 	// Update offset
@@ -3658,7 +3571,7 @@ sequenceDecs_decodeSync_safe_bmi2_fill_end:
 
 sequenceDecs_decodeSync_safe_bmi2_fill_2_byte_by_byte:
 	CMPQ    BX, $0x00
-	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_2_check_overread
+	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_2_end
 	CMPQ    DX, $0x07
 	JLE     sequenceDecs_decodeSync_safe_bmi2_fill_2_end
 	SHLQ    $0x08, AX
@@ -3668,10 +3581,6 @@ sequenceDecs_decodeSync_safe_bmi2_fill_2_byte_by_byte:
 	MOVBQZX (R12), CX
 	ORQ     CX, AX
 	JMP     sequenceDecs_decodeSync_safe_bmi2_fill_2_byte_by_byte
-
-sequenceDecs_decodeSync_safe_bmi2_fill_2_check_overread:
-	CMPQ DX, $0x40
-	JA   error_overread
 
 sequenceDecs_decodeSync_safe_bmi2_fill_2_end:
 	// Update literal length
@@ -4156,11 +4065,6 @@ error_not_enough_literals:
 	MOVQ 24(SP), CX
 	MOVQ CX, 208(AX)
 	MOVQ $0x00000004, ret+24(FP)
-	RET
-
-	// Return with overread error
-error_overread:
-	MOVQ $0x00000006, ret+24(FP)
 	RET
 
 	// Return with not enough output space error

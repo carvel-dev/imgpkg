@@ -262,19 +262,6 @@ func TestPullImageOfBundle(t *testing.T) {
 		assert.Contains(t, out.String(), "Expected bundle flag when pulling a bundle (hint: Use -b instead of -i for bundles)")
 	})
 
-	t.Run("when --image-is-bundle-check=false is provided while using the -b flag it fails", func(t *testing.T) {
-		pullDir := env.Assets.CreateTempFolder("pull-bundle-image")
-		out := bytes.NewBufferString("")
-		_, err := imgpkg.RunWithOpts([]string{"pull", "--tty", "-b", randomBundle.RefDigest, "-o", pullDir, "--image-is-bundle-check=false"}, helpers.RunOpts{
-			AllowError:   true,
-			StderrWriter: out,
-			StdoutWriter: out,
-		})
-
-		require.Error(t, err)
-		assert.Contains(t, out.String(), "Cannot set --image-is-bundle-check while using -b flag")
-	})
-
 	t.Run("when --image-is-bundle-check=false is provided downloads the OCI Image of the bundle", func(t *testing.T) {
 		pullDir := env.Assets.CreateTempFolder("pull-bundle-image")
 		imgpkg.RunWithOpts([]string{"pull", "--tty", "-i", randomBundle.RefDigest, "-o", pullDir, "--image-is-bundle-check=false"}, helpers.RunOpts{})

@@ -1,7 +1,5 @@
 ![logo](docs/CarvelLogo.png)
 
-[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/7746/badge)](https://bestpractices.coreinfrastructure.org/projects/7746)
-
 # imgpkg
 
 - Website: [https://carvel.dev/imgpkg](https://carvel.dev/imgpkg)

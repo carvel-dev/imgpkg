@@ -5,7 +5,7 @@ package lockconfig
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"sigs.k8s.io/yaml"
@@ -27,7 +27,7 @@ type BundleRef struct {
 }
 
 func NewBundleLockFromPath(path string) (BundleLock, error) {
-	bs, err := os.ReadFile(path)
+	bs, err := ioutil.ReadFile(path)
 	if err != nil {
 		return BundleLock{}, fmt.Errorf("Reading path %s: %s", path, err)
 	}
@@ -84,7 +84,7 @@ func (b BundleLock) WriteToPath(path string) error {
 		return err
 	}
 
-	err = os.WriteFile(path, bs, 0600)
+	err = ioutil.WriteFile(path, bs, 0600)
 	if err != nil {
 		return fmt.Errorf("Writing bundle config: %s", err)
 	}

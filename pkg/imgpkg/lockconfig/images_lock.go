@@ -5,7 +5,7 @@ package lockconfig
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
 
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"sigs.k8s.io/yaml"
@@ -37,7 +37,7 @@ func NewEmptyImagesLock() ImagesLock {
 }
 
 func NewImagesLockFromPath(path string) (ImagesLock, error) {
-	bs, err := os.ReadFile(path)
+	bs, err := ioutil.ReadFile(path)
 	if err != nil {
 		return ImagesLock{}, fmt.Errorf("Reading path %s: %s", path, err)
 	}
@@ -125,7 +125,7 @@ func (i ImagesLock) WriteToPath(path string) error {
 		return err
 	}
 
-	err = os.WriteFile(path, bs, 0600)
+	err = ioutil.WriteFile(path, bs, 0600)
 	if err != nil {
 		return fmt.Errorf("Writing images config: %s", err)
 	}

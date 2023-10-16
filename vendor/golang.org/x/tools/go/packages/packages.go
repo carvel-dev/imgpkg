@@ -308,9 +308,6 @@ type Package struct {
 	TypeErrors []types.Error
 
 	// GoFiles lists the absolute file paths of the package's Go source files.
-	// It may include files that should not be compiled, for example because
-	// they contain non-matching build tags, are documentary pseudo-files such as
-	// unsafe/unsafe.go or builtin/builtin.go, or are subject to cgo preprocessing.
 	GoFiles []string
 
 	// CompiledGoFiles lists the absolute file paths of the package's source
@@ -630,7 +627,7 @@ func newLoader(cfg *Config) *loader {
 	return ld
 }
 
-// refine connects the supplied packages into a graph and then adds type
+// refine connects the supplied packages into a graph and then adds type and
 // and syntax information as requested by the LoadMode.
 func (ld *loader) refine(response *driverResponse) ([]*Package, error) {
 	roots := response.Roots
@@ -1042,9 +1039,6 @@ func (ld *loader) loadPackage(lpkg *loaderPackage) {
 
 		Error: appendError,
 		Sizes: ld.sizes,
-	}
-	if lpkg.Module != nil && lpkg.Module.GoVersion != "" {
-		typesinternal.SetGoVersion(tc, "go"+lpkg.Module.GoVersion)
 	}
 	if (ld.Mode & typecheckCgo) != 0 {
 		if !typesinternal.SetUsesCgo(tc) {

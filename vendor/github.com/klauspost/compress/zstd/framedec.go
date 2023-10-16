@@ -293,14 +293,22 @@ func (d *frameDec) next(block *blockDec) error {
 	return nil
 }
 
-// checkCRC will check the checksum, assuming the frame has one.
+// checkCRC will check the checksum if the frame has one.
 // Will return ErrCRCMismatch if crc check failed, otherwise nil.
 func (d *frameDec) checkCRC() error {
+	if !d.HasCheckSum {
+		return nil
+	}
+
 	// We can overwrite upper tmp now
 	buf, err := d.rawInput.readSmall(4)
 	if err != nil {
 		println("CRC missing?", err)
 		return err
+	}
+
+	if d.o.ignoreChecksum {
+		return nil
 	}
 
 	want := binary.LittleEndian.Uint32(buf[:4])
@@ -318,13 +326,17 @@ func (d *frameDec) checkCRC() error {
 	return nil
 }
 
-// consumeCRC skips over the checksum, assuming the frame has one.
+// consumeCRC reads the checksum data if the frame has one.
 func (d *frameDec) consumeCRC() error {
-	_, err := d.rawInput.readSmall(4)
-	if err != nil {
-		println("CRC missing?", err)
+	if d.HasCheckSum {
+		_, err := d.rawInput.readSmall(4)
+		if err != nil {
+			println("CRC missing?", err)
+			return err
+		}
 	}
-	return err
+
+	return nil
 }
 
 // runDecoder will run the decoder for the remainder of the frame.
@@ -403,8 +415,15 @@ func (d *frameDec) runDecoder(dst []byte, dec *blockDec) ([]byte, error) {
 			if d.o.ignoreChecksum {
 				err = d.consumeCRC()
 			} else {
-				d.crc.Write(dst[crcStart:])
-				err = d.checkCRC()
+				var n int
+				n, err = d.crc.Write(dst[crcStart:])
+				if err == nil {
+					if n != len(dst)-crcStart {
+						err = io.ErrShortWrite
+					} else {
+						err = d.checkCRC()
+					}
+				}
 			}
 		}
 	}

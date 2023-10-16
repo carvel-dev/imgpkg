@@ -53,7 +53,11 @@ type googleKeychain struct {
 // gcloud configuration in the scope of this one process.
 func (gk *googleKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
 	// Only authenticate GCR and AR so it works with authn.NewMultiKeychain to fallback.
-	if !isGoogle(target.RegistryStr()) {
+	host := target.RegistryStr()
+	if host != "gcr.io" &&
+		!strings.HasSuffix(host, ".gcr.io") &&
+		!strings.HasSuffix(host, ".pkg.dev") &&
+		!strings.HasSuffix(host, ".google.com") {
 		return authn.Anonymous, nil
 	}
 
@@ -85,11 +89,4 @@ func resolve() authn.Authenticator {
 		logs.Debug.Printf("gcloud error: %v", gErr)
 	}
 	return authn.Anonymous
-}
-
-func isGoogle(host string) bool {
-	return host == "gcr.io" ||
-		strings.HasSuffix(host, ".gcr.io") ||
-		strings.HasSuffix(host, ".pkg.dev") ||
-		strings.HasSuffix(host, ".google.com")
 }

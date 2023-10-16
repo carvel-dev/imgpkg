@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -132,7 +133,7 @@ func (r LocationsConfigs) Save(reg ImagesMetadataWriter, bundleRef name.Digest, 
 
 	r.ui.Tracef("Pushing image\n")
 
-	_, err = plainimage.NewContents([]string{tmpDir}, nil, false).Push(locRef, nil, reg.CloneWithLogger(util.NewNoopProgressBar()), logger)
+	_, err = plainimage.NewContents([]string{tmpDir}, nil).Push(locRef, nil, reg.CloneWithLogger(util.NewNoopProgressBar()), logger)
 	if err != nil {
 		// Immutable tag errors within registries are not standardized.
 		// Assume word "immutable" would be present in most cases.
@@ -220,7 +221,7 @@ func (o *locationsSingleLayerReader) Read(img regv1.Image) (ImageLocationsConfig
 		}
 	}
 
-	bs, err := io.ReadAll(tarReader)
+	bs, err := ioutil.ReadAll(tarReader)
 	if err != nil {
 		return conf, fmt.Errorf("Reading image-locations.yml from layer: %s", err)
 	}

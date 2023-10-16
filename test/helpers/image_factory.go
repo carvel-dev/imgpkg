@@ -56,7 +56,7 @@ func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string, mediaT
 	})
 	require.NoError(i.T, err)
 
-	err = remote.WriteLayer(imageRef.Context(), layer, remote.WithAuthFromKeychain(authn.DefaultKeychain), remote.WithNondistributable)
+	err = remote.WriteLayer(imageRef.Context(), layer, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(i.T, err)
 	err = remote.Write(imageRef, image, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	require.NoError(i.T, err)

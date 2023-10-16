@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -15,20 +16,19 @@ import (
 )
 
 type TarImage struct {
-	files           []string
-	excludePaths    []string
-	logger          Logger
-	keepPermissions bool
+	files        []string
+	excludePaths []string
+	logger       Logger
 }
 
 // NewTarImage creates a struct that will allow users to create a representation of a set of paths as an OCI Image
-func NewTarImage(files []string, excludePaths []string, logger Logger, keepPermissions bool) *TarImage {
-	return &TarImage{files, excludePaths, logger, keepPermissions}
+func NewTarImage(files []string, excludePaths []string, logger Logger) *TarImage {
+	return &TarImage{files, excludePaths, logger}
 }
 
 // AsFileImage Creates an OCI Image representation of the provided folders
 func (i *TarImage) AsFileImage(labels map[string]string) (*FileImage, error) {
-	tmpFile, err := os.CreateTemp("", "imgpkg-tar-image")
+	tmpFile, err := ioutil.TempFile("", "imgpkg-tar-image")
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 					if i.isExcluded(relPath) {
 						return filepath.SkipDir
 					}
-					return i.addDirToTar(path, relPath, tarWriter)
+					return i.addDirToTar(relPath, tarWriter)
 				}
 				if (info.Mode() & os.ModeType) != 0 {
 					return fmt.Errorf("Expected file '%s' to be a regular file", walkedPath)
@@ -101,7 +101,7 @@ func (i *TarImage) createTarball(file *os.File, filePaths []string) error {
 	return nil
 }
 
-func (i *TarImage) addDirToTar(fullPath string, relPath string, tarWriter *tar.Writer) error {
+func (i *TarImage) addDirToTar(relPath string, tarWriter *tar.Writer) error {
 	if i.isExcluded(relPath) {
 		panic("Unreachable") // directories excluded above
 	}
@@ -113,19 +113,10 @@ func (i *TarImage) addDirToTar(fullPath string, relPath string, tarWriter *tar.W
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 	}
 
-	folderPermission := int64(0700)
-	if i.keepPermissions {
-		fInfo, err := os.Stat(fullPath)
-		if err != nil {
-			return fmt.Errorf("Unable to stat the folder '%s': %s", fullPath, err)
-		}
-		folderPermission = int64(fInfo.Mode())
-	}
-
 	header := &tar.Header{
 		Name:     relPath,
-		Mode:     folderPermission, // static
-		ModTime:  time.Time{},      // static
+		Mode:     0700,        // static
+		ModTime:  time.Time{}, // static
 		Typeflag: tar.TypeDir,
 	}
 
@@ -150,16 +141,12 @@ func (i *TarImage) addFileToTar(fullPath, relPath string, info os.FileInfo, tarW
 	if runtime.GOOS == "windows" {
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 	}
-	filePermission := int64(info.Mode() & 0700)
-	if i.keepPermissions {
-		filePermission = int64(info.Mode())
-	}
 
 	header := &tar.Header{
 		Name:     relPath,
 		Size:     info.Size(),
-		Mode:     filePermission, // static
-		ModTime:  time.Time{},    // static
+		Mode:     int64(info.Mode() & 0700), // static
+		ModTime:  time.Time{},               // static
 		Typeflag: tar.TypeReg,
 	}
 

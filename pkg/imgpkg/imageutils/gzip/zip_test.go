@@ -22,7 +22,7 @@ package gzip
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -30,13 +30,13 @@ import (
 func TestReader(t *testing.T) {
 	want := "This is the input string."
 	buf := bytes.NewBufferString(want)
-	zipped := ReadCloser(io.NopCloser(buf))
+	zipped := ReadCloser(ioutil.NopCloser(buf))
 	unzipped, err := UnzipReadCloser(zipped)
 	if err != nil {
 		t.Error("UnzipReadCloser() =", err)
 	}
 
-	b, err := io.ReadAll(unzipped)
+	b, err := ioutil.ReadAll(unzipped)
 	if err != nil {
 		t.Error("ReadAll() =", err)
 	}
@@ -86,17 +86,17 @@ func TestReadErrors(t *testing.T) {
 		t.Error("Is: expected errRead, got", err)
 	}
 
-	frc := io.NopCloser(fr)
+	frc := ioutil.NopCloser(fr)
 	if _, err := UnzipReadCloser(frc); err != errRead {
 		t.Error("UnzipReadCloser: expected errRead, got", err)
 	}
 
-	zr := ReadCloser(io.NopCloser(fr))
+	zr := ReadCloser(ioutil.NopCloser(fr))
 	if _, err := zr.Read(nil); err != errRead {
 		t.Error("ReadCloser: expected errRead, got", err)
 	}
 
-	zr = ReadCloserLevel(io.NopCloser(strings.NewReader("zip me")), -10)
+	zr = ReadCloserLevel(ioutil.NopCloser(strings.NewReader("zip me")), -10)
 	if _, err := zr.Read(nil); err == nil {
 		t.Error("Expected invalid level error, got:", err)
 	}

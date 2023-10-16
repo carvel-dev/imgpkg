@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -195,8 +196,6 @@ func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
 		assets := &helpers.Assets{T: t}
 		bundleBuilder := helpers.NewBundleDir(t, assets)
 		defer assets.CleanCreatedFolders()
-
-		fakeRegistry := helpers.NewFakeRegistry(t, &helpers.Logger{LogLevel: helpers.LogDebug})
 		imageLockYAML := fmt.Sprintf(`---
 apiVersion: imgpkg.carvel.dev/v1alpha1
 kind: ImagesLock
@@ -447,10 +446,10 @@ images:
   annotations:
     my-annotation: image-index
 `, imageIndexRefDigest)
-		lockFile, err := os.CreateTemp(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
 
 		require.NoError(t, err)
-		err = os.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
 		require.NoError(t, err)
 
 		subject := subject
@@ -1075,10 +1074,10 @@ images:
   annotations:
     my-annotation: second-image
 `, image1.RefDigest, image2RefDigest)
-		lockFile, err := os.CreateTemp(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
+		lockFile, err := ioutil.TempFile(assets.CreateTempFolder("images-lock-dir"), "images.lock.yml")
 
 		require.NoError(t, err)
-		err = os.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
+		err = ioutil.WriteFile(lockFile.Name(), []byte(imageLockYAML), 0600)
 		require.NoError(t, err)
 
 		subject := subject

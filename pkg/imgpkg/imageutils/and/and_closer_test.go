@@ -21,7 +21,7 @@ package and
 
 import (
 	"bytes"
-	"io"
+	"io/ioutil"
 	"testing"
 )
 
@@ -38,7 +38,7 @@ func TestRead(t *testing.T) {
 		},
 	}
 
-	data, err := io.ReadAll(rac)
+	data, err := ioutil.ReadAll(rac)
 	if err != nil {
 		t.Errorf("ReadAll(rac) = %v", err)
 	}

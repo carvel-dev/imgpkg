@@ -8,18 +8,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/authhandler"
 )
-
-const adcSetupURL = "https://cloud.google.com/docs/authentication/external/set-up-adc"
 
 // Credentials holds Google credentials, including "Application Default Credentials".
 // For more details, see:
@@ -68,14 +66,6 @@ type CredentialsParams struct {
 	// The OAuth2 TokenURL default override. This value overrides the default TokenURL,
 	// unless explicitly specified by the credentials config file. Optional.
 	TokenURL string
-
-	// EarlyTokenRefresh is the amount of time before a token expires that a new
-	// token will be preemptively fetched. If unset the default value is 10
-	// seconds.
-	//
-	// Note: This option is currently only respected when using credentials
-	// fetched from the GCE metadata server.
-	EarlyTokenRefresh time.Duration
 }
 
 func (params CredentialsParams) deepCopy() CredentialsParams {
@@ -141,8 +131,10 @@ func FindDefaultCredentialsWithParams(ctx context.Context, params CredentialsPar
 
 	// Second, try a well-known file.
 	filename := wellKnownFile()
-	if b, err := os.ReadFile(filename); err == nil {
-		return CredentialsFromJSONWithParams(ctx, b, params)
+	if creds, err := readCredentialsFile(ctx, filename, params); err == nil {
+		return creds, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("google: error getting credentials using well-known file (%v): %v", filename, err)
 	}
 
 	// Third, if we're on a Google App Engine standard first generation runtime (<= Go 1.9)
@@ -161,12 +153,13 @@ func FindDefaultCredentialsWithParams(ctx context.Context, params CredentialsPar
 		id, _ := metadata.ProjectID()
 		return &Credentials{
 			ProjectID:   id,
-			TokenSource: computeTokenSource("", params.EarlyTokenRefresh, params.Scopes...),
+			TokenSource: ComputeTokenSource("", params.Scopes...),
 		}, nil
 	}
 
 	// None are found; return helpful error.
-	return nil, fmt.Errorf("google: could not find default credentials. See %v for more information", adcSetupURL)
+	const url = "https://developers.google.com/accounts/docs/application-default-credentials"
+	return nil, fmt.Errorf("google: could not find default credentials. See %v for more information.", url)
 }
 
 // FindDefaultCredentials invokes FindDefaultCredentialsWithParams with the specified scopes.
@@ -228,7 +221,7 @@ func wellKnownFile() string {
 }
 
 func readCredentialsFile(ctx context.Context, filename string, params CredentialsParams) (*Credentials, error) {
-	b, err := os.ReadFile(filename)
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

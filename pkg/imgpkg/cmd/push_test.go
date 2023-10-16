@@ -5,17 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1
@@ -180,7 +177,7 @@ func TestDuplicateFilepathError(t *testing.T) {
 	}
 
 	someFile := filepath.Join(fooDir, "some-file.yml")
-	err = os.WriteFile(someFile, []byte("foo: bar"), 0600)
+	err = ioutil.WriteFile(someFile, []byte("foo: bar"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %s", err)
 	}
@@ -238,93 +235,6 @@ func TestImageAndBundleLockError(t *testing.T) {
 	}
 }
 
-func TestLabels(t *testing.T) {
-	testCases := []struct {
-		name           string
-		opType         string
-		expectedError  string
-		expectedLabels map[string]string
-		labelInput     string
-	}{
-		{
-			name:           "bundle with multiple labels",
-			opType:         "bundle",
-			expectedError:  "",
-			labelInput:     "foo=bar,bar=baz",
-			expectedLabels: map[string]string{"dev.carvel.imgpkg.bundle": "true", "foo": "bar", "bar": "baz"},
-		},
-		{
-			name:           "image with multiple labels",
-			opType:         "image",
-			expectedError:  "",
-			labelInput:     "foo=bar,bar=baz",
-			expectedLabels: map[string]string{"foo": "bar", "bar": "baz"},
-		},
-		{
-			name:           "bundle with \".\" in label key",
-			opType:         "bundle",
-			expectedError:  "",
-			labelInput:     "foo.bar=baz",
-			expectedLabels: map[string]string{"dev.carvel.imgpkg.bundle": "true", "foo.bar": "baz"},
-		},
-		{
-			name:           "bundle with long label key (> 64 chars)",
-			opType:         "bundle",
-			expectedError:  "",
-			labelInput:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=baz",
-			expectedLabels: map[string]string{"dev.carvel.imgpkg.bundle": "true", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "baz"},
-		},
-		{
-			name:           "bundle with long label value (> 256 chars)",
-			opType:         "bundle",
-			expectedError:  "",
-			labelInput:     "foo=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			expectedLabels: map[string]string{"dev.carvel.imgpkg.bundle": "true", "foo": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		},
-		{
-			name:           "bundle with spaces in label value",
-			opType:         "bundle",
-			expectedError:  "",
-			labelInput:     "foo.bar=baz bar",
-			expectedLabels: map[string]string{"dev.carvel.imgpkg.bundle": "true", "foo.bar": "baz bar"},
-		},
-	}
-
-	for _, tc := range testCases {
-		f := func(t *testing.T) {
-			env := helpers.BuildEnv(t)
-			imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
-			defer env.Cleanup()
-
-			opTypeFlag := "-b"
-			pushDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
-
-			if tc.opType == "image" {
-				opTypeFlag = "-i"
-				pushDir = env.Assets.CreateAndCopySimpleApp("image-to-push")
-			}
-
-			if tc.labelInput == "" {
-				imgpkg.Run([]string{"push", opTypeFlag, env.Image, "-f", pushDir})
-			} else {
-				imgpkg.Run([]string{"push", opTypeFlag, env.Image, "-l", tc.labelInput, "-f", pushDir})
-			}
-
-			ref, _ := name.NewTag(env.Image, name.WeakValidation)
-			image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-			require.NoError(t, err)
-
-			config, err := image.ConfigFile()
-			require.NoError(t, err)
-
-			require.Equal(t, tc.expectedLabels, config.Config.Labels, "Expected labels provided via flags to match labels discovered on image")
-
-		}
-
-		t.Run(tc.name, f)
-	}
-}
-
 func Cleanup(dirs ...string) {
 	for _, dir := range dirs {
 		os.RemoveAll(dir)
@@ -341,7 +251,7 @@ func createBundleDir(loc, imagesYaml string) error {
 	if imagesYaml == "" {
 		imagesYaml = emptyImagesYaml
 	}
-	return os.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
+	return ioutil.WriteFile(filepath.Join(bundleDir, "images.yml"), []byte(imagesYaml), 0600)
 }
 
 func createEmptyBundleDir(loc string) error {

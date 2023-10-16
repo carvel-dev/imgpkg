@@ -4,18 +4,21 @@
 package main
 
 import (
-	"io"
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
-	"github.com/cppforlife/cobrautil"
 	uierrs "github.com/cppforlife/go-cli-ui/errors"
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd"
 )
 
 func main() {
-	log.SetOutput(io.Discard)
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	log.SetOutput(ioutil.Discard)
 
 	// TODO logs
 	// TODO log flags used
@@ -37,7 +40,6 @@ func main() {
 		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))
 		os.Exit(1)
 	}
-	if !cobrautil.IsCobraManagedCommand(os.Args) {
-		confUI.PrintLinef("Succeeded")
-	}
+
+	confUI.PrintLinef("Succeeded")
 }

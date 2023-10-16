@@ -6,6 +6,7 @@ package imagetar
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -137,7 +138,7 @@ func (r TarReader) getIdsFromManifest(file tarFile) (*imagedesc.ImageRefDescript
 	}
 	defer manifestFile.Close()
 
-	manifestBytes, err := io.ReadAll(manifestFile)
+	manifestBytes, err := ioutil.ReadAll(manifestFile)
 	if err != nil {
 		return nil, err
 	}
