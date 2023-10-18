@@ -6,9 +6,9 @@ package bundle
 import (
 	"fmt"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/signature"
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
 )
 
 // SignatureFetcher Interface to retrieve signatures associated with Images

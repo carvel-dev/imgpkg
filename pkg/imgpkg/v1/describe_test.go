@@ -10,16 +10,16 @@ import (
 	"strings"
 	"testing"
 
+	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	"carvel.dev/imgpkg/pkg/imgpkg/signature/cosign"
+	"carvel.dev/imgpkg/pkg/imgpkg/v1"
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/cosign"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 type testDescribe struct {

@@ -6,8 +6,8 @@ package bundle_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
 )
 
 func TestNewLocationConfigFromBytes(t *testing.T) {

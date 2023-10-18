@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
 // RegistryFlags command line flags to configure the registry connection

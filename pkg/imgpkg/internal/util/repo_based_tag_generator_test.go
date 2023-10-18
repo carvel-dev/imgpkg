@@ -6,10 +6,10 @@ package util_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedigest"
+	util "carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedigest"
-	util "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 type testDescribe struct {

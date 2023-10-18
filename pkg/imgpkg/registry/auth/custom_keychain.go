@@ -75,7 +75,7 @@ func (k CustomRegistryKeychain) Resolve(res regauthn.Resource) (regauthn.Authent
 }
 
 func (k CustomRegistryKeychain) retryDefaultKeychain(doFunc func() (regauthn.Authenticator, error)) (regauthn.Authenticator, error) {
-	// constants copied from https://github.com/vmware-tanzu/carvel-imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
+	// constants copied from https://github.com/carvel-dev/imgpkg/blob/c8b1bc196e5f1af82e6df8c36c290940169aa896/vendor/github.com/docker/docker-credential-helpers/credentials/error.go#L4-L11
 
 	// ErrCredentialsNotFound standardizes the not found error, so every helper returns
 	// the same message and docker can handle it properly.

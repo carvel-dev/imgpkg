@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedigest"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedigest"
 )
 
 // WithDigest are items that Digest() can be called on

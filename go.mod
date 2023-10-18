@@ -1,4 +1,4 @@
-module github.com/vmware-tanzu/carvel-imgpkg
+module carvel.dev/imgpkg
 
 go 1.21
 

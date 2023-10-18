@@ -5,8 +5,8 @@ package e2e
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestAuth(t *testing.T) {

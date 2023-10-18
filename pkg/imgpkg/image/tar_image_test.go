@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/image"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 )
 
 func TestTarImage(t *testing.T) {

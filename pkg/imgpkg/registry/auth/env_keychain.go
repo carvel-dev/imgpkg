@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth/credentialprovider"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/auth/credentialprovider"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 )

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	ctlimg "carvel.dev/imgpkg/pkg/imgpkg/image"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -21,7 +22,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/stretchr/testify/require"
-	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 )
 
 type ImageFactory struct {

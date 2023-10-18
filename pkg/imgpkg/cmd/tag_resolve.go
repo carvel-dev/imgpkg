@@ -6,10 +6,10 @@ package cmd
 import (
 	"fmt"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type TagResolveOptions struct {

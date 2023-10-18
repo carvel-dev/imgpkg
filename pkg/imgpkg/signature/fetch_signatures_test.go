@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/signature"
+	"carvel.dev/imgpkg/pkg/imgpkg/signature/signaturefakes"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/signature/signaturefakes"
 )
 
 func TestSignatureRetriever_Signatures(t *testing.T) {

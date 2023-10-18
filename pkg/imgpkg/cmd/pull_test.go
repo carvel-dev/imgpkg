@@ -6,9 +6,9 @@ package cmd
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestPullErrors(t *testing.T) {

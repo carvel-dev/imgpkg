@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"io"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/auth"
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
 // Keychain implements an authn.Keychain interface by composing multiple keychains.

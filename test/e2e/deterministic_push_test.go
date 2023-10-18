@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestDeterministicPush(t *testing.T) {

@@ -4,8 +4,8 @@
 package v1
 
 import (
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	regname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 // TagInfo Contains the tag name and the digest associated with the tag

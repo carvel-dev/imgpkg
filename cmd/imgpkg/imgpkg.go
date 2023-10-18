@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/cmd"
 	"github.com/cppforlife/cobrautil"
 	uierrs "github.com/cppforlife/go-cli-ui/errors"
 	"github.com/cppforlife/go-cli-ui/ui"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/cmd"
 )
 
 func main() {

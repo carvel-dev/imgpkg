@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
+	"carvel.dev/imgpkg/test/helpers"
 )
 
 func TestPushPull(t *testing.T) {

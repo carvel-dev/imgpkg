@@ -65,4 +65,4 @@ To keep source code documentation up to date, imgpkg uses [godoc](https://go.dev
 
 To view the docs
 1. install godoc: `go install golang.org/x/tools/cmd/godoc@latest`
-1. Start the server: `godoc -http=:6060` and visit [`http://localhost:6060/pkg/github.com/vmware-tanzu/carvel-imgpkg/`](http://localhost:6060/pkg/github.com/vmware-tanzu/carvel-imgpkg/).
+1. Start the server: `godoc -http=:6060` and visit [`http://localhost:6060/pkg/carvel.dev/imgpkg/`](http://localhost:6060/pkg/carvel.dev/imgpkg/).

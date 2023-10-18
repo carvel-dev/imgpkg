@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 func TestPrefixedLogger(t *testing.T) {

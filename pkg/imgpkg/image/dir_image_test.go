@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/image"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 func TestDirImage(t *testing.T) {

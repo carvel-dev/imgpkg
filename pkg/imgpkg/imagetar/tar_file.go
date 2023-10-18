@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 type tarFile struct {

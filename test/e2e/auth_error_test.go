@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestAuthErr(t *testing.T) {
