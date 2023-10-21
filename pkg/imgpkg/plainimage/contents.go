@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/crane"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -21,6 +22,7 @@ type Contents struct {
 	paths               []string
 	excludedPaths       []string
 	preservePermissions bool
+	ociTarPath          string
 }
 
 // ImagesWriter defines the needed functions to write to the registry
@@ -30,8 +32,8 @@ type ImagesWriter interface {
 }
 
 // NewContents creates the struct that represent an OCI Image based on the provided paths
-func NewContents(paths []string, excludedPaths []string, preservePermissions bool) Contents {
-	return Contents{paths: paths, excludedPaths: excludedPaths, preservePermissions: preservePermissions}
+func NewContents(paths []string, excludedPaths []string, preservePermissions bool, ociTarPath string) Contents {
+	return Contents{paths: paths, excludedPaths: excludedPaths, preservePermissions: preservePermissions, ociTarPath: ociTarPath}
 }
 
 // Push the OCI Image to the registry
@@ -46,6 +48,13 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	img, err := tarImg.AsFileImage(labels)
 	if err != nil {
 		return "", err
+	}
+
+	if i.ociTarPath != "" {
+		err = crane.SaveOCI(img, i.ociTarPath)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	defer img.Remove()

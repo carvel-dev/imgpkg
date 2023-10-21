@@ -27,6 +27,7 @@ type Contents struct {
 	paths               []string
 	excludedPaths       []string
 	preservePermissions bool
+	ociTarPath          string
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImagesMetadataWriter
@@ -38,8 +39,8 @@ type ImagesMetadataWriter interface {
 }
 
 // NewContents creates Contents struct
-func NewContents(paths []string, excludedPaths []string, preservePermissions bool) Contents {
-	return Contents{paths: paths, excludedPaths: excludedPaths, preservePermissions: preservePermissions}
+func NewContents(paths []string, excludedPaths []string, preservePermissions bool, ociTarPath string) Contents {
+	return Contents{paths: paths, excludedPaths: excludedPaths, preservePermissions: preservePermissions, ociTarPath: ociTarPath}
 }
 
 // Push the contents of the bundle to the registry as an OCI Image
@@ -54,7 +55,7 @@ func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry
 	}
 	labels[BundleConfigLabel] = "true"
 
-	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions).Push(uploadRef, labels, registry, logger)
+	return plainimage.NewContents(b.paths, b.excludedPaths, b.preservePermissions, b.ociTarPath).Push(uploadRef, labels, registry, logger)
 }
 
 // PresentsAsBundle checks if the provided folders have the needed structure to be a bundle
