@@ -9,7 +9,7 @@ import (
 
 	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
-	"carvel.dev/imgpkg/pkg/imgpkg/v1"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	goui "github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
@@ -78,11 +78,12 @@ func (d *DescribeOptions) Run() error {
 		return err
 	}
 
+	ttyEnabledLogger := util.NewUILevelLogger(logLevel, util.NewLoggerNoTTY(d.ui))
 	if d.OutputType == "text" {
-		p := bundleTextPrinter{logger: levelLogger}
+		p := bundleTextPrinter{logger: ttyEnabledLogger}
 		p.Print(description)
 	} else if d.OutputType == "yaml" {
-		p := bundleYAMLPrinter{logger: util.NewUILevelLogger(logLevel, util.NewLoggerNoTTY(d.ui))}
+		p := bundleYAMLPrinter{logger: ttyEnabledLogger}
 		return p.Print(description)
 	}
 	return nil
