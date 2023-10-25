@@ -6,9 +6,9 @@ package e2e
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	uitest "github.com/cppforlife/go-cli-ui/ui/test"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestTagList(t *testing.T) {

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"sync"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"golang.org/x/sync/errgroup"
 )
 

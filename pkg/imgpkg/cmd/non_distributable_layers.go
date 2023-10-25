@@ -6,11 +6,11 @@ package cmd
 import (
 	"fmt"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
+	ctlimgset "carvel.dev/imgpkg/pkg/imgpkg/imageset"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
-	ctlimgset "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
 )
 
 type nonDistributableLayers struct {

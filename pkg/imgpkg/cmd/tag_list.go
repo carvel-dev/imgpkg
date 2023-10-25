@@ -4,10 +4,10 @@
 package cmd
 
 import (
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	"github.com/spf13/cobra"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 	"strings"
 )
 

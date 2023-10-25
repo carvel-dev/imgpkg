@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 const emptyImagesYaml = `apiVersion: imgpkg.carvel.dev/v1alpha1

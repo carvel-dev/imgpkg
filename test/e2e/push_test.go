@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
+	"carvel.dev/imgpkg/test/helpers"
 )
 
 func TestPushBundleOfBundles(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"carvel.dev/imgpkg/test/helpers"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 type ByteSize int64

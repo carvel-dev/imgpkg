@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
+	"carvel.dev/imgpkg/test/helpers"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestPullImage(t *testing.T) {

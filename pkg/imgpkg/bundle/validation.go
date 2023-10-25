@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	plainimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	plainimg "carvel.dev/imgpkg/pkg/imgpkg/plainimage"
 )
 
 type notABundleError struct {

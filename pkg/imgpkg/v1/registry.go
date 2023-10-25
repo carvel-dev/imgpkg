@@ -6,8 +6,8 @@ package v1
 import (
 	"strings"
 
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/auth"
 )
 
 // OptsFromEnv Using the base Opts fills up the missing information using the environment variables

@@ -11,13 +11,13 @@ import (
 	"strings"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagetar"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
 type Assertion struct {

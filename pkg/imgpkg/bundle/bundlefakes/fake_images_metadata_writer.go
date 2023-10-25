@@ -7,9 +7,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
+	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 )
 
 type FakeImagesMetadataWriter struct {

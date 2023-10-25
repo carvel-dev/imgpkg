@@ -12,9 +12,9 @@ import (
 	"runtime"
 	"testing"
 
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 	"golang.org/x/sys/unix"
 )
 
@@ -27,7 +27,7 @@ func TestPull(t *testing.T) {
 
 	t.Run("Image - copies the User Permission to group and other", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
 		}
 
 		folder := env.Assets.CreateTempFolder("simple-image")
@@ -71,7 +71,7 @@ func TestPull(t *testing.T) {
 
 	t.Run("Image - when --preserve-permissions flag is provided it keeps the original permissions on the files", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
 		}
 
 		folder := env.Assets.CreateTempFolder("simple-image")
@@ -115,7 +115,7 @@ func TestPull(t *testing.T) {
 
 	t.Run("Image - copies the User Permission to group and other but skips execution because umask is set to 0111", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
 		}
 
 		folder := env.Assets.CreateTempFolder("simple-image")
@@ -174,7 +174,7 @@ func TestPull(t *testing.T) {
 
 	t.Run("Bundle - copies the User Permission to group and other", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
 		}
 
 		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
@@ -212,7 +212,7 @@ func TestPull(t *testing.T) {
 
 	t.Run("Bundle - when --preserve-permissions flag is provided it keeps the original permissions on the files", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/vmware-tanzu/carvel-imgpkg/issues/270")
+			t.Skip("Skipping test as this is a known issue: https://https://github.com/carvel-dev/imgpkg/issues/270")
 		}
 
 		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)

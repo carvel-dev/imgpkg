@@ -6,10 +6,10 @@ package v1_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/auth"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
 func TestOptsFromEnv(t *testing.T) {

@@ -6,11 +6,11 @@ package bundle_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/test/helpers"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestLocations(t *testing.T) {

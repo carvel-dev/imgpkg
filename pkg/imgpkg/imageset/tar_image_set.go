@@ -8,11 +8,11 @@ import (
 	"io"
 	"os"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
+	"carvel.dev/imgpkg/pkg/imgpkg/imagetar"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type TarImageSet struct {

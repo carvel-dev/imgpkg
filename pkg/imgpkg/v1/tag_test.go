@@ -6,10 +6,10 @@ package v1_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
+	"carvel.dev/imgpkg/test/helpers"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestTagList(t *testing.T) {

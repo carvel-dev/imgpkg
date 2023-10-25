@@ -6,11 +6,11 @@ package plainimage
 import (
 	"fmt"
 
+	ctlimg "carvel.dev/imgpkg/pkg/imgpkg/image"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	ctlimg "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
 )
 
 type ImagesDescriptor interface {

@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/auth"
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/auth"
 )
 
 type Opts struct {

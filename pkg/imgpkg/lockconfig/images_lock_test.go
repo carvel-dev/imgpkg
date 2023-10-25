@@ -6,9 +6,9 @@ package lockconfig_test
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 )
 
 func TestNewImagesLockFromBytes(t *testing.T) {

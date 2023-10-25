@@ -11,15 +11,15 @@ import (
 	"strings"
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/plainimage"
+	"carvel.dev/imgpkg/test/helpers"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
-	"github.com/vmware-tanzu/carvel-imgpkg/test/helpers"
 )
 
 func TestPullBundleWritingContentsToDisk(t *testing.T) {

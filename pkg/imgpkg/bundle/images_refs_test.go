@@ -8,14 +8,14 @@ import (
 	"os"
 	"testing"
 
+	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/bundle/bundlefakes"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	"carvel.dev/imgpkg/pkg/imgpkg/registry/registryfakes"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle/bundlefakes"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry/registryfakes"
 )
 
 func TestMain(m *testing.M) {

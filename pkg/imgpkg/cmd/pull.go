@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
+	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
-	v1 "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/v1"
 )
 
 type PullOptions struct {

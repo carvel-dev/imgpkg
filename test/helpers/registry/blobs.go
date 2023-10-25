@@ -33,8 +33,8 @@ import (
 	"strings"
 	"sync"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/imageutils/verify"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageutils/verify"
 )
 
 // Returns whether this url should be handled by the blob handler
