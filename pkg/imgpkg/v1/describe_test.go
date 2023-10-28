@@ -26,6 +26,7 @@ type testDescribe struct {
 	description            string
 	subject                testBundle
 	includeCosignArtifacts bool
+	maxDepth               int
 }
 
 func TestDescribeBundle(t *testing.T) {
@@ -303,6 +304,7 @@ func TestDescribeBundle(t *testing.T) {
 			bundleDescription, err := v1.Describe(topBundle.refDigest, v1.DescribeOpts{
 				Logger:                 logger,
 				Concurrency:            1,
+				MaxDepth:               test.maxDepth,
 				IncludeCosignArtifacts: test.includeCosignArtifacts,
 			},
 				registry.Opts{
@@ -318,7 +320,101 @@ func TestDescribeBundle(t *testing.T) {
 
 			require.Equal(t, topBundle.refDigest, bundleDescription.Image)
 
-			assertBundleResult(t, topBundle, bundleDescription)
+			assertBundleResult(t, topBundle, bundleDescription, test.maxDepth)
+		})
+	}
+}
+
+func TestDescribeBundleWithMaxDepth(t *testing.T) {
+	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+
+	allTests := []testDescribe{
+		{
+			description: "Bundle with no images",
+			subject: testBundle{
+				name: "simple/no-images-bundle",
+			},
+			maxDepth: 1,
+		},
+		{
+			description: "Bundle with only images are resolved",
+			subject: testBundle{
+				name: "simple/only-images-bundle",
+				images: []testImage{
+					{
+						testBundle{
+							name: "app/img1",
+						},
+					},
+				},
+			},
+			maxDepth: 1,
+		},
+		{
+			description: "Bundle with inner bundles",
+			subject: testBundle{
+				name: "simple/outer-bundle",
+				images: []testImage{
+					{
+						testBundle{
+							name: "app/bundle1",
+							images: []testImage{
+								{
+									testBundle{
+										name: "app/img1",
+									},
+								},
+								{
+									testBundle{
+										name: "app1/inner-bundle-not-fetched",
+										images: []testImage{
+											{
+												testBundle{
+													name: "random/img1",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxDepth: 2,
+		},
+	}
+
+	for _, test := range allTests {
+		t.Run(test.description, func(t *testing.T) {
+			fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
+			topBundle := createBundleRec(t, fakeRegBuilder, test.subject, map[string]*createdBundle{}, map[string]*helpers.ImageOrImageIndexWithTarPath{}, test.includeCosignArtifacts)
+			fakeRegBuilder.Build()
+
+			fmt.Printf("Expected structure:\n\n")
+			topBundle.Print("")
+			fmt.Printf("++++++++++++++++\n\n")
+
+			bundleDescription, err := v1.Describe(topBundle.refDigest, v1.DescribeOpts{
+				Logger:                 logger,
+				Concurrency:            1,
+				MaxDepth:               test.maxDepth,
+				IncludeCosignArtifacts: test.includeCosignArtifacts,
+			},
+				registry.Opts{
+					EnvironFunc: os.Environ,
+					RetryCount:  3,
+				},
+			)
+			require.NoError(t, err)
+
+			fmt.Printf("Result:\n\n")
+			printDescribedBundle("", bundleDescription)
+			fmt.Printf("----------------\n\n")
+
+			require.Equal(t, topBundle.refDigest, bundleDescription.Image)
+
+			assertBundleResult(t, topBundle, bundleDescription, test.maxDepth)
 		})
 	}
 
@@ -434,12 +530,25 @@ func printDescribedBundle(prefix string, bundle v1.Description) {
 	}
 }
 
-func assertBundleResult(t *testing.T, expectedBundle createdBundle, result v1.Description) {
+func assertBundleResult(t *testing.T, expectedBundle createdBundle, result v1.Description, depth int) {
 	for _, image := range expectedBundle.images {
+		if depth == 1 {
+			_, _, ok := findImageWithRef(result, image.refDigest)
+			assert.False(t, ok, fmt.Sprintf("expected to not find image %s in the bundle %s", image.refDigest, result.Image))
+			for _, innerImage := range image.images {
+				_, _, ok := findImageWithRef(result, innerImage.refDigest)
+				assert.False(t, ok, fmt.Sprintf("expected to not find inner image %s in the bundle %s", innerImage.refDigest, result.Image))
+			}
+			continue
+		}
 		if len(image.images) > 0 {
 			bundleDesc, imgInfo, ok := findImageWithRef(result, image.refDigest)
 			if assert.True(t, ok, fmt.Sprintf("unable to find bundle %s in the bundle %s", image.refDigest, result.Image)) {
-				assertBundleResult(t, image.createdBundle, bundleDesc)
+				var newDepth = depth
+				if newDepth > 1 {
+					newDepth = depth - 1
+				}
+				assertBundleResult(t, image.createdBundle, bundleDesc, newDepth)
 				if len(image.annotations) > 0 {
 					assert.Equal(t, image.annotations, imgInfo.Annotations)
 				} else {

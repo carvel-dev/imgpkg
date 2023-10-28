@@ -61,6 +61,7 @@ type Description struct {
 type DescribeOpts struct {
 	Logger                 bundle.Logger
 	Concurrency            int
+	MaxDepth               int
 	IncludeCosignArtifacts bool
 }
 
@@ -98,7 +99,7 @@ func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOp
 		return Description{}, fmt.Errorf("Only bundles can be described, and %s is not a bundle", bundleImage)
 	}
 
-	allBundles, err := newBundle.FetchAllImagesRefs(opts.Concurrency, opts.Logger, sigFetcher)
+	allBundles, err := newBundle.FetchAllImagesRefs(opts.Concurrency, opts.MaxDepth, opts.Logger, sigFetcher)
 	if err != nil {
 		return Description{}, fmt.Errorf("Retrieving Images from bundle: %s", err)
 	}
@@ -146,7 +147,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 	}
 	if newBundle == nil {
-		panic(fmt.Sprintf("Internal consistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation()))
+		return desc.bundle
 	}
 
 	imagesRefs := newBundle.ImagesRefsWithErrors()
