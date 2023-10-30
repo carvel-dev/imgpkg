@@ -4,9 +4,9 @@ package bundlefakes
 import (
 	"sync"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 type FakeImagesLockReader struct {

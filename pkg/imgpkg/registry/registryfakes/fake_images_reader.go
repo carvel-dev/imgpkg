@@ -4,10 +4,10 @@ package registryfakes
 import (
 	"sync"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 )
 
 type FakeImagesReader struct {
