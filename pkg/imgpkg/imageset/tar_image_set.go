@@ -8,8 +8,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/crane"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
@@ -123,10 +126,18 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 }
 
 // Import Copy tar with Images to the Registry
-func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
-	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
-	if err != nil {
-		return nil, err
+func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry registry.ImagesReaderWriter, tarisoci bool) (*ProcessedImages, error) {
+
+	var imgOrIndexes []imagedesc.ImageOrIndex
+	var err error
+
+	if tarisoci {
+		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci()
+	} else {
+		imgOrIndexes, err = imagetar.NewTarReader(path).Read()
+		//for testing
+		//crane.SaveOCI(*imgOrIndexes[0].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a0")
+		//crane.SaveOCI(*imgOrIndexes[1].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a1")
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)
@@ -135,4 +146,51 @@ func (i *TarImageSet) Import(path string, importRepo regname.Repository, registr
 	}
 
 	return processedImages, err
+}
+
+// change function to use accordingly
+func loadImage(path string, index bool) (partial.WithRawManifest, error) {
+	// to check if path is a tarball or a directory
+	stat, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !stat.IsDir() {
+		img, err := crane.Load(path)
+		if err != nil {
+			return nil, fmt.Errorf("loading %s as tarball: %w", path, err)
+		}
+		return img, nil
+	}
+
+	//if the path is a oci layout directory
+	l, err := layout.ImageIndexFromPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("loading %s as OCI layout: %w", path, err)
+	}
+
+	if index {
+		return l, nil
+	}
+
+	//append l.ImageIndex() to imgOrIndexes
+
+	m, err := l.IndexManifest()
+
+	if err != nil {
+		return nil, err
+	}
+	if len(m.Manifests) != 1 {
+		return nil, fmt.Errorf("layout contains %d entries, consider --index", len(m.Manifests))
+	}
+
+	desc := m.Manifests[0]
+	if desc.MediaType.IsImage() {
+		return l.Image(desc.Digest)
+	} else if desc.MediaType.IsIndex() {
+		return l.ImageIndex(desc.Digest)
+	}
+
+	return nil, fmt.Errorf("layout contains non-image (mediaType: %q), consider --index", desc.MediaType)
 }

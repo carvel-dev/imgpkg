@@ -8,10 +8,13 @@ import (
 )
 
 type OciFlags struct {
-	OciImg string
-	OciTar string
+	OcitoReg string
+	OciTar   string
 }
 
 func (o *OciFlags) Set(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.OciTar, "to-oci-tar", "", "Set OciTarPath to be saved to disk (example: /path/file.tar)")
+	cmd.Flags().StringVar(&o.OcitoReg, "oci-tar", "", "Give path to OCI tar file (example: /path/file.tar)")
 }
+
+func (o OciFlags) IsOci() bool { return o.OcitoReg != "" }

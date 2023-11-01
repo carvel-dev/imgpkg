@@ -401,6 +401,8 @@ func (r *SimpleRegistry) MultiWrite(imageOrIndexesToUpload map[regname.Reference
 	if updatesCh != nil {
 		rOpts = append(rOpts, regremote.WithProgress(updatesCh))
 	}
+
+	//THIS HERE FINAL PUSHES
 	return regremote.MultiWrite(overriddenImageOrIndexesToUploadRef, rOpts...)
 }
 
