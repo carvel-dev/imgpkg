@@ -50,7 +50,7 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	}
 
 	if i.ociTarPath != "" {
-		err = crane.SaveOCI(img, i.ociTarPath)
+		err = crane.SaveOCI(img.Image, i.ociTarPath)
 		if err != nil {
 			return "", err
 		}

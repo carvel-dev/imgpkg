@@ -23,6 +23,7 @@ type SignatureRetriever interface {
 
 type CopyRepoSrc struct {
 	ImageFlags              ImageFlags
+	OciFlags                OciFlags
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
 	TarFlags                TarFlags
@@ -66,12 +67,17 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	if c.TarFlags.IsSrc() {
+	if c.TarFlags.IsSrc() || c.OciFlags.IsOci() {
 		if c.TarFlags.IsDst() {
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		if c.OciFlags.IsOci() {
+			processedImages, err = c.tarImageSet.Import(c.OciFlags.OcitoReg, importRepo, c.registry, true)
+		} else {
+			processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, false)
+		}
+
 		if err != nil {
 			return nil, err
 		}
