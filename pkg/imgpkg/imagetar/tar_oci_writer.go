@@ -7,9 +7,24 @@ import (
 	"fmt"
 	"os"
 
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagedesc"
 )
+
+type MyImageIndex struct {
+	Index     regv1.ImageIndex
+	Reference string
+	ImageTag  string
+}
+
+func (mi MyImageIndex) Ref() string {
+	return "my-image-ref"
+}
+
+func (mi MyImageIndex) Tag() string {
+	return "latest"
+}
 
 func lmao() {
 	fmt.Println("jojop")
@@ -37,15 +52,43 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 	if err != nil {
 		return nil, err
 	}
+	//a, err := l.ImageIndex()
+
+	myImageIndex := MyImageIndex{
+		Index:     nil,
+		Reference: "",
+		ImageTag:  "",
+	}
+
+	imageOrIndex := imagedesc.ImageOrIndex{
+		Image: nil,
+		Index: &myImageIndex,
+		Labels: map[string]string{
+			"label1": "value1",
+			"label2": "value2",
+		},
+		OrigRef: "original-reference",
+	}
+
+	ref := imageOrIndex.Ref()
+	fmt.Println("Ref:", ref)
 
 	//Conversion from layout.ImageIndex to imageOrIndex
-	var imgOrIndexes []imagedesc.ImageOrIndex
+	//var imgOrIndexes imagedesc.ImageOrIndex
 	ImageIndex, err := l.ImageIndex()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("ImageIndex:", ImageIndex)
 
-	imgOrIndexes[0].Index = ImageIndex
+	// var myImageIndex imagedesc.ImageIndexWithRef = &MyImageIndex{
+	// 	Image:   someImage,    // Replace with an actual ImageIndex instance
+	// 	Index:   someIndex,    // Replace with an actual ImageIndex instance
+	// 	SomeRef: "defaultRef", // Set the default reference string
+	// 	SomeTag: "defaultTag", // Set the default tag string
+	// }
+
+	//imgOrIndexes.Index = &ImageIndex
 
 	//imgOrIndexes = append(imgOrIndexes, imagedesc.ImageOrIndex{Index: ImageIndex})
 	//Handle multiples cases when manifests in index.json are >1
@@ -62,5 +105,5 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 
 	// crane.SaveOCI(t, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/hotstuff")
 
-	return result, nil
+	return nil, nil
 }
