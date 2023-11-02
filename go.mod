@@ -10,7 +10,7 @@ require (
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/google/go-containerregistry v0.16.1
-	github.com/mattn/go-isatty v0.0.19
+	github.com/mattn/go-isatty v0.0.20
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
