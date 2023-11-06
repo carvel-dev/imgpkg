@@ -65,6 +65,49 @@ func TestRegistry_Digest(t *testing.T) {
 	})
 }
 
+func TestRegistry_TransportHeaders(t *testing.T) {
+	t.Run("when doing request to registry, imgpkg sends the header imgpkg-session-id", func(t *testing.T) {
+		expectedDigest := "sha256:477c34d98f9e090a4441cf82d2f1f03e64c8eb730e8c1ef39a8595e685d4df65"
+		server := createServer(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Docker-Content-Digest", expectedDigest)
+			require.Equal(t, "673062197574995717", r.Header.Get("imgpkg-session-id"))
+		})
+		defer server.Close()
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+
+		subject, err := registry.NewSimpleRegistry(registry.Opts{SessionID: "673062197574995717"})
+		require.NoError(t, err)
+
+		imgRef, err := name.ParseReference(fmt.Sprintf("%s/repo:latest", u.Host))
+		require.NoError(t, err)
+		_, err = subject.Digest(imgRef)
+		require.NoError(t, err)
+	})
+
+	t.Run("when doing 2 request to registry, the value in the header imgpkg-session-id does not change", func(t *testing.T) {
+		expectedDigest := "sha256:477c34d98f9e090a4441cf82d2f1f03e64c8eb730e8c1ef39a8595e685d4df65"
+		server := createServer(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Docker-Content-Digest", expectedDigest)
+			require.Equal(t, "673062197574995717", r.Header.Get("imgpkg-session-id"))
+		})
+		defer server.Close()
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+
+		subject, err := registry.NewSimpleRegistry(registry.Opts{SessionID: "673062197574995717"})
+		require.NoError(t, err)
+
+		imgRef, err := name.ParseReference(fmt.Sprintf("%s/repo:latest", u.Host))
+		require.NoError(t, err)
+		_, err = subject.Digest(imgRef)
+		require.NoError(t, err)
+
+		_, err = subject.Digest(imgRef)
+		require.NoError(t, err)
+	})
+}
+
 func createServer(handler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	response := []byte("doesn't matter")
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
