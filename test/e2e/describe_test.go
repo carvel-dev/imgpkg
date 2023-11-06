@@ -64,7 +64,7 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 				},
 			)
 
@@ -158,7 +158,7 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
 				},
 			)
 
@@ -258,7 +258,7 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
 					"-o", "text",
 				},
 			)
@@ -341,14 +341,14 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 					"-o", "yaml",
 				},
 			)
 			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
 
 			stdoutLines := strings.Split(stdout, "\n")
-			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   images:
@@ -557,7 +557,7 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
 					"-o", "yaml",
 				},
 			)
@@ -565,7 +565,7 @@ images:
 			locationsNestedBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(nestedBundleDigest[1:], ":", "-")))
 			locationsOuterBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(outerBundleDigest[1:], ":", "-")))
 			stdoutLines := strings.Split(stdout, "\n")
-			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
@@ -679,13 +679,13 @@ images:
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
-					"--tty", "--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
+					"--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
 					"--output-type", "yaml",
 				},
 			)
 
 			stdoutLines := strings.Split(stdout, "\n")
-			stdout = strings.Join(stdoutLines[:len(stdoutLines)-2], "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
