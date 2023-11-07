@@ -13,17 +13,19 @@ import (
 )
 
 type MyImageIndex struct {
-	Index     regv1.ImageIndex
-	Reference string
-	ImageTag  string
+	Index regv1.ImageIndex
 }
 
-func (mi MyImageIndex) Ref() string {
+func (mi *MyImageIndex) Ref() string {
 	return "my-image-ref"
 }
 
-func (mi MyImageIndex) Tag() string {
+func (mi *MyImageIndex) Tag() string {
 	return "latest"
+}
+
+func (mi *MyImageIndex) Digest() (regv1.Hash, error) {
+	return regv1.Hash{}, nil
 }
 
 func lmao() {
@@ -55,20 +57,22 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 	//a, err := l.ImageIndex()
 
 	myImageIndex := MyImageIndex{
-		Index:     nil,
-		Reference: "",
-		ImageTag:  "",
+		Index: nil,
 	}
 
-	imageOrIndex := imagedesc.ImageOrIndex{
-		Image: nil,
-		Index: &myImageIndex,
-		Labels: map[string]string{
-			"label1": "value1",
-			"label2": "value2",
-		},
-		OrigRef: "original-reference",
-	}
+	var i imagedesc.ImageIndexWithRef
+
+	i = &myImageIndex
+
+	// imageOrIndex := imagedesc.ImageOrIndex{
+	// 	Image: nil,
+	// 	Index: i,
+	// 	Labels: map[string]string{
+	// 		"label1": "value1",
+	// 		"label2": "value2",
+	// 	},
+	// 	OrigRef: "original-reference",
+	// }
 
 	ref := imageOrIndex.Ref()
 	fmt.Println("Ref:", ref)
