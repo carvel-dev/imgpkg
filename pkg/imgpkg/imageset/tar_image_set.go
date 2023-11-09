@@ -130,10 +130,11 @@ func (i *TarImageSet) Import(path string, importRepo regname.Repository, registr
 
 	if tarisoci {
 		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci()
+		//crane.SaveOCI(*imgOrIndexes[0].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a0")
 	} else {
 		imgOrIndexes, err = imagetar.NewTarReader(path).Read()
 		//for testing
-		//crane.SaveOCI(*imgOrIndexes[0].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a0")
+		crane.SaveOCI(*imgOrIndexes[0].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a0")
 		//crane.SaveOCI(*imgOrIndexes[1].Image, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/a1")
 	}
 
