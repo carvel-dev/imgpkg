@@ -4,7 +4,6 @@
 package imagetar
 
 import (
-	"fmt"
 	"os"
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -15,14 +14,24 @@ import (
 
 type MyImageIndex struct {
 	Index regv1.ImageIndex
+	ref   string
+	tag   string
 }
 
 func (mi MyImageIndex) Ref() string {
-	return "my-image-ref"
+	return mi.ref
+}
+
+func (mi *MyImageIndex) SetRef(ref string) {
+	mi.ref = ref
 }
 
 func (mi MyImageIndex) Tag() string {
-	return "latest"
+	return mi.tag
+}
+
+func (mi *MyImageIndex) SetTag(tag string) {
+	mi.tag = tag
 }
 
 func (mi MyImageIndex) MediaType() (types.MediaType, error) {
@@ -58,8 +67,6 @@ var _ regv1.ImageIndex = MyImageIndex{}
 
 func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 
-	//file := tarFile{r.path}
-
 	//Check if the path is a OCI layout directory
 	stat, err := os.Stat(r.path)
 	if err != nil {
@@ -71,18 +78,34 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 		return nil, err
 	}
 
-	//FromPath checks for index.json but does not check for oci-layout, so add a check for oci-layout here.
+	//TODO : FromPath checks for index.json but does not check for oci-layout, so add a check for oci-layout here.
 
 	//Get the oci layout rooted in the file system at path, layout index struct
 	l, err := layout.FromPath(r.path)
 	if err != nil {
 		return nil, err
 	}
+
 	ImageIndex, err := l.ImageIndex()
+
+	digest, err := ImageIndex.Digest()
+
+	//fmt.Println("ImageIndex's digest :", digest)
 
 	myImageIndex := MyImageIndex{
 		Index: ImageIndex,
+		ref:   "",
+		tag:   "latest",
 	}
+
+	//convert digest into a string
+	digestStr := digest.String()
+
+	ref := "index.docker.io/" + "ashpect/testrepo22@" + digestStr
+
+	//fmt.Println("Ref to be updated :", ref)
+
+	myImageIndex.SetRef(ref)
 
 	var i imagedesc.ImageIndexWithRef = myImageIndex
 
@@ -95,9 +118,6 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 		},
 		OrigRef: "original-reference",
 	}
-
-	ref := imageOrIndex.Ref()
-	fmt.Println("Ref:", ref)
 
 	//add imageOrIndex to the slice of imageOrIndex
 	var imageOrIndexSlice []imagedesc.ImageOrIndex
@@ -113,9 +133,7 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 	// if err != nil {
 	// 	return nil, err
 	// }
-
-	//print the slice
-	fmt.Println(imageOrIndexSlice)
+	// ----> file := tarFile{r.path}
 
 	//crane.SaveOCI(t, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/hotstuff")
 
