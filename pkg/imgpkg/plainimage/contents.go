@@ -13,6 +13,8 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
@@ -50,8 +52,14 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 	}
 
 	if i.ociTarPath != "" {
-		err = crane.SaveOCI(img.Image, i.ociTarPath)
+		p, err := layout.FromPath(i.ociTarPath)
 		if err != nil {
+			p, err = layout.Write(i.ociTarPath, empty.Index)
+			if err != nil {
+				return "", err
+			}
+		}
+		if err = p.AppendImage(img); err != nil {
 			return "", err
 		}
 	}
