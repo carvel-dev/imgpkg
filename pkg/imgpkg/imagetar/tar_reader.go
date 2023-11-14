@@ -151,7 +151,7 @@ func (r TarReader) getIdsFromManifest(file tarFile) (*imagedesc.ImageRefDescript
 	return ids, nil
 }
 
-func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
+func (r TarReader) ReadOci(reponame string) ([]imagedesc.ImageOrIndex, error) {
 
 	//Check if the path is a OCI layout directory
 	stat, err := os.Stat(r.path)
@@ -166,7 +166,6 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 
 	//TODO : FromPath checks for index.json but does not check for oci-layout, so add a check for oci-layout here.
 
-	//Get the oci layout rooted in the file system at path, layout index struct
 	l, err := layout.FromPath(r.path)
 	if err != nil {
 		return nil, err
@@ -174,27 +173,18 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 
 	ImageIndex, err := l.ImageIndex()
 
-	digest, err := ImageIndex.Digest()
-
-	//fmt.Println("ImageIndex's digest :", digest)
-
-	myImageIndex := imagedesc.ImageIndexIntermediate{
+	ImageIndexIntermediate := imagedesc.ImageIndexIntermediate{
 		Index: ImageIndex,
 	}
 
-	fmt.Println("ImageIndex's tag :", myImageIndex.Tag())
-	fmt.Println("ImageIndex's ref :", myImageIndex.Ref())
-
-	//convert digest into a string
+	// Update ref
+	digest, err := ImageIndex.Digest()
 	digestStr := digest.String()
+	ref := reponame + "@" + digestStr
+	ImageIndexIntermediate.SetRef(ref)
 
-	ref := "index.docker.io/" + "ashpect/testrepo22@" + digestStr
-
-	//fmt.Println("Ref to be updated :", ref)
-
-	myImageIndex.SetRef(ref)
-
-	var i imagedesc.ImageIndexWithRef = myImageIndex
+	// Create and populate imageOrIndex
+	var i imagedesc.ImageIndexWithRef = ImageIndexIntermediate
 
 	imageOrIndex := imagedesc.ImageOrIndex{
 		Image: nil,
@@ -206,23 +196,9 @@ func (r TarReader) ReadOci() ([]imagedesc.ImageOrIndex, error) {
 		OrigRef: "original-reference",
 	}
 
-	//add imageOrIndex to the slice of imageOrIndex
+	//Add imageOrIndex to the slice of imageOrIndex
 	var imageOrIndexSlice []imagedesc.ImageOrIndex
 	imageOrIndexSlice = append(imageOrIndexSlice, imageOrIndex)
-
-	//imgOrIndexes = append(imgOrIndexes, imagedesc.ImageOrIndex{Index: ImageIndex})
-	//Handle multiples cases when manifests in index.json are >1
-
-	//IMP
-	//ok is the bool that tells us if the image is an image or an index
-	//t is the v1.Image or v1.ImageIndex
-	// t, _ := ImageIndex.(v1.Image)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// ----> file := tarFile{r.path}
-
-	//crane.SaveOCI(t, "/Users/ashishkumarsingh/Desktop/stuff/ashpect/imgpkg/cmd/imgpkg/hotstuff")
 
 	return imageOrIndexSlice, nil
 }
