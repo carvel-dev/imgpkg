@@ -5,8 +5,10 @@ package image
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -179,4 +181,131 @@ func (i *TarImage) isExcluded(relPath string) bool {
 		}
 	}
 	return false
+}
+
+func CreateOciTarFileAndDeleteFolder(source, target string) error {
+
+	tarFile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer tarFile.Close()
+
+	gzipWriter := gzip.NewWriter(tarFile)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+
+		header.Name, err = filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(tarWriter, file)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(source)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ExtractOciTarGz(tarGzFilePath string) (string, error) {
+	// Create a temporary directory
+	tempDir, err := ioutil.TempDir("", "imgpkg-oci-extract-")
+	if err != nil {
+		return "", err
+	}
+	//defer os.RemoveAll(tempDir) // Clean up the temporary directory when done
+
+	// Open the tar.gz file
+	tarGzFile, err := os.Open(tarGzFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer tarGzFile.Close()
+
+	// Create a gzip reader
+	gzipReader, err := gzip.NewReader(tarGzFile)
+	if err != nil {
+		return "", err
+	}
+	defer gzipReader.Close()
+
+	// Create a tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// Extract files to the temporary directory
+	for {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break // End of archive
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		// Construct the full path to the file in the temporary directory
+		targetPath := filepath.Join(tempDir, header.Name)
+
+		// Check if the file is a directory
+		if header.FileInfo().IsDir() {
+			// Create the directory
+			err := os.MkdirAll(targetPath, os.ModePerm)
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		// Create the file
+		file, err := os.Create(targetPath)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+
+		// Copy the file contents
+		_, err = io.Copy(file, tarReader)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return tempDir, nil
 }
