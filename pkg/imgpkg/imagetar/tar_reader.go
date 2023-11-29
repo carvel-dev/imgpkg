@@ -160,8 +160,7 @@ func (r TarReader) ReadOci(reponame string) ([]imagedesc.ImageOrIndex, error) {
 	}
 
 	if !stat.IsDir() {
-		//give error "not a directory"
-		return nil, err
+		return nil, fmt.Errorf("path %s is not a directory", r.path)
 	}
 
 	//TODO : FromPath checks for index.json but does not check for oci-layout, so add a check for oci-layout here.

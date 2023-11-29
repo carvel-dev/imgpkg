@@ -8,7 +8,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -243,69 +242,56 @@ func CreateOciTarFileAndDeleteFolder(source, target string) error {
 	return nil
 }
 
-func ExtractOciTarGz(tarGzFilePath string) (string, error) {
-	// Create a temporary directory
-	tempDir, err := ioutil.TempDir("", "imgpkg-oci-extract-")
-	if err != nil {
-		return "", err
-	}
-	//defer os.RemoveAll(tempDir) // Clean up the temporary directory when done
+func ExtractOciTarGz(inputDir, extractDir string) error {
 
-	// Open the tar.gz file
-	tarGzFile, err := os.Open(tarGzFilePath)
+	if !strings.HasSuffix(inputDir, ".tar.gz") {
+		return fmt.Errorf("inputDir '%s' is not a tar.gz file", inputDir)
+	}
+
+	tarGzFile, err := os.Open(inputDir)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer tarGzFile.Close()
 
-	// Create a gzip reader
 	gzipReader, err := gzip.NewReader(tarGzFile)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer gzipReader.Close()
 
 	// Create a tar reader
 	tarReader := tar.NewReader(gzipReader)
-
-	// Extract files to the temporary directory
 	for {
 		header, err := tarReader.Next()
 
 		if err == io.EOF {
 			break // End of archive
 		}
-
 		if err != nil {
-			return "", err
+			return err
 		}
+		targetPath := filepath.Join(extractDir, header.Name)
 
-		// Construct the full path to the file in the temporary directory
-		targetPath := filepath.Join(tempDir, header.Name)
-
-		// Check if the file is a directory
 		if header.FileInfo().IsDir() {
-			// Create the directory
 			err := os.MkdirAll(targetPath, os.ModePerm)
 			if err != nil {
-				return "", err
+				return err
 			}
 			continue
 		}
 
-		// Create the file
 		file, err := os.Create(targetPath)
 		if err != nil {
-			return "", err
+			return err
 		}
 		defer file.Close()
 
-		// Copy the file contents
 		_, err = io.Copy(file, tarReader)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
-	return tempDir, nil
+	return nil
 }
