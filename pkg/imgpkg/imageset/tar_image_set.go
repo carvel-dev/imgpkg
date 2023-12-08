@@ -129,7 +129,7 @@ func (i *TarImageSet) Import(path string, importRepo regname.Repository, registr
 	var err error
 
 	if tarisoci {
-		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci(importRepo.Name())
+		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci(importRepo)
 	} else {
 		imgOrIndexes, err = imagetar.NewTarReader(path).Read()
 	}

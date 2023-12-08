@@ -14,6 +14,72 @@ type ImageIndexIntermediate struct {
 	tag   string
 }
 
+type ImageIntermediate struct {
+	Image regv1.Image
+	ref   string
+	tag   string
+}
+
+func (mi ImageIntermediate) Ref() string {
+	return mi.ref
+}
+
+func (mi *ImageIntermediate) SetRef(ref string) {
+	mi.ref = ref
+}
+
+func (mi ImageIntermediate) Tag() string {
+	return mi.tag
+}
+
+func (mi *ImageIntermediate) SetTag(tag string) {
+	mi.tag = tag
+}
+
+func (mi ImageIntermediate) Layers() ([]regv1.Layer, error) {
+	return mi.Image.Layers()
+}
+
+func (mi ImageIntermediate) MediaType() (types.MediaType, error) {
+	return mi.Image.MediaType()
+}
+
+func (mi ImageIntermediate) Size() (int64, error) {
+	return mi.Image.Size()
+}
+
+func (mi ImageIntermediate) ConfigName() (regv1.Hash, error) {
+	return mi.Image.ConfigName()
+}
+
+func (mi ImageIntermediate) ConfigFile() (*regv1.ConfigFile, error) {
+	return mi.Image.ConfigFile()
+}
+
+func (mi ImageIntermediate) RawConfigFile() ([]byte, error) {
+	return mi.Image.RawConfigFile()
+}
+
+func (mi ImageIntermediate) Digest() (regv1.Hash, error) {
+	return mi.Image.Digest()
+}
+
+func (mi ImageIntermediate) Manifest() (*regv1.Manifest, error) {
+	return mi.Image.Manifest()
+}
+
+func (mi ImageIntermediate) RawManifest() ([]byte, error) {
+	return mi.Image.RawManifest()
+}
+
+func (mi ImageIntermediate) LayerByDigest(h regv1.Hash) (regv1.Layer, error) {
+	return mi.Image.LayerByDigest(h)
+}
+
+func (mi ImageIntermediate) LayerByDiffID(h regv1.Hash) (regv1.Layer, error) {
+	return mi.Image.LayerByDiffID(h)
+}
+
 func (mi ImageIndexIntermediate) Ref() string {
 	return mi.ref
 }
@@ -59,3 +125,4 @@ func (mi ImageIndexIntermediate) ImageIndex(h regv1.Hash) (regv1.ImageIndex, err
 }
 
 var _ regv1.ImageIndex = ImageIndexIntermediate{}
+var _ regv1.Image = ImageIntermediate{}

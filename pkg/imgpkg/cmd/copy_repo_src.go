@@ -95,33 +95,36 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, err
 		}
 
-		var parentBundle *ctlbundle.Bundle
-		foundRootBundle := false
-		for _, processedImage := range processedImages.All() {
-			if processedImage.ImageIndex != nil {
-				continue
-			}
-
-			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
-				if foundRootBundle {
-					panic("Internal inconsistency: expected only 1 root bundle")
+		// This is added to not read the lockfile and change the ref for oci-flag. Will be removed once we add an inflate option to copy the refs.
+		if !c.OciFlags.IsOci() {
+			var parentBundle *ctlbundle.Bundle
+			foundRootBundle := false
+			for _, processedImage := range processedImages.All() {
+				if processedImage.ImageIndex != nil {
+					continue
 				}
-				foundRootBundle = true
-				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
-				lockReader := ctlbundle.NewImagesLockReader()
-				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
-			}
-		}
 
-		if foundRootBundle {
-			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
-			if err != nil {
-				return nil, err
+				if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+					if foundRootBundle {
+						panic("Internal inconsistency: expected only 1 root bundle")
+					}
+					foundRootBundle = true
+					pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
+					lockReader := ctlbundle.NewImagesLockReader()
+					parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
+				}
 			}
 
-			for _, bundle := range bundles {
-				if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
-					return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			if foundRootBundle {
+				bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+				if err != nil {
+					return nil, err
+				}
+
+				for _, bundle := range bundles {
+					if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+						return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+					}
 				}
 			}
 		}
