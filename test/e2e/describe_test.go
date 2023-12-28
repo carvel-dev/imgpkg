@@ -67,11 +67,13 @@ images:
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 				},
 			)
-
+			fmt.Printf("\n\nOutput: %s\n\n", stdout)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Image
     Origin: %s%s
+	Layers:
+	- Digest: "sha256:a37f35f3e418ea6c1b339df0fc89c8d3155d937740445906ba71466996fac625"
     Annotations:
       some.annotation: some value
       some.other.annotation: some other value
@@ -80,19 +82,27 @@ images:
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
+	Layers:
+	  - Digest: "sha256:4197c5ac7fb0ba1e597a2377a1b58332d10f6de53dce9c89fd96a3f37034f88b"
     Annotations:
       tag: %s
 `, env.RelocationRepo, imgSigDigest, imgSigTag))
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
+	Layers:
+	  - Digest: "sha256:28014a7e4bef0b7c3f1da47d095f8bb131f474bd5fc96caa4d6125818220b00e"
     Annotations:
       tag: %s
 `, env.RelocationRepo, bundleSigDigest, bundleSigTag))
 
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
-    Type: Internal`, env.RelocationRepo, locationsImgDigest))
+    Type: Internal
+	Layers:
+	  - 
+	  Digest: "sha256:5d43e9fc8f1ad1b339b5f37bb050b150640ad2c1594345178f1fb38656583a94"
+`, env.RelocationRepo, locationsImgDigest))
 		})
 	})
 
