@@ -12,7 +12,10 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
 	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	"carvel.dev/imgpkg/pkg/imgpkg/signature"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	regname "github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 // Author information from a Bundle
@@ -40,6 +43,7 @@ type ImageInfo struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	ImageType   bundle.ImageType  `json:"imageType"`
 	Error       string            `json:"error,omitempty"`
+	Layers      []string          `json:"layers,omitempty"`
 }
 
 // Content Contents present in a Bundle
@@ -55,6 +59,7 @@ type Description struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Metadata    Metadata          `json:"metadata,omitempty"`
 	Content     Content           `json:"content"`
+	Layers      []string          `json:"layers,omitempty"`
 }
 
 // DescribeOpts Options used when calling the Describe function
@@ -125,6 +130,29 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		return desc.bundle
 	}
 
+	layers := []string{}
+	parsedImgRef, err := regname.ParseReference(currentBundle.Image, regname.WeakValidation)
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
+	}
+
+	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
+	}
+
+	imgLayers, err := v1Img.Layers()
+	if err != nil {
+		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
+	}
+
+	for _, imgLayer := range imgLayers {
+		digHash, err := imgLayer.Digest()
+		if err != nil {
+			panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
+		}
+		layers = append(layers, digHash.String())
+	}
 	desc = refWithDescription{
 		imgRef: currentBundle,
 		bundle: Description{
@@ -136,6 +164,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 				Bundles: map[string]Description{},
 				Images:  map[string]ImageInfo{},
 			},
+			Layers: layers,
 		},
 	}
 	var newBundle *bundle.Bundle
@@ -150,6 +179,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	}
 
 	imagesRefs := newBundle.ImagesRefsWithErrors()
+
 	sort.Slice(imagesRefs, func(i, j int) bool {
 		return imagesRefs[i].Image < imagesRefs[j].Image
 	})
@@ -172,11 +202,36 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 				if err != nil {
 					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", ref.Image))
 				}
+				layers = []string{}
+				parsedImgRef, err = regname.ParseReference(ref.Image, regname.WeakValidation)
+				if err != nil {
+					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
+				}
+
+				v1Img, err = remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+				if err != nil {
+					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
+				}
+
+				imgLayers, err = v1Img.Layers()
+				if err != nil {
+					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
+				}
+
+				for _, imgLayer := range imgLayers {
+					digHash, err := imgLayer.Digest()
+					if err != nil {
+						panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
+					}
+					layers = append(layers, digHash.String())
+				}
+
 				desc.bundle.Content.Images[digest.DigestStr()] = ImageInfo{
 					Image:       ref.PrimaryLocation(),
 					Origin:      ref.Image,
 					Annotations: ref.Annotations,
 					ImageType:   ref.ImageType,
+					Layers:      layers,
 				}
 			} else {
 				desc.bundle.Content.Images[ref.Image] = ImageInfo{
