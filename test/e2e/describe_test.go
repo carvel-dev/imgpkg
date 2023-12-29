@@ -67,42 +67,46 @@ images:
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 				},
 			)
-			fmt.Printf("\n\nOutput: %s\n\n", stdout)
+
+			digestSha := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + imageDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Image
     Origin: %s%s
-	Layers:
-	- Digest: "sha256:a37f35f3e418ea6c1b339df0fc89c8d3155d937740445906ba71466996fac625"
+    Layers:
+      - Digest: %s
     Annotations:
       some.annotation: some value
       some.other.annotation: some other value
-`, env.RelocationRepo, imageDigest, env.Image, imageDigest))
+`, env.RelocationRepo, imageDigest, env.Image, imageDigest, digestSha[0]))
 
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + imgSigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
-	Layers:
-	  - Digest: "sha256:4197c5ac7fb0ba1e597a2377a1b58332d10f6de53dce9c89fd96a3f37034f88b"
+    Layers:
+      - Digest: %s
     Annotations:
       tag: %s
-`, env.RelocationRepo, imgSigDigest, imgSigTag))
+`, env.RelocationRepo, imgSigDigest, digestSha[0], imgSigTag))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + bundleSigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
-	Layers:
-	  - Digest: "sha256:28014a7e4bef0b7c3f1da47d095f8bb131f474bd5fc96caa4d6125818220b00e"
+    Layers:
+      - Digest: %s
     Annotations:
       tag: %s
-`, env.RelocationRepo, bundleSigDigest, bundleSigTag))
+`, env.RelocationRepo, bundleSigDigest, digestSha[0], bundleSigTag))
 
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Internal
-	Layers:
-	  - 
-	  Digest: "sha256:5d43e9fc8f1ad1b339b5f37bb050b150640ad2c1594345178f1fb38656583a94"
-`, env.RelocationRepo, locationsImgDigest))
+    Layers:
+      - Digest: %s
+`, env.RelocationRepo, locationsImgDigest, digestSha[0]))
 		})
 	})
 
@@ -175,39 +179,61 @@ images:
 			locationsNestedBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(nestedBundleDigest[1:], ":", "-")))
 			locationsOuterBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(outerBundleDigest[1:], ":", "-")))
 
+			digestSha := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + nestedBundleDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Bundle
     Origin: %s%s
+    Layers:
+      - Digest: %s
     Annotations:
       what is this: this is the nested bundle
-`, env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest))
+`, env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest, digestSha[0]))
 
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img1Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s%s
       Type: Image
       Origin: %s
-`, env.RelocationRepo, img1Digest, img1DigestRef))
+      Layers:
+        - Digest: %s
+`, env.RelocationRepo, img1Digest, img1DigestRef, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img2Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s%s
       Type: Image
       Origin: %s
-`, env.RelocationRepo, img2Digest, img2DigestRef))
+      Layers:
+        - Digest: %s
+`, env.RelocationRepo, img2Digest, img2DigestRef, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s@%s
       Type: Internal
-`, env.RelocationRepo, locationsNestedBundleImgDigest))
+      Layers:
+        - Digest: %s
+`, env.RelocationRepo, locationsNestedBundleImgDigest, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img1Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Image
     Origin: %s
+    Layers:
+      - Digest: %s
     Annotations:
       what is this: this is just an image
-`, env.RelocationRepo, img1Digest, img1DigestRef))
+`, env.RelocationRepo, img1Digest, img1DigestRef, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Internal
-`, env.RelocationRepo, locationsOuterBundleImgDigest))
+    Layers:
+      - Digest: %s
+`, env.RelocationRepo, locationsOuterBundleImgDigest, digestSha[0]))
 		})
 	})
 
@@ -273,33 +299,51 @@ images:
 				},
 			)
 
+			digestSha := env.ImageFactory.GetImageLayerDigest(nestedBundle + nestedBundleDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Bundle
     Origin: %s%s
-`, nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest))
+    Layers:
+      - Digest: %s
+`, nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(img1DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
       Origin: %s
-`, img1DigestRef, img1DigestRef))
+      Layers:
+        - Digest: %s
+`, img1DigestRef, img1DigestRef, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(img2DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
       Origin: %s
-`, img2DigestRef, img2DigestRef))
+      Layers:
+        - Digest: %s
+`, img2DigestRef, img2DigestRef, digestSha[0]))
+
+			digestSha = env.ImageFactory.GetImageLayerDigest(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s@%s
       Type: Signature
+      Layers:
+        - Digest: %s
       Annotations:
         tag: %s
-`, imgRef.Context().Name()+"-img2", img2SigDigest, img2SigTag))
+`, imgRef.Context().Name()+"-img2", img2SigDigest, digestSha[0], img2SigTag))
 
+			digestSha = env.ImageFactory.GetImageLayerDigest(img1DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
       Origin: %s
-`, img1DigestRef, img1DigestRef))
+      Layers:
+        - Digest: %s
+`, img1DigestRef, img1DigestRef, digestSha[0]))
 		})
 	})
 }
@@ -359,6 +403,11 @@ images:
 
 			stdoutLines := strings.Split(stdout, "\n")
 			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
+			digestSha1 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + imageDigest)
+			digestSha2 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + bundleSigDigest)
+			digestSha3 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + imgSigDigest)
+			digestSha4 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsImgDigest)
+			digestSha5 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + bundleDigest)
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   images:
@@ -368,42 +417,56 @@ content:
         some.other.annotation: some other value
       image: %s%s
       imageType: Image
+      layers:
+      - digest: %s
       origin: %s%s
     "%s":
       annotations:
         tag: %s
       image: %s@%s
       imageType: Signature
+      layers:
+      - digest: %s
       origin: %s@%s
     "%s":
       annotations:
         tag: %s
       image: %s@%s
       imageType: Signature
+      layers:
+      - digest: %s
       origin: %s@%s
     "%s":
       image: %s@%s
       imageType: Internal
+      layers:
+      - digest: %s
       origin: %s@%s
 image: %s%s
+layers:
+- digest: %s
 metadata: {}
 origin: %s%s
 `, bundleDigest[1:],
 				imageDigest[1:],
 				env.RelocationRepo, imageDigest,
+				digestSha1[0],
 				env.Image, imageDigest,
 				bundleSigDigest,
 				bundleSigTag,
 				env.RelocationRepo, bundleSigDigest,
+				digestSha2[0],
 				env.RelocationRepo, bundleSigDigest,
 				imgSigDigest,
 				imgSigTag,
 				env.RelocationRepo, imgSigDigest,
+				digestSha3[0],
 				env.RelocationRepo, imgSigDigest,
 				locationsImgDigest,
 				env.RelocationRepo, locationsImgDigest,
+				digestSha4[0],
 				env.RelocationRepo, locationsImgDigest,
-				env.RelocationRepo, bundleDigest, env.RelocationRepo, bundleDigest), stdout)
+				env.RelocationRepo, bundleDigest, digestSha5[0], env.RelocationRepo, bundleDigest), stdout)
 		})
 	})
 
@@ -456,7 +519,11 @@ images:
 				},
 			)
 			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
-
+			digestSha1 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + imageDigest)
+			digestSha2 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + bundleSigDigest)
+			digestSha3 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + imgSigDigest)
+			digestSha4 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsImgDigest)
+			digestSha5 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + bundleDigest)
 			require.YAMLEq(t, fmt.Sprintf(`content:
   images:
     "%s":
@@ -465,43 +532,53 @@ images:
         some.other.annotation: some other value
       image: %s%s
       imageType: Image
+      layers:
+      - digest: %s
       origin: %s%s
     "%s":
       annotations:
         tag: %s
       image: %s@%s
       imageType: Signature
+      layers:
+      - digest: %s
       origin: %s@%s
     "%s":
       annotations:
         tag: %s
       image: %s@%s
       imageType: Signature
+      layers:
+      - digest: %s
       origin: %s@%s
     "%s":
       image: %s@%s
       imageType: Internal
+      layers:
+      - digest: %s
       origin: %s@%s
 metadata: {}
 image: %s%s
+layers:
+- digest: %s
 origin: %s%s
 sha: %s
 `,
 				imageDigest[1:],
-				env.RelocationRepo, imageDigest,
+				env.RelocationRepo, imageDigest, digestSha1[0],
 				env.Image, imageDigest,
 				bundleSigDigest,
 				bundleSigTag,
-				env.RelocationRepo, bundleSigDigest,
+				env.RelocationRepo, bundleSigDigest, digestSha2[0],
 				env.RelocationRepo, bundleSigDigest,
 				imgSigDigest,
 				imgSigTag,
-				env.RelocationRepo, imgSigDigest,
+				env.RelocationRepo, imgSigDigest, digestSha3[0],
 				env.RelocationRepo, imgSigDigest,
 				locationsImgDigest,
+				env.RelocationRepo, locationsImgDigest, digestSha4[0],
 				env.RelocationRepo, locationsImgDigest,
-				env.RelocationRepo, locationsImgDigest,
-				env.RelocationRepo, bundleDigest, env.RelocationRepo, bundleDigest, bundleDigest[1:]), stdout)
+				env.RelocationRepo, bundleDigest, digestSha5[0], env.RelocationRepo, bundleDigest, bundleDigest[1:]), stdout)
 		})
 	})
 
@@ -576,6 +653,13 @@ images:
 			locationsOuterBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(outerBundleDigest[1:], ":", "-")))
 			stdoutLines := strings.Split(stdout, "\n")
 			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
+			digestSha1 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img1Digest)
+			digestSha2 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img2Digest)
+			digestSha3 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
+			digestSha4 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + nestedBundleDigest)
+			digestSha5 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + img1Digest)
+			digestSha6 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
+			digestSha7 := env.ImageFactory.GetImageLayerDigest(env.RelocationRepo + outerBundleDigest)
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
@@ -587,16 +671,24 @@ content:
           "%s":
             image: %s%s
             imageType: Image
+            layers:
+            - digest: %s
             origin: %s
           "%s":
             image: %s%s
             imageType: Image
+            layers:
+            - digest: %s
             origin: %s
           "%s":
             image: %s@%s
             imageType: Internal
+            layers:
+            - digest: %s
             origin: %s@%s
       image: %s%s
+      layers:
+      - digest: %s
       metadata: {}
       origin: %s%s
   images:
@@ -605,29 +697,35 @@ content:
         what is this: this is just an image
       image: %s%s
       imageType: Image
+      layers:
+      - digest: %s
       origin: %s
     "%s":
       image: %s@%s
       imageType: Internal
+      layers:
+      - digest: %s
       origin: %s@%s
 image: %s%s
+layers:
+- digest: %s
 metadata: {}
 origin: %s%s
 `,
 				outerBundleDigest[1:],
 				nestedBundleDigest[1:],
 				img1Digest[1:],
-				env.RelocationRepo, img1Digest, img1DigestRef,
+				env.RelocationRepo, img1Digest, digestSha1[0], img1DigestRef,
 				img2Digest[1:],
-				env.RelocationRepo, img2Digest, img2DigestRef,
+				env.RelocationRepo, img2Digest, digestSha2[0], img2DigestRef,
 				locationsNestedBundleImgDigest,
-				env.RelocationRepo, locationsNestedBundleImgDigest, env.RelocationRepo, locationsNestedBundleImgDigest,
-				env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest,
+				env.RelocationRepo, locationsNestedBundleImgDigest, digestSha3[0], env.RelocationRepo, locationsNestedBundleImgDigest,
+				env.RelocationRepo, nestedBundleDigest, digestSha4[0], nestedBundle, nestedBundleDigest,
 				img1Digest[1:],
-				env.RelocationRepo, img1Digest, img1DigestRef,
+				env.RelocationRepo, img1Digest, digestSha5[0], img1DigestRef,
 				locationsOuterBundleImgDigest,
-				env.RelocationRepo, locationsOuterBundleImgDigest, env.RelocationRepo, locationsOuterBundleImgDigest,
-				env.RelocationRepo, outerBundleDigest, env.RelocationRepo, outerBundleDigest,
+				env.RelocationRepo, locationsOuterBundleImgDigest, digestSha6[0], env.RelocationRepo, locationsOuterBundleImgDigest,
+				env.RelocationRepo, outerBundleDigest, digestSha7[0], env.RelocationRepo, outerBundleDigest,
 			), stdout)
 		})
 	})
@@ -696,6 +794,12 @@ images:
 
 			stdoutLines := strings.Split(stdout, "\n")
 			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
+			digestSha1 := env.ImageFactory.GetImageLayerDigest(img1DigestRef)
+			digestSha2 := env.ImageFactory.GetImageLayerDigest(img2DigestRef)
+			digestSha3 := env.ImageFactory.GetImageLayerDigest(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
+			digestSha4 := env.ImageFactory.GetImageLayerDigest(nestedBundle + nestedBundleDigest)
+			digestSha5 := env.ImageFactory.GetImageLayerDigest(img1DigestRef)
+			digestSha6 := env.ImageFactory.GetImageLayerDigest(outerBundle + outerBundleDigest)
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
@@ -705,43 +809,55 @@ content:
           "%s":
             image: %s
             imageType: Image
+            layers:
+            - digest: %s
             origin: %s
           "%s":
             image: %s
             imageType: Image
+            layers:
+            - digest: %s
             origin: %s
           "%s":
             annotations:
               tag: %s
             image: %s@%s
             imageType: Signature
+            layers:
+            - digest: %s
             origin: %s@%s
       image: %s%s
+      layers:
+      - digest: %s
       metadata: {}
       origin: %s%s
   images:
     "%s":
       image: %s
       imageType: Image
+      layers:
+      - digest: %s
       origin: %s
 image: %s%s
+layers:
+- digest: %s
 metadata: {}
 origin: %s%s
 `,
 				outerBundleDigest[1:],
 				nestedBundleDigest[1:],
 				img1Digest[1:],
-				img1DigestRef, img1DigestRef,
+				img1DigestRef, digestSha1[0], img1DigestRef,
 				img2Digest[1:],
-				img2DigestRef, img2DigestRef,
+				img2DigestRef, digestSha2[0], img2DigestRef,
 				img2SigDigest,
 				img2SigTag,
+				imgRef.Context().Name()+"-img2", img2SigDigest, digestSha3[0],
 				imgRef.Context().Name()+"-img2", img2SigDigest,
-				imgRef.Context().Name()+"-img2", img2SigDigest,
-				nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest,
+				nestedBundle, nestedBundleDigest, digestSha4[0], nestedBundle, nestedBundleDigest,
 				img1Digest[1:],
-				img1DigestRef, img1DigestRef,
-				outerBundle, outerBundleDigest, outerBundle, outerBundleDigest,
+				img1DigestRef, digestSha5[0], img1DigestRef,
+				outerBundle, outerBundleDigest, digestSha6[0], outerBundle, outerBundleDigest,
 			), stdout)
 		})
 	})

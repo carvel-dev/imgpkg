@@ -42,6 +42,25 @@ func (i *ImageFactory) ImageDigest(imgRef string) string {
 	return digest.String()
 }
 
+// GetImageLayerDigest will return image's layer digest
+func (i *ImageFactory) GetImageLayerDigest(image string) []string {
+	parsedImgRef, err := name.ParseReference(image, name.WeakValidation)
+	require.NoError(i.T, err)
+
+	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	imgLayers, err := v1Img.Layers()
+	require.NoError(i.T, err)
+	digestSha := []string{}
+	for _, imgLayer := range imgLayers {
+		digHash, err := imgLayer.Digest()
+		require.NoError(i.T, err)
+		digestSha = append(digestSha, digHash.String())
+	}
+	return digestSha
+}
+
 func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string, mediaType types.MediaType) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)

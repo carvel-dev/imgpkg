@@ -36,6 +36,11 @@ type Metadata struct {
 	Websites []Website         `json:"websites,omitempty"`
 }
 
+// Layers image layers info
+type Layers struct {
+	Digest string `json:"digest,omitempty"`
+}
+
 // ImageInfo URLs where the image can be found as well as annotations provided in the Images Lock
 type ImageInfo struct {
 	Image       string            `json:"image,omitempty"`
@@ -43,7 +48,7 @@ type ImageInfo struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	ImageType   bundle.ImageType  `json:"imageType"`
 	Error       string            `json:"error,omitempty"`
-	Layers      []string          `json:"layers,omitempty"`
+	Layers      []Layers          `json:"layers,omitempty"`
 }
 
 // Content Contents present in a Bundle
@@ -59,7 +64,7 @@ type Description struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Metadata    Metadata          `json:"metadata,omitempty"`
 	Content     Content           `json:"content"`
-	Layers      []string          `json:"layers,omitempty"`
+	Layers      []Layers          `json:"layers,omitempty"`
 }
 
 // DescribeOpts Options used when calling the Describe function
@@ -111,7 +116,7 @@ func DescribeWithRegistryAndSignatureFetcher(bundleImage string, opts DescribeOp
 	topBundle := refWithDescription{
 		imgRef: bundle.NewBundleImageRef(lockconfig.ImageRef{Image: newBundle.DigestRef()}),
 	}
-	return topBundle.DescribeBundle(allBundles), nil
+	return topBundle.DescribeBundle(allBundles)
 }
 
 type refWithDescription struct {
@@ -119,40 +124,22 @@ type refWithDescription struct {
 	bundle Description
 }
 
-func (r *refWithDescription) DescribeBundle(bundles []*bundle.Bundle) Description {
+func (r *refWithDescription) DescribeBundle(bundles []*bundle.Bundle) (Description, error) {
 	var visitedImgs map[string]refWithDescription
 	return r.describeBundleRec(visitedImgs, r.imgRef, bundles)
 }
 
-func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle bundle.ImageRef, bundles []*bundle.Bundle) Description {
+func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDescription, currentBundle bundle.ImageRef, bundles []*bundle.Bundle) (Description, error) {
 	desc, wasVisited := visitedImgs[currentBundle.Image]
 	if wasVisited {
-		return desc.bundle
+		return desc.bundle, nil
 	}
 
-	layers := []string{}
-	parsedImgRef, err := regname.ParseReference(currentBundle.Image, regname.WeakValidation)
+	layers, err := getImageLayersInfo(currentBundle.Image)
 	if err != nil {
-		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
+		return desc.bundle, err
 	}
 
-	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
-	}
-
-	imgLayers, err := v1Img.Layers()
-	if err != nil {
-		panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
-	}
-
-	for _, imgLayer := range imgLayers {
-		digHash, err := imgLayer.Digest()
-		if err != nil {
-			panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", currentBundle.Image, err.Error()))
-		}
-		layers = append(layers, digHash.String())
-	}
 	desc = refWithDescription{
 		imgRef: currentBundle,
 		bundle: Description{
@@ -175,57 +162,40 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 	}
 	if newBundle == nil {
-		panic(fmt.Sprintf("Internal consistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation()))
+		return desc.bundle, fmt.Errorf("Internal inconsistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation())
 	}
 
 	imagesRefs := newBundle.ImagesRefsWithErrors()
-
 	sort.Slice(imagesRefs, func(i, j int) bool {
 		return imagesRefs[i].Image < imagesRefs[j].Image
 	})
 
 	for _, ref := range imagesRefs {
 		if ref.IsBundle == nil {
-			panic("Internal consistency: IsBundle after processing must always have a value")
+			return desc.bundle, fmt.Errorf("Internal inconsistency: IsBundle after processing must always have a value")
 		}
 
 		if *ref.IsBundle {
-			bundleDesc := r.describeBundleRec(visitedImgs, ref, bundles)
+			bundleDesc, err := r.describeBundleRec(visitedImgs, ref, bundles)
+			if err != nil {
+				return desc.bundle, err
+			}
+
 			digest, err := name.NewDigest(bundleDesc.Image)
 			if err != nil {
-				panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", bundleDesc.Image))
+				return desc.bundle, fmt.Errorf("Internal inconsistency: image %s should be fully resolved", bundleDesc.Image)
 			}
 			desc.bundle.Content.Bundles[digest.DigestStr()] = bundleDesc
 		} else {
 			if ref.Error == "" {
 				digest, err := name.NewDigest(ref.Image)
 				if err != nil {
-					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved", ref.Image))
+					return desc.bundle, fmt.Errorf("Internal inconsistency: image %s should be fully resolved", ref.Image)
 				}
-				layers = []string{}
-				parsedImgRef, err = regname.ParseReference(ref.Image, regname.WeakValidation)
+				layers, err = getImageLayersInfo(ref.Image)
 				if err != nil {
-					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
+					return desc.bundle, err
 				}
-
-				v1Img, err = remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-				if err != nil {
-					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
-				}
-
-				imgLayers, err = v1Img.Layers()
-				if err != nil {
-					panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
-				}
-
-				for _, imgLayer := range imgLayers {
-					digHash, err := imgLayer.Digest()
-					if err != nil {
-						panic(fmt.Sprintf("Internal inconsistency: image %s should be fully resolved, error: %s", ref.Image, err.Error()))
-					}
-					layers = append(layers, digHash.String())
-				}
-
 				desc.bundle.Content.Images[digest.DigestStr()] = ImageInfo{
 					Image:       ref.PrimaryLocation(),
 					Origin:      ref.Image,
@@ -242,5 +212,32 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 		}
 	}
 
-	return desc.bundle
+	return desc.bundle, nil
+}
+
+func getImageLayersInfo(image string) ([]Layers, error) {
+	layers := []Layers{}
+	parsedImgRef, err := regname.ParseReference(image, regname.WeakValidation)
+	if err != nil {
+		return nil, fmt.Errorf("Error: %s in parsing image %s", err.Error(), image)
+	}
+
+	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return nil, fmt.Errorf("Error: %s in getting remote access of image %s", err.Error(), image)
+	}
+
+	imgLayers, err := v1Img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("Error: %s in getting layers of image %s", err.Error(), image)
+	}
+
+	for _, imgLayer := range imgLayers {
+		digHash, err := imgLayer.Digest()
+		if err != nil {
+			return nil, fmt.Errorf("Error: %s in getting digest of layer's of image %s", err.Error(), image)
+		}
+		layers = append(layers, Layers{Digest: digHash.String()})
+	}
+	return layers, nil
 }
