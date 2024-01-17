@@ -42,8 +42,8 @@ func (i *ImageFactory) ImageDigest(imgRef string) string {
 	return digest.String()
 }
 
-// GetImageLayerDigest will return image's layer digest
-func (i *ImageFactory) GetImageLayerDigest(image string) []string {
+// GetImageLayersDigest will return image's layers digest
+func (i *ImageFactory) GetImageLayersDigest(image string) []string {
 	parsedImgRef, err := name.ParseReference(image, name.WeakValidation)
 	require.NoError(i.T, err)
 
