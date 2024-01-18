@@ -138,6 +138,10 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		indentLogger.Logf("- Image: %s\n", b.Image)
 		indentLogger.Logf("  Type: Bundle\n")
 		indentLogger.Logf("  Origin: %s\n", b.Origin)
+		indentLogger.Logf("  Layers:\n")
+		for _, d := range b.Layers {
+			indentLogger.Logf("    - Digest: %s\n", d.Digest)
+		}
 		annotations := b.Annotations
 
 		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
@@ -159,6 +163,10 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		indentLogger.Logf("  Type: %s\n", image.ImageType)
 		if image.ImageType == bundle.ContentImage {
 			indentLogger.Logf("  Origin: %s\n", image.Origin)
+		}
+		indentLogger.Logf("  Layers:\n")
+		for _, d := range image.Layers {
+			indentLogger.Logf("    - Digest: %s\n", d.Digest)
 		}
 		annotations := image.Annotations
 		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
