@@ -41,8 +41,8 @@ images:
     kbld.carvel.dev/id: cloudfoundry/syslog-server@sha256:bb1aa0d603eff716245f25c832ad9b9bca569059f48bd2b5a9a792486f453427
   image: index.docker.io/cloudfoundry/syslog-server@sha256:bb1aa0d603eff716245f25c832ad9b9bca569059f48bd2b5a9a792486f453427
 - annotations:
-    kbld.carvel.dev/id: gcr.io/paketo-community/python@sha256:5fc81b8f38f326f0247468c14b4eb66b36e5f925db12f9ea8df1ec57f9e61d94
-  image: gcr.io/paketo-community/python@sha256:5fc81b8f38f326f0247468c14b4eb66b36e5f925db12f9ea8df1ec57f9e61d94
+    kbld.carvel.dev/id: index.docker.io/paketocommunity/python/python@sha256:1228cfb8003f830b178b9b8a227889cae32df1aed74a746f2ac59b6bb8e88961
+  image: index.docker.io/paketocommunity/python@sha256:1228cfb8003f830b178b9b8a227889cae32df1aed74a746f2ac59b6bb8e88961
 - annotations:
     kbld.carvel.dev/id: index.docker.io/bitnami/postgresql@sha256:0f76a419cfd9996036e3a53672f50cf69ed7699f1241cbf8e20af17bbbdf0683
   image: index.docker.io/bitnami/postgresql@sha256:0f76a419cfd9996036e3a53672f50cf69ed7699f1241cbf8e20af17bbbdf0683
