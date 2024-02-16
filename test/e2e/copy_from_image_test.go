@@ -365,6 +365,26 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 	})
 }
 
+func TestCopyImageWithLayersThatDoNotFollowSpec(t *testing.T) {
+	const helmChartSHA = "sha256:f247f3b9467b611bc970d14d890b0f65b1128786f1bbb4712bc02fa59f58f9f8"
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	logger := helpers.Logger{}
+	tag := time.Now().UnixNano()
+
+	logger.Section(fmt.Sprintf("Copy tar of helm chart to the registry '%d'", tag), func() {
+		imgpkg.Run([]string{"copy", "--tar", "./assets/helm-chart.tar",
+			"--to-repo", env.RelocationRepo})
+	})
+
+	logger.Section("Copy Image using the Tag", func() {
+		imgpkg.Run([]string{"copy", "--image", fmt.Sprintf("%s@%v", env.RelocationRepo, helmChartSHA),
+			"--to-repo", env.RelocationRepo + "-1"})
+	})
+}
+
 func TestCopyErrors(t *testing.T) {
 	logger := helpers.Logger{}
 	t.Run("When copying an Image using the -b flag", func(t *testing.T) {
