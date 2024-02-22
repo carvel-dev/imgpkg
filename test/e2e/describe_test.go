@@ -861,4 +861,115 @@ origin: %s%s
 			), stdout)
 		})
 	})
+
+	t.Run("when describing relocated bundle does not reach to original images", func(t *testing.T) {
+		env := helpers.BuildEnv(t)
+		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+		defer env.Cleanup()
+		fakeRegistryBuilder := helpers.NewFakeRegistry(t, logger)
+		const (
+			username = "some-user"
+			password = "some-password"
+		)
+		fakeRegistryBuilder.WithBasicAuth(username, password)
+		_ = fakeRegistryBuilder.Build()
+		defer fakeRegistryBuilder.CleanUp()
+
+		imgRef, err := regname.ParseReference(env.Image)
+		require.NoError(t, err)
+
+		var img1DigestRef, img1Digest string
+		logger.Section("create 2 simple images", func() {
+			img1DigestRef = fakeRegistryBuilder.ReferenceOnTestServer(imgRef.Context().RepositoryStr() + "-img1")
+			img1Digest = env.ImageFactory.PushSimpleAppImageWithRandomFileWithAuth(imgpkg, img1DigestRef, fakeRegistryBuilder.Host(), username, password)
+			img1DigestRef = img1DigestRef + img1Digest
+		})
+
+		privateBundle := fakeRegistryBuilder.ReferenceOnTestServer(imgRef.Context().RepositoryStr() + "-bundle")
+		privateBundleDigest := ""
+		logger.Section("create bundle", func() {
+			imageLockYAML := fmt.Sprintf(`---
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+images:
+- image: %s
+`, img1DigestRef)
+
+			bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, imageLockYAML)
+			out, err := imgpkg.RunWithOpts([]string{"push", "--tty", "-b", privateBundle, "-f", bundleDir}, helpers.RunOpts{
+				EnvVars: []string{
+					"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistryBuilder.Host(),
+					"IMGPKG_REGISTRY_USERNAME=" + username,
+					"IMGPKG_REGISTRY_PASSWORD=" + password,
+				},
+			})
+			require.NoError(t, err)
+			privateBundleDigest = fmt.Sprintf("@%s", helpers.ExtractDigest(t, out))
+		})
+
+		publicBundle := env.RelocationRepo
+		logger.Section("copy bundle to different registry", func() {
+			_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-b", privateBundle + privateBundleDigest, "--to-repo", publicBundle}, helpers.RunOpts{
+				EnvVars: []string{
+					"IMGPKG_REGISTRY_HOSTNAME=" + fakeRegistryBuilder.Host(),
+					"IMGPKG_REGISTRY_USERNAME=" + username,
+					"IMGPKG_REGISTRY_PASSWORD=" + password,
+				},
+			})
+			require.NoError(t, err)
+		})
+
+		logger.Section("executes describe command", func() {
+			stdout := imgpkg.Run(
+				[]string{"describe",
+					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, privateBundleDigest),
+					"-o", "yaml",
+				},
+			)
+
+			locationsPublicBundleImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(privateBundleDigest[1:], ":", "-")))
+			stdoutLines := strings.Split(stdout, "\n")
+			stdout = strings.Join(stdoutLines[:len(stdoutLines)-1], "\n")
+			digestSha1 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img1Digest)
+			digestSha3 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsPublicBundleImgDigest)
+			digestSha4 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + privateBundleDigest)
+			require.YAMLEq(t, fmt.Sprintf(`sha: %s
+content:
+  images:
+    "%s":
+      image: %s%s
+      imageType: Image
+      layers:
+      - digest: %s
+      origin: %s
+    "%s":
+      image: %s@%s
+      imageType: Internal
+      layers:
+      - digest: %s
+      origin: %s@%s
+image: %s%s
+layers:
+- digest: %s
+metadata: {}
+origin: %s%s
+`,
+				privateBundleDigest[1:], // Bundle SHA
+
+				img1Digest[1:],
+				env.RelocationRepo, img1Digest,
+				digestSha1[0], // Image 1 Layer digest
+				img1DigestRef, // Origin Ref
+
+				locationsPublicBundleImgDigest,
+				env.RelocationRepo, locationsPublicBundleImgDigest,
+				digestSha3[0], // Locations Image Digest
+				env.RelocationRepo, locationsPublicBundleImgDigest,
+
+				env.RelocationRepo, privateBundleDigest, // Bundle Image with digest
+				digestSha4[0], // Bundle layer digest
+				env.RelocationRepo, privateBundleDigest,
+			), stdout)
+		})
+	})
 }
