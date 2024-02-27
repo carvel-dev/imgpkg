@@ -30,6 +30,7 @@ type DescribeOptions struct {
 
 	Concurrency            int
 	OutputType             string
+	Layers                 bool
 	IncludeCosignArtifacts bool
 }
 
@@ -53,6 +54,7 @@ func NewDescribeCmd(o *DescribeOptions) *cobra.Command {
 	o.RegistryFlags.Set(cmd)
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().StringVarP(&o.OutputType, "output-type", "o", "text", "Type of output possible values: [text, yaml]")
+	cmd.Flags().BoolVarP(&o.Layers, "layers", "", true, "Retrieve image layers info (Default: false)")
 	cmd.Flags().BoolVar(&o.IncludeCosignArtifacts, "cosign-artifacts", true, "Retrieve cosign artifact information (Default: true)")
 	return cmd
 }
@@ -72,6 +74,7 @@ func (d *DescribeOptions) Run() error {
 			Logger:                 levelLogger,
 			Concurrency:            d.Concurrency,
 			IncludeCosignArtifacts: d.IncludeCosignArtifacts,
+			Layers:                 d.Layers,
 		},
 		d.RegistryFlags.AsRegistryOpts())
 	if err != nil {
@@ -138,9 +141,11 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		indentLogger.Logf("- Image: %s\n", b.Image)
 		indentLogger.Logf("  Type: Bundle\n")
 		indentLogger.Logf("  Origin: %s\n", b.Origin)
-		indentLogger.Logf("  Layers:\n")
-		for _, d := range b.Layers {
-			indentLogger.Logf("    - Digest: %s\n", d.Digest)
+		if len(b.Layers) > 0 {
+			indentLogger.Logf("  Layers:\n")
+			for _, d := range b.Layers {
+				indentLogger.Logf("    - Digest: %s\n", d.Digest)
+			}
 		}
 		annotations := b.Annotations
 
@@ -164,9 +169,11 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		if image.ImageType == bundle.ContentImage {
 			indentLogger.Logf("  Origin: %s\n", image.Origin)
 		}
-		indentLogger.Logf("  Layers:\n")
-		for _, d := range image.Layers {
-			indentLogger.Logf("    - Digest: %s\n", d.Digest)
+		if len(image.Layers) > 0 {
+			indentLogger.Logf("  Layers:\n")
+			for _, d := range image.Layers {
+				indentLogger.Logf("    - Digest: %s\n", d.Digest)
+			}
 		}
 		annotations := image.Annotations
 		p.printAnnotations(annotations, util.NewIndentedLogger(indentLogger))
