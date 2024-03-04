@@ -195,12 +195,12 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 			desc.bundle.Content.Bundles[digest.DigestStr()] = bundleDesc
 		} else {
 			if ref.Error == "" {
-				digest, err := name.NewDigest(ref.Image)
+				digest, err := name.NewDigest(ref.PrimaryLocation())
 				if err != nil {
 					return desc.bundle, fmt.Errorf("Internal inconsistency: image %s should be fully resolved", ref.Image)
 				}
 				if showLayers {
-					layers, err = getImageLayersInfo(ref.Image)
+					layers, err = getImageLayersInfo(ref.PrimaryLocation())
 					if err != nil {
 						return desc.bundle, err
 					}
