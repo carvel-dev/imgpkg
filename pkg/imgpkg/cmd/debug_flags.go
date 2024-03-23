@@ -1,12 +1,13 @@
-// Copyright 2020 VMware, Inc.
+// Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 package cmd
 
 import (
+	"os"
+
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 // DebugFlags indicates debugging

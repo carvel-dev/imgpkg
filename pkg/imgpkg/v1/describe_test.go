@@ -1,4 +1,4 @@
-// Copyright 2022 VMware, Inc.
+// Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 package v1_test
@@ -14,7 +14,7 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
 	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	"carvel.dev/imgpkg/pkg/imgpkg/signature/cosign"
-	"carvel.dev/imgpkg/pkg/imgpkg/v1"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"carvel.dev/imgpkg/test/helpers"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
