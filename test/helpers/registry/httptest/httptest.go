@@ -1,4 +1,4 @@
-// Copyright 2022 VMware, Inc.
+// Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 // Copied from https://github.com/google/go-containerregistry/tree/v0.8.0/internal

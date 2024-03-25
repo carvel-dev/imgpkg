@@ -1,14 +1,15 @@
-// Copyright 2020 VMware, Inc.
+// Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 package cmd
 
 import (
+	"strings"
+
 	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/cppforlife/go-cli-ui/ui"
 	uitable "github.com/cppforlife/go-cli-ui/ui/table"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 type TagListOptions struct {
