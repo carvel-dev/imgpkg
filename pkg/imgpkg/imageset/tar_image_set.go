@@ -123,10 +123,15 @@ func (i TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath string
 }
 
 // Import Copy tar with Images to the Registry
-func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
-	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
-	if err != nil {
-		return nil, err
+func (i *TarImageSet) Import(path string, importRepo regname.Repository, registry registry.ImagesReaderWriter, tarisoci bool) (*ProcessedImages, error) {
+
+	var imgOrIndexes []imagedesc.ImageOrIndex
+	var err error
+
+	if tarisoci {
+		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci(importRepo)
+	} else {
+		imgOrIndexes, err = imagetar.NewTarReader(path).Read()
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)

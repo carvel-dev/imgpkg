@@ -71,6 +71,7 @@ func (i ImageSet) Export(foundImages *UnprocessedImageRefs,
 	return ids, nil
 }
 
+// this pushes probably to a registry
 func (i *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 	importRepo regname.Repository, registry registry.ImagesReaderWriter) (*ProcessedImages, error) {
 

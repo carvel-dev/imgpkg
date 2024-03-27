@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
@@ -15,6 +17,15 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/plainimage"
 	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	regname "github.com/google/go-containerregistry/pkg/name"
+	ctlbundle "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/bundle"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/image"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	ctlimgset "github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imageset"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/imagetar"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/internal/util"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/plainimage"
+	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/registry"
 )
 
 type SignatureRetriever interface {
@@ -23,6 +34,7 @@ type SignatureRetriever interface {
 
 type CopyRepoSrc struct {
 	ImageFlags              ImageFlags
+	OciFlags                OciFlags
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
 	TarFlags                TarFlags
@@ -60,49 +72,67 @@ func (c CopyRepoSrc) CopyToTar(dstPath string, resume bool) error {
 func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.logger.Tracef("CopyToRepo(%s)\n", repo)
 
+	var tempDir string
 	var processedImages *ctlimgset.ProcessedImages
 	importRepo, err := regname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	if c.TarFlags.IsSrc() {
+	if c.TarFlags.IsSrc() || c.OciFlags.IsOci() {
 		if c.TarFlags.IsDst() {
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
 
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		if c.OciFlags.IsOci() {
+			tempDir, err := ioutil.TempDir("", "imgpkg-oci-extract-")
+			if err != nil {
+				return nil, err
+			}
+			err = image.ExtractOciTarGz(c.OciFlags.OcitoReg, tempDir)
+			if err != nil {
+				return nil, err
+			}
+			processedImages, err = c.tarImageSet.Import(tempDir, importRepo, c.registry, true)
+
+		} else {
+			processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, false)
+		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		var parentBundle *ctlbundle.Bundle
-		foundRootBundle := false
-		for _, processedImage := range processedImages.All() {
-			if processedImage.ImageIndex != nil {
-				continue
-			}
-
-			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
-				if foundRootBundle {
-					panic("Internal inconsistency: expected only 1 root bundle")
+		// This is added to not read the lockfile and change the ref for oci-flag. Will be removed once we add an inflate option to copy the refs.
+		if !c.OciFlags.IsOci() {
+			var parentBundle *ctlbundle.Bundle
+			foundRootBundle := false
+			for _, processedImage := range processedImages.All() {
+				if processedImage.ImageIndex != nil {
+					continue
 				}
-				foundRootBundle = true
-				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
-				lockReader := ctlbundle.NewImagesLockReader()
-				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
-			}
-		}
 
-		if foundRootBundle {
-			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
-			if err != nil {
-				return nil, err
+				if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+					if foundRootBundle {
+						panic("Internal inconsistency: expected only 1 root bundle")
+					}
+					foundRootBundle = true
+					pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
+					lockReader := ctlbundle.NewImagesLockReader()
+					parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
+				}
 			}
 
-			for _, bundle := range bundles {
-				if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
-					return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			if foundRootBundle {
+				bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+				if err != nil {
+					return nil, err
+				}
+
+				for _, bundle := range bundles {
+					if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+						return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+					}
 				}
 			}
 		}
@@ -131,6 +161,11 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	err = c.tagAllImages(processedImages)
 	if err != nil {
 		return nil, fmt.Errorf("Tagging images: %s", err)
+	}
+
+	err = os.RemoveAll(tempDir)
+	if err != nil {
+		fmt.Println("Error cleaning up temporary directory:", err)
 	}
 
 	return processedImages, nil

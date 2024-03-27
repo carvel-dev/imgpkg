@@ -20,6 +20,7 @@ type PushOptions struct {
 	ui ui.UI
 
 	ImageFlags      ImageFlags
+	OciFlags        OciFlags
 	BundleFlags     BundleFlags
 	LockOutputFlags LockOutputFlags
 	FileFlags       FileFlags
@@ -40,10 +41,14 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
   # Push bundle repo/app1-config with contents of config/ directory
   imgpkg push -b repo/app1-config -f config/
 
+  #Push bundle saving the tar as OCI tar
+  imgpkg push -b repo/app1-config -f config/ --to-oci-tar /path/to/file.tar
+
   # Push image repo/app1-config with contents from multiple locations
   imgpkg push -i repo/app1-config -f config/ -f additional-config.yml`,
 	}
 	o.ImageFlags.Set(cmd)
+	o.OciFlags.Set(cmd)
 	o.BundleFlags.Set(cmd)
 	o.LockOutputFlags.SetOnPush(cmd)
 	o.FileFlags.Set(cmd)
@@ -104,7 +109,7 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions, po.OciFlags.OciTar).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +145,7 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", po.ImageFlags.Image, err)
 	}
 
-	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).PresentsAsBundle()
+	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions, po.OciFlags.OciTar).PresentsAsBundle()
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +154,7 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 	}
 
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions, po.OciFlags.OciTar).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
 }
 
 // validateFlags checks if the provided flags are valid

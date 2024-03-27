@@ -23,6 +23,7 @@ type CopyOptions struct {
 	ui ui.UI
 
 	ImageFlags      ImageFlags
+	OciFlags        OciFlags
 	BundleFlags     BundleFlags
 	LockInputFlags  LockInputFlags
 	LockOutputFlags LockOutputFlags
@@ -72,6 +73,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	}
 
 	o.ImageFlags.SetCopy(cmd)
+	o.OciFlags.Set(cmd)
 	o.BundleFlags.SetCopy(cmd)
 	o.LockInputFlags.Set(cmd)
 	o.LockOutputFlags.SetOnCopy(cmd)
@@ -125,6 +127,7 @@ func (c *CopyOptions) Run() error {
 
 	repoSrc := CopyRepoSrc{
 		ImageFlags:              c.ImageFlags,
+		OciFlags:                c.OciFlags,
 		BundleFlags:             c.BundleFlags,
 		LockInputFlags:          c.LockInputFlags,
 		TarFlags:                c.TarFlags,
@@ -260,6 +263,9 @@ func (c *CopyOptions) hasOneSrc() bool {
 			}
 			seen = true
 		}
+	}
+	if c.OciFlags.IsOci() {
+		seen = true
 	}
 	return seen
 }
