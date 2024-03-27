@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
@@ -25,6 +26,7 @@ type PushOptions struct {
 	FileFlags       FileFlags
 	RegistryFlags   RegistryFlags
 	LabelFlags      LabelFlags
+	TagFlags        TagFlags
 }
 
 func NewPushOptions(ui ui.UI) *PushOptions {
@@ -49,6 +51,7 @@ func NewPushCmd(o *PushOptions) *cobra.Command {
 	o.FileFlags.Set(cmd)
 	o.RegistryFlags.Set(cmd)
 	o.LabelFlags.Set(cmd)
+	o.TagFlags.Set(cmd)
 
 	return cmd
 }
@@ -92,19 +95,41 @@ func (po *PushOptions) Run() error {
 		panic("Unreachable code")
 	}
 
-	po.ui.BeginLinef("Pushed '%s'", imageURL)
+	po.ui.BeginLinef("\nPushed: \n%s\n", imageURL)
 
 	return nil
 }
 
 func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
-	uploadRef, err := regname.NewTag(po.BundleFlags.Bundle, regname.WeakValidation)
+	imageURL := ""
+	imageRefs := []string{}
+
+	baseImageName, err := po.stripTag()
+	if err != nil {
+		return "", err
+	}
+
+	baseRef, err := regname.NewTag(po.BundleFlags.Bundle, regname.WeakValidation)
 	if err != nil {
 		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
 	}
 
+	// Append the base image_tag to the list of refs to upload
+	uploadRefs := []regname.Tag{baseRef}
+
+	// Loop through all tags specified by the user and push the related image+tag
+	for _, tag := range po.TagFlags.Tags {
+		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
+		if err != nil {
+			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
+		}
+
+		uploadRefs = append(uploadRefs, uploadRef)
+	}
+
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	imageURL, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+
+	imageURL, err = bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs, po.LabelFlags.Labels, registry, logger)
 	if err != nil {
 		return "", err
 	}
@@ -116,8 +141,9 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 				Kind:       lockconfig.BundleLockKind,
 			},
 			Bundle: lockconfig.BundleRef{
-				Image: imageURL,
-				Tag:   uploadRef.TagStr(),
+				Image:     imageURL,
+				Tag:       uploadRefs[0].TagStr(),
+				OtherTags: strings.Join(po.TagFlags.Tags, ","),
 			},
 		}
 
@@ -127,17 +153,21 @@ func (po *PushOptions) pushBundle(registry registry.Registry) (string, error) {
 		}
 	}
 
-	return imageURL, nil
+	if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+		imageRefs = append(imageRefs, imageURL)
+	}
+
+	po.ui.BeginLinef("\nTags: %s, %s\n", baseRef.TagStr(), strings.Join(po.TagFlags.Tags, ", "))
+
+	return strings.Join(imageRefs, "\n"), nil
 }
 
 func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
+	imageURL := ""
+	imageRefs := []string{}
+
 	if po.LockOutputFlags.LockFilePath != "" {
 		return "", fmt.Errorf("Lock output is not compatible with image, use bundle for lock output")
-	}
-
-	uploadRef, err := regname.NewTag(po.ImageFlags.Image, regname.WeakValidation)
-	if err != nil {
-		return "", fmt.Errorf("Parsing '%s': %s", po.ImageFlags.Image, err)
 	}
 
 	isBundle, err := bundle.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).PresentsAsBundle()
@@ -148,8 +178,43 @@ func (po *PushOptions) pushImage(registry registry.Registry) (string, error) {
 		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
 	}
 
+	baseImageName, err := po.stripTag()
+	if err != nil {
+		return "", err
+	}
+
+	baseRef, err := regname.NewTag(po.ImageFlags.Image, regname.WeakValidation)
+	if err != nil {
+		return "", fmt.Errorf("Parsing '%s': %s", po.BundleFlags.Bundle, err)
+	}
+
+	// Append the base image_tag to the list of refs to upload
+	uploadRefs := []regname.Tag{baseRef}
+
+	// Loop through all tags specified by the user and push the related image+tag
+	for _, tag := range po.TagFlags.Tags {
+		uploadRef, err := regname.NewTag(baseImageName+":"+tag, regname.WeakValidation)
+		if err != nil {
+			return "", fmt.Errorf("Parsing '%s': %s", tag, err)
+		}
+
+		uploadRefs = append(uploadRefs, uploadRef)
+	}
+
 	logger := util.NewUILevelLogger(util.LogWarn, util.NewLogger(po.ui))
-	return plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRef, po.LabelFlags.Labels, registry, logger)
+
+	imageURL, err = plainimage.NewContents(po.FileFlags.Files, po.FileFlags.ExcludedFilePaths, po.FileFlags.PreservePermissions).Push(uploadRefs, po.LabelFlags.Labels, registry, logger)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(strings.Join(imageRefs, ","), imageURL) {
+		imageRefs = append(imageRefs, imageURL)
+	}
+
+	po.ui.BeginLinef("\nTags: %s, %s\n", baseRef.TagStr(), strings.Join(po.TagFlags.Tags, ", "))
+
+	return strings.Join(imageRefs, "\n"), nil
 }
 
 // validateFlags checks if the provided flags are valid
@@ -164,4 +229,35 @@ func (po *PushOptions) validateFlags() error {
 
 	return nil
 
+}
+
+// stripTag removes the tag from the provided image or bundle reference
+func (po *PushOptions) stripTag() (string, error) {
+	object := ""
+	isBundle := po.BundleFlags.Bundle != ""
+	isImage := po.ImageFlags.Image != ""
+
+	switch {
+	case isBundle:
+		object = po.BundleFlags.Bundle
+
+	case isImage:
+		object = po.ImageFlags.Image
+
+	default:
+		panic("Unreachable code")
+	}
+
+	objectRef, err := regname.NewTag(object, regname.WeakValidation)
+	if err != nil {
+		return "", fmt.Errorf("Parsing '%s': %s", object, err)
+	}
+
+	baseObjectName := strings.TrimSuffix(objectRef.Name(), ":"+objectRef.TagStr())
+
+	if baseObjectName == "" {
+		return "", fmt.Errorf("'%s' is not a valid image reference", object)
+	}
+
+	return baseObjectName, nil
 }

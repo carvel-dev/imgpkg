@@ -325,6 +325,118 @@ func TestLabels(t *testing.T) {
 	}
 }
 
+func TestTags(t *testing.T) {
+	testCases := []struct {
+		name          string
+		opType        string
+		expectedError string
+		expectedTags  []string
+		tagInput      string
+		inlineTag     string
+	}{
+		{
+			name:          "bundle with one inline tag",
+			opType:        "bundle",
+			expectedError: "",
+			tagInput:      "",
+			expectedTags:  []string{"v1.0.1"},
+			inlineTag:     "v1.0.1",
+		},
+		{
+			name:          "bundle with one tag via flag",
+			opType:        "bundle",
+			expectedError: "",
+			tagInput:      "v1.0.1",
+			expectedTags:  []string{"v1.0.1", "latest"},
+			inlineTag:     "",
+		},
+		{
+			name:          "bundle with inline tag and tag via flag",
+			opType:        "bundle",
+			expectedError: "",
+			tagInput:      "v1.2.0-alpha,latest",
+			expectedTags:  []string{"v1.0.1", "v1.2.0-alpha", "latest"},
+			inlineTag:     "v1.0.1",
+		},
+		{
+			name:          "bundle with multiple tags via flag",
+			opType:        "bundle",
+			expectedError: "",
+			tagInput:      "v1.0.1,v1.0.2",
+			expectedTags:  []string{"v1.0.1", "v1.0.2", "latest"},
+			inlineTag:     "",
+		},
+		{
+			name:          "image with one inline tag",
+			opType:        "image",
+			expectedError: "",
+			tagInput:      "",
+			expectedTags:  []string{"v1.0.1"},
+			inlineTag:     "v1.0.1",
+		},
+		{
+			name:          "image with one tag via flag",
+			opType:        "image",
+			expectedError: "",
+			tagInput:      "v1.0.1",
+			expectedTags:  []string{"v1.0.1", "latest"},
+			inlineTag:     "",
+		},
+		{
+			name:          "image with inline tag and tags via flag",
+			opType:        "image",
+			expectedError: "",
+			tagInput:      "latest,stable",
+			expectedTags:  []string{"v1.0.1", "latest"},
+			inlineTag:     "v1.0.1",
+		},
+	}
+
+	for _, tc := range testCases {
+		f := func(t *testing.T) {
+			env := helpers.BuildEnv(t)
+			targetImage := env.Image
+			imgpkg := helpers.Imgpkg{T: t, ImgpkgPath: env.ImgpkgPath}
+			defer env.Cleanup()
+
+			opTypeFlag := "-b"
+			pushDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
+
+			if tc.opType == "image" {
+				opTypeFlag = "-i"
+				pushDir = env.Assets.CreateAndCopySimpleApp("image-to-push")
+			}
+
+			if tc.inlineTag != "" {
+				targetImage = env.Image + ":" + tc.inlineTag
+			}
+
+			if tc.tagInput == "" {
+				imgpkg.Run([]string{"push", opTypeFlag, targetImage, "-f", pushDir})
+			} else {
+				imgpkg.Run([]string{"push", opTypeFlag, targetImage, "--additional-tags", tc.tagInput, "-f", pushDir})
+			}
+
+			// Loop through expected tags and validate they exist on the image
+			for _, tag := range tc.expectedTags {
+				ref, _ := name.NewTag(env.Image+":"+tag, name.WeakValidation)
+				image, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+				require.NoError(t, err)
+
+				tagList := imgpkg.Run([]string{"tag", "ls", "-i", env.Image + ":" + tag})
+
+				_, err = image.ConfigFile()
+				require.NoError(t, err)
+
+				require.Contains(t, tagList, tag, "Expected tags provided via flags to match tags discovered for image")
+
+			}
+		}
+
+		t.Run(tc.name, f)
+	}
+}
+
 func Cleanup(dirs ...string) {
 	for _, dir := range dirs {
 		os.RemoveAll(dir)
