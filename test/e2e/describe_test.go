@@ -919,6 +919,8 @@ images:
 			require.NoError(t, err)
 		})
 
+		// cleanup fake registry as it is not needed anymore
+		fakeRegistryBuilder.CleanUp()
 		logger.Section("executes describe command", func() {
 			stdout := imgpkg.Run(
 				[]string{"describe",
