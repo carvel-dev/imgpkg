@@ -2,6 +2,8 @@ module github.com/vmware-tanzu/carvel-imgpkg
 
 go 1.22
 
+toolchain go1.22.3
+
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220517224237-e6f29200ae04
 	github.com/cheggaaa/pb/v3 v3.1.4
