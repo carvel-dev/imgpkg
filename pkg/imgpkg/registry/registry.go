@@ -199,7 +199,7 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper) (*Sim
 
 	sessionID := opts.SessionID
 	if sessionID == "" {
-		sessionID = fmt.Sprint(rand.Intn(9999999999))
+		sessionID = fmt.Sprint(rand.Int31())
 	}
 	baseRoundTripper = NewImgpkgRoundTripper(baseRoundTripper, sessionID)
 
