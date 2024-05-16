@@ -87,7 +87,7 @@ func TestDirImage(t *testing.T) {
 			"folder_group/exec_perm_group.sh": "-rwxr-xr-x",
 			"folder_group/some_other.txt":     "-rw-r--r--",
 		}
-		filepath.WalkDir(folder, func(path string, d fs.DirEntry, _ error) error {
+		filepath.WalkDir(folder, func(path string, _ fs.DirEntry, _ error) error {
 			if path == folder {
 				return nil
 			}

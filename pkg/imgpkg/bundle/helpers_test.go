@@ -33,7 +33,7 @@ type uriMetrics struct {
 }
 
 func (u *uriMetrics) AddMetricsHandler(fakeRegistry *helpers.FakeTestRegistryBuilder) {
-	fakeRegistry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) bool {
+	fakeRegistry.WithCustomHandler(func(_ http.ResponseWriter, request *http.Request) bool {
 		path := request.URL.Path
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
