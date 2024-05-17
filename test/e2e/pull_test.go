@@ -197,7 +197,7 @@ func TestPullImageFromSlowServerShouldTimeout(t *testing.T) {
 	registry.Build()
 	defer registry.ResetHandler()
 
-	registry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) bool {
+	registry.WithCustomHandler(func(_ http.ResponseWriter, _ *http.Request) bool {
 		time.Sleep(5 * time.Second)
 		return false
 	})
@@ -275,7 +275,7 @@ func TestPullImageOfBundle(t *testing.T) {
 		assert.Contains(t, out.String(), "Cannot set --image-is-bundle-check while using -b flag")
 	})
 
-	t.Run("when --image-is-bundle-check=false is provided downloads the OCI Image of the bundle", func(t *testing.T) {
+	t.Run("when --image-is-bundle-check=false is provided downloads the OCI Image of the bundle", func(_ *testing.T) {
 		pullDir := env.Assets.CreateTempFolder("pull-bundle-image")
 		imgpkg.RunWithOpts([]string{"pull", "--tty", "-i", randomBundle.RefDigest, "-o", pullDir, "--image-is-bundle-check=false"}, helpers.RunOpts{})
 	})

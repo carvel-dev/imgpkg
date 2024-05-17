@@ -24,7 +24,7 @@ func TestPushPull(t *testing.T) {
 
 	splits := strings.Split(digest, ":")
 	imageRefWithTag := env.Image + ":" + fmt.Sprintf("%s-%s.imgpkg", splits[0], splits[1])
-	t.Run("ensure all files are present in the pushed image", func(t *testing.T) {
+	t.Run("ensure all files are present in the pushed image", func(_ *testing.T) {
 		imgpkg.Run([]string{"pull", "-i", imageRefWithTag, "-o", testDir})
 
 		env.Assets.ValidateFilesAreEqual(env.Assets.SimpleAppDir(), testDir, []string{

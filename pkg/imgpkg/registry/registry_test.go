@@ -289,7 +289,7 @@ func TestInsecureRegistryFlag(t *testing.T) {
 
 func TestBasicRegistry(t *testing.T) {
 	t.Run("When transport is provided it uses it", func(t *testing.T) {
-		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+		rt := &notFoundRoundTripper{do: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				Status:     "Not Found",
 				StatusCode: http.StatusNotFound,
@@ -305,7 +305,7 @@ func TestBasicRegistry(t *testing.T) {
 	})
 
 	t.Run("When cloned with CloneWithLogger it still uses initial transport", func(t *testing.T) {
-		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+		rt := &notFoundRoundTripper{do: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				Status:     "Not Found",
 				StatusCode: http.StatusNotFound,
@@ -323,7 +323,7 @@ func TestBasicRegistry(t *testing.T) {
 	})
 
 	t.Run("When cloned with CloneWithAuth it still uses initial transport", func(t *testing.T) {
-		rt := &notFoundRoundTripper{do: func(request *http.Request) (*http.Response, error) {
+		rt := &notFoundRoundTripper{do: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				Status:     "Not Found",
 				StatusCode: http.StatusNotFound,
