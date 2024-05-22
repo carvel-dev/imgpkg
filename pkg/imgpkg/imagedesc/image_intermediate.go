@@ -1,4 +1,4 @@
-// Copyright 2023 VMware, Inc.
+// Copyright 2023 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 package imagedesc
@@ -46,6 +46,7 @@ func (mi *ImageIntermediate) SetTag(tag string) {
 func (mi ImageIntermediate) Layers() ([]regv1.Layer, error) {
 	return mi.Image.Layers()
 }
+
 // MediaType of the image's manifest.
 func (mi ImageIntermediate) MediaType() (types.MediaType, error) {
 	return mi.Image.MediaType()
