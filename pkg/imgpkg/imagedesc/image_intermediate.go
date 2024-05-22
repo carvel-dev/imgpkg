@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
+// intermediate struct for Image and ImageIndex to convert to imagwithref type for oci image
 type ImageIndexIntermediate struct {
 	Index regv1.ImageIndex
 	ref   string
