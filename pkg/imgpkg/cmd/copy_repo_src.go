@@ -83,12 +83,18 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			}
 			err = image.ExtractOciTarGz(c.OciFlags.OcitoReg, tempDir)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Extracting OCI tar: %s", err)
 			}
 			processedImages, err = c.tarImageSet.Import(tempDir, importRepo, c.registry, true)
+			if err != nil {
+				return nil, fmt.Errorf("Importing OCI tar: %s", err)
+			}
 
 		} else {
 			processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, false)
+			if err != nil {
+				return nil, fmt.Errorf("Importing tar: %s", err)
+			}
 		}
 
 		if err != nil {

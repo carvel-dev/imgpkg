@@ -130,8 +130,14 @@ func (i *TarImageSet) Import(path string, importRepo regname.Repository, registr
 
 	if tarisoci {
 		imgOrIndexes, err = imagetar.NewTarReader(path).ReadOci(importRepo)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		imgOrIndexes, err = imagetar.NewTarReader(path).Read()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	processedImages, err := i.imageSet.Import(imgOrIndexes, importRepo, registry)

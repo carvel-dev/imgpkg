@@ -35,6 +35,98 @@ func (r TarReader) Read() ([]imagedesc.ImageOrIndex, error) {
 	return imagedesc.NewDescribedReader(ids, file).Read(), nil
 }
 
+// ReadOci reads the OCI layout from the tar file and returns the image or index. Equivalent to Read() but for OCI layout
+func (r TarReader) ReadOci(importRepo name.Repository) ([]imagedesc.ImageOrIndex, error) {
+
+	stat, err := os.Stat(r.path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !stat.IsDir() {
+		return nil, fmt.Errorf("path %s is not a directory", r.path)
+	}
+
+	_, err = os.Stat(filepath.Join(r.path, "oci-layout"))
+	if err != nil {
+		return nil, err
+	}
+
+	l, err := layout.FromPath(r.path)
+	if err != nil {
+		return nil, err
+	}
+
+	ii, err := l.ImageIndex()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read image index: %s", err)
+	}
+	m, err := ii.IndexManifest()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read index manifest: %s", err)
+	}
+	desc := m.Manifests[0]
+
+	var ImageIntermediate imagedesc.ImageIntermediate
+	var ImageIndexIntermediate imagedesc.ImageIndexIntermediate
+	var ref string
+
+	if desc.MediaType.IsImage() {
+		img, err := ii.Image(desc.Digest)
+		if err != nil {
+			return nil, err
+		}
+
+		ImageIntermediate = imagedesc.ImageIntermediate{
+			Image: img,
+		}
+
+		digest, err := img.Digest()
+		if err != nil {
+			return nil, fmt.Errorf("Unable to get digest from image: %s", err)
+		}
+		digestStr := digest.String()
+		ref = importRepo.Name() + "@" + digestStr
+
+		ImageIntermediate.SetRef(ref)
+
+	} else if desc.MediaType.IsIndex() {
+		idx, err := ii.ImageIndex(desc.Digest)
+		if err != nil {
+			return nil, err
+		}
+		ImageIndexIntermediate = imagedesc.ImageIndexIntermediate{
+			Index: idx,
+		}
+
+		digest, err := idx.Digest()
+		if err != nil {
+			return nil, fmt.Errorf("Unable to get digest from index: %s", err)
+		}
+		digestStr := digest.String()
+		ref = importRepo.Name() + "@" + digestStr
+		ImageIndexIntermediate.SetRef(ref)
+
+	} else {
+		return nil, fmt.Errorf("Unexpected media type: %s", desc.MediaType)
+	}
+
+	var b imagedesc.ImageWithRef = ImageIntermediate
+	imageOrIndex := imagedesc.ImageOrIndex{
+		Image: &b,
+		Index: nil,
+		Labels: map[string]string{
+			"dev.carvel.imgpkg.copy.root-bundle": "",
+		},
+		OrigRef: "",
+	}
+
+	var imageOrIndexSlice []imagedesc.ImageOrIndex
+	imageOrIndexSlice = append(imageOrIndexSlice, imageOrIndex)
+
+	return imageOrIndexSlice, nil
+}
+
 // PresentLayers retrieves all the layers that are present in a tar file
 func (r TarReader) PresentLayers() ([]v1.Layer, error) {
 	var result []v1.Layer
@@ -150,83 +242,4 @@ func (r TarReader) getIdsFromManifest(file tarFile) (*imagedesc.ImageRefDescript
 		return nil, err
 	}
 	return ids, nil
-}
-
-func (r TarReader) ReadOci(importRepo name.Repository) ([]imagedesc.ImageOrIndex, error) {
-
-	stat, err := os.Stat(r.path)
-	if err != nil {
-		return nil, err
-	}
-
-	if !stat.IsDir() {
-		return nil, fmt.Errorf("path %s is not a directory", r.path)
-	}
-
-	_, err = os.Stat(filepath.Join(r.path, "oci-layout"))
-	if err != nil {
-		return nil, err
-	}
-
-	l, err := layout.FromPath(r.path)
-	if err != nil {
-		return nil, err
-	}
-
-	ii, err := l.ImageIndex()
-	m, err := ii.IndexManifest()
-	desc := m.Manifests[0]
-
-	var ImageIntermediate imagedesc.ImageIntermediate
-	var ImageIndexIntermediate imagedesc.ImageIndexIntermediate
-	var ref string
-
-	if desc.MediaType.IsImage() {
-		img, err := ii.Image(desc.Digest)
-		if err != nil {
-			return nil, err
-		}
-
-		ImageIntermediate = imagedesc.ImageIntermediate{
-			Image: img,
-		}
-
-		digest, err := img.Digest()
-		digestStr := digest.String()
-		ref = importRepo.Name() + "@" + digestStr
-
-		ImageIntermediate.SetRef(ref)
-
-	} else if desc.MediaType.IsIndex() {
-		idx, err := ii.ImageIndex(desc.Digest)
-		if err != nil {
-			return nil, err
-		}
-		ImageIndexIntermediate = imagedesc.ImageIndexIntermediate{
-			Index: idx,
-		}
-
-		digest, err := idx.Digest()
-		digestStr := digest.String()
-		ref = importRepo.Name() + "@" + digestStr
-		ImageIndexIntermediate.SetRef(ref)
-
-	} else {
-		return nil, fmt.Errorf("Unexpected media type: %s", desc.MediaType)
-	}
-
-	var b imagedesc.ImageWithRef = ImageIntermediate
-	imageOrIndex := imagedesc.ImageOrIndex{
-		Image: &b,
-		Index: nil,
-		Labels: map[string]string{
-			"dev.carvel.imgpkg.copy.root-bundle": "",
-		},
-		OrigRef: "",
-	}
-
-	var imageOrIndexSlice []imagedesc.ImageOrIndex
-	imageOrIndexSlice = append(imageOrIndexSlice, imageOrIndex)
-
-	return imageOrIndexSlice, nil
 }
