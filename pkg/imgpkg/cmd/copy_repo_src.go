@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
@@ -77,7 +76,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		}
 
 		if c.OciFlags.IsOci() {
-			tempDir, err := ioutil.TempDir("", "imgpkg-oci-extract-")
+			tempDir, err := os.MkdirTemp("", "imgpkg-oci-extract-")
 			if err != nil {
 				return nil, err
 			}
