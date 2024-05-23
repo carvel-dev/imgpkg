@@ -70,6 +70,14 @@ func (r TarReader) ReadOci(importRepo name.Repository) ([]imagedesc.ImageOrIndex
 	var ImageIntermediate imagedesc.ImageIntermediate
 	var ImageIndexIntermediate imagedesc.ImageIndexIntermediate
 	var ref string
+	imageOrIndex := imagedesc.ImageOrIndex{
+		Image: nil,
+		Index: nil,
+		Labels: map[string]string{
+			"dev.carvel.imgpkg.copy.root-bundle": "",
+		},
+		OrigRef: "",
+	}
 
 	if desc.MediaType.IsImage() {
 		img, err := ii.Image(desc.Digest)
@@ -90,6 +98,9 @@ func (r TarReader) ReadOci(importRepo name.Repository) ([]imagedesc.ImageOrIndex
 
 		ImageIntermediate.SetRef(ref)
 
+		var b imagedesc.ImageWithRef = ImageIntermediate
+		imageOrIndex.Image = &b
+
 	} else if desc.MediaType.IsIndex() {
 		idx, err := ii.ImageIndex(desc.Digest)
 		if err != nil {
@@ -107,18 +118,11 @@ func (r TarReader) ReadOci(importRepo name.Repository) ([]imagedesc.ImageOrIndex
 		ref = importRepo.Name() + "@" + digestStr
 		ImageIndexIntermediate.SetRef(ref)
 
+		var b imagedesc.ImageIndexWithRef = ImageIndexIntermediate
+		imageOrIndex.Index = &b
+
 	} else {
 		return nil, fmt.Errorf("Unexpected media type: %s", desc.MediaType)
-	}
-
-	var b imagedesc.ImageWithRef = ImageIntermediate
-	imageOrIndex := imagedesc.ImageOrIndex{
-		Image: &b,
-		Index: nil,
-		Labels: map[string]string{
-			"dev.carvel.imgpkg.copy.root-bundle": "",
-		},
-		OrigRef: "",
 	}
 
 	var imageOrIndexSlice []imagedesc.ImageOrIndex
