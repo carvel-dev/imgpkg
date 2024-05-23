@@ -92,7 +92,7 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		} else {
 			processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, false)
 			if err != nil {
-				return nil, fmt.Errorf("Importing tar: %s", err)
+				return nil, err
 			}
 		}
 
