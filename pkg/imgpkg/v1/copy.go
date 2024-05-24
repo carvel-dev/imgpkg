@@ -1,13 +1,13 @@
 // Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package v1
 
 import (
 	"fmt"
 
 	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
-	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
+	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
 	ctlimgset "carvel.dev/imgpkg/pkg/imgpkg/imageset"
 	"carvel.dev/imgpkg/pkg/imgpkg/imagetar"
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
@@ -17,61 +17,57 @@ import (
 	regname "github.com/google/go-containerregistry/pkg/name"
 )
 
-type SignatureRetriever interface {
-	Fetch(images *imageset.UnprocessedImageRefs) (*imageset.UnprocessedImageRefs, error)
-}
+const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 
-type CopyRepoSrc struct {
-	ImageFlags              ImageFlags
-	BundleFlags             BundleFlags
-	LockInputFlags          LockInputFlags
-	TarFlags                TarFlags
-	IncludeNonDistributable bool
+// CopyOpts Option that can be provided to the copy request
+type CopyOpts struct {
+	Logger                  Logger
+	ImageSet                ctlimgset.ImageSet
+	TarImageSet             ctlimgset.TarImageSet
 	Concurrency             int
-
-	logger             util.LoggerWithLevels
-	imageSet           ctlimgset.ImageSet
-	tarImageSet        ctlimgset.TarImageSet
-	registry           registry.ImagesReaderWriter
-	signatureRetriever SignatureRetriever
+	SignatureRetriever      SignatureFetcher
+	IncludeNonDistributable bool
+	Resume                  bool
 }
 
-// CopyToTar copies image or bundle into the provided path
-func (c CopyRepoSrc) CopyToTar(dstPath string, resume bool) error {
-	c.logger.Tracef("CopyToTar\n")
-
-	unprocessedImageRefs, _, err := c.getAllSourceImages()
-	if err != nil {
-		return err
-	}
-
-	c.logger.Tracef("Exporting images to tar\n")
-	ids, err := c.tarImageSet.Export(unprocessedImageRefs, dstPath, c.registry, imagetar.NewImageLayerWriterCheck(c.IncludeNonDistributable), resume)
-	if err != nil {
-		return err
-	}
-
-	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.logger, c.IncludeNonDistributable, getNonDistributableLayersFromImageDescriptors(ids))
-
-	return nil
+// CopyOrigin abstracts the original location to copy from
+type CopyOrigin struct {
+	ImageRef     string
+	BundleRef    string
+	TarPath      string
+	LockfilePath string
 }
 
-func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
-	c.logger.Tracef("CopyToRepo(%s)\n", repo)
+// CopyToTar copy origin image/s to a tar file in disc
+func CopyToTar(origin CopyOrigin, outputTarPath string, opts CopyOpts, reg registry.Registry) (*imagedesc.ImageRefDescriptors, error) {
+	opts.Logger.Tracef("CopyToTar\n")
+
+	unprocessedImageRefs, _, err := getAllSourceImages(origin, reg, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.Logger.Tracef("Exporting images to tar\n")
+	ids, err := opts.TarImageSet.Export(unprocessedImageRefs, outputTarPath, reg, imagetar.NewImageLayerWriterCheck(opts.IncludeNonDistributable), opts.Resume)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+// CopyToRepository copy origin image/s to a repository in a remote registry
+func CopyToRepository(origin CopyOrigin, repository string, opts CopyOpts, reg registry.Registry) (*ctlimgset.ProcessedImages, error) {
+	opts.Logger.Tracef("CopyToRepository(%s)\n", repository)
 
 	var processedImages *ctlimgset.ProcessedImages
-	importRepo, err := regname.NewRepository(repo)
+	importRepo, err := regname.NewRepository(repository)
 	if err != nil {
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	if c.TarFlags.IsSrc() {
-		if c.TarFlags.IsDst() {
-			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
-		}
-
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+	if origin.TarPath != "" {
+		processedImages, err = opts.TarImageSet.Import(origin.TarPath, importRepo, reg)
 		if err != nil {
 			return nil, err
 		}
@@ -83,52 +79,49 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 				continue
 			}
 
-			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+			if IsRootBundle(processedImage) {
 				if foundRootBundle {
 					panic("Internal inconsistency: expected only 1 root bundle")
 				}
 				foundRootBundle = true
 				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
 				lockReader := ctlbundle.NewImagesLockReader()
-				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
+				parentBundle = ctlbundle.NewBundle(pImage, reg, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), reg, lockReader))
 			}
 		}
 
 		if foundRootBundle {
-			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+			bundles, _, err := parentBundle.AllImagesLockRefs(opts.Concurrency, opts.Logger)
 			if err != nil {
 				return nil, err
 			}
 
 			for _, bundle := range bundles {
-				if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+				if err := bundle.NoteCopy(processedImages, reg, opts.Logger); err != nil {
 					return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
 				}
 			}
 		}
 	} else {
-		unprocessedImageRefs, bundles, err := c.getAllSourceImages()
+		unprocessedImageRefs, bundles, err := getAllSourceImages(origin, reg, opts)
 		if err != nil {
 			return nil, err
 		}
 
-		processedImages, err = c.imageSet.Relocate(unprocessedImageRefs, importRepo, c.registry)
+		processedImages, err = opts.ImageSet.Relocate(unprocessedImageRefs, importRepo, reg)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, bundle := range bundles {
-			if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+			if err := bundle.NoteCopy(processedImages, reg, opts.Logger); err != nil {
 				return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
 			}
 		}
 	}
 
-	informUserToUseTheNonDistributableFlagWithDescriptors(
-		c.logger, c.IncludeNonDistributable, processedImagesNonDistLayer(processedImages))
-
-	c.logger.Logf("Tagging images\n")
-	err = c.tagAllImages(processedImages)
+	opts.Logger.Logf("Tagging images\n")
+	err = tagAllImages(reg, opts, processedImages)
 	if err != nil {
 		return nil, fmt.Errorf("Tagging images: %s", err)
 	}
@@ -136,15 +129,26 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	return processedImages, nil
 }
 
-func (c CopyRepoSrc) getAllSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
-	unprocessedImageRefs, bundles, err := c.getProvidedSourceImages()
+// ImageLabels used to retrieve the value of a label from an image
+type ImageLabels interface {
+	LabelValue(string) (string, bool)
+}
+
+// IsRootBundle check if a particular bundle is a root bundle or a inner bundle
+func IsRootBundle(img ImageLabels) bool {
+	_, ok := img.LabelValue(rootBundleLabelKey)
+	return ok
+}
+
+func getAllSourceImages(origin CopyOrigin, reg registry.Registry, opts CopyOpts) (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+	unprocessedImageRefs, bundles, err := getProvidedSourceImages(origin, reg, opts)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	c.logger.Debugf("Fetching signatures\n")
+	opts.Logger.Debugf("Fetching signatures\n")
 
-	signatures, err := c.signatureRetriever.Fetch(unprocessedImageRefs)
+	signatures, err := opts.SignatureRetriever.Fetch(unprocessedImageRefs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,19 +160,19 @@ func (c CopyRepoSrc) getAllSourceImages() (*ctlimgset.UnprocessedImageRefs, []*c
 	return unprocessedImageRefs, bundles, nil
 }
 
-func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
+func getProvidedSourceImages(origin CopyOrigin, reg registry.Registry, opts CopyOpts) (*ctlimgset.UnprocessedImageRefs, []*ctlbundle.Bundle, error) {
 	unprocessedImageRefs := ctlimgset.NewUnprocessedImageRefs()
 	switch {
-	case c.LockInputFlags.LockFilePath != "":
-		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(c.LockInputFlags.LockFilePath)
+	case origin.LockfilePath != "":
+		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(origin.LockfilePath)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		switch {
 		case bundleLock != nil:
-			c.logger.Tracef("get images from BundleLock file\n")
-			_, bundles, imagesRef, err := c.getBundleImageRefs(bundleLock.Bundle.Image)
+			opts.Logger.Tracef("get images from BundleLock file\n")
+			_, bundles, imagesRef, err := getBundleImageRefs(bundleLock.Bundle.Image, reg, opts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -188,11 +192,11 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 			return unprocessedImageRefs, bundles, nil
 
 		case imagesLock != nil:
-			c.logger.Tracef("get images from ImagesLock file\n")
+			opts.Logger.Tracef("get images from ImagesLock file\n")
 			for _, img := range imagesLock.Images {
-				plainImg := plainimage.NewPlainImage(img.Image, c.registry)
+				plainImg := plainimage.NewPlainImage(img.Image, reg)
 
-				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
+				ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 				if err != nil {
 					return nil, nil, err
 				}
@@ -208,11 +212,11 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 			panic("Unreachable")
 		}
 
-	case c.ImageFlags.Image != "":
-		c.logger.Tracef("copy single image\n")
-		plainImg := plainimage.NewPlainImage(c.ImageFlags.Image, c.registry)
+	case origin.ImageRef != "":
+		opts.Logger.Tracef("copy single image\n")
+		plainImg := plainimage.NewPlainImage(origin.ImageRef, reg)
 
-		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, c.registry).IsBundle()
+		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -224,8 +228,8 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 		return unprocessedImageRefs, nil, nil
 
 	default:
-		c.logger.Tracef("copy bundle\n")
-		bundle, allBundles, imagesRef, err := c.getBundleImageRefs(c.BundleFlags.Bundle)
+		opts.Logger.Tracef("copy bundle\n")
+		bundle, allBundles, imagesRef, err := getBundleImageRefs(origin.BundleRef, reg, opts)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -246,9 +250,9 @@ func (c CopyRepoSrc) getProvidedSourceImages() (*ctlimgset.UnprocessedImageRefs,
 	}
 }
 
-func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
+func getBundleImageRefs(bundleRef string, reg registry.Registry, copyOpts CopyOpts) (*ctlbundle.Bundle, []*ctlbundle.Bundle, ctlbundle.ImageRefs, error) {
 	lockReader := ctlbundle.NewImagesLockReader()
-	bundle := ctlbundle.NewBundleFromRef(bundleRef, c.registry, lockReader, ctlbundle.NewRegistryFetcher(c.registry, lockReader))
+	bundle := ctlbundle.NewBundleFromRef(bundleRef, reg, lockReader, ctlbundle.NewRegistryFetcher(reg, lockReader))
 	isBundle, err := bundle.IsBundle()
 	if err != nil {
 		return nil, nil, ctlbundle.ImageRefs{}, err
@@ -257,15 +261,15 @@ func (c CopyRepoSrc) getBundleImageRefs(bundleRef string) (*ctlbundle.Bundle, []
 		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	}
 
-	nestedBundles, imageRefs, err := bundle.AllImagesLockRefs(c.Concurrency, c.logger)
+	nestedBundles, imageRefs, err := bundle.AllImagesLockRefs(copyOpts.Concurrency, copyOpts.Logger)
 	if err != nil {
 		return nil, nil, ctlbundle.ImageRefs{}, fmt.Errorf("Reading Images from Bundle: %s", err)
 	}
 	return bundle, nestedBundles, imageRefs, nil
 }
 
-func (c CopyRepoSrc) tagAllImages(processedImages *ctlimgset.ProcessedImages) error {
-	throttle := util.NewThrottle(c.Concurrency)
+func tagAllImages(reg registry.Registry, copyOpts CopyOpts, processedImages *ctlimgset.ProcessedImages) error {
+	throttle := util.NewThrottle(copyOpts.Concurrency)
 
 	totalThreads := 0
 	errCh := make(chan error, processedImages.Len())
@@ -290,14 +294,14 @@ func (c CopyRepoSrc) tagAllImages(processedImages *ctlimgset.ProcessedImages) er
 
 			switch {
 			case item.Image != nil:
-				err = c.registry.WriteTag(customTagRef, item.Image)
+				err = reg.WriteTag(customTagRef, item.Image)
 				if err != nil {
 					errCh <- fmt.Errorf("Tagging image %s: %s", digest.Name(), err)
 					return
 				}
 
 			case item.ImageIndex != nil:
-				err = c.registry.WriteTag(customTagRef, item.ImageIndex)
+				err = reg.WriteTag(customTagRef, item.ImageIndex)
 				if err != nil {
 					errCh <- fmt.Errorf("Tagging image index %s: %s", digest.Name(), err)
 					return

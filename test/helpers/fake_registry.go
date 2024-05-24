@@ -655,7 +655,11 @@ func (r *FakeTestRegistryBuilder) CleanUp() {
 	}
 }
 
+// ReferenceOnTestServer adds the registry location to the repository name provided if is not ""
 func (r *FakeTestRegistryBuilder) ReferenceOnTestServer(repo string) string {
+	if repo == "" {
+		return ""
+	}
 	u, err := url.Parse(r.server.URL)
 	assert.NoError(r.t, err)
 	return fmt.Sprintf("%s/%s", u.Host, repo)

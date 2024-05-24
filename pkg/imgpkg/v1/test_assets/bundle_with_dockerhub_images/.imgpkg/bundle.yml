@@ -4,6 +4,6 @@ metadata:
   name: basic with dockerhub images
 authors:
 - name: Carvel Team
-  email: carvel@vmware.com
+  email: carvel@carvel.dev
 websites:
 - url: carvel.dev/imgpkg

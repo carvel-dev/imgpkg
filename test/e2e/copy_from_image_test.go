@@ -60,7 +60,7 @@ func TestCopyImageToRepoDestinationAndOutputImageLockFileAndPreserveImageTag(t *
 	})
 }
 
-func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
+func TestCopyAnImageFromATarToARepoThatDoesContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
 	t.Run("environment with internet", func(t *testing.T) {
 		env := helpers.BuildEnv(t)
 
@@ -74,15 +74,12 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 		nonDistributableLayerDigest := env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo, types.OCIUncompressedRestrictedLayer)
 
 		repoToCopyName := env.RelocationRepo + "include-non-distributable-layers"
-		var stdOutWriter bytes.Buffer
 
 		// copy to tar skipping NDL
-		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath})
+		stdout, _ := imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", env.RelocationRepo, "--to-tar", tarFilePath}, helpers.RunOpts{})
+		require.Contains(t, stdout, "Skipped the followings layer(s) due to it being non-distributable")
 
-		imgpkg.RunWithOpts([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable-layers"}, helpers.RunOpts{
-			StderrWriter: &stdOutWriter,
-			StdoutWriter: &stdOutWriter,
-		})
+		imgpkg.Run([]string{"copy", "--tar", tarFilePath, "--to-repo", repoToCopyName, "--include-non-distributable-layers"})
 
 		digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
 		require.NoError(t, err)
@@ -126,7 +123,7 @@ func TestCopyAnImageFromATarToARepoThatDoesNotContainNonDistributableLayersButTh
 	})
 }
 
-func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
+func TestCopyAnImageFromARepoToATarThatDoesContainNonDistributableLayersButTheFlagWasIncluded(t *testing.T) {
 	env := helpers.BuildEnv(t)
 	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 	defer env.Cleanup()
@@ -141,10 +138,9 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 	})
 
 	repoToCopyName := env.RelocationRepo + "-include-non-distributable-layers-1"
-	var stdOutWriter bytes.Buffer
 
 	logger.Section("copying an image that contains a NDL to a tarball (the tarball includes the NDL)", func() {
-		imgpkg.Run([]string{"copy", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
+		imgpkg.Run([]string{"copy", "--tty", "-i", env.RelocationRepo, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
 	})
 
 	var imageDigest string
@@ -157,8 +153,47 @@ func TestCopyAnImageFromARepoToATarThatDoesNotContainNonDistributableLayersButTh
 	})
 
 	logger.Section("copying from a repo (the image in the repo does *not* include the NDL) to a tarball. We expect NDL to be copied into the tarball", func() {
-		imgpkg.Run([]string{"copy", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable-layers"})
-		require.NotContains(t, stdOutWriter.String(), "--include-non-distributable-layers")
+		stdout := imgpkg.Run([]string{"copy", "--tty", "-i", repoToCopyName + imageDigest, "--to-tar", tarFilePath + "2", "--include-non-distributable-layers"})
+		require.NotContains(t, stdout, "--include-non-distributable-layers")
+	})
+}
+
+func TestCopyAnImageFromARepoToATarThatDoesNOTContainNonDistributableLayersAndTheFlagWasIncluded(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+	logger := helpers.Logger{}
+
+	var tarFilePath, imgRef string
+	logger.Section("Create Image without Non Distributable Layer", func() {
+		testDir := env.Assets.CreateTempFolder("image-to-tar")
+		tarFilePath = filepath.Join(testDir, "image.tar")
+		imgName := env.Image + "-no-distributable-layers"
+		imgRef = imgName + env.ImageFactory.PushSimpleAppImageWithRandomFile(imgpkg, imgName)
+	})
+
+	logger.Section("copying an image to tar providing the flag --include-non-distributable-layers provides warning", func() {
+		stdout := imgpkg.Run([]string{"copy", "--tty", "-i", imgRef, "--to-tar", tarFilePath, "--include-non-distributable-layers"})
+		require.Contains(t, stdout, "flag provided, but no images contained a non-distributable layer")
+	})
+}
+
+func TestCopyAnImageFromARepoToATarThatDoesContainNonDistributableLayersAndTheFlagWasNOTIncluded(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+	logger := helpers.Logger{}
+
+	var tarFilePath string
+	logger.Section("Create Image with Non Distributable Layer", func() {
+		testDir := env.Assets.CreateTempFolder("image-to-tar")
+		tarFilePath = filepath.Join(testDir, "image.tar")
+		env.ImageFactory.PushImageWithANonDistributableLayer(env.RelocationRepo, types.OCIUncompressedRestrictedLayer)
+	})
+
+	logger.Section("copying an image to tar providing the flag --include-non-distributable-layers provides warning", func() {
+		stdout := imgpkg.Run([]string{"copy", "--tty", "-i", env.RelocationRepo, "--to-tar", tarFilePath})
+		require.Contains(t, stdout, "Skipped the followings layer(s) due to it being non-distributable")
 	})
 }
 
@@ -246,7 +281,7 @@ func TestCopyRepoToTarAndThenCopyFromTarToRepo(t *testing.T) {
 			})
 
 			logger.Section("Check that non distributable layer was not copied", func() {
-				require.Contains(t, stdOutWriter.String(), "Skipped the followings layer(s) due")
+				require.Contains(t, stdOutWriter.String(), "Skipped the followings layer(s) due to it being non-distributable")
 
 				digestOfNonDistributableLayer, err := name.NewDigest(repoToCopyName + "@" + nonDistributableLayerDigest)
 				require.NoError(t, err)
