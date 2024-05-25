@@ -182,9 +182,8 @@ func (i *TarImage) isExcluded(relPath string) bool {
 	return false
 }
 
-// CreateOciTarFileAndDeleteFolder creates a oci tar file from the source folder and deletes the source folder. Used while pushing the oci-tar
-func CreateOciTarFileAndDeleteFolder(source, target string) error {
-
+// CreateOciTarFromFiles creates a oci tar from the obtained files in the open folder.
+func CreateOciTarFromFiles(source, target string) error {
 	tarFile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -245,7 +244,6 @@ func CreateOciTarFileAndDeleteFolder(source, target string) error {
 
 // ExtractOciTarGz extracts the oci tar file to the extractDir
 func ExtractOciTarGz(inputDir, extractDir string) error {
-
 	if !strings.HasSuffix(inputDir, ".tar.gz") {
 		return fmt.Errorf("inputDir '%s' is not a tar.gz file", inputDir)
 	}

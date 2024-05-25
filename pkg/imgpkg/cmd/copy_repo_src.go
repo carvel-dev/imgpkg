@@ -63,7 +63,6 @@ func (c CopyRepoSrc) CopyToTar(dstPath string, resume bool) error {
 func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error) {
 	c.logger.Tracef("CopyToRepo(%s)\n", repo)
 
-	var tempDir string
 	var processedImages *ctlimgset.ProcessedImages
 	importRepo, err := regname.NewRepository(repo)
 	if err != nil {
@@ -74,12 +73,12 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		if c.TarFlags.IsDst() {
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
-
 		if c.OciFlags.IsOci() {
 			tempDir, err := os.MkdirTemp("", "imgpkg-oci-extract-")
 			if err != nil {
 				return nil, err
 			}
+			defer os.RemoveAll(tempDir)
 			err = image.ExtractOciTarGz(c.OciFlags.OcitoReg, tempDir)
 			if err != nil {
 				return nil, fmt.Errorf("Extracting OCI tar: %s", err)
@@ -100,7 +99,8 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 			return nil, err
 		}
 
-		// This is added to not read the lockfile and change the ref for oci-flag. Will be removed once we add an inflate option to copy the refs.
+		// Cuurently when copying images from an oci-tar to a repository, imgpkg will not try to access the origin repositories and will only copy the OCI Image to the registry,
+		// similar to the behavior we currently have on the `imgpkg push` command. Adding `inflate` flag, to access the origin repos will be an future improvement.
 		if !c.OciFlags.IsOci() {
 			var parentBundle *ctlbundle.Bundle
 			foundRootBundle := false
@@ -158,11 +158,6 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 	err = c.tagAllImages(processedImages)
 	if err != nil {
 		return nil, fmt.Errorf("Tagging images: %s", err)
-	}
-
-	err = os.RemoveAll(tempDir)
-	if err != nil {
-		fmt.Println("Error cleaning up temporary directory:", err)
 	}
 
 	return processedImages, nil

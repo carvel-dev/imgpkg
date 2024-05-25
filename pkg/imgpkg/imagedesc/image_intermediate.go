@@ -1,4 +1,4 @@
-// Copyright 2023 The Carvel Authors.
+// Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
 package imagedesc

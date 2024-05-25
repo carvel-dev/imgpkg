@@ -62,7 +62,7 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 		if err = p.AppendImage(img); err != nil {
 			return "", err
 		}
-		err = ctlimg.CreateOciTarFileAndDeleteFolder(i.ociTarPath, i.ociTarPath+".tar.gz")
+		err = ctlimg.CreateOciTarFromFiles(i.ociTarPath, i.ociTarPath+".tar.gz")
 		if err != nil {
 			return "", err
 		}
