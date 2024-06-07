@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	ctlbundle "carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/image"
 	"carvel.dev/imgpkg/pkg/imgpkg/imageset"
 	ctlimgset "carvel.dev/imgpkg/pkg/imgpkg/imageset"
 	"carvel.dev/imgpkg/pkg/imgpkg/imagetar"
@@ -23,6 +25,7 @@ type SignatureRetriever interface {
 
 type CopyRepoSrc struct {
 	ImageFlags              ImageFlags
+	OciFlags                OciFlags
 	BundleFlags             BundleFlags
 	LockInputFlags          LockInputFlags
 	TarFlags                TarFlags
@@ -66,43 +69,67 @@ func (c CopyRepoSrc) CopyToRepo(repo string) (*ctlimgset.ProcessedImages, error)
 		return nil, fmt.Errorf("Building import repository ref: %s", err)
 	}
 
-	if c.TarFlags.IsSrc() {
+	if c.TarFlags.IsSrc() || c.OciFlags.IsOci() {
 		if c.TarFlags.IsDst() {
 			return nil, fmt.Errorf("Cannot use tar source (--tar) with tar destination (--to-tar)")
 		}
+		if c.OciFlags.IsOci() {
+			tempDir, err := os.MkdirTemp("", "imgpkg-oci-extract-")
+			if err != nil {
+				return nil, err
+			}
+			defer os.RemoveAll(tempDir)
+			err = image.ExtractOciTarGz(c.OciFlags.OcitoReg, tempDir)
+			if err != nil {
+				return nil, fmt.Errorf("Extracting OCI tar: %s", err)
+			}
+			processedImages, err = c.tarImageSet.Import(tempDir, importRepo, c.registry, true)
+			if err != nil {
+				return nil, fmt.Errorf("Importing OCI tar: %s", err)
+			}
 
-		processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry)
+		} else {
+			processedImages, err = c.tarImageSet.Import(c.TarFlags.TarSrc, importRepo, c.registry, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		var parentBundle *ctlbundle.Bundle
-		foundRootBundle := false
-		for _, processedImage := range processedImages.All() {
-			if processedImage.ImageIndex != nil {
-				continue
-			}
-
-			if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
-				if foundRootBundle {
-					panic("Internal inconsistency: expected only 1 root bundle")
+		// Cuurently when copying images from an oci-tar to a repository, imgpkg will not try to access the origin repositories and will only copy the OCI Image to the registry,
+		// similar to the behavior we currently have on the `imgpkg push` command. Adding `inflate` flag, to access the origin repos will be an future improvement.
+		if !c.OciFlags.IsOci() {
+			var parentBundle *ctlbundle.Bundle
+			foundRootBundle := false
+			for _, processedImage := range processedImages.All() {
+				if processedImage.ImageIndex != nil {
+					continue
 				}
-				foundRootBundle = true
-				pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
-				lockReader := ctlbundle.NewImagesLockReader()
-				parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
-			}
-		}
 
-		if foundRootBundle {
-			bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
-			if err != nil {
-				return nil, err
+				if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+					if foundRootBundle {
+						panic("Internal inconsistency: expected only 1 root bundle")
+					}
+					foundRootBundle = true
+					pImage := plainimage.NewFetchedPlainImageWithTag(processedImage.DigestRef, processedImage.Tag, processedImage.Image)
+					lockReader := ctlbundle.NewImagesLockReader()
+					parentBundle = ctlbundle.NewBundle(pImage, c.registry, lockReader, ctlbundle.NewFetcherFromProcessedImages(processedImages.All(), c.registry, lockReader))
+				}
 			}
 
-			for _, bundle := range bundles {
-				if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
-					return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+			if foundRootBundle {
+				bundles, _, err := parentBundle.AllImagesLockRefs(c.Concurrency, c.logger)
+				if err != nil {
+					return nil, err
+				}
+
+				for _, bundle := range bundles {
+					if err := bundle.NoteCopy(processedImages, c.registry, c.logger); err != nil {
+						return nil, fmt.Errorf("Creating copy information for bundle %s: %s", bundle.DigestRef(), err)
+					}
 				}
 			}
 		}

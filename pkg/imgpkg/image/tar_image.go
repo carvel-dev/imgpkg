@@ -5,6 +5,7 @@ package image
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -179,4 +180,118 @@ func (i *TarImage) isExcluded(relPath string) bool {
 		}
 	}
 	return false
+}
+
+// CreateOciTarFromFiles creates a oci tar from the obtained files in the open folder.
+func CreateOciTarFromFiles(source, target string) error {
+	tarFile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer tarFile.Close()
+
+	gzipWriter := gzip.NewWriter(tarFile)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+
+		header.Name, err = filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(tarWriter, file)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(source)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ExtractOciTarGz extracts the oci tar file to the extractDir
+func ExtractOciTarGz(inputDir, extractDir string) error {
+	if !strings.HasSuffix(inputDir, ".tar.gz") {
+		return fmt.Errorf("inputDir '%s' is not a tar.gz file", inputDir)
+	}
+
+	tarGzFile, err := os.Open(inputDir)
+	if err != nil {
+		return err
+	}
+	defer tarGzFile.Close()
+
+	gzipReader, err := gzip.NewReader(tarGzFile)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	// Create a tar reader
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(extractDir, header.Name)
+
+		if header.FileInfo().IsDir() {
+			err := os.MkdirAll(targetPath, os.ModePerm)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		file, err := os.Create(targetPath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(file, tarReader)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -18,6 +18,7 @@ type ImageOrIndex struct {
 
 	OrigRef string
 }
+
 type ImageWithRef interface {
 	regv1.Image
 	Ref() string
