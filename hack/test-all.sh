@@ -10,9 +10,9 @@ fi
 
 export IMGPKG_BINARY="$PWD/imgpkg${IMGPKG_BINARY_EXT-}"
 
-./hack/test.sh
-./hack/test-e2e.sh
-./hack/test-perf.sh
-./hack/test-helpers.sh
+./hack/test.sh $@
+./hack/test-e2e.sh $@
+./hack/test-perf.sh $@
+./hack/test-helpers.sh $@
 
 echo ALL SUCCESS

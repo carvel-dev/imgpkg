@@ -13,11 +13,10 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/plainimage"
 	"carvel.dev/imgpkg/pkg/imgpkg/registry"
 	"carvel.dev/imgpkg/pkg/imgpkg/signature"
+	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/cppforlife/go-cli-ui/ui"
 	"github.com/spf13/cobra"
 )
-
-const rootBundleLabelKey string = "dev.carvel.imgpkg.copy.root-bundle"
 
 type CopyOptions struct {
 	ui ui.UI
@@ -116,26 +115,21 @@ func (c *CopyOptions) Run() error {
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
 	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
 
-	var signatureRetriever SignatureRetriever
+	var signatureRetriever v1.SignatureFetcher
 	if c.SignatureFlags.CopyCosignSignatures {
 		signatureRetriever = signature.NewSignatures(signature.NewCosign(reg), c.Concurrency)
 	} else {
 		signatureRetriever = signature.NewNoop()
 	}
 
-	repoSrc := CopyRepoSrc{
-		ImageFlags:              c.ImageFlags,
-		BundleFlags:             c.BundleFlags,
-		LockInputFlags:          c.LockInputFlags,
-		TarFlags:                c.TarFlags,
-		IncludeNonDistributable: c.IncludeNonDistributable,
+	opts := v1.CopyOpts{
+		Logger:                  levelLogger,
+		ImageSet:                imageSet,
+		TarImageSet:             tarImageSet,
 		Concurrency:             c.Concurrency,
-
-		logger:             levelLogger,
-		registry:           registry.NewRegistryWithProgress(reg, imagesUploaderLogger),
-		imageSet:           imageSet,
-		tarImageSet:        tarImageSet,
-		signatureRetriever: signatureRetriever,
+		SignatureRetriever:      signatureRetriever,
+		IncludeNonDistributable: c.IncludeNonDistributable,
+		Resume:                  c.TarFlags.Resume,
 	}
 
 	switch {
@@ -146,17 +140,41 @@ func (c *CopyOptions) Run() error {
 		if c.LockOutputFlags.LockFilePath != "" {
 			return fmt.Errorf("Cannot output lock file with tar destination")
 		}
-		return repoSrc.CopyToTar(c.TarFlags.TarDst, c.TarFlags.Resume)
+
+		origin := v1.CopyOrigin{
+			ImageRef:     c.ImageFlags.Image,
+			BundleRef:    c.BundleFlags.Bundle,
+			LockfilePath: c.LockInputFlags.LockFilePath,
+		}
+		ids, err := v1.CopyToTar(origin, c.TarFlags.TarDst, opts, registry.NewRegistryWithProgress(reg, imagesUploaderLogger))
+		if err != nil {
+			return err
+		}
+		informUserToUseTheNonDistributableFlagWithDescriptors(
+			levelLogger, c.IncludeNonDistributable, getNonDistributableLayersFromImageDescriptors(ids))
+
+		return nil
 
 	case c.isRepoDst():
 		if c.TarFlags.Resume {
 			return fmt.Errorf("Flag --resume can only be used when copying to tar")
 		}
 
-		processedImages, err := repoSrc.CopyToRepo(c.RepoDst)
+		origin := v1.CopyOrigin{
+			ImageRef:     c.ImageFlags.Image,
+			BundleRef:    c.BundleFlags.Bundle,
+			TarPath:      c.TarFlags.TarSrc,
+			LockfilePath: c.LockInputFlags.LockFilePath,
+		}
+
+		processedImages, err := v1.CopyToRepository(origin, c.RepoDst, opts, reg)
 		if err != nil {
 			return err
 		}
+
+		informUserToUseTheNonDistributableFlagWithDescriptors(
+			levelLogger, c.IncludeNonDistributable, processedImagesNonDistLayer(processedImages))
+
 		return c.writeLockOutput(processedImages, reg)
 
 	default:
@@ -205,7 +223,7 @@ func (c *CopyOptions) findProcessedImageRootBundle(processedImages *ctlimgset.Pr
 	var bundleProcessedImage *ctlimgset.ProcessedImage
 
 	for _, processedImage := range processedImages.All() {
-		if _, ok := processedImage.Labels[rootBundleLabelKey]; ok {
+		if v1.IsRootBundle(processedImage) {
 			if bundleProcessedImage != nil {
 				panic("Internal inconsistency: expected only 1 root bundle")
 			}

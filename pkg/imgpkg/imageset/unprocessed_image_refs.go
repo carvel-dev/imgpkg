@@ -18,6 +18,12 @@ type UnprocessedImageRef struct {
 	OrigRef   string
 }
 
+// LabelValue returns the value of the provided label and a bool to identify if the label was present or not
+func (u UnprocessedImageRef) LabelValue(label string) (string, bool) {
+	value, ok := u.Labels[label]
+	return value, ok
+}
+
 // Key that uniquely identify a ImageRef
 func (u UnprocessedImageRef) Key() string {
 	// With this definition of key if one image is shared by 2 bundles
