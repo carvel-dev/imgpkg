@@ -22,8 +22,9 @@ type BundleLock struct {
 }
 
 type BundleRef struct {
-	Image string `json:"image,omitempty"` // This generated yaml, but due to lib we need to use `json`
-	Tag   string `json:"tag,omitempty"`   // This generated yaml, but due to lib we need to use `json`
+	Image     string `json:"image,omitempty"` // This generated yaml, but due to lib we need to use `json`
+	Tag       string `json:"tag,omitempty"`   // This generated yaml, but due to lib we need to use `json`
+	OtherTags string `json:"otherTags,omitempty"`
 }
 
 func NewBundleLockFromPath(path string) (BundleLock, error) {
