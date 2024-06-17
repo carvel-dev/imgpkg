@@ -11,21 +11,15 @@ jobs:
     name: Test GH - Linux
     runs-on: ubuntu-latest
     steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
     - name: Set up Go 1.x
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
-      with:
-        path: src/github.com/${{ github.repository }}
+        go-version-file: go.mod
     - name: Run Tests
       run: |
         set -e -x
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$PATH:$GOPATH/bin"
-        cd src/github.com/${{ github.repository }}
 
         # deploy local registry and run tests
         ./hack/test-all-local-registry.sh
@@ -34,21 +28,16 @@ jobs:
     name: Test GH - Windows
     runs-on: windows-latest
     steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
     - name: Set up Go 1.x
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
-      with:
-        path: src/github.com/${{ github.repository }}
+        go-version-file: go.mod
     - name: Install dependencies
       run: |
         bash -c '
         set -e -x
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$GOPATH/bin:$PATH"
 
         go install github.com/sigstore/cosign/cmd/cosign@v0.5.0
 
@@ -58,10 +47,6 @@ jobs:
       run: |
         bash -c '
         set -e -x
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$GOPATH/bin:$PATH"
-        cd src/github.com/${{ github.repository }}
 
         export IMGPKG_BINARY_EXT=".exe"
         ./hack/build.sh
@@ -74,10 +59,6 @@ jobs:
         {
           docker stop registry
         }
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$GOPATH/bin:$PATH"
-        cd src/github.com/${{ github.repository }}
 
         export IMGPKG_E2E_IMAGE="localhost:5000/github-action-test-relocation-$GITHUB_RUN_ID"
         export IMGPKG_E2E_RELOCATION_REPO="localhost:5000/github-action-imgpkg-test-$GITHUB_RUN_ID"
@@ -96,10 +77,6 @@ jobs:
       run: |
         bash -c '
         set -e -x
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$GOPATH/bin:$PATH"
-        cd src/github.com/${{ github.repository }}
 
         export IMGPKG_E2E_IMAGE="ttl.sh/github-action-test-relocation-$GITHUB_RUN_ID"
         export IMGPKG_E2E_RELOCATION_REPO="ttl.sh/github-action-imgpkg-test-$GITHUB_RUN_ID"
