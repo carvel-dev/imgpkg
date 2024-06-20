@@ -44,9 +44,6 @@ jobs:
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
 
-          export GOPATH=$(echo `pwd`)
-          export PATH="$PATH:$GOPATH/bin"
-
           docker login -u _json_key --password-stdin https://gcr.io <<< "$GCR_PASSWORD"
 
           # pull registry for e2e tests that require a locally running docker registry. i.e. airgapped env tests
