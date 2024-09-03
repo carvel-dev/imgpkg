@@ -18,43 +18,6 @@ permissions:
   security-events: none
   statuses: none
 jobs:
-  test-harbor:
-    name: Test GH with Harbor
-    runs-on: ubuntu-latest
-    environment: TanzuNet Registry Dev e2e
-    steps:
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v3
-      with:
-        go-version: "1.22.5"
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-        path: src/github.com/${{ github.repository }}
-        persist-credentials: false
-    - name: Run Tests
-      env:
-        IMGPKG_E2E_IMAGE: "dev.registry.tanzu.vmware.com/imgpkg/github-action-test-relocation"
-        IMGPKG_E2E_RELOCATION_REPO: "dev.registry.tanzu.vmware.com/imgpkg/github-action-imgpkg-test"
-        TanzuNetDevUsername: ${{ secrets.TanzuNetDevUsername }}
-        TanzuNetDevPassword: ${{ secrets.TanzuNetDevPassword }}
-      run: |
-        set -e
-
-        # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
-        export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
-        export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
-
-        export GOPATH=$(echo `pwd`)
-        export PATH="$PATH:$GOPATH/bin"
-        cd src/github.com/${{ github.repository }}
-
-        docker login dev.registry.tanzu.vmware.com -u "$TanzuNetDevUsername" -p "$TanzuNetDevPassword"
-        # pull registry for e2e tests that require a locally running docker registry. i.e. airgapped env tests
-        docker pull registry:2
-
-        ./hack/test-all.sh
   test-gcr:
     name: Test GH with GCR
     runs-on: ubuntu-latest
@@ -81,10 +44,6 @@ jobs:
           # Prevent conflicts from multiple e2e tests run in parallel from diff PR's
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
-
-          export GOPATH=$(echo `pwd`)
-          export PATH="$PATH:$GOPATH/bin"
-          cd src/github.com/${{ github.repository }}
 
           docker login -u _json_key --password-stdin https://gcr.io <<< "$GCR_PASSWORD"
 
