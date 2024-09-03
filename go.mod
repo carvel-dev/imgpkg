@@ -47,9 +47,9 @@ require (
 	github.com/creack/pty v1.1.11 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dimchansky/utfbom v1.1.0 // indirect
-	github.com/docker/cli v25.0.5+incompatible // indirect
+	github.com/docker/cli v25.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v25.0.5+incompatible // indirect
+	github.com/docker/docker v25.0.6+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
