@@ -2,8 +2,8 @@
 apiVersion: imgpkg.carvel.dev/v1alpha1
 images:
 - annotations:
-    kbld.carvel.dev/id: cloudfoundry/capi-nginx@sha256:67ad232b390a100a3c9e9b36ee1c6443843185e6df78f3fba57f9a708808b6da
-  image: index.docker.io/cloudfoundry/capi-nginx@sha256:67ad232b390a100a3c9e9b36ee1c6443843185e6df78f3fba57f9a708808b6da
+    kbld.carvel.dev/id: cloudfoundry/cli@sha256:efe972e71abe4f01b73da8475b69bf46106faf31f7bc0a0615fb843c2d98c4b6
+  image: index.docker.io/cloudfoundry/cli@sha256:efe972e71abe4f01b73da8475b69bf46106faf31f7bc0a0615fb843c2d98c4b6
 - annotations:
     kbld.carvel.dev/id: cloudfoundry/cf-api-backup-metadata-generator@sha256:0f3098d99b35bfb9608b580323e0cc454bd254afaf08cd02acec58af770fea4f
   image: index.docker.io/cloudfoundry/cf-api-backup-metadata-generator@sha256:0f3098d99b35bfb9608b580323e0cc454bd254afaf08cd02acec58af770fea4f
