@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"carvel.dev/imgpkg/pkg/imgpkg/image"
 	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
 	"carvel.dev/imgpkg/pkg/imgpkg/imagedigest"
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
@@ -21,14 +20,19 @@ type Logger interface {
 	Logf(str string, args ...interface{})
 }
 
+// TagGenerator interface
+type TagGenerator interface {
+	GenerateTag(item imagedigest.DigestWrap, destinationRepo regname.Repository) (regname.Tag, error)
+}
+
 type ImageSet struct {
 	concurrency int
 	logger      Logger
-	tagGen      image.TagGenerator
+	tagGen      TagGenerator
 }
 
 // NewImageSet constructor for creating an ImageSet
-func NewImageSet(concurrency int, logger Logger, tagGen image.TagGenerator) ImageSet {
+func NewImageSet(concurrency int, logger Logger, tagGen TagGenerator) ImageSet {
 	return ImageSet{concurrency, logger, tagGen}
 }
 

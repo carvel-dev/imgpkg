@@ -32,11 +32,6 @@ func (t TagGenDigest) Digest() (regv1.Hash, error) {
 	}, nil
 }
 
-// TagGenerator interface
-type TagGenerator interface {
-	GenerateTag(item imagedigest.DigestWrap, destinationRepo regname.Repository) (regname.Tag, error)
-}
-
 // DefaultTagGenerator implements GenerateTag
 // and generates default tag
 type DefaultTagGenerator struct{}

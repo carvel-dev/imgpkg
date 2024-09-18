@@ -107,7 +107,7 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	var tagGen image.TagGenerator
+	var tagGen ctlimgset.TagGenerator
 	tagGen = image.DefaultTagGenerator{}
 	if c.UseRepoBasedTags {
 		tagGen = image.RepoBasedTagGenerator{}
