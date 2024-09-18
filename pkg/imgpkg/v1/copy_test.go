@@ -38,7 +38,7 @@ var stdOut *bytes.Buffer
 func testSetup(registryBuild *helpers.FakeTestRegistryBuilder, imageName string, bundleName string, tarPath string, lockfilePath string) (v1.CopyOrigin, v1.CopyOpts, registry.Registry) {
 	stdOut = bytes.NewBufferString("")
 	uiLogger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(stdOut))
-	tagGen := util.DefaultTagGenerator{}
+	tagGen := ctlimg.DefaultTagGenerator{}
 	imageSet := imageset.NewImageSet(1, uiLogger, tagGen)
 
 	opts := v1.CopyOpts{
