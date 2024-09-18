@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"carvel.dev/imgpkg/test/helpers"
@@ -26,10 +25,6 @@ func TestPull(t *testing.T) {
 	defer env.Cleanup()
 
 	t.Run("Image - copies the User Permission to group and other", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
-		}
-
 		folder := env.Assets.CreateTempFolder("simple-image")
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(folder, "all-on-user-only"), "some text", 0755)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(folder, "read-on-user-only"), "some text", 0455)
@@ -70,10 +65,6 @@ func TestPull(t *testing.T) {
 	})
 
 	t.Run("Image - when --preserve-permissions flag is provided it keeps the original permissions on the files", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
-		}
-
 		folder := env.Assets.CreateTempFolder("simple-image")
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(folder, "all-on-user-only"), "some text", 0755)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(folder, "read-on-user-only"), "some text", 0455)
@@ -114,10 +105,6 @@ func TestPull(t *testing.T) {
 	})
 
 	t.Run("Image - copies the User Permission to group and other but skips execution because umask is set to 0111", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
-		}
-
 		folder := env.Assets.CreateTempFolder("simple-image")
 		innerFolder := filepath.Join(folder, "some-folder")
 		env.Assets.AddFolder(innerFolder, 0755)
@@ -173,10 +160,6 @@ func TestPull(t *testing.T) {
 	})
 
 	t.Run("Bundle - copies the User Permission to group and other", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://github.com/carvel-dev/imgpkg/issues/270")
-		}
-
 		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(bundleDir, "all-on-user-only"), "some text", 0755)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(bundleDir, "read-on-user-only"), "some text", 0455)
@@ -211,10 +194,6 @@ func TestPull(t *testing.T) {
 	})
 
 	t.Run("Bundle - when --preserve-permissions flag is provided it keeps the original permissions on the files", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Skipping test as this is a known issue: https://https://github.com/carvel-dev/imgpkg/issues/270")
-		}
-
 		bundleDir := env.BundleFactory.CreateBundleDir(helpers.BundleYAML, helpers.ImagesYAML)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(bundleDir, "all-on-user-only"), "some text", 0755)
 		env.Assets.AddFileToFolderWithPermissions(filepath.Join(bundleDir, "read-on-user-only"), "some text", 0455)
