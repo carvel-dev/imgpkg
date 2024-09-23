@@ -1,13 +1,13 @@
 // Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-package util_test
+package image_test
 
 import (
 	"testing"
 
+	"carvel.dev/imgpkg/pkg/imgpkg/image"
 	"carvel.dev/imgpkg/pkg/imgpkg/imagedigest"
-	util "carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/require"
 )
@@ -89,7 +89,7 @@ func TestGenerateTagRepobasedgenerator(t *testing.T) {
 			digestWrap.DigestWrap(imgIdxRef, test.origRef)
 			importRepo, err := regname.NewRepository("import-registry/dst-repo")
 			require.NoError(t, err)
-			tagGen := util.RepoBasedTagGenerator{}
+			tagGen := image.RepoBasedTagGenerator{}
 			tag, err := tagGen.GenerateTag(digestWrap, importRepo)
 			require.NoError(t, err)
 			require.Equal(t, test.expectedTag, tag.TagStr())

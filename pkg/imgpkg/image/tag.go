@@ -1,7 +1,7 @@
 // Copyright 2024 The Carvel Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-package util
+package image
 
 import (
 	"fmt"
@@ -30,11 +30,6 @@ func (t TagGenDigest) Digest() (regv1.Hash, error) {
 		Algorithm: t.Algorithm,
 		Hex:       t.Hex,
 	}, nil
-}
-
-// TagGenerator interface
-type TagGenerator interface {
-	GenerateTag(item imagedigest.DigestWrap, destinationRepo regname.Repository) (regname.Tag, error)
 }
 
 // DefaultTagGenerator implements GenerateTag

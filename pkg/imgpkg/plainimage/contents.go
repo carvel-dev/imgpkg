@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	ctlimg "carvel.dev/imgpkg/pkg/imgpkg/image"
-	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	regremote "github.com/google/go-containerregistry/pkg/v1/remote"
@@ -61,7 +60,7 @@ func (i Contents) Push(uploadRef regname.Tag, labels map[string]string, writer I
 		return "", err
 	}
 
-	uploadTagRef, err := util.BuildDefaultUploadTagRef(img, uploadRef.Repository)
+	uploadTagRef, err := ctlimg.BuildDefaultUploadTagRef(img, uploadRef.Repository)
 	if err != nil {
 		return "", fmt.Errorf("Building default upload tag image ref: %s", err)
 	}

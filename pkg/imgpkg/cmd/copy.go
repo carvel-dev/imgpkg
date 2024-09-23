@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
+	"carvel.dev/imgpkg/pkg/imgpkg/image"
 	ctlimgset "carvel.dev/imgpkg/pkg/imgpkg/imageset"
 	"carvel.dev/imgpkg/pkg/imgpkg/internal/util"
 	"carvel.dev/imgpkg/pkg/imgpkg/lockconfig"
@@ -106,10 +107,10 @@ func (c *CopyOptions) Run() error {
 	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
-	var tagGen util.TagGenerator
-	tagGen = util.DefaultTagGenerator{}
+	var tagGen ctlimgset.TagGenerator
+	tagGen = image.DefaultTagGenerator{}
 	if c.UseRepoBasedTags {
-		tagGen = util.RepoBasedTagGenerator{}
+		tagGen = image.RepoBasedTagGenerator{}
 	}
 
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
