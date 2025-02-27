@@ -16,6 +16,7 @@ import (
 	"carvel.dev/imgpkg/pkg/imgpkg/signature"
 	v1 "carvel.dev/imgpkg/pkg/imgpkg/v1"
 	"github.com/cppforlife/go-cli-ui/ui"
+	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/spf13/cobra"
 )
 
@@ -104,7 +105,11 @@ func (c *CopyOptions) Run() error {
 	}
 
 	prefixedLogger := util.NewPrefixedLogger("copy | ", util.NewLogger(c.ui))
-	levelLogger := util.NewUILevelLogger(util.LogWarn, prefixedLogger)
+	logLevel := util.LogWarn
+	if logs.Enabled(logs.Debug) {
+		logLevel = util.LogDebug
+	}
+	levelLogger := util.NewUILevelLogger(logLevel, prefixedLogger)
 	imagesUploaderLogger := util.NewProgressBar(levelLogger, "done uploading images", "Error uploading images")
 
 	var tagGen ctlimgset.TagGenerator
@@ -113,8 +118,8 @@ func (c *CopyOptions) Run() error {
 		tagGen = image.RepoBasedTagGenerator{}
 	}
 
-	imageSet := ctlimgset.NewImageSet(c.Concurrency, prefixedLogger, tagGen)
-	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, prefixedLogger)
+	imageSet := ctlimgset.NewImageSet(c.Concurrency, levelLogger, tagGen)
+	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, levelLogger)
 
 	var signatureRetriever v1.SignatureFetcher
 	if c.SignatureFlags.CopyCosignSignatures {

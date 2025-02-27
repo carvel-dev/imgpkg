@@ -18,6 +18,7 @@ import (
 
 type Logger interface {
 	Logf(str string, args ...interface{})
+	Debugf(msg string, args ...interface{})
 }
 
 // TagGenerator interface
