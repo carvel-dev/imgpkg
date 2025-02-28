@@ -19,6 +19,7 @@ import (
 
 type Logger interface {
 	Debugf(msg string, args ...interface{})
+	Tracef(msg string, args ...interface{})
 	Logf(str string, args ...interface{})
 }
 
@@ -153,6 +154,7 @@ func (w *TarWriter) writeLayers() error {
 	isInflatable := (w.opts.Concurrency > 1) && isSeekable
 	writtenLayers := map[string]writtenLayer{}
 
+	startWriteLayers := time.Now()
 	// Inflate tar file so that multiple writes can happen in parallel
 	for _, imgLayer := range w.layersToWrite {
 		digest, err := regv1.NewHash(imgLayer.Digest)
@@ -219,6 +221,7 @@ func (w *TarWriter) writeLayers() error {
 			Offset: currPos,
 		}
 	}
+	w.logger.Tracef("Took %s to writing 0's  for %d layer(s)", time.Since(startWriteLayers), len(writtenLayers))
 
 	err := w.tf.Flush()
 	if err != nil {
@@ -226,6 +229,8 @@ func (w *TarWriter) writeLayers() error {
 	}
 
 	if isInflatable {
+		startWriteLayers = time.Now()
+		defer func() { w.logger.Tracef("Took %s to effectively write all layers", time.Since(startWriteLayers)) }()
 		return w.fillInLayers(writtenLayers)
 	}
 
@@ -279,6 +284,7 @@ func (w *TarWriter) fillInLayer(wl writtenLayer) error {
 
 	defer file.Close()
 
+	startFillingLayer := time.Now()
 	_, err = file.(*os.File).Seek(wl.Offset, 0)
 	if err != nil {
 		return fmt.Errorf("Seeking to offset: %s", err)
@@ -309,6 +315,7 @@ func (w *TarWriter) fillInLayer(wl writtenLayer) error {
 	} else {
 		w.logger.Debugf("reusing the layer: %s", wl.Layer.Digest)
 	}
+	w.logger.Tracef("took %s to prepare layer %s to be written", time.Since(startFillingLayer), wl.Layer.Digest)
 
 	err = w.writeTarEntry(tw, wl.Name, stream, wl.Layer.Size)
 	if err != nil {
@@ -346,7 +353,7 @@ func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size
 	}
 
 	if !zerosFill {
-		w.logger.Logf("done: file '%s' (%s)\n", path, time.Now().Sub(t1))
+		w.logger.Logf("done: file '%s' (%s)\n", path, time.Since(t1))
 	}
 
 	return nil
