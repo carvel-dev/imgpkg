@@ -65,6 +65,7 @@ images:
 			stdout := imgpkg.Run(
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
+					"--layers",
 				},
 			)
 
@@ -173,6 +174,7 @@ images:
 			stdout := imgpkg.Run(
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
+					"--layers",
 				},
 			)
 
@@ -295,7 +297,7 @@ images:
 			stdout := imgpkg.Run(
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
-					"-o", "text",
+					"-o", "text", "--layers",
 				},
 			)
 
@@ -397,6 +399,7 @@ images:
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 					"-o", "yaml",
+					"--layers",
 				},
 			)
 			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
@@ -516,6 +519,7 @@ images:
 				[]string{"describe",
 					"--tty=false", "--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, bundleDigest),
 					"-o", "yaml",
+					"--layers",
 				},
 			)
 			locationsImgDigest := env.ImageFactory.ImageDigest(fmt.Sprintf("%s:%s.image-locations.imgpkg", env.RelocationRepo, strings.ReplaceAll(bundleDigest[1:], ":", "-")))
@@ -646,6 +650,7 @@ images:
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, outerBundleDigest),
 					"-o", "yaml",
+					"--layers",
 				},
 			)
 
@@ -789,6 +794,7 @@ images:
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", outerBundle, outerBundleDigest),
 					"--output-type", "yaml",
+					"--layers",
 				},
 			)
 
@@ -926,6 +932,7 @@ images:
 				[]string{"describe",
 					"--bundle", fmt.Sprintf("%s%s", env.RelocationRepo, privateBundleDigest),
 					"-o", "yaml",
+					"--layers",
 				},
 			)
 

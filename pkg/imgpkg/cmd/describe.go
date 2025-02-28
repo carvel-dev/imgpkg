@@ -54,8 +54,8 @@ func NewDescribeCmd(o *DescribeOptions) *cobra.Command {
 	o.RegistryFlags.Set(cmd)
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", 5, "Concurrency")
 	cmd.Flags().StringVarP(&o.OutputType, "output-type", "o", "text", "Type of output possible values: [text, yaml]")
-	cmd.Flags().BoolVarP(&o.Layers, "layers", "", true, "Retrieve image layers info (Default: false)")
-	cmd.Flags().BoolVar(&o.IncludeCosignArtifacts, "cosign-artifacts", true, "Retrieve cosign artifact information (Default: true)")
+	cmd.Flags().BoolVarP(&o.Layers, "layers", "", false, "Retrieve image layers info")
+	cmd.Flags().BoolVar(&o.IncludeCosignArtifacts, "cosign-artifacts", true, "Retrieve cosign artifact information")
 	return cmd
 }
 
