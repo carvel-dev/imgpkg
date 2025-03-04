@@ -4,7 +4,7 @@ go 1.23.6
 
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1
-	github.com/cheggaaa/pb/v3 v3.1.6
+	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
 	github.com/cppforlife/cobrautil v0.0.0-20221021151949-d60711905d65
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
@@ -64,7 +64,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
