@@ -293,7 +293,8 @@ func TestToTarImage(t *testing.T) {
 
 		_, err := v1.CopyToTar(origin, imageTarPath, opts, reg)
 		require.ErrorContains(t, err, "error verifying sha256 checksum")
-		layersInTar, err = imagetar.NewTarReader(imageTarPath).PresentLayers()
+		reader := imagetar.NewTarReader(imageTarPath, 1)
+		layersInTar, err = reader.PresentLayers()
 		require.NoError(t, err)
 		require.Greater(t, len(layersInTar), 1)
 		require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
@@ -1155,7 +1156,7 @@ func (f fakeSignatureRetriever) Fetch(_ *imageset.UnprocessedImageRefs) (*images
 var _ v1.SignatureFetcher = new(fakeSignatureRetriever)
 
 func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
-	path := imagetar.NewTarReader(imageTarPath)
+	path := imagetar.NewTarReader(imageTarPath, 1)
 	imageOrIndex, err := path.Read()
 	require.NoError(t, err)
 
@@ -1178,7 +1179,7 @@ func assertTarballContainsEveryLayer(t *testing.T, imageTarPath string) {
 }
 
 func assertTarballContainsEveryImageInImageIndex(t *testing.T, imageTarPath string, numOfImagesForImageIndex int) {
-	path := imagetar.NewTarReader(imageTarPath)
+	path := imagetar.NewTarReader(imageTarPath, 1)
 	imageOrIndex, err := path.Read()
 	require.NoError(t, err)
 
@@ -1194,7 +1195,7 @@ func assertTarballContainsEveryImageInImageIndex(t *testing.T, imageTarPath stri
 }
 
 func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testing.T) {
-	path := imagetar.NewTarReader(imageTarPath)
+	path := imagetar.NewTarReader(imageTarPath, 1)
 	imageOrIndex, err := path.Read()
 	if err != nil {
 		t.Fatalf("Expected to read the image tar: %s", err)
@@ -1226,7 +1227,7 @@ func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testin
 }
 
 func assertTarballLabelsOuterBundle(imageTarPath string, outerBundleRef string, t *testing.T) {
-	tarReader := imagetar.NewTarReader(imageTarPath)
+	tarReader := imagetar.NewTarReader(imageTarPath, 1)
 	imageOrIndices, err := tarReader.Read()
 	assert.NoError(t, err)
 	var imageReferencesFound []imagedesc.ImageOrIndex
