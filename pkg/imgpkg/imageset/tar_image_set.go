@@ -46,29 +46,21 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 		// This will just follow the normal path of resume == false
 		outputFile, err = os.Open(outputPath)
 		if err == nil {
+			err := outputFile.Close()
+			if err != nil {
+				return nil, err
+			}
 			tmpFile, err = os.CreateTemp("", "imgpkg-tar-imageset-")
 			if err != nil {
 				return nil, fmt.Errorf("Creating tmp folder: %s", err)
 			}
-			defer os.Remove(tmpFile.Name())
+			//defer os.Remove(tmpFile.Name())
+			cErr := os.Rename(outputPath, tmpFile.Name())
+			if cErr != nil {
+				return nil, fmt.Errorf("Moving tar to temporary location: %s", cErr)
+			}
 
 			start := time.Now()
-			var cErr error
-			_, cErr = io.Copy(tmpFile, outputFile)
-			err = tmpFile.Close()
-			if err != nil {
-				return nil, err
-			}
-			err = outputFile.Close()
-			if err != nil {
-				return nil, err
-			}
-			if cErr != nil {
-				return nil, err
-			}
-			i.logger.Debugf("Took %s to copy file", time.Since(start))
-
-			start = time.Now()
 			reader := imagetar.NewTarReader(tmpFile.Name(), i.concurrency)
 			alreadyDownloadedLayers, err = reader.PresentLayers()
 			if err != nil {
@@ -90,27 +82,15 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	}
 	defer func() {
 		if err == nil {
+			if tmpFile != nil {
+				err = os.Remove(tmpFile.Name())
+			}
 			return
 		}
 		if tmpFile != nil {
-			var err1 error
-			outputFile, err1 = os.Open(outputPath)
-			if err1 != nil {
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
-				return
-			}
-			lTmpFile, err1 := os.Open(tmpFile.Name())
-			if err1 != nil {
-				outputFile.Close()
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
-				return
-			}
-
-			_, err1 = io.Copy(outputFile, lTmpFile)
-			outputFile.Close()
-			lTmpFile.Close()
-			if err1 != nil {
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
+			cErr := os.Rename(tmpFile.Name(), outputPath)
+			if cErr != nil {
+				err = fmt.Errorf("original error: %s, post exit error: %s", err, cErr)
 				return
 			}
 		}
