@@ -282,7 +282,7 @@ func TestToTarImage(t *testing.T) {
 			return false
 		})
 
-		imageTarPath := filepath.Join(os.TempDir(), " imgpkg-test-img.tar")
+		imageTarPath := filepath.Join(os.TempDir(), "imgpkg-test-img.tar")
 		if _, err := os.Stat(imageTarPath); err == nil {
 			os.Remove(imageTarPath)
 		}
