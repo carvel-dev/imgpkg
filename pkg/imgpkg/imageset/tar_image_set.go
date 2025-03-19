@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
@@ -40,7 +41,7 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	// this temporary file is used only in the case were we are resuming the copy of an image to a tar
 	// we are creating a temporary copy of the existing tar. This is done to be able to read the layers
 	// when we are filling up the destination tar.
-	var tmpFile *os.File
+	var tmpFilename string
 	if resume {
 		// If the file cannot be open we assume that this is not a resume action.
 		// This will just follow the normal path of resume == false
@@ -50,18 +51,18 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 			if err != nil {
 				return nil, err
 			}
-			tmpFile, err = os.CreateTemp("", "imgpkg-tar-imageset-")
+			tmpFolder, err := os.MkdirTemp("", "imgpkg-tar-imageset-")
 			if err != nil {
 				return nil, fmt.Errorf("Creating tmp folder: %s", err)
 			}
-			//defer os.Remove(tmpFile.Name())
-			cErr := os.Rename(outputPath, tmpFile.Name())
+			tmpFilename = filepath.Join(tmpFolder, "imgpkg-tar-imageset.tmp")
+			cErr := os.Rename(outputPath, tmpFilename)
 			if cErr != nil {
 				return nil, fmt.Errorf("Moving tar to temporary location: %s", cErr)
 			}
 
 			start := time.Now()
-			reader := imagetar.NewTarReader(tmpFile.Name(), i.concurrency)
+			reader := imagetar.NewTarReader(tmpFilename, i.concurrency)
 			alreadyDownloadedLayers, err = reader.PresentLayers()
 			if err != nil {
 				return nil, fmt.Errorf("Reading previously created tar '%s': %s", outputPath, err)
@@ -82,13 +83,13 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	}
 	defer func() {
 		if err == nil {
-			if tmpFile != nil {
-				err = os.Remove(tmpFile.Name())
+			if tmpFilename != "" {
+				err = os.Remove(tmpFilename)
 			}
 			return
 		}
-		if tmpFile != nil {
-			cErr := os.Rename(tmpFile.Name(), outputPath)
+		if tmpFilename != "" {
+			cErr := os.Rename(tmpFilename, outputPath)
 			if cErr != nil {
 				err = fmt.Errorf("original error: %s, post exit error: %s", err, cErr)
 				return
