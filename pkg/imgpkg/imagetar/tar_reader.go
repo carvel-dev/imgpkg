@@ -117,6 +117,7 @@ func (r *TarReader) presentLayersForImage(img v1.Image, layerCache map[string]v1
 
 			r.throttle.Take()
 			_, err = io.Copy(io.Discard, closer)
+			closer.Close()
 			r.throttle.Done()
 			if err != nil {
 				errChan <- nil
