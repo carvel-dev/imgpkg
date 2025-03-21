@@ -41,7 +41,7 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	// this temporary file is used only in the case were we are resuming the copy of an image to a tar
 	// we are creating a temporary copy of the existing tar. This is done to be able to read the layers
 	// when we are filling up the destination tar.
-	var tmpFilename string
+	var tmpFolder, tmpFilename string
 	if resume {
 		// If the file cannot be open we assume that this is not a resume action.
 		// This will just follow the normal path of resume == false
@@ -51,7 +51,7 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 			if err != nil {
 				return nil, err
 			}
-			tmpFolder, err := os.MkdirTemp("", "imgpkg-tar-imageset-")
+			tmpFolder, err = os.MkdirTemp("", "imgpkg-tar-imageset-")
 			if err != nil {
 				return nil, fmt.Errorf("Creating tmp folder: %s", err)
 			}
@@ -83,8 +83,8 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	}
 	defer func() {
 		if err == nil {
-			if tmpFilename != "" {
-				err = os.Remove(tmpFilename)
+			if tmpFolder != "" {
+				os.RemoveAll(tmpFolder)
 			}
 			return
 		}
