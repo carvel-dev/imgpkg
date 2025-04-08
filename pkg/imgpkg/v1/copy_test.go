@@ -282,7 +282,7 @@ func TestToTarImage(t *testing.T) {
 			return false
 		})
 
-		imageTarPath := filepath.Join(os.TempDir(), " imgpkg-test-img.tar")
+		imageTarPath := filepath.Join(os.TempDir(), "imgpkg-test-img.tar")
 		if _, err := os.Stat(imageTarPath); err == nil {
 			os.Remove(imageTarPath)
 		}
@@ -1210,7 +1210,7 @@ func assertTarballContainsOnlyDistributableLayers(imageTarPath string, t *testin
 		for _, layer := range layers {
 			mediaType, err := layer.MediaType()
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatalf("%s", err.Error())
 			}
 
 			digest, err := layer.Digest()

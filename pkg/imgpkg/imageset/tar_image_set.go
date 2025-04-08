@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"carvel.dev/imgpkg/pkg/imgpkg/imagedesc"
@@ -40,36 +41,28 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	// this temporary file is used only in the case were we are resuming the copy of an image to a tar
 	// we are creating a temporary copy of the existing tar. This is done to be able to read the layers
 	// when we are filling up the destination tar.
-	var tmpFile *os.File
+	var tmpFolder, tmpFilename string
 	if resume {
 		// If the file cannot be open we assume that this is not a resume action.
 		// This will just follow the normal path of resume == false
 		outputFile, err = os.Open(outputPath)
 		if err == nil {
-			tmpFile, err = os.CreateTemp("", "imgpkg-tar-imageset-")
+			err := outputFile.Close()
+			if err != nil {
+				return nil, err
+			}
+			tmpFolder, err = os.MkdirTemp("", "imgpkg-tar-imageset-")
 			if err != nil {
 				return nil, fmt.Errorf("Creating tmp folder: %s", err)
 			}
-			defer os.Remove(tmpFile.Name())
+			tmpFilename = filepath.Join(tmpFolder, "imgpkg-tar-imageset.tmp")
+			cErr := os.Rename(outputPath, tmpFilename)
+			if cErr != nil {
+				return nil, fmt.Errorf("Moving tar to temporary location: %s", cErr)
+			}
 
 			start := time.Now()
-			var cErr error
-			_, cErr = io.Copy(tmpFile, outputFile)
-			err = tmpFile.Close()
-			if err != nil {
-				return nil, err
-			}
-			err = outputFile.Close()
-			if err != nil {
-				return nil, err
-			}
-			if cErr != nil {
-				return nil, err
-			}
-			i.logger.Debugf("Took %s to copy file", time.Since(start))
-
-			start = time.Now()
-			reader := imagetar.NewTarReader(tmpFile.Name(), i.concurrency)
+			reader := imagetar.NewTarReader(tmpFilename, i.concurrency)
 			alreadyDownloadedLayers, err = reader.PresentLayers()
 			if err != nil {
 				return nil, fmt.Errorf("Reading previously created tar '%s': %s", outputPath, err)
@@ -90,27 +83,15 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 	}
 	defer func() {
 		if err == nil {
+			if tmpFolder != "" {
+				os.RemoveAll(tmpFolder)
+			}
 			return
 		}
-		if tmpFile != nil {
-			var err1 error
-			outputFile, err1 = os.Open(outputPath)
-			if err1 != nil {
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
-				return
-			}
-			lTmpFile, err1 := os.Open(tmpFile.Name())
-			if err1 != nil {
-				outputFile.Close()
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
-				return
-			}
-
-			_, err1 = io.Copy(outputFile, lTmpFile)
-			outputFile.Close()
-			lTmpFile.Close()
-			if err1 != nil {
-				err = fmt.Errorf("original error: %s, post exit error: %s", err, err1)
+		if tmpFilename != "" {
+			cErr := os.Rename(tmpFilename, outputPath)
+			if cErr != nil {
+				err = fmt.Errorf("original error: %s, post exit error: %s", err, cErr)
 				return
 			}
 		}
