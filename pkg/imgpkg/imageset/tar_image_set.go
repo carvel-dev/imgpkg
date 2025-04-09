@@ -18,14 +18,15 @@ import (
 )
 
 type TarImageSet struct {
-	imageSet    ImageSet
-	concurrency int
-	logger      Logger
+	imageSet         ImageSet
+	concurrency      int
+	logger           Logger
+	progressReporter imagetar.ProgressReporter
 }
 
 // NewTarImageSet provides export/import operations on a tarball for a set of images
-func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger) TarImageSet {
-	return TarImageSet{imageSet, concurrency, logger}
+func NewTarImageSet(imageSet ImageSet, concurrency int, logger Logger, report imagetar.ProgressReporter) TarImageSet {
+	return TarImageSet{imageSet: imageSet, concurrency: concurrency, logger: logger, progressReporter: report}
 }
 
 // Export Creates a Tar with the provided Images
@@ -105,7 +106,7 @@ func (i *TarImageSet) Export(foundImages *UnprocessedImageRefs, outputPath strin
 
 	opts := imagetar.TarWriterOpts{Concurrency: i.concurrency}
 
-	err = imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck, alreadyDownloadedLayers).Write()
+	err = imagetar.NewTarWriter(ids, outputFileOpener, opts, i.logger, imageLayerWriterCheck, alreadyDownloadedLayers, i.progressReporter).Write()
 	return ids, err
 }
 
