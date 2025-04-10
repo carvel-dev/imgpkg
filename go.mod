@@ -15,7 +15,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.12.0
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.32.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
