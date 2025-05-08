@@ -23,6 +23,14 @@ type Logger interface {
 	Logf(str string, args ...interface{})
 }
 
+// ProgressReporter used to report the current status of the read/write
+type ProgressReporter interface {
+	StartReporting(id string, total int64) error
+	Report(id string, completed int64, total int64, err error) error
+	Finish(id string, total int64) error
+	ActiveReporter() bool
+}
+
 type TarWriterOpts struct {
 	Concurrency int
 }
@@ -31,9 +39,10 @@ type TarWriter struct {
 	ids       *imagedesc.ImageRefDescriptors
 	dstOpener func() (io.WriteCloser, error)
 
-	dst           io.WriteCloser
-	tf            *tar.Writer
-	layersToWrite []imagedesc.ImageLayerDescriptor
+	dst              io.WriteCloser
+	tf               *tar.Writer
+	layersToWrite    []imagedesc.ImageLayerDescriptor
+	progressReporter ProgressReporter
 
 	opts                  TarWriterOpts
 	logger                Logger
@@ -44,7 +53,7 @@ type TarWriter struct {
 // NewTarWriter constructor returning a mechanism to write image refs / layers to a tarball on disk.
 func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.WriteCloser, error),
 	opts TarWriterOpts, logger Logger, imageLayerWriterCheck ImageLayerWriterFilter,
-	layersFromOtherSource []regv1.Layer) *TarWriter {
+	layersFromOtherSource []regv1.Layer, reporter ProgressReporter) *TarWriter {
 	knownlayers := map[string]regv1.Layer{}
 	for _, layer := range layersFromOtherSource {
 		d, err := layer.Digest()
@@ -53,6 +62,9 @@ func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.Write
 		}
 		knownlayers[d.String()] = layer
 	}
+	if reporter == nil {
+		panic(fmt.Sprintf("Internal inconsistency: A Progress Reported need to be provided"))
+	}
 	return &TarWriter{
 		ids:                   ids,
 		dstOpener:             dstOpener,
@@ -60,6 +72,7 @@ func NewTarWriter(ids *imagedesc.ImageRefDescriptors, dstOpener func() (io.Write
 		logger:                logger,
 		imageLayerWriterCheck: imageLayerWriterCheck,
 		layersFromOtherSource: knownlayers,
+		progressReporter:      reporter,
 	}
 }
 
@@ -138,6 +151,29 @@ func (w *TarWriter) writeImage(td imagedesc.ImageDescriptor) error {
 	return nil
 }
 
+type readerWithProgressLogger struct {
+	reader           io.Reader
+	progressReporter ProgressReporter
+	layerID          string
+	gotSize          int64
+	totalSize        int64
+}
+
+func (r *readerWithProgressLogger) Read(p []byte) (n int, err error) {
+	readSize, err := r.reader.Read(p)
+	r.gotSize += int64(readSize)
+	if err != nil {
+		if err == io.EOF {
+			r.progressReporter.Finish(r.layerID, r.totalSize)
+			return readSize, err
+		}
+		r.progressReporter.Report(r.layerID, r.gotSize, r.totalSize, err)
+		return 0, err
+	}
+	r.progressReporter.Report(r.layerID, r.gotSize, r.totalSize, err)
+	return readSize, nil
+}
+
 type writtenLayer struct {
 	Name   string
 	Offset int64
@@ -188,10 +224,19 @@ func (w *TarWriter) writeLayers() error {
 			stream = nil
 		} else {
 			if sourceLayer, ok := w.layersFromOtherSource[digest.String()]; ok {
-				stream, err = sourceLayer.Compressed()
+				rLayer, err := sourceLayer.Compressed()
 				if err != nil {
 					return fmt.Errorf("failed to get compressed stuff: %s", err)
 				}
+				w.progressReporter.StartReporting(digest.Hex, imgLayer.Size)
+				progressReader := &readerWithProgressLogger{
+					reader:           rLayer,
+					progressReporter: w.progressReporter,
+					layerID:          digest.Hex,
+					gotSize:          0,
+					totalSize:        imgLayer.Size,
+				}
+				stream = progressReader
 			}
 
 			if stream == nil {
@@ -201,10 +246,19 @@ func (w *TarWriter) writeLayers() error {
 					return err
 				}
 
-				stream, err = foundLayer.Open()
+				rLayer, err := foundLayer.Open()
 				if err != nil {
 					return err
 				}
+				w.progressReporter.StartReporting(digest.Hex, imgLayer.Size)
+				progressReader := &readerWithProgressLogger{
+					reader:           rLayer,
+					progressReporter: w.progressReporter,
+					layerID:          digest.Hex,
+					gotSize:          0,
+					totalSize:        imgLayer.Size,
+				}
+				stream = progressReader
 			} else {
 				w.logger.Debugf("reusing layer: %s", digest.String())
 			}
@@ -317,7 +371,16 @@ func (w *TarWriter) fillInLayer(wl writtenLayer) error {
 	}
 	w.logger.Tracef("took %s to prepare layer %s to be written", time.Since(startFillingLayer), wl.Layer.Digest)
 
-	err = w.writeTarEntry(tw, wl.Name, stream, wl.Layer.Size)
+	w.progressReporter.StartReporting(wl.Layer.Digest, wl.Layer.Size)
+	progressReader := &readerWithProgressLogger{
+		reader:           stream,
+		progressReporter: w.progressReporter,
+		layerID:          wl.Layer.Digest,
+		gotSize:          0,
+		totalSize:        wl.Layer.Size,
+	}
+
+	err = w.writeTarEntry(tw, wl.Name, progressReader, wl.Layer.Size)
 	if err != nil {
 		return fmt.Errorf("Rewriting tar entry (%s): %s", wl.Name, err)
 	}
@@ -353,7 +416,9 @@ func (w *TarWriter) writeTarEntry(tw *tar.Writer, path string, r io.Reader, size
 	}
 
 	if !zerosFill {
-		w.logger.Logf("done: file '%s' (%s)\n", path, time.Since(t1))
+		if !w.progressReporter.ActiveReporter() {
+			w.logger.Logf("done: file '%s' (%s)\n", path, time.Since(t1))
+		}
 	}
 
 	return nil

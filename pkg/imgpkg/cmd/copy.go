@@ -119,7 +119,7 @@ func (c *CopyOptions) Run() error {
 	}
 
 	imageSet := ctlimgset.NewImageSet(c.Concurrency, levelLogger, tagGen)
-	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, levelLogger)
+	tarImageSet := ctlimgset.NewTarImageSet(imageSet, c.Concurrency, levelLogger, &v1.NoopProgressReporter{})
 
 	var signatureRetriever v1.SignatureFetcher
 	if c.SignatureFlags.CopyCosignSignatures {

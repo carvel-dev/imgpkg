@@ -40,11 +40,12 @@ func testSetup(registryBuild *helpers.FakeTestRegistryBuilder, imageName string,
 	uiLogger := util.NewUILevelLogger(util.LogWarn, util.NewBufferLogger(stdOut))
 	tagGen := ctlimg.DefaultTagGenerator{}
 	imageSet := imageset.NewImageSet(1, uiLogger, tagGen)
+	noopProgress := v1.NoopProgressReporter{}
 
 	opts := v1.CopyOpts{
 		Logger:             uiLogger,
 		ImageSet:           imageSet,
-		TarImageSet:        imageset.NewTarImageSet(imageSet, 1, uiLogger),
+		TarImageSet:        imageset.NewTarImageSet(imageSet, 1, uiLogger, &noopProgress),
 		Concurrency:        1,
 		SignatureRetriever: &fakeSignatureRetriever{},
 		Resume:             false,

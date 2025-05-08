@@ -28,6 +28,7 @@ type CopyOpts struct {
 	SignatureRetriever      SignatureFetcher
 	IncludeNonDistributable bool
 	Resume                  bool
+	ProgressTracker         ProgressTracker
 }
 
 // CopyOrigin abstracts the original location to copy from
@@ -47,6 +48,9 @@ func CopyToTar(origin CopyOrigin, outputTarPath string, opts CopyOpts, reg regis
 		return nil, err
 	}
 
+	if opts.ProgressTracker != nil {
+		opts.ProgressTracker.StartDisplay()
+	}
 	opts.Logger.Tracef("Exporting images to tar\n")
 	ids, err := opts.TarImageSet.Export(unprocessedImageRefs, outputTarPath, reg, imagetar.NewImageLayerWriterCheck(opts.IncludeNonDistributable), opts.Resume)
 	if err != nil {
