@@ -1,6 +1,6 @@
 module carvel.dev/imgpkg
 
-go 1.23.8
+go 1.24.0
 
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1
@@ -15,7 +15,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.14.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.36.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
