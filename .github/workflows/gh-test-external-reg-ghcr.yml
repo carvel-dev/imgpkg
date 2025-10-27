@@ -41,12 +41,11 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Normalize GHCR owner
-        run: echo "GHCR_OWNER=$(echo ${{ github.actor }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Run Tests
         env:
-          IMGPKG_E2E_IMAGE: "ghcr.io/${{ env.GHCR_OWNER }}/github-action-test-relocation"
-          IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ env.GHCR_OWNER }}/github-action-imgpkg-test"
+          GHCR_OWNER: ${{ github.repository_owner }}
+          IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
+          IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
         run: |
           set -e
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
