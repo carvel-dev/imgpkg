@@ -2,11 +2,21 @@ name: test-gh-external-registries-ghcr
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
+    inputs:
+      pr_number:
+        description: "Optional: PR number to test (e.g., 123)"
+        required: false
+      ref:
+        description: "Optional: git ref/branch/commit to test"
+        required: false
+  # push:
+  #   branches:
+  #     - develop
+  # pull_request:
+  #   types: [opened, reopened, synchronize, edited]
+  # Optional: Run automatically on a schedule (e.g., nightly)
+  schedule:
+    - cron: "0 3 * * *"  # every day at 03:00 UTC
 
 permissions:
   contents: read
@@ -24,7 +34,7 @@ jobs:
   test-ghcr:
     name: Test GH with GHCR
     runs-on: ubuntu-latest
-    environment: GHCR e2e
+    # environment: GHCR e2e
     steps:
       - name: Check out code
         uses: actions/checkout@v4
