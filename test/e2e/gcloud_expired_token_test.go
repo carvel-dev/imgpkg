@@ -3,16 +3,6 @@
 
 package e2e
 
-import (
-	"os"
-	"os/exec"
-	"path/filepath"
-	"testing"
-
-	"carvel.dev/imgpkg/test/helpers"
-	"github.com/stretchr/testify/require"
-)
-
 // func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t *testing.T) {
 // 	if runtime.GOOS == "windows" {
 // 		t.Skip("Skipping test as docker image used requires linux")
@@ -66,32 +56,32 @@ import (
 // 	require.NoError(t, err)
 // }
 
-func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) string {
-	tempDockerCfgDir, err := os.MkdirTemp(os.TempDir(), "dockercfg")
-	require.NoError(t, err)
+// func overrideDockerCredHelperToRandomlyFailWhenCalled(t *testing.T, env *helpers.Env) string {
+// 	tempDockerCfgDir, err := os.MkdirTemp(os.TempDir(), "dockercfg")
+// 	require.NoError(t, err)
 
-	err = os.MkdirAll(filepath.Join(tempDockerCfgDir, "contexts", "meta"), os.ModePerm)
-	require.NoError(t, err)
+// 	err = os.MkdirAll(filepath.Join(tempDockerCfgDir, "contexts", "meta"), os.ModePerm)
+// 	require.NoError(t, err)
 
-	dockerConfigPath := filepath.Join(tempDockerCfgDir, "config.json")
+// 	dockerConfigPath := filepath.Join(tempDockerCfgDir, "config.json")
 
-	err = os.WriteFile(dockerConfigPath, []byte(`{
-			"credHelpers": {
-					"gcr.io": "gcloud-race-condition-db-error"
-			}
-		}`), os.ModePerm)
+// 	err = os.WriteFile(dockerConfigPath, []byte(`{
+// 			"credHelpers": {
+// 					"gcr.io": "gcloud-race-condition-db-error"
+// 			}
+// 		}`), os.ModePerm)
 
-	require.NoError(t, err)
+// 	require.NoError(t, err)
 
-	// Cache the ubuntu image before the gcloud-race-condition-db-error plugin is called.
-	// test/e2e/assets/docker-credential-gcloud-race-condition-db-error runs a docker command (using the ubuntu:21.04) image. If it isn't cached
-	// then that plugin will download that image (which takes time), and the keychain will timeout/fail. (We want it to fail for a different reason)
-	exec.Command("docker", "pull", helpers.CompleteImageRef("ubuntu:21.04")).Run()
+// 	// Cache the ubuntu image before the gcloud-race-condition-db-error plugin is called.
+// 	// test/e2e/assets/docker-credential-gcloud-race-condition-db-error runs a docker command (using the ubuntu:21.04) image. If it isn't cached
+// 	// then that plugin will download that image (which takes time), and the keychain will timeout/fail. (We want it to fail for a different reason)
+// 	exec.Command("docker", "pull", helpers.CompleteImageRef("ubuntu:21.04")).Run()
 
-	env.AddCleanup(func() {
-		exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
-		os.RemoveAll(tempDockerCfgDir)
-	})
+// 	env.AddCleanup(func() {
+// 		exec.Command("docker", "volume", "rm", "volume-to-use-when-locking").Run()
+// 		os.RemoveAll(tempDockerCfgDir)
+// 	})
 
-	return tempDockerCfgDir
-}
+// 	return tempDockerCfgDir
+// }
