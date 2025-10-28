@@ -23,13 +23,14 @@ import (
 type CopyOptions struct {
 	ui ui.UI
 
-	ImageFlags      ImageFlags
-	BundleFlags     BundleFlags
-	LockInputFlags  LockInputFlags
-	LockOutputFlags LockOutputFlags
-	TarFlags        TarFlags
-	RegistryFlags   RegistryFlags
-	SignatureFlags  SignatureFlags
+	ImageFlags         ImageFlags
+	ImageIsBundleCheck bool
+	BundleFlags        BundleFlags
+	LockInputFlags     LockInputFlags
+	LockOutputFlags    LockOutputFlags
+	TarFlags           TarFlags
+	RegistryFlags      RegistryFlags
+	SignatureFlags     SignatureFlags
 
 	RepoDst string
 
@@ -73,6 +74,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	}
 
 	o.ImageFlags.SetCopy(cmd)
+	cmd.Flags().BoolVar(&o.ImageIsBundleCheck, "image-is-bundle-check", true, "Error when image is a bundle (disable shallow-copying bundles via -i)")
 	o.BundleFlags.SetCopy(cmd)
 	o.LockInputFlags.Set(cmd)
 	o.LockOutputFlags.SetOnCopy(cmd)
@@ -94,6 +96,9 @@ func (c *CopyOptions) Run() error {
 	}
 	if !c.hasOneDst() {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
+	}
+	if !c.ImageIsBundleCheck && len(c.BundleFlags.Bundle) != 0 {
+		return fmt.Errorf("Cannot set --image-is-bundle-check while using -b flag")
 	}
 
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
@@ -130,6 +135,7 @@ func (c *CopyOptions) Run() error {
 
 	opts := v1.CopyOpts{
 		Logger:                  levelLogger,
+		AllowShallowCopyBundle:  !c.ImageIsBundleCheck,
 		ImageSet:                imageSet,
 		TarImageSet:             tarImageSet,
 		Concurrency:             c.Concurrency,
