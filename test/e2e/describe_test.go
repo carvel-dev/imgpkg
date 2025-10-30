@@ -411,6 +411,18 @@ images:
 			digestSha3 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + imgSigDigest)
 			digestSha4 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsImgDigest)
 			digestSha5 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + bundleDigest)
+
+			// Get actual sizes
+			imageSizes1 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + imageDigest)
+			imageSize1 := env.ImageFactory.GetImageSize(env.RelocationRepo + imageDigest)
+			sigSizes2 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + bundleSigDigest)
+			sigSize2 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + bundleSigDigest)
+			sigSizes3 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + imgSigDigest)
+			sigSize3 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + imgSigDigest)
+			internalSizes4 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + locationsImgDigest)
+			internalSize4 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsImgDigest)
+			bundleSizes5 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + bundleDigest)
+
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   images:
@@ -422,7 +434,9 @@ content:
       imageType: Image
       layers:
       - digest: %s
+        size: %d
       origin: %s%s
+      size: %d
     "%s":
       annotations:
         tag: %s
@@ -430,7 +444,9 @@ content:
       imageType: Signature
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
     "%s":
       annotations:
         tag: %s
@@ -438,38 +454,43 @@ content:
       imageType: Signature
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
     "%s":
       image: %s@%s
       imageType: Internal
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
 image: %s%s
 layers:
 - digest: %s
+  size: %d
 metadata: {}
 origin: %s%s
 `, bundleDigest[1:],
 				imageDigest[1:],
 				env.RelocationRepo, imageDigest,
-				digestSha1[0],
-				env.Image, imageDigest,
+				digestSha1[0], imageSizes1[0],
+				env.Image, imageDigest, imageSize1,
 				bundleSigDigest,
 				bundleSigTag,
 				env.RelocationRepo, bundleSigDigest,
-				digestSha2[0],
-				env.RelocationRepo, bundleSigDigest,
+				digestSha2[0], sigSizes2[0],
+				env.RelocationRepo, bundleSigDigest, sigSize2,
 				imgSigDigest,
 				imgSigTag,
 				env.RelocationRepo, imgSigDigest,
-				digestSha3[0],
-				env.RelocationRepo, imgSigDigest,
+				digestSha3[0], sigSizes3[0],
+				env.RelocationRepo, imgSigDigest, sigSize3,
 				locationsImgDigest,
 				env.RelocationRepo, locationsImgDigest,
-				digestSha4[0],
-				env.RelocationRepo, locationsImgDigest,
-				env.RelocationRepo, bundleDigest, digestSha5[0], env.RelocationRepo, bundleDigest), stdout)
+				digestSha4[0], internalSizes4[0],
+				env.RelocationRepo, locationsImgDigest, internalSize4,
+				env.RelocationRepo, bundleDigest, digestSha5[0], bundleSizes5[0], env.RelocationRepo, bundleDigest), stdout)
 		})
 	})
 
@@ -528,6 +549,18 @@ images:
 			digestSha3 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + imgSigDigest)
 			digestSha4 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsImgDigest)
 			digestSha5 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + bundleDigest)
+
+			// Get actual sizes
+			imageSizes1 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + imageDigest)
+			imageSize1 := env.ImageFactory.GetImageSize(env.RelocationRepo + imageDigest)
+			sigSizes2 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + bundleSigDigest)
+			sigSize2 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + bundleSigDigest)
+			sigSizes3 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + imgSigDigest)
+			sigSize3 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + imgSigDigest)
+			internalSizes4 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + locationsImgDigest)
+			internalSize4 := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsImgDigest)
+			bundleSizes5 := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + bundleDigest)
+
 			require.YAMLEq(t, fmt.Sprintf(`content:
   images:
     "%s":
@@ -538,7 +571,9 @@ images:
       imageType: Image
       layers:
       - digest: %s
+        size: %d
       origin: %s%s
+      size: %d
     "%s":
       annotations:
         tag: %s
@@ -546,7 +581,9 @@ images:
       imageType: Signature
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
     "%s":
       annotations:
         tag: %s
@@ -554,35 +591,40 @@ images:
       imageType: Signature
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
     "%s":
       image: %s@%s
       imageType: Internal
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
 metadata: {}
 image: %s%s
 layers:
 - digest: %s
+  size: %d
 origin: %s%s
 sha: %s
 `,
 				imageDigest[1:],
-				env.RelocationRepo, imageDigest, digestSha1[0],
-				env.Image, imageDigest,
+				env.RelocationRepo, imageDigest, digestSha1[0], imageSizes1[0],
+				env.Image, imageDigest, imageSize1,
 				bundleSigDigest,
 				bundleSigTag,
-				env.RelocationRepo, bundleSigDigest, digestSha2[0],
-				env.RelocationRepo, bundleSigDigest,
+				env.RelocationRepo, bundleSigDigest, digestSha2[0], sigSizes2[0],
+				env.RelocationRepo, bundleSigDigest, sigSize2,
 				imgSigDigest,
 				imgSigTag,
-				env.RelocationRepo, imgSigDigest, digestSha3[0],
-				env.RelocationRepo, imgSigDigest,
+				env.RelocationRepo, imgSigDigest, digestSha3[0], sigSizes3[0],
+				env.RelocationRepo, imgSigDigest, sigSize3,
 				locationsImgDigest,
-				env.RelocationRepo, locationsImgDigest, digestSha4[0],
-				env.RelocationRepo, locationsImgDigest,
-				env.RelocationRepo, bundleDigest, digestSha5[0], env.RelocationRepo, bundleDigest, bundleDigest[1:]), stdout)
+				env.RelocationRepo, locationsImgDigest, digestSha4[0], internalSizes4[0],
+				env.RelocationRepo, locationsImgDigest, internalSize4,
+				env.RelocationRepo, bundleDigest, digestSha5[0], bundleSizes5[0], env.RelocationRepo, bundleDigest, bundleDigest[1:]), stdout)
 		})
 	})
 
@@ -665,6 +707,21 @@ images:
 			digestSha5 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img1Digest)
 			digestSha6 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
 			digestSha7 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + outerBundleDigest)
+
+			// Get actual sizes
+			img1Sizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + img1Digest)
+			img1Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img1Digest)
+			img2Sizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + img2Digest)
+			img2Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img2Digest)
+			nestedInternalSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
+			nestedInternalSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
+			nestedBundleSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + nestedBundleDigest)
+			outerImg1Sizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + img1Digest)
+			outerImg1Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img1Digest)
+			outerInternalSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
+			outerInternalSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
+			outerBundleSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + outerBundleDigest)
+
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
@@ -678,22 +735,29 @@ content:
             imageType: Image
             layers:
             - digest: %s
+              size: %d
             origin: %s
+            size: %d
           "%s":
             image: %s%s
             imageType: Image
             layers:
             - digest: %s
+              size: %d
             origin: %s
+            size: %d
           "%s":
             image: %s@%s
             imageType: Internal
             layers:
             - digest: %s
+              size: %d
             origin: %s@%s
+            size: %d
       image: %s%s
       layers:
       - digest: %s
+        size: %d
       metadata: {}
       origin: %s%s
   images:
@@ -704,33 +768,38 @@ content:
       imageType: Image
       layers:
       - digest: %s
+        size: %d
       origin: %s
+      size: %d
     "%s":
       image: %s@%s
       imageType: Internal
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
 image: %s%s
 layers:
 - digest: %s
+  size: %d
 metadata: {}
 origin: %s%s
 `,
 				outerBundleDigest[1:],
 				nestedBundleDigest[1:],
 				img1Digest[1:],
-				env.RelocationRepo, img1Digest, digestSha1[0], img1DigestRef,
+				env.RelocationRepo, img1Digest, digestSha1[0], img1Sizes[0], img1DigestRef, img1Size,
 				img2Digest[1:],
-				env.RelocationRepo, img2Digest, digestSha2[0], img2DigestRef,
+				env.RelocationRepo, img2Digest, digestSha2[0], img2Sizes[0], img2DigestRef, img2Size,
 				locationsNestedBundleImgDigest,
-				env.RelocationRepo, locationsNestedBundleImgDigest, digestSha3[0], env.RelocationRepo, locationsNestedBundleImgDigest,
-				env.RelocationRepo, nestedBundleDigest, digestSha4[0], nestedBundle, nestedBundleDigest,
+				env.RelocationRepo, locationsNestedBundleImgDigest, digestSha3[0], nestedInternalSizes[0], env.RelocationRepo, locationsNestedBundleImgDigest, nestedInternalSize,
+				env.RelocationRepo, nestedBundleDigest, digestSha4[0], nestedBundleSizes[0], nestedBundle, nestedBundleDigest,
 				img1Digest[1:],
-				env.RelocationRepo, img1Digest, digestSha5[0], img1DigestRef,
+				env.RelocationRepo, img1Digest, digestSha5[0], outerImg1Sizes[0], img1DigestRef, outerImg1Size,
 				locationsOuterBundleImgDigest,
-				env.RelocationRepo, locationsOuterBundleImgDigest, digestSha6[0], env.RelocationRepo, locationsOuterBundleImgDigest,
-				env.RelocationRepo, outerBundleDigest, digestSha7[0], env.RelocationRepo, outerBundleDigest,
+				env.RelocationRepo, locationsOuterBundleImgDigest, digestSha6[0], outerInternalSizes[0], env.RelocationRepo, locationsOuterBundleImgDigest, outerInternalSize,
+				env.RelocationRepo, outerBundleDigest, digestSha7[0], outerBundleSizes[0], env.RelocationRepo, outerBundleDigest,
 			), stdout)
 		})
 	})
@@ -806,6 +875,19 @@ images:
 			digestSha4 := env.ImageFactory.GetImageLayersDigest(nestedBundle + nestedBundleDigest)
 			digestSha5 := env.ImageFactory.GetImageLayersDigest(img1DigestRef)
 			digestSha6 := env.ImageFactory.GetImageLayersDigest(outerBundle + outerBundleDigest)
+
+			// Get actual sizes
+			img1Sizes := env.ImageFactory.GetImageLayersSizes(img1DigestRef)
+			img1Size := env.ImageFactory.GetImageSize(img1DigestRef)
+			img2Sizes := env.ImageFactory.GetImageLayersSizes(img2DigestRef)
+			img2Size := env.ImageFactory.GetImageSize(img2DigestRef)
+			sigSizes := env.ImageFactory.GetImageLayersSizes(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
+			sigSize := env.ImageFactory.GetImageSize(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
+			nestedBundleSizes := env.ImageFactory.GetImageLayersSizes(nestedBundle + nestedBundleDigest)
+			outerImg1Sizes := env.ImageFactory.GetImageLayersSizes(img1DigestRef)
+			outerImg1Size := env.ImageFactory.GetImageSize(img1DigestRef)
+			outerBundleSizes := env.ImageFactory.GetImageLayersSizes(outerBundle + outerBundleDigest)
+
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   bundles:
@@ -817,13 +899,17 @@ content:
             imageType: Image
             layers:
             - digest: %s
+              size: %d
             origin: %s
+            size: %d
           "%s":
             image: %s
             imageType: Image
             layers:
             - digest: %s
+              size: %d
             origin: %s
+            size: %d
           "%s":
             annotations:
               tag: %s
@@ -831,10 +917,13 @@ content:
             imageType: Signature
             layers:
             - digest: %s
+              size: %d
             origin: %s@%s
+            size: %d
       image: %s%s
       layers:
       - digest: %s
+        size: %d
       metadata: {}
       origin: %s%s
   images:
@@ -843,27 +932,30 @@ content:
       imageType: Image
       layers:
       - digest: %s
+        size: %d
       origin: %s
+      size: %d
 image: %s%s
 layers:
 - digest: %s
+  size: %d
 metadata: {}
 origin: %s%s
 `,
 				outerBundleDigest[1:],
 				nestedBundleDigest[1:],
 				img1Digest[1:],
-				img1DigestRef, digestSha1[0], img1DigestRef,
+				img1DigestRef, digestSha1[0], img1Sizes[0], img1DigestRef, img1Size,
 				img2Digest[1:],
-				img2DigestRef, digestSha2[0], img2DigestRef,
+				img2DigestRef, digestSha2[0], img2Sizes[0], img2DigestRef, img2Size,
 				img2SigDigest,
 				img2SigTag,
-				imgRef.Context().Name()+"-img2", img2SigDigest, digestSha3[0],
-				imgRef.Context().Name()+"-img2", img2SigDigest,
-				nestedBundle, nestedBundleDigest, digestSha4[0], nestedBundle, nestedBundleDigest,
+				imgRef.Context().Name()+"-img2", img2SigDigest, digestSha3[0], sigSizes[0],
+				imgRef.Context().Name()+"-img2", img2SigDigest, sigSize,
+				nestedBundle, nestedBundleDigest, digestSha4[0], nestedBundleSizes[0], nestedBundle, nestedBundleDigest,
 				img1Digest[1:],
-				img1DigestRef, digestSha5[0], img1DigestRef,
-				outerBundle, outerBundleDigest, digestSha6[0], outerBundle, outerBundleDigest,
+				img1DigestRef, digestSha5[0], outerImg1Sizes[0], img1DigestRef, outerImg1Size,
+				outerBundle, outerBundleDigest, digestSha6[0], outerBundleSizes[0], outerBundle, outerBundleDigest,
 			), stdout)
 		})
 	})
@@ -942,6 +1034,14 @@ images:
 			digestSha1 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img1Digest)
 			digestSha3 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsPublicBundleImgDigest)
 			digestSha4 := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + privateBundleDigest)
+
+			// Get actual sizes
+			img1Sizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + img1Digest)
+			img1Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img1Digest)
+			internalSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + "@" + locationsPublicBundleImgDigest)
+			internalSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsPublicBundleImgDigest)
+			bundleSizes := env.ImageFactory.GetImageLayersSizes(env.RelocationRepo + privateBundleDigest)
+
 			require.YAMLEq(t, fmt.Sprintf(`sha: %s
 content:
   images:
@@ -950,16 +1050,21 @@ content:
       imageType: Image
       layers:
       - digest: %s
+        size: %d
       origin: %s
+      size: %d
     "%s":
       image: %s@%s
       imageType: Internal
       layers:
       - digest: %s
+        size: %d
       origin: %s@%s
+      size: %d
 image: %s%s
 layers:
 - digest: %s
+  size: %d
 metadata: {}
 origin: %s%s
 `,
@@ -967,16 +1072,16 @@ origin: %s%s
 
 				img1Digest[1:],
 				env.RelocationRepo, img1Digest,
-				digestSha1[0], // Image 1 Layer digest
-				img1DigestRef, // Origin Ref
+				digestSha1[0], img1Sizes[0], // Image 1 Layer digest and size
+				img1DigestRef, img1Size, // Origin Ref and size
 
 				locationsPublicBundleImgDigest,
 				env.RelocationRepo, locationsPublicBundleImgDigest,
-				digestSha3[0], // Locations Image Digest
-				env.RelocationRepo, locationsPublicBundleImgDigest,
+				digestSha3[0], internalSizes[0], // Locations Image Digest and size
+				env.RelocationRepo, locationsPublicBundleImgDigest, internalSize,
 
 				env.RelocationRepo, privateBundleDigest, // Bundle Image with digest
-				digestSha4[0], // Bundle layer digest
+				digestSha4[0], bundleSizes[0], // Bundle layer digest and size
 				env.RelocationRepo, privateBundleDigest,
 			), stdout)
 		})
