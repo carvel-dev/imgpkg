@@ -70,44 +70,52 @@ images:
 			)
 
 			digestSha := env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + imageDigest)
+			imageSize := env.ImageFactory.GetImageSize(env.RelocationRepo + imageDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Image
+    Size: %d bytes
     Origin: %s%s
     Layers:
       - Digest: %s
     Annotations:
       some.annotation: some value
       some.other.annotation: some other value
-`, env.RelocationRepo, imageDigest, env.Image, imageDigest, digestSha[0]))
+`, env.RelocationRepo, imageDigest, imageSize, env.Image, imageDigest, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + imgSigDigest)
+			sigSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + imgSigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
+    Size: %d bytes
     Layers:
       - Digest: %s
     Annotations:
       tag: %s
-`, env.RelocationRepo, imgSigDigest, digestSha[0], imgSigTag))
+`, env.RelocationRepo, imgSigDigest, sigSize, digestSha[0], imgSigTag))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + bundleSigDigest)
+			bundleSigSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + bundleSigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Signature
+    Size: %d bytes
     Layers:
       - Digest: %s
     Annotations:
       tag: %s
-`, env.RelocationRepo, bundleSigDigest, digestSha[0], bundleSigTag))
+`, env.RelocationRepo, bundleSigDigest, bundleSigSize, digestSha[0], bundleSigTag))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsImgDigest)
+			internalSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Internal
+    Size: %d bytes
     Layers:
       - Digest: %s
-`, env.RelocationRepo, locationsImgDigest, digestSha[0]))
+`, env.RelocationRepo, locationsImgDigest, internalSize, digestSha[0]))
 		})
 	})
 
@@ -193,49 +201,59 @@ images:
 `, env.RelocationRepo, nestedBundleDigest, nestedBundle, nestedBundleDigest, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img1Digest)
+			img1Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img1Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s%s
       Type: Image
+      Size: %d bytes
       Origin: %s
       Layers:
         - Digest: %s
-`, env.RelocationRepo, img1Digest, img1DigestRef, digestSha[0]))
+`, env.RelocationRepo, img1Digest, img1Size, img1DigestRef, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img2Digest)
+			img2Size := env.ImageFactory.GetImageSize(env.RelocationRepo + img2Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s%s
       Type: Image
+      Size: %d bytes
       Origin: %s
       Layers:
         - Digest: %s
-`, env.RelocationRepo, img2Digest, img2DigestRef, digestSha[0]))
+`, env.RelocationRepo, img2Digest, img2Size, img2DigestRef, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
+			internalNestedSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsNestedBundleImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s@%s
       Type: Internal
+      Size: %d bytes
       Layers:
         - Digest: %s
-`, env.RelocationRepo, locationsNestedBundleImgDigest, digestSha[0]))
+`, env.RelocationRepo, locationsNestedBundleImgDigest, internalNestedSize, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + img1Digest)
+			img1SizeOuter := env.ImageFactory.GetImageSize(env.RelocationRepo + img1Digest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s%s
     Type: Image
+    Size: %d bytes
     Origin: %s
     Layers:
       - Digest: %s
     Annotations:
       what is this: this is just an image
-`, env.RelocationRepo, img1Digest, img1DigestRef, digestSha[0]))
+`, env.RelocationRepo, img1Digest, img1SizeOuter, img1DigestRef, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
+			internalOuterSize := env.ImageFactory.GetImageSize(env.RelocationRepo + "@" + locationsOuterBundleImgDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`  - Image: %s@%s
     Type: Internal
+    Size: %d bytes
     Layers:
       - Digest: %s
-`, env.RelocationRepo, locationsOuterBundleImgDigest, digestSha[0]))
+`, env.RelocationRepo, locationsOuterBundleImgDigest, internalOuterSize, digestSha[0]))
 		})
 	})
 
@@ -311,41 +329,49 @@ images:
 `, nestedBundle, nestedBundleDigest, nestedBundle, nestedBundleDigest, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(img1DigestRef)
+			img1SizeNotCollocated := env.ImageFactory.GetImageSize(img1DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
+      Size: %d bytes
       Origin: %s
       Layers:
         - Digest: %s
-`, img1DigestRef, img1DigestRef, digestSha[0]))
+`, img1DigestRef, img1SizeNotCollocated, img1DigestRef, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(img2DigestRef)
+			img2SizeNotCollocated := env.ImageFactory.GetImageSize(img2DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
+      Size: %d bytes
       Origin: %s
       Layers:
         - Digest: %s
-`, img2DigestRef, img2DigestRef, digestSha[0]))
+`, img2DigestRef, img2SizeNotCollocated, img2DigestRef, digestSha[0]))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
+			img2SigSize := env.ImageFactory.GetImageSize(imgRef.Context().Name() + "-img2" + "@" + img2SigDigest)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s@%s
       Type: Signature
+      Size: %d bytes
       Layers:
         - Digest: %s
       Annotations:
         tag: %s
-`, imgRef.Context().Name()+"-img2", img2SigDigest, digestSha[0], img2SigTag))
+`, imgRef.Context().Name()+"-img2", img2SigDigest, img2SigSize, digestSha[0], img2SigTag))
 
 			digestSha = env.ImageFactory.GetImageLayersDigest(img1DigestRef)
+			img1SizeNotCollocatedOuter := env.ImageFactory.GetImageSize(img1DigestRef)
 			assert.Contains(t, stdout, fmt.Sprintf(
 				`    - Image: %s
       Type: Image
+      Size: %d bytes
       Origin: %s
       Layers:
         - Digest: %s
-`, img1DigestRef, img1DigestRef, digestSha[0]))
+`, img1DigestRef, img1SizeNotCollocatedOuter, img1DigestRef, digestSha[0]))
 		})
 	})
 }
