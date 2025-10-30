@@ -40,6 +40,7 @@ type Metadata struct {
 // Layers image layers info
 type Layers struct {
 	Digest string `json:"digest,omitempty"`
+	Size   int64  `json:"size,omitempty"` // Size in bytes of the layer
 }
 
 // ImageInfo URLs where the image can be found as well as annotations provided in the Images Lock
@@ -50,6 +51,7 @@ type ImageInfo struct {
 	ImageType   bundle.ImageType  `json:"imageType"`
 	Error       string            `json:"error,omitempty"`
 	Layers      []Layers          `json:"layers,omitempty"`
+	Size        int64             `json:"size,omitempty"` // Size in bytes of the image
 }
 
 // Content Contents present in a Bundle
@@ -143,7 +145,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	}
 
 	if showLayers {
-		layers, err = getImageLayersInfo(currentBundle.PrimaryLocation())
+		layers, _, err = getImageLayersInfo(currentBundle.PrimaryLocation())
 		if err != nil {
 			return desc.bundle, err
 		}
@@ -201,8 +203,9 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 				if err != nil {
 					return desc.bundle, fmt.Errorf("Internal inconsistency: image %s should be fully resolved", ref.Image)
 				}
+				size0 := int64(0)
 				if showLayers {
-					layers, err = getImageLayersInfo(ref.PrimaryLocation())
+					layers, size0, err = getImageLayersInfo(ref.PrimaryLocation())
 					if err != nil {
 						return desc.bundle, err
 					}
@@ -213,6 +216,7 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 					Annotations: ref.Annotations,
 					ImageType:   ref.ImageType,
 					Layers:      layers,
+					Size:        size0,
 				}
 			} else {
 				desc.bundle.Content.Images[ref.Image] = ImageInfo{
@@ -226,29 +230,35 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	return desc.bundle, nil
 }
 
-func getImageLayersInfo(image string) ([]Layers, error) {
+func getImageLayersInfo(image string) ([]Layers, int64, error) {
 	layers := []Layers{}
 	parsedImgRef, err := regname.ParseReference(image, regname.WeakValidation)
 	if err != nil {
-		return nil, fmt.Errorf("Error: %s in parsing image %s", err.Error(), image)
+		return nil, 0, fmt.Errorf("Error: %s in parsing image %s", err.Error(), image)
 	}
 
 	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		return nil, fmt.Errorf("Error: %s in getting remote access of image %s", err.Error(), image)
+		return nil, 0, fmt.Errorf("Error: %s in getting remote access of image %s", err.Error(), image)
 	}
 
 	imgLayers, err := v1Img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("Error: %s in getting layers of image %s", err.Error(), image)
+		return nil, 0, fmt.Errorf("Error: %s in getting layers of image %s", err.Error(), image)
 	}
 
+	size0 := int64(0)
 	for _, imgLayer := range imgLayers {
 		digHash, err := imgLayer.Digest()
 		if err != nil {
-			return nil, fmt.Errorf("Error: %s in getting digest of layer's of image %s", err.Error(), image)
+			return nil, 0, fmt.Errorf("Error: %s in getting digest of layer's of image %s", err.Error(), image)
 		}
-		layers = append(layers, Layers{Digest: digHash.String()})
+		size, err := imgLayer.Size()
+		if err != nil {
+			return nil, 0, fmt.Errorf("Error: %s in getting size of layer's of image %s", err.Error(), image)
+		}
+		size0 += size
+		layers = append(layers, Layers{Digest: digHash.String(), Size: size})
 	}
-	return layers, nil
+	return layers, size0, nil
 }
