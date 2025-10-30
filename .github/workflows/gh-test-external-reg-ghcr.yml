@@ -52,6 +52,7 @@ jobs:
           GHCR_OWNER: ${{ github.repository_owner }}
           IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
           IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
@@ -64,7 +65,7 @@ jobs:
             gh api -X GET "/orgs/${GHCR_OWNER}/packages?package_type=container" \
               --jq '.[].name' | grep "$GITHUB_RUN_ID" || true | while read pkg; do
                 echo "Deleting $pkg"
-                gh api -X DELETE "/orgs/${GHCR_OWNER}/packages/container/${pkg}" || true
+                gh api --method DELETE -H "Accept: application/vnd.github+json" "/orgs/${GHCR_OWNER}/packages/container/${pkg}" || true
               done
             echo "✅ Cleanup done."
           }
