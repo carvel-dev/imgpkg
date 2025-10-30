@@ -57,6 +57,11 @@ jobs:
           set -e
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+
+          echo "Actor: ${{ github.actor }}"
+          echo "Token permissions:"
+          gh auth status
+
           docker pull registry:2
 
           function cleanup() {
