@@ -1,0 +1,73 @@
+name: test-gh-external-registries-ghcr
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Optional: PR number to test (e.g., 123)"
+        required: false
+      ref:
+        description: "Optional: git ref/branch/commit to test"
+        required: false
+  push:
+    branches:
+      - develop
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  actions: none
+  checks: none
+  deployments: none
+  issues: none
+  packages: write
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  test-ghcr:
+    name: Test GH with GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Debug token existence
+        run: |
+          echo "Length: ${#GITHUB_TOKEN}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Run Tests
+        env:
+          GHCR_OWNER: ${{ github.repository_owner }}
+          IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
+          IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
+        run: |
+          set -e
+          export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
+          export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+          docker pull registry:2
+
+          function cleanup() {
+            set +e
+            echo "Cleaning up packages for run $GITHUB_RUN_ID..."
+            gh api -X GET "/orgs/${GHCR_OWNER}/packages?package_type=container" \
+              --jq '.[].name' | grep "$GITHUB_RUN_ID" || true | while read pkg; do
+                echo "Deleting $pkg"
+                gh api -X DELETE "/orgs/${GHCR_OWNER}/packages/container/${pkg}" || true
+              done
+            echo "✅ Cleanup done."
+          }
+
+          trap cleanup EXIT
+          ./hack/test-all.sh
