@@ -6,6 +6,7 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -146,6 +147,10 @@ images:
 	})
 
 	t.Run("2. when copying bundle with --repo-based-tags a tag derived from the long name of a source repo is added", func(t *testing.T) {
+		if os.Getenv("SKIP_GHCR_PUSH_TESTS") == "true" {
+			t.Skip("Skipping registry push in GHCR workflow")
+		}
+
 		env := helpers.BuildEnv(t)
 		imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
 		defer env.Cleanup()

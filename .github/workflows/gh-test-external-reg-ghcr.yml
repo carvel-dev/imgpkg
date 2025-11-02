@@ -27,6 +27,9 @@ permissions:
   security-events: none
   statuses: none
 
+env:
+  SKIP_GHCR_PUSH_TESTS: "true"
+
 jobs:
   test-ghcr:
     name: Test GH with GHCR
