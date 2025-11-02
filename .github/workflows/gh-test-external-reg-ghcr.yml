@@ -73,9 +73,6 @@ jobs:
           GH_TOKEN: ${{ env.GH_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Actor: ${{ github.actor }}"
-          echo "Token permissions:"
-          gh auth status
           echo "🧹 Cleaning up GHCR packages for run $GITHUB_RUN_ID..."
 
           # Fetch package names under the org
