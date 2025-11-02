@@ -64,40 +64,49 @@ jobs:
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
           export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
 
+          docker pull registry:2
+          ./hack/test-all.sh
+      - name: Cleanup GHCR packages
+        if: always() # ensures cleanup runs even if tests fail
+        env:
+          GHCR_OWNER: ${{ env.GHCR_OWNER }}
+          GH_TOKEN: ${{ env.GH_TOKEN }}
+        run: |
+          set -euo pipefail
           echo "Actor: ${{ github.actor }}"
           echo "Token permissions:"
           gh auth status
+          echo "🧹 Cleaning up GHCR packages for run $GITHUB_RUN_ID..."
 
-          docker pull registry:2
+          # Fetch package names under the org
+          packages=$(gh api --paginate "/orgs/$GHCR_OWNER/packages?package_type=container" \
+                      -H "Accept: application/vnd.github+json" | jq -r ".[].name" || true)
 
-          function cleanup() {
-            set +e
-            echo "🔍 Testing API call..."
-            gh api -H "Accept: application/vnd.github+json" "/orgs/$GHCR_OWNER/packages?package_type=container" || true
+          if [[ -z "$packages" ]]; then
+            echo "⚠️ No container packages found for org $GHCR_OWNER"
+            exit 0
+          fi
 
-            echo "🧹 Cleaning up packages for run $GITHUB_RUN_ID..."
+          matched_pkgs=$(echo "$packages" | grep "$GITHUB_RUN_ID" || true)
+          if [[ -z "$matched_pkgs" ]]; then
+            echo "ℹ️ No packages matching run ID $GITHUB_RUN_ID"
+            exit 0
+          fi
 
-            # Fetch package list safely (store in variable)
-            packages_json=$(gh api --paginate -X GET "/orgs/$GHCR_OWNER/packages?package_type=container" 2>/dev/null)
-            if ! echo "$packages_json" | jq empty >/dev/null 2>&1; then
-              echo "⚠️ Failed to fetch package list or invalid JSON returned. Skipping cleanup."
-              return 0
+          for pkg in $matched_pkgs; do
+            echo "📦 Found package: $pkg"
+            versions=$(gh api --paginate "/orgs/$GHCR_OWNER/packages/container/$pkg/versions" \
+                        -H "Accept: application/vnd.github+json" | jq -r ".[].id" || true)
+            if [[ -z "$versions" ]]; then
+              echo "  ⚠️ No versions found for $pkg"
+              continue
             fi
-
-            # Extract matching packages
-            matching_pkgs=$(echo "$packages_json" | jq -r '.[].name' | grep "$GITHUB_RUN_ID" || true)
-            if [ -z "$matching_pkgs" ]; then
-              echo "No matching packages found for run ID $GITHUB_RUN_ID."
-              return 0
-            fi
-
-            for pkg in $matching_pkgs; do
-              echo "🗑️ Deleting $pkg ..."
-              gh api --method DELETE -H "Accept: application/vnd.github+json" "/orgs/$GHCR_OWNER/packages/container/$pkg" || true
+            for vid in $versions; do
+              echo "  🗑️ Deleting version $vid of $pkg..."
+              gh api --method DELETE -H "Accept: application/vnd.github+json" \
+                "/orgs/$GHCR_OWNER/packages/container/$pkg/versions/$vid" || true
             done
+            echo "✅ Deleted all versions for $pkg"
+          done
 
-            echo "✅ Cleanup done."
-          }
-
-          trap cleanup EXIT
-          ./hack/test-all.sh
+          echo "🎉 Cleanup complete."
