@@ -52,13 +52,13 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
       - name: Run Tests
         env:
           GHCR_OWNER: ${{ github.repository_owner }}
           IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
           IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
         run: |
           set -e
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
@@ -69,8 +69,8 @@ jobs:
       - name: Cleanup GHCR packages
         if: always() # ensures cleanup runs even if tests fail
         env:
-          GHCR_OWNER: ${{ env.GHCR_OWNER }}
-          GH_TOKEN: ${{ env.GH_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+          GH_TOKEN:  ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
         run: |
           set -euo pipefail
           echo "🧹 Cleaning up GHCR packages for run $GITHUB_RUN_ID..."
