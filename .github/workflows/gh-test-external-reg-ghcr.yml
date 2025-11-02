@@ -1,0 +1,109 @@
+name: test-gh-external-registries-ghcr
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Optional: PR number to test (e.g., 123)"
+        required: false
+      ref:
+        description: "Optional: git ref/branch/commit to test"
+        required: false
+  push:
+    branches:
+      - develop
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  actions: none
+  checks: none
+  deployments: none
+  issues: none
+  packages: write
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+env:
+  SKIP_GHCR_PUSH_TESTS: "true"
+
+jobs:
+  test-ghcr:
+    name: Test GH with GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Debug token existence
+        run: |
+          echo "Length: ${#GH_TOKEN}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+      - name: Run Tests
+        env:
+          GHCR_OWNER: ${{ github.repository_owner }}
+          IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
+          IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
+          GH_TOKEN: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+        run: |
+          set -e
+          export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
+          export IMGPKG_E2E_RELOCATION_REPO="$IMGPKG_E2E_RELOCATION_REPO-$GITHUB_RUN_ID"
+
+          docker pull registry:2
+          ./hack/test-all.sh
+      - name: Cleanup GHCR packages
+        if: always() # ensures cleanup runs even if tests fail
+        env:
+          GHCR_OWNER: ${{ github.repository_owner }}
+          GH_TOKEN:  ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+        run: |
+          set -euo pipefail
+          echo "🧹 Cleaning up GHCR packages for run $GITHUB_RUN_ID..."
+
+          # Fetch package names under the org
+          packages=$(gh api --paginate "/orgs/$GHCR_OWNER/packages?package_type=container" \
+                      -H "Accept: application/vnd.github+json" | jq -r ".[].name" || true)
+
+          if [[ -z "$packages" ]]; then
+            echo "⚠️ No container packages found for org $GHCR_OWNER"
+            exit 0
+          fi
+
+          matched_pkgs=$(echo "$packages" | grep "$GITHUB_RUN_ID" || true)
+          if [[ -z "$matched_pkgs" ]]; then
+            echo "ℹ️ No packages matching run ID $GITHUB_RUN_ID"
+            exit 0
+          fi
+
+          for pkg in $matched_pkgs; do
+            echo "📦 Found package: $pkg"
+            versions=$(gh api --paginate "/orgs/$GHCR_OWNER/packages/container/$pkg/versions" \
+                        -H "Accept: application/vnd.github+json" | jq -r ".[].id" || true)
+            if [[ -z "$versions" ]]; then
+              echo "  ⚠️ No versions found for $pkg"
+              continue
+            fi
+            for vid in $versions; do
+              echo "  🗑️ Deleting version $vid of $pkg..."
+              gh api --method DELETE -H "Accept: application/vnd.github+json" \
+                "/orgs/$GHCR_OWNER/packages/container/$pkg/versions/$vid" || true
+            done
+            echo "✅ Deleted all versions for $pkg"
+          done
+
+          echo "🎉 Cleanup complete."
