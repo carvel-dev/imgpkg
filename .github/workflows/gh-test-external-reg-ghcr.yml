@@ -34,6 +34,7 @@ jobs:
   test-ghcr:
     name: Test GH with GHCR
     runs-on: ubuntu-latest
+    environment: GHCR e2e
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -51,14 +52,14 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_PAT }}
       - name: Run Tests
         env:
           GHCR_OWNER: ${{ github.repository_owner }}
           IMGPKG_E2E_IMAGE: "ghcr.io/${{ github.repository_owner }}/github-action-test-relocation"
           IMGPKG_E2E_RELOCATION_REPO: "ghcr.io/${{ github.repository_owner }}/github-action-imgpkg-test"
-          GH_TOKEN: ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+          GH_TOKEN: ${{ secrets.GHCR_PAT }}
         run: |
           set -e
           export IMGPKG_E2E_IMAGE="$IMGPKG_E2E_IMAGE-$GITHUB_RUN_ID"
@@ -70,7 +71,7 @@ jobs:
         if: always() # ensures cleanup runs even if tests fail
         env:
           GHCR_OWNER: ${{ github.repository_owner }}
-          GH_TOKEN:  ${{ secrets.GHCR_PAT_PACKAGE_ALL }}
+          GH_TOKEN:  ${{ secrets.GHCR_PAT }}
         run: |
           set -euo pipefail
           echo "🧹 Cleaning up GHCR packages for run $GITHUB_RUN_ID..."
