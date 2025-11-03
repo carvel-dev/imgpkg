@@ -61,6 +61,44 @@ func (i *ImageFactory) GetImageLayersDigest(image string) []string {
 	return digestSha
 }
 
+// GetImageLayersSizes will return image's layers sizes
+func (i *ImageFactory) GetImageLayersSizes(image string) []int64 {
+	parsedImgRef, err := name.ParseReference(image, name.WeakValidation)
+	require.NoError(i.T, err)
+
+	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	imgLayers, err := v1Img.Layers()
+	require.NoError(i.T, err)
+	sizes := []int64{}
+	for _, imgLayer := range imgLayers {
+		size, err := imgLayer.Size()
+		require.NoError(i.T, err)
+		sizes = append(sizes, size)
+	}
+	return sizes
+}
+
+// GetImageSize will return the total size of an image
+func (i *ImageFactory) GetImageSize(image string) int64 {
+	parsedImgRef, err := name.ParseReference(image, name.WeakValidation)
+	require.NoError(i.T, err)
+
+	v1Img, err := remote.Image(parsedImgRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	require.NoError(i.T, err)
+
+	imgLayers, err := v1Img.Layers()
+	require.NoError(i.T, err)
+	totalSize := int64(0)
+	for _, imgLayer := range imgLayers {
+		size, err := imgLayer.Size()
+		require.NoError(i.T, err)
+		totalSize += size
+	}
+	return totalSize
+}
+
 func (i *ImageFactory) PushImageWithANonDistributableLayer(imgRef string, mediaType types.MediaType) string {
 	imageRef, err := name.ParseReference(imgRef, name.WeakValidation)
 	require.NoError(i.T, err)

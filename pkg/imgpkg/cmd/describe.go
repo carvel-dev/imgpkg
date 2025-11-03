@@ -166,6 +166,7 @@ func (p bundleTextPrinter) printerRec(description v1.Description, originalLogger
 		}
 		indentLogger.Logf("- Image: %s\n", image.Image)
 		indentLogger.Logf("  Type: %s\n", image.ImageType)
+		indentLogger.Logf("  Size: %d bytes\n", image.Size)
 		if image.ImageType == bundle.ContentImage {
 			indentLogger.Logf("  Origin: %s\n", image.Origin)
 		}
