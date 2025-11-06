@@ -23,14 +23,14 @@ import (
 type CopyOptions struct {
 	ui ui.UI
 
-	ImageFlags         ImageFlags
-	ImageIsBundleCheck bool
-	BundleFlags        BundleFlags
-	LockInputFlags     LockInputFlags
-	LockOutputFlags    LockOutputFlags
-	TarFlags           TarFlags
-	RegistryFlags      RegistryFlags
-	SignatureFlags     SignatureFlags
+	ImageFlags        ImageFlags
+	IgnoreBundleCheck bool
+	BundleFlags       BundleFlags
+	LockInputFlags    LockInputFlags
+	LockOutputFlags   LockOutputFlags
+	TarFlags          TarFlags
+	RegistryFlags     RegistryFlags
+	SignatureFlags    SignatureFlags
 
 	RepoDst string
 
@@ -74,7 +74,7 @@ func NewCopyCmd(o *CopyOptions) *cobra.Command {
 	}
 
 	o.ImageFlags.SetCopy(cmd)
-	cmd.Flags().BoolVar(&o.ImageIsBundleCheck, "image-is-bundle-check", true, "Error when image is a bundle (disable shallow-copying bundles via -i)")
+	cmd.Flags().BoolVar(&o.IgnoreBundleCheck, "ignore-bundle-check", false, "When set to true with -i, imgpkg will not check if the image is a bundle. This enables shallow-copying the bundle image.")
 	o.BundleFlags.SetCopy(cmd)
 	o.LockInputFlags.Set(cmd)
 	o.LockOutputFlags.SetOnCopy(cmd)
@@ -97,8 +97,8 @@ func (c *CopyOptions) Run() error {
 	if !c.hasOneDst() {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
 	}
-	if !c.ImageIsBundleCheck && len(c.BundleFlags.Bundle) != 0 {
-		return fmt.Errorf("Cannot set --image-is-bundle-check while using -b flag")
+	if c.IgnoreBundleCheck && len(c.BundleFlags.Bundle) != 0 {
+		return fmt.Errorf("Cannot set --ignore-bundle-check while using -b flag")
 	}
 
 	registryOpts := c.RegistryFlags.AsRegistryOpts()
@@ -135,7 +135,7 @@ func (c *CopyOptions) Run() error {
 
 	opts := v1.CopyOpts{
 		Logger:                  levelLogger,
-		AllowShallowCopyBundle:  !c.ImageIsBundleCheck,
+		AllowShallowCopyBundle:  c.IgnoreBundleCheck,
 		ImageSet:                imageSet,
 		TarImageSet:             tarImageSet,
 		Concurrency:             c.Concurrency,
