@@ -468,3 +468,49 @@ func startRegistryForAirgapTesting(t *testing.T, env *helpers.Env) (string, *hel
 
 	return fakeRegistry.ReferenceOnTestServer("repo/airgapped-image"), fakeRegistry
 }
+
+func TestShallowCopyOfBundle(t *testing.T) {
+	logger := &helpers.Logger{}
+
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	registry := helpers.NewFakeRegistry(t, logger)
+	randomBundle := registry.WithBundleFromPath("repo/some-bundle-name", "assets/bundle")
+	registry.Build()
+	defer registry.CleanUp()
+
+	t.Run("when --ignore-bundle-check is NOT provided it fails", func(t *testing.T) {
+		out := bytes.NewBufferString("")
+		_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", randomBundle.RefDigest, "--to-repo", env.RelocationRepo}, helpers.RunOpts{
+			AllowError:   true,
+			StderrWriter: out,
+			StdoutWriter: out,
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, out.String(), "Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+	})
+
+	t.Run("when --ignore-bundle-check=true is provided while using the -b flag it fails", func(t *testing.T) {
+		out := bytes.NewBufferString("")
+		_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-b", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--ignore-bundle-check"}, helpers.RunOpts{
+			AllowError:   true,
+			StderrWriter: out,
+			StdoutWriter: out,
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, out.String(), "Cannot set --ignore-bundle-check while using -b flag")
+	})
+
+	t.Run("when --ignore-bundle-check=true is provided it copies the OCI Image of the bundle (shallow copy)", func(t *testing.T) {
+		imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--ignore-bundle-check"}, helpers.RunOpts{})
+
+		parts := strings.SplitN(randomBundle.RefDigest, "@", 2)
+		require.Len(t, parts, 2)
+		imageWithDigest := env.RelocationRepo + "@" + parts[1]
+		require.NoError(t, env.Assert.ValidateImagesPresenceInRegistry([]string{imageWithDigest}))
+	})
+}
