@@ -481,7 +481,7 @@ func TestShallowCopyOfBundle(t *testing.T) {
 	registry.Build()
 	defer registry.CleanUp()
 
-	t.Run("when --image-is-bundle-check is NOT provided it fails", func(t *testing.T) {
+	t.Run("when --ignore-bundle-check is NOT provided it fails", func(t *testing.T) {
 		out := bytes.NewBufferString("")
 		_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", randomBundle.RefDigest, "--to-repo", env.RelocationRepo}, helpers.RunOpts{
 			AllowError:   true,
@@ -493,20 +493,20 @@ func TestShallowCopyOfBundle(t *testing.T) {
 		assert.Contains(t, out.String(), "Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
 	})
 
-	t.Run("when --image-is-bundle-check=false is provided while using the -b flag it fails", func(t *testing.T) {
+	t.Run("when --ignore-bundle-check=true is provided while using the -b flag it fails", func(t *testing.T) {
 		out := bytes.NewBufferString("")
-		_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-b", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--image-is-bundle-check=false"}, helpers.RunOpts{
+		_, err := imgpkg.RunWithOpts([]string{"copy", "--tty", "-b", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--ignore-bundle-check"}, helpers.RunOpts{
 			AllowError:   true,
 			StderrWriter: out,
 			StdoutWriter: out,
 		})
 
 		require.Error(t, err)
-		assert.Contains(t, out.String(), "Cannot set --image-is-bundle-check while using -b flag")
+		assert.Contains(t, out.String(), "Cannot set --ignore-bundle-check while using -b flag")
 	})
 
-	t.Run("when --image-is-bundle-check=false is provided it copies the OCI Image of the bundle (shallow copy)", func(t *testing.T) {
-		imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--image-is-bundle-check=false"}, helpers.RunOpts{})
+	t.Run("when --ignore-bundle-check=true is provided it copies the OCI Image of the bundle (shallow copy)", func(t *testing.T) {
+		imgpkg.RunWithOpts([]string{"copy", "--tty", "-i", randomBundle.RefDigest, "--to-repo", env.RelocationRepo, "--ignore-bundle-check"}, helpers.RunOpts{})
 
 		parts := strings.SplitN(randomBundle.RefDigest, "@", 2)
 		require.Len(t, parts, 2)
