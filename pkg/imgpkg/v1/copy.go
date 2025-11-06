@@ -217,11 +217,11 @@ func getProvidedSourceImages(origin CopyOrigin, reg registry.Registry, opts Copy
 		opts.Logger.Tracef("copy single image\n")
 		plainImg := plainimage.NewPlainImage(origin.ImageRef, reg)
 
-		ok, err := ctlbundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
+		isBundle, err := ctlbundle.NewBundleFromPlainImage(plainImg, reg).IsBundle()
 		if err != nil {
 			return nil, nil, err
 		}
-		if ok && !opts.AllowShallowCopyBundle {
+		if isBundle && !opts.AllowShallowCopyBundle {
 			return nil, nil, fmt.Errorf("Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
 		}
 

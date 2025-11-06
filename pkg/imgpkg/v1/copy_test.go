@@ -126,6 +126,38 @@ bundle:
 
 		assertTarballLabelsOuterBundle(bundleTarPath, origin.BundleRef, t)
 	})
+
+	t.Run("When attemping to shallow-copy without the special flag, it fails", func(t *testing.T) {
+		originForShallowCopy := v1.CopyOrigin{
+			ImageRef: origin.BundleRef,
+		}
+		bundleTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(bundleTarPath)
+
+		_, err := v1.CopyToTar(originForShallowCopy, bundleTarPath, opts, reg)
+		require.ErrorContains(t, err, "Expected bundle flag when copying a bundle (hint: Use -b instead of -i for bundles)")
+	})
+
+	t.Run("When attemping to shallow-copy with the special flag, it succeeds, but only copies the top-level bundle image and not nested images", func(t *testing.T) {
+		originForShallowCopy := v1.CopyOrigin{
+			ImageRef: origin.BundleRef,
+		}
+		bundleTarPath := filepath.Join(os.TempDir(), "bundle.tar")
+		defer os.Remove(bundleTarPath)
+
+		shallowCopyOpts := opts
+		shallowCopyOpts.AllowShallowCopyBundle = true
+
+		_, err := v1.CopyToTar(originForShallowCopy, bundleTarPath, shallowCopyOpts, reg)
+		require.NoError(t, err)
+
+		assertTarballContainsOnlyDistributableLayers(bundleTarPath, t)
+
+		reader := imagetar.NewTarReader(bundleTarPath, 1)
+		layersInTar, err := reader.PresentLayers()
+		require.NoError(t, err)
+		require.Len(t, layersInTar, 1)
+	})
 }
 
 func TestToTarBundleContainingNonDistributableLayers(t *testing.T) {
