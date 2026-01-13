@@ -1,10 +1,10 @@
+version: "2"
 linters:
   enable:
     - goheader
     - revive
     - unused
     - staticcheck
-    - typecheck
     - govet
   disable-all: true
 # all available settings of specific linters
