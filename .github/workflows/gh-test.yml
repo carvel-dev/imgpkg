@@ -39,7 +39,7 @@ jobs:
         bash -c '
         set -e -x
 
-        go install github.com/sigstore/cosign/cmd/cosign@latest
+        go install github.com/sigstore/cosign/v2/cmd/cosign@latest
 
         alias cosign=cosign.exe
         '

@@ -5,7 +5,6 @@ linters:
     - revive
     - unused
     - staticcheck
-    - typecheck
     - govet
   disable-all: true
 # all available settings of specific linters
