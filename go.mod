@@ -1,6 +1,6 @@
 module carvel.dev/imgpkg
 
-go 1.24.9
+go 1.25.5
 
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1
