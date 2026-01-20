@@ -330,6 +330,9 @@ func TestToTarImage(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, len(layersInTar), 1)
 		require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
+		if closer, ok := interface{}(&reader).(io.Closer); ok {
+			closer.Close()
+		}
 
 		opts := opts
 		opts.Resume = true
