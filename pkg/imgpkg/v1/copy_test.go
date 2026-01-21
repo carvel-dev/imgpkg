@@ -266,7 +266,10 @@ func TestToTarImage(t *testing.T) {
 	t.Run("When copy to tar fails the first time but second call with resume completes successfully", func(t *testing.T) {
 		numberOfRequests := 0
 		var failedDigest regv1.Hash
-		var layersInTar []regv1.Layer
+		var existingLayers []struct {
+			digest string
+			size   int64
+		}
 		fakeRegistry.WithCustomHandler(func(writer http.ResponseWriter, request *http.Request) bool {
 			matched, err := regexp.MatchString("/v2/.+/blobs", request.URL.Path)
 			require.NoError(t, err)
@@ -277,13 +280,9 @@ func TestToTarImage(t *testing.T) {
 				hash, err := regv1.NewHash(sha)
 				// This loop ensures that if a layer is in the tar already we can return gibberish\
 				// because imgpkg is not going to use this information
-				for _, layer := range layersInTar {
-					digest, err := layer.Digest()
-					require.NoError(t, err)
-					if hash.String() == digest.String() {
-						size, err := layer.Size()
-						require.NoError(t, err)
-						bs := make([]byte, size)
+				for _, layerInfo := range existingLayers {
+					if hash.String() == layerInfo.digest {
+						bs := make([]byte, layerInfo.size)
 						writer.Write(bs)
 						return true
 					}
@@ -325,11 +324,39 @@ func TestToTarImage(t *testing.T) {
 
 		_, err := v1.CopyToTar(origin, imageTarPath, opts, reg)
 		require.ErrorContains(t, err, "error verifying sha256 checksum")
-		reader := imagetar.NewTarReader(imageTarPath, 1)
-		layersInTar, err = reader.PresentLayers()
-		require.NoError(t, err)
-		require.Greater(t, len(layersInTar), 1)
-		require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
+
+		verifyPath := imageTarPath + ".verify.tar"
+
+		func() {
+			src, err := os.Open(imageTarPath)
+			require.NoError(t, err)
+			defer src.Close()
+
+			dst, err := os.Create(verifyPath)
+			require.NoError(t, err)
+			defer dst.Close()
+
+			_, err = io.Copy(dst, src)
+			require.NoError(t, err)
+		}()
+		defer os.Remove(verifyPath)
+
+		func() {
+			reader := imagetar.NewTarReader(verifyPath, 1)
+			layersInTar, err := reader.PresentLayers()
+			require.NoError(t, err)
+			require.Greater(t, len(layersInTar), 1)
+			require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
+
+			for _, l := range layersInTar {
+				d, _ := l.Digest()
+				s, _ := l.Size()
+				existingLayers = append(existingLayers, struct {
+					digest string
+					size   int64
+				}{digest: d.String(), size: s})
+			}
+		}()
 
 		opts := opts
 		opts.Resume = true
