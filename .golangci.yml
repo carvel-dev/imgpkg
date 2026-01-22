@@ -1,21 +1,19 @@
+version: "2"
 linters:
+  default: none
   enable:
     - goheader
     - revive
     - unused
     - staticcheck
-    - typecheck
     - govet
-  disable-all: true
-# all available settings of specific linters
-linters-settings:
-  goheader:
-    values:
-      regexp:
-        copyright-year: 20[0-9][0-9]
-    template-path: code-header-template.txt
+  settings:
+    goheader:
+      values:
+        regexp:
+          copyright-year: 20[0-9][0-9]
+      template-path: code-header-template.txt
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-use-default: false
-  new-from-rev: 01ef727b5a403cf1df143adbf699aa0de2c765d9
+  new-from-rev: 04e4b4c2c70952cd00b89ec3ed781f4cd01c9803
