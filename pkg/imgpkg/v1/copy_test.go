@@ -325,7 +325,18 @@ func TestToTarImage(t *testing.T) {
 
 		_, err := v1.CopyToTar(origin, imageTarPath, opts, reg)
 		require.ErrorContains(t, err, "error verifying sha256 checksum")
-		reader := imagetar.NewTarReader(imageTarPath, 1)
+		// Creating a temp copy of the tarball to verify it without locking the original file.
+		// This ensures 'imageTarPath' is free for the Resume operation to move/rename it.
+		verifyPath := imageTarPath + ".verify"
+		bs, err := os.ReadFile(imageTarPath)
+		require.NoError(t, err)
+		err = os.WriteFile(verifyPath, bs, 0600)
+		require.NoError(t, err)
+		// Cleanup the copy when done
+		defer os.Remove(verifyPath)
+
+		// Point the reader to the COPY (verifyPath), not the original
+		reader := imagetar.NewTarReader(verifyPath, 1)
 		layersInTar, err = reader.PresentLayers()
 		require.NoError(t, err)
 		require.Greater(t, len(layersInTar), 1)
