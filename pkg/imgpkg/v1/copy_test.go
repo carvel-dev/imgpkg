@@ -12,8 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"carvel.dev/imgpkg/pkg/imgpkg/bundle"
 	ctlimg "carvel.dev/imgpkg/pkg/imgpkg/image"
@@ -314,22 +316,59 @@ func TestToTarImage(t *testing.T) {
 			return false
 		})
 
-		imageTarPath := filepath.Join(os.TempDir(), "imgpkg-test-img.tar")
-		if _, err := os.Stat(imageTarPath); err == nil {
-			os.Remove(imageTarPath)
-		}
+		// Use a unique filename to avoid conflicts with parallel test execution
+		tmpFile, err := os.CreateTemp("", "imgpkg-test-img-*.tar")
+		require.NoError(t, err)
+		imageTarPath := tmpFile.Name()
+		err = tmpFile.Close()
+		require.NoError(t, err)
 		defer os.Remove(imageTarPath)
 
 		origin := origin
 		origin.ImageRef = fakeRegistry.ReferenceOnTestServer(randomImageName)
 
-		_, err := v1.CopyToTar(origin, imageTarPath, opts, reg)
+		_, err = v1.CopyToTar(origin, imageTarPath, opts, reg)
 		require.ErrorContains(t, err, "error verifying sha256 checksum")
 		reader := imagetar.NewTarReader(imageTarPath, 1)
 		layersInTar, err = reader.PresentLayers()
 		require.NoError(t, err)
 		require.Greater(t, len(layersInTar), 1)
 		require.NotContains(t, layersInTar, failedDigest, "tar should not contain the layer that fails to download")
+
+		// On Windows, file handles may not be immediately released after closing.
+		// Even though PresentLayers() properly closes all file handles, Windows OS
+		// may delay releasing the file handle, causing rename operations to fail.
+		// Wait for Windows to release the file handle by testing the rename operation
+		// that CopyToTar with resume will perform.
+		if runtime.GOOS == "windows" {
+			// Clear the reader reference to help GC
+			reader = imagetar.TarReader{}
+			// Force garbage collection to ensure any finalizers run
+			runtime.GC()
+			runtime.GC()
+			// Retry until we can successfully rename the file (which is what CopyToTar will do)
+			// This ensures the file handle is released before we proceed
+			maxRetries := 50
+			tmpDir, err := os.MkdirTemp("", "imgpkg-tar-imageset-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+			tmpFilename := filepath.Join(tmpDir, "imgpkg-tar-imageset.tmp")
+			for i := 0; i < maxRetries; i++ {
+				err := os.Rename(imageTarPath, tmpFilename)
+				if err == nil {
+					// Successfully renamed, restore it and proceed
+					err = os.Rename(tmpFilename, imageTarPath)
+					require.NoError(t, err)
+					break
+				}
+				if i < maxRetries-1 {
+					time.Sleep(100 * time.Millisecond)
+				} else {
+					// Last attempt failed, this will cause the test to fail with the actual error
+					require.NoError(t, err, "Failed to rename tar file after %d retries, file handle may still be held", maxRetries)
+				}
+			}
+		}
 
 		opts := opts
 		opts.Resume = true
