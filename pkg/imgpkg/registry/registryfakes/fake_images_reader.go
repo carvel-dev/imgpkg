@@ -408,16 +408,6 @@ func (fake *FakeImagesReader) IndexReturnsOnCall(i int, result1 v1.ImageIndex, r
 func (fake *FakeImagesReader) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.digestMutex.RLock()
-	defer fake.digestMutex.RUnlock()
-	fake.firstImageExistsMutex.RLock()
-	defer fake.firstImageExistsMutex.RUnlock()
-	fake.getMutex.RLock()
-	defer fake.getMutex.RUnlock()
-	fake.imageMutex.RLock()
-	defer fake.imageMutex.RUnlock()
-	fake.indexMutex.RLock()
-	defer fake.indexMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
