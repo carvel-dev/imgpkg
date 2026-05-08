@@ -555,20 +555,6 @@ func (fake *FakeImagesMetadataWriter) WriteTagReturnsOnCall(i int, result1 error
 func (fake *FakeImagesMetadataWriter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.cloneWithLoggerMutex.RLock()
-	defer fake.cloneWithLoggerMutex.RUnlock()
-	fake.digestMutex.RLock()
-	defer fake.digestMutex.RUnlock()
-	fake.firstImageExistsMutex.RLock()
-	defer fake.firstImageExistsMutex.RUnlock()
-	fake.getMutex.RLock()
-	defer fake.getMutex.RUnlock()
-	fake.imageMutex.RLock()
-	defer fake.imageMutex.RUnlock()
-	fake.writeImageMutex.RLock()
-	defer fake.writeImageMutex.RUnlock()
-	fake.writeTagMutex.RLock()
-	defer fake.writeTagMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

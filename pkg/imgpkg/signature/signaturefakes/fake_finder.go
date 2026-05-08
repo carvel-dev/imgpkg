@@ -94,8 +94,6 @@ func (fake *FakeFinder) SignatureReturnsOnCall(i int, result1 imageset.Unprocess
 func (fake *FakeFinder) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.signatureMutex.RLock()
-	defer fake.signatureMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
