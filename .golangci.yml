@@ -4,9 +4,8 @@ linters:
     - revive
     - unused
     - staticcheck
-    - typecheck
     - govet
-  disable-all: true
+  default: none
 # all available settings of specific linters
 linters-settings:
   goheader:
