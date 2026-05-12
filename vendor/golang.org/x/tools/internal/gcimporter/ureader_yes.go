@@ -11,10 +11,10 @@ import (
 	"go/token"
 	"go/types"
 	"sort"
-	"strings"
 
 	"golang.org/x/tools/internal/aliases"
 	"golang.org/x/tools/internal/pkgbits"
+	"golang.org/x/tools/internal/typesinternal"
 )
 
 // A pkgReader holds the shared state for reading a unified IR package
@@ -26,7 +26,6 @@ type pkgReader struct {
 
 	ctxt    *types.Context
 	imports map[string]*types.Package // previously imported packages, indexed by path
-	aliases bool                      // create types.Alias nodes
 
 	// lazily initialized arrays corresponding to the unified IR
 	// PosBase, Pkg, and Type sections, respectively.
@@ -71,7 +70,6 @@ func UImportData(fset *token.FileSet, imports map[string]*types.Package, data []
 	}
 
 	s := string(data)
-	s = s[:strings.LastIndex(s, "\n$$\n")]
 	input := pkgbits.NewPkgDecoder(path, s)
 	pkg = readUnifiedPackage(fset, nil, imports, input)
 	return
@@ -99,7 +97,6 @@ func readUnifiedPackage(fset *token.FileSet, ctxt *types.Context, imports map[st
 
 		ctxt:    ctxt,
 		imports: imports,
-		aliases: aliases.Enabled(),
 
 		posBases: make([]string, input.NumElems(pkgbits.RelocPosBase)),
 		pkgs:     make([]*types.Package, input.NumElems(pkgbits.RelocPkg)),
@@ -266,7 +263,12 @@ func (pr *pkgReader) pkgIdx(idx pkgbits.Index) *types.Package {
 func (r *reader) doPkg() *types.Package {
 	path := r.String()
 	switch path {
-	case "":
+	// cmd/compile emits path="main" for main packages because
+	// that's the linker symbol prefix it used; but we need
+	// the package's path as it would be reported by go list,
+	// hence "main" below.
+	// See test at go/packages.TestMainPackagePathInModeTypes.
+	case "", "main":
 		path = r.p.PkgPath()
 	case "builtin":
 		return nil // universe
@@ -535,7 +537,7 @@ func (pr *pkgReader) objIdx(idx pkgbits.Index) (*types.Package, string) {
 				tparams = r.typeParamNames()
 			}
 			typ := r.typ()
-			declare(aliases.NewAlias(r.p.aliases, pos, objPkg, objName, typ, tparams))
+			declare(aliases.New(pos, objPkg, objName, typ, tparams))
 
 		case pkgbits.ObjConst:
 			pos := r.pos()
@@ -569,7 +571,8 @@ func (pr *pkgReader) objIdx(idx pkgbits.Index) (*types.Package, string) {
 						sig := fn.Type().(*types.Signature)
 
 						recv := types.NewVar(fn.Pos(), fn.Pkg(), "", named)
-						methods[i] = types.NewFunc(fn.Pos(), fn.Pkg(), fn.Name(), types.NewSignature(recv, sig.Params(), sig.Results(), sig.Variadic()))
+						typesinternal.SetVarKind(recv, typesinternal.RecvVar)
+						methods[i] = types.NewFunc(fn.Pos(), fn.Pkg(), fn.Name(), types.NewSignatureType(recv, nil, nil, sig.Params(), sig.Results(), sig.Variadic()))
 					}
 
 					embeds := make([]types.Type, iface.NumEmbeddeds())
@@ -616,7 +619,9 @@ func (pr *pkgReader) objIdx(idx pkgbits.Index) (*types.Package, string) {
 		case pkgbits.ObjVar:
 			pos := r.pos()
 			typ := r.typ()
-			declare(types.NewVar(pos, objPkg, objName, typ))
+			v := types.NewVar(pos, objPkg, objName, typ)
+			typesinternal.SetVarKind(v, typesinternal.PackageVar)
+			declare(v)
 		}
 	}
 
