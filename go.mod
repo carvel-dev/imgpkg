@@ -1,6 +1,6 @@
 module carvel.dev/imgpkg
 
-go 1.23.8
+go 1.25.0
 
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1
@@ -11,11 +11,11 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/google/go-containerregistry v0.20.3
 	github.com/mattn/go-isatty v0.0.20
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.2
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.16.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.42.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -71,11 +71,11 @@ require (
 	github.com/vito/go-interact v1.0.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
-	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/tools v0.29.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/tools v0.43.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
