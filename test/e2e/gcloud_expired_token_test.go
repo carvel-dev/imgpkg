@@ -16,6 +16,7 @@ import (
 )
 
 func TestCopyWithBundleLockInputToRepoDestinationUsingGCloudWithAnExpiredToken(t *testing.T) {
+	t.Skip("Temporarily skipping GCloudWithAnExpiredToken test as gcr is no loner available")
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping test as docker image used requires linux")
 	}
