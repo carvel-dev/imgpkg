@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.16.0
 	golang.org/x/sys v0.32.0
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -69,6 +69,7 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	github.com/vito/go-interact v1.0.1 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
