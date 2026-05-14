@@ -35,10 +35,10 @@ jobs:
     environment: GHCR e2e
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c #6
         with:
           go-version-file: go.mod
       - name: Debug token existence
