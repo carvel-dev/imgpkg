@@ -213,7 +213,7 @@ func (p bundleYAMLPrinter) Print(description v1.Description) error {
 	}
 
 	p.logger.Logf("sha: %s\n", bundleRef.Identifier())
-	p.logger.Logf(string(yamlDesc))
+	p.logger.Logf("%s", string(yamlDesc))
 
 	return nil
 }
