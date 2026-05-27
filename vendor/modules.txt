@@ -163,10 +163,6 @@ github.com/cheggaaa/pb/v3/termutil
 github.com/chrismellard/docker-credential-acr-env/pkg/credhelper
 github.com/chrismellard/docker-credential-acr-env/pkg/registry
 github.com/chrismellard/docker-credential-acr-env/pkg/token
-# github.com/containerd/stargz-snapshotter/estargz v0.16.3
-## explicit; go 1.22.0
-github.com/containerd/stargz-snapshotter/estargz
-github.com/containerd/stargz-snapshotter/estargz/errorutil
 # github.com/cppforlife/cobrautil v0.0.0-20221021151949-d60711905d65
 ## explicit
 github.com/cppforlife/cobrautil
@@ -187,16 +183,13 @@ github.com/davecgh/go-spew/spew
 # github.com/dimchansky/utfbom v1.1.0
 ## explicit
 github.com/dimchansky/utfbom
-# github.com/docker/cli v29.2.0+incompatible
+# github.com/docker/cli v29.4.3+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
 github.com/docker/cli/cli/config/memorystore
 github.com/docker/cli/cli/config/types
-# github.com/docker/distribution v2.8.3+incompatible
-## explicit
-github.com/docker/distribution/registry/client/auth/challenge
 # github.com/docker/docker-credential-helpers v0.9.5
 ## explicit; go 1.21
 github.com/docker/docker-credential-helpers/client
@@ -207,11 +200,10 @@ github.com/fatih/color
 # github.com/form3tech-oss/jwt-go v3.2.3+incompatible
 ## explicit
 github.com/form3tech-oss/jwt-go
-# github.com/google/go-containerregistry v0.20.6
-## explicit; go 1.24
+# github.com/google/go-containerregistry v0.21.6
+## explicit; go 1.25.0
 github.com/google/go-containerregistry/internal/and
 github.com/google/go-containerregistry/internal/compression
-github.com/google/go-containerregistry/internal/estargz
 github.com/google/go-containerregistry/internal/gzip
 github.com/google/go-containerregistry/internal/redact
 github.com/google/go-containerregistry/internal/retry
@@ -232,6 +224,7 @@ github.com/google/go-containerregistry/pkg/v1/mutate
 github.com/google/go-containerregistry/pkg/v1/partial
 github.com/google/go-containerregistry/pkg/v1/random
 github.com/google/go-containerregistry/pkg/v1/remote
+github.com/google/go-containerregistry/pkg/v1/remote/internal/authchallenge
 github.com/google/go-containerregistry/pkg/v1/remote/transport
 github.com/google/go-containerregistry/pkg/v1/stream
 github.com/google/go-containerregistry/pkg/v1/tarball
@@ -239,8 +232,8 @@ github.com/google/go-containerregistry/pkg/v1/types
 # github.com/inconshreveable/mousetrap v1.1.0
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
-# github.com/klauspost/compress v1.18.0
-## explicit; go 1.22
+# github.com/klauspost/compress v1.18.6
+## explicit; go 1.24
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -294,9 +287,6 @@ github.com/spf13/pflag
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/require
-# github.com/vbatts/tar-split v0.12.1
-## explicit; go 1.17
-github.com/vbatts/tar-split/archive/tar
 # github.com/vito/go-interact v1.0.1
 ## explicit; go 1.12
 github.com/vito/go-interact/interact
@@ -309,8 +299,8 @@ golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/oauth2 v0.30.0
-## explicit; go 1.23.0
+# golang.org/x/oauth2 v0.36.0
+## explicit; go 1.25.0
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
 golang.org/x/oauth2/google
@@ -342,7 +332,7 @@ golang.org/x/text/internal/tag
 golang.org/x/text/language
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
-# golang.org/x/tools v0.44.0
+# golang.org/x/tools v0.45.0
 ## explicit; go 1.25.0
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/ast/edge
@@ -373,6 +363,8 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# gotest.tools/v3 v3.5.2
+## explicit; go 1.17
 # sigs.k8s.io/yaml v1.4.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
