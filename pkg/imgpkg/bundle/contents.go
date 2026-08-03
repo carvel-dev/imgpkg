@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	ImgpkgDir      = ".imgpkg"
-	BundlesDir     = "bundles"
-	ImagesLockFile = "images.yml"
+	ImgpkgDir          = ".imgpkg"
+	BundlesDir         = "bundles"
+	BundleMetadataFile = "bundle.yml"
+	ImagesLockFile     = "images.yml"
 )
 
 type Contents struct {
