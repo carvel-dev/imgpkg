@@ -61,10 +61,10 @@ func (r *MultiRoundTripperStorage) RoundTripper(repo regname.Repository, scope s
 	// Maybe we should check to make sure only 1 repository is present in the scopes
 	method := s[2]
 
-	// Registry hostnames are DNS names (RFC 1035/1123) and must be used as case-insensitive cache keys,
-	// consistently with CreateRoundTripper below.
+	// Registry hostnames are DNS names (RFC 1035/1123) and must be used as case-insensitive cache keys.
+	// Repository paths are case-sensitive (e.g., GHCR), consistently with CreateRoundTripper below.
 	registryKey := strings.ToLower(repo.RegistryStr())
-	repositoryKey := strings.ToLower(repo.RepositoryStr())
+	repositoryKey := repo.RepositoryStr()
 
 	if _, ok := r.transports[registryKey]; !ok {
 		return nil
@@ -99,8 +99,8 @@ func (r *MultiRoundTripperStorage) CreateRoundTripper(reg regname.Registry, auth
 		return nil, fmt.Errorf("Unable to create round tripper: %s", err)
 	}
 
-	// Registry hostnames are DNS names (RFC 1035/1123) and must be used as case-insensitive cache keys,
-	// consistently with RoundTripper above.
+	// Registry hostnames are DNS names (RFC 1035/1123) and must be used as case-insensitive cache keys.
+	// Repository paths are case-sensitive (e.g., GHCR), consistently with RoundTripper above.
 	registryKey := strings.ToLower(reg.RegistryStr())
 
 	if _, ok := r.transports[registryKey]; !ok {
@@ -111,7 +111,7 @@ func (r *MultiRoundTripperStorage) CreateRoundTripper(reg regname.Registry, auth
 		panic(fmt.Sprintf("Internal inconsistency: expected scope '%s' to have 3 fields", scope))
 	}
 	// Maybe we should check to make sure only 1 repository is present in the scopes
-	repositoryKey := strings.ToLower(s[1])
+	repositoryKey := s[1]
 	method := s[2]
 
 	if _, ok := r.transports[registryKey][repositoryKey]; !ok {
