@@ -101,7 +101,7 @@ func (d *DescribeOptions) validateFlags() error {
 		}
 	}
 	if outputType == "" {
-		return fmt.Errorf("--output-type can only have the following values [text, yaml]")
+		return fmt.Errorf("--output-type can only have the following values: [text, yaml]")
 	}
 	return nil
 }

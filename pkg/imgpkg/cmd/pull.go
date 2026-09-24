@@ -107,7 +107,7 @@ func (po *PullOptions) Run() error {
 
 func (po *PullOptions) validate() error {
 	if po.OutputPath == "" {
-		return fmt.Errorf("Expected --output to be none empty")
+		return fmt.Errorf("expected --output to be non-empty")
 	}
 
 	if po.OutputPath == "/" || po.OutputPath == "." || po.OutputPath == ".." {
