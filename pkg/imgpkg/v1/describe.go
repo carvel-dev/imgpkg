@@ -175,6 +175,11 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	if newBundle == nil {
 		return desc.bundle, fmt.Errorf("Internal inconsistency: bundle with ref '%s' could not be found in list of bundles", currentBundle.PrimaryLocation())
 	}
+	metadata, err := newBundle.Metadata()
+	if err != nil {
+		return desc.bundle, fmt.Errorf("Reading metadata for bundle '%s': %s", currentBundle.PrimaryLocation(), err)
+	}
+	desc.bundle.Metadata = newMetadata(metadata)
 
 	imagesRefs := newBundle.ImagesRefsWithErrors()
 	sort.Slice(imagesRefs, func(i, j int) bool {
@@ -228,6 +233,24 @@ func (r *refWithDescription) describeBundleRec(visitedImgs map[string]refWithDes
 	}
 
 	return desc.bundle, nil
+}
+
+func newMetadata(metadata bundle.BundleMetadata) Metadata {
+	authors := make([]Author, len(metadata.Authors))
+	for i, author := range metadata.Authors {
+		authors[i] = Author{Name: author.Name, Email: author.Email}
+	}
+
+	websites := make([]Website, len(metadata.Websites))
+	for i, website := range metadata.Websites {
+		websites[i] = Website{URL: website.URL}
+	}
+
+	return Metadata{
+		Metadata: metadata.Metadata,
+		Authors:  authors,
+		Websites: websites,
+	}
 }
 
 func getImageLayersInfo(image string) ([]Layers, int64, error) {
