@@ -51,7 +51,47 @@ func NewImageRefDescriptorsFromBytes(data []byte) (*ImageRefDescriptors, error) 
 		return nil, err
 	}
 
+	for _, desc := range descs {
+		switch {
+		case desc.Image != nil:
+			if err := validateImageRefs(*desc.Image); err != nil {
+				return nil, err
+			}
+		case desc.ImageIndex != nil:
+			if err := validateImageIndexRefs(*desc.ImageIndex); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &ImageRefDescriptors{descs: descs}, nil
+}
+
+// validateImageRefs checks that a descriptor carries the ref that Ref() reads.
+// Every descriptor this package writes has exactly one, but nothing stops a
+// hand-written or truncated manifest from arriving without any.
+func validateImageRefs(desc ImageDescriptor) error {
+	if len(desc.Refs) == 0 {
+		return fmt.Errorf("Expected image descriptor %s to have at least one ref", desc.Manifest.Digest)
+	}
+	return nil
+}
+
+func validateImageIndexRefs(desc ImageIndexDescriptor) error {
+	if len(desc.Refs) == 0 {
+		return fmt.Errorf("Expected image index descriptor %s to have at least one ref", desc.Digest)
+	}
+	for _, img := range desc.Images {
+		if err := validateImageRefs(img); err != nil {
+			return err
+		}
+	}
+	for _, idx := range desc.Indexes {
+		if err := validateImageIndexRefs(idx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func NewImageRefDescriptors(refs []Metadata, registry Registry) (*ImageRefDescriptors, error) {
