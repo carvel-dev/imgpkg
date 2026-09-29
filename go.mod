@@ -11,10 +11,10 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/google/go-containerregistry v0.20.6
 	github.com/mattn/go-isatty v0.0.24
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -70,11 +70,11 @@ require (
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vito/go-interact v1.0.1 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/tools v0.50.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
