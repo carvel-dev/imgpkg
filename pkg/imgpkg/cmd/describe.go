@@ -43,7 +43,7 @@ func NewDescribeOptions(ui *goui.ConfUI) *DescribeOptions {
 func NewDescribeCmd(o *DescribeOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe",
-		Short: "Describe the images and bundles associated with a give bundle",
+		Short: "Describe the images and bundles associated with a given bundle",
 		RunE:  func(_ *cobra.Command, _ []string) error { return o.Run() },
 		Example: `
     # Describe a bundle

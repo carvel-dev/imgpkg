@@ -305,7 +305,7 @@ func (r *SimpleRegistry) transport(ref regname.Reference, scope string) (http.Ro
 
 		resolvedAuth, err := r.keychain.Resolve(registry)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Unable retrieve credentials for registry: %s", err)
+			return nil, nil, fmt.Errorf("unable to retrieve credentials for registry: %s", err)
 		}
 		r.authn[registryKey] = resolvedAuth
 		rt, err = r.roundTrippers.CreateRoundTripper(registry.Registry, resolvedAuth, scope)

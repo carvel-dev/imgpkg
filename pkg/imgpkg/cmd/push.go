@@ -159,7 +159,7 @@ func (po *PushOptions) validateFlags() error {
 	_, present := po.LabelFlags.Labels[bundle.BundleConfigLabel]
 
 	if present {
-		return fmt.Errorf("label '%s' is reserved and cannot be overriden. Please use a different key", bundle.BundleConfigLabel)
+		return fmt.Errorf("label '%s' is reserved and cannot be overridden. Please use a different key", bundle.BundleConfigLabel)
 	}
 
 	return nil
