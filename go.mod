@@ -11,7 +11,7 @@ require (
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/google/go-containerregistry v0.20.6
 	github.com/mattn/go-isatty v0.0.24
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.23.0
