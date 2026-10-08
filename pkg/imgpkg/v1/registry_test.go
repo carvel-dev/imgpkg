@@ -88,6 +88,20 @@ func TestOptsFromEnv(t *testing.T) {
 		result := v1.OptsFromEnv(opts, env.Value)
 		require.Equal(t, registry.Opts{ActiveKeychains: []auth.IAASKeychain{"acr"}}, result)
 	})
+
+	t.Run("when a list of IAAS keychains is provided in mixed/upper case it normalizes them to lowercase", func(t *testing.T) {
+		env := envFake{values: map[string]string{"IMGPKG_ACTIVE_KEYCHAINS": "ECR, Gke"}}
+		opts := registry.Opts{}
+		result := v1.OptsFromEnv(opts, env.Value)
+		require.Equal(t, registry.Opts{ActiveKeychains: []auth.IAASKeychain{"ecr", "gke"}}, result)
+	})
+
+	t.Run("when a single IAAS keychain is provided in upper case it normalizes it to lowercase", func(t *testing.T) {
+		env := envFake{values: map[string]string{"IMGPKG_ACTIVE_KEYCHAINS": "AKS"}}
+		opts := registry.Opts{}
+		result := v1.OptsFromEnv(opts, env.Value)
+		require.Equal(t, registry.Opts{ActiveKeychains: []auth.IAASKeychain{"aks"}}, result)
+	})
 }
 
 type envFake struct {
