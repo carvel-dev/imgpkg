@@ -25,8 +25,9 @@ func TestDeterministicPush(t *testing.T) {
 	out := imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag1", "-f", assetsPath})
 	tag1Digest := helpers.ExtractDigest(t, out)
 
-	// This expected digest should be the same regardless which OS imgpkg runs on
-	require.Equal(t, "sha256:ceef30cbdce418efde0284f446df9cec9e535adcd6e1010dad30ddae1dc9367b", tag1Digest, "Digest should match in all environments")
+	// This digest includes gzip output generated with Go 1.27 and should match
+	// across non-Windows environments using the same Go version.
+	require.Equal(t, "sha256:7dfc87f48adfa9f12474f84cdf30efdfc750acb4c1249d2321ad5bf479b08857", tag1Digest, "Digest should match in all environments")
 
 	out = imgpkg.Run([]string{"push", "--tty", "-i", env.Image + ":tag2", "-f", assetsPath})
 	tag2Digest := helpers.ExtractDigest(t, out)
