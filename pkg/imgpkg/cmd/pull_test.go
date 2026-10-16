@@ -88,4 +88,11 @@ func TestPullErrors(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorContains(t, err, "Expected bundle image but found plain image (hint: Did you use -i instead of -b?)")
 	})
+
+	t.Run("fails when output path is empty", func(t *testing.T) {
+		pull := PullOptions{OutputPath: "", ImageFlags: ImageFlags{"image@123456"}}
+		err := pull.Run()
+		require.Error(t, err)
+		require.ErrorContains(t, err, "expected --output to be non-empty")
+	})
 }
