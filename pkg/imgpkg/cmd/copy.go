@@ -212,7 +212,7 @@ func (c *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages
 		foundBundle := bundle.NewBundleFromPlainImage(plainImg, registry)
 		ok, err := foundBundle.IsBundle()
 		if err != nil {
-			return fmt.Errorf("Check if '%s' is bundle: %s", processedImageRootBundle.DigestRef, err)
+			return fmt.Errorf("checking if '%s' is a bundle: %s", processedImageRootBundle.DigestRef, err)
 		}
 		if !ok {
 			panic(fmt.Errorf("Internal inconsistency: '%s' should be a bundle but it is not", processedImageRootBundle.DigestRef))
@@ -263,7 +263,7 @@ func (c *CopyOptions) informUserIfTarballNeedsToBeRecreated(processedImages *ctl
 
 		ok, err := bundle.IsBundle()
 		if err != nil {
-			return fmt.Errorf("Check if '%s' is bundle: %s", item.DigestRef, err)
+			return fmt.Errorf("checking if '%s' is a bundle: %s", item.DigestRef, err)
 		}
 		if ok {
 			return fmt.Errorf("Unable to determine correct root bundle to use for lock-output. hint: if copying from a tarball, try re-generating the tarball")

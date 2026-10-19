@@ -28,7 +28,7 @@ func main() {
 	// Deprecation warning section
 	_, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
 	if found {
-		confUI.PrintLinef("IMGPKG_ENABLE_IAAS_AUTH environment variable will be deprecated, please use the flag --activate-keychain to activate the needed keychains")
+		confUI.PrintLinef("IMGPKG_ENABLE_IAAS_AUTH environment variable will be deprecated. Please use the --activate-keychain flag to activate the needed keychains")
 	}
 	// End
 
