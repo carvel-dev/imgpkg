@@ -72,14 +72,14 @@ func NewImageRefDescriptorsFromBytes(data []byte) (*ImageRefDescriptors, error) 
 // hand-written or truncated manifest from arriving without any.
 func validateImageRefs(desc ImageDescriptor) error {
 	if len(desc.Refs) == 0 {
-		return fmt.Errorf("Expected image descriptor %s to have at least one ref", desc.Manifest.Digest)
+		return fmt.Errorf("expected image descriptor %s to have at least one ref", desc.Manifest.Digest)
 	}
 	return nil
 }
 
 func validateImageIndexRefs(desc ImageIndexDescriptor) error {
 	if len(desc.Refs) == 0 {
-		return fmt.Errorf("Expected image index descriptor %s to have at least one ref", desc.Digest)
+		return fmt.Errorf("expected image index descriptor %s to have at least one ref", desc.Digest)
 	}
 	for _, img := range desc.Images {
 		if err := validateImageRefs(img); err != nil {
