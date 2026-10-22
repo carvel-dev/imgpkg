@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -23,7 +24,8 @@ func main() {
 	confUI := ui.NewConfUI(ui.NewNoopLogger())
 	defer confUI.Flush()
 
-	command := cmd.NewDefaultImgpkgCmd(confUI)
+	options := cmd.NewImgpkgOptions(confUI)
+	command := cmd.NewImgpkgCmd(options)
 
 	// Deprecation warning section
 	_, found := os.LookupEnv("IMGPKG_ENABLE_IAAS_AUTH")
@@ -34,7 +36,12 @@ func main() {
 
 	err := command.Execute()
 	if err != nil {
-		confUI.ErrorLinef("imgpkg: Error: %v", uierrs.NewMultiLineError(err))
+		multiLineErr := uierrs.NewMultiLineError(err)
+		if options.UIFlags.JSON {
+			_, _ = fmt.Fprintf(os.Stderr, "imgpkg: Error: %v\n", multiLineErr)
+		} else {
+			confUI.ErrorLinef("imgpkg: Error: %v", multiLineErr)
+		}
 		os.Exit(1)
 	}
 	if !cobrautil.IsCobraManagedCommand(os.Args) {
