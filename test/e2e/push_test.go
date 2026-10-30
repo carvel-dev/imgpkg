@@ -4,11 +4,14 @@
 package e2e
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"carvel.dev/imgpkg/test/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPushBundleOfBundles(t *testing.T) {
@@ -35,4 +38,21 @@ images:
 
 		imgpkg.Run([]string{"push", "-b", env.Image, "-f", bundleDir})
 	})
+}
+
+func TestPushWithJSONFlagPrintsErrorToStderr(t *testing.T) {
+	env := helpers.BuildEnv(t)
+	imgpkg := helpers.Imgpkg{T: t, L: helpers.Logger{}, ImgpkgPath: env.ImgpkgPath}
+	defer env.Cleanup()
+
+	missingDir := filepath.Join(env.Assets.CreateTempFolder("push-json-error"), "missing")
+
+	var stderr bytes.Buffer
+	out, err := imgpkg.RunWithOpts([]string{"push", "-b", env.Image, "-f", missingDir, "--json"},
+		helpers.RunOpts{AllowError: true, StderrWriter: &stderr})
+
+	require.EqualError(t, err, "Execution error: stdout: '' stderr: '' error: 'exit status 1'")
+	require.Empty(t, out)
+	require.True(t, strings.HasPrefix(stderr.String(), "imgpkg: Error: "), stderr.String())
+	require.Contains(t, stderr.String(), missingDir)
 }
