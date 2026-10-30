@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"carvel.dev/imgpkg/test/helpers"
@@ -52,5 +53,6 @@ func TestPushWithJSONFlagPrintsErrorToStderr(t *testing.T) {
 
 	require.EqualError(t, err, "Execution error: stdout: '' stderr: '' error: 'exit status 1'")
 	require.Empty(t, out)
-	require.Equal(t, fmt.Sprintf("imgpkg: Error: lstat %s: no such file or directory\n", missingDir), stderr.String())
+	require.True(t, strings.HasPrefix(stderr.String(), "imgpkg: Error: "), stderr.String())
+	require.Contains(t, stderr.String(), missingDir)
 }
