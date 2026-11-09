@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
-	github.com/cheggaaa/pb/v3 v3.2.1
+	github.com/cheggaaa/pb/v3 v3.3.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
 	github.com/cppforlife/cobrautil v0.0.0-20221021151949-d60711905d65
 	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
