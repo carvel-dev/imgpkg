@@ -173,8 +173,8 @@ github.com/awslabs/amazon-ecr-credential-helper/ecr-login/api
 github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cache
 github.com/awslabs/amazon-ecr-credential-helper/ecr-login/config
 github.com/awslabs/amazon-ecr-credential-helper/ecr-login/version
-# github.com/cheggaaa/pb/v3 v3.2.1
-## explicit; go 1.25.0
+# github.com/cheggaaa/pb/v3 v3.3.0
+## explicit; go 1.26.0
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
 # github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
