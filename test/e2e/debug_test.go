@@ -54,5 +54,8 @@ func TestDebugEnabled(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, out.String(), "Accept-Encoding")
+	assert.Regexp(t, `--> GET https?://127\.0\.0\.1:[0-9]+/v2/`, out.String())
+	assert.Contains(t, out.String(), "<-- 404 GET")
+	assert.NotContains(t, out.String(), "Accept-Encoding")
+	assert.NotContains(t, out.String(), "Authorization:")
 }
