@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -367,6 +368,46 @@ func TestDescribeBundle(t *testing.T) {
 		require.Equal(t, ctlbundle.ImageType("Signature"), bundleDescription.Content.Images[keySignToDeny.String()].ImageType)
 		require.Equal(t, "access denied", bundleDescription.Content.Images[keySignToDeny.String()].Error)
 	})
+}
+
+func TestDescribeBundleMetadata(t *testing.T) {
+	logger := &helpers.Logger{LogLevel: helpers.LogDebug}
+	fakeRegBuilder := helpers.NewFakeRegistry(t, logger)
+	bundlePath := t.TempDir()
+	imgpkgPath := filepath.Join(bundlePath, ctlbundle.ImgpkgDir)
+	require.NoError(t, os.Mkdir(imgpkgPath, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(imgpkgPath, ctlbundle.BundleMetadataFile), []byte(`
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: Bundle
+metadata:
+  name: example
+  oslManifestURL: https://example.com/manifest
+authors:
+- name: Example Author
+  email: author@example.com
+websites:
+- url: https://example.com
+`), 0600))
+	require.NoError(t, lockconfig.NewEmptyImagesLock().WriteToPath(filepath.Join(imgpkgPath, ctlbundle.ImagesLockFile)))
+
+	topBundle := fakeRegBuilder.WithBundleFromPath("repo/bundle-with-metadata", bundlePath)
+	fakeRegBuilder.Build()
+
+	description, err := v1.Describe(topBundle.RefDigest, v1.DescribeOpts{
+		Logger:      logger,
+		Concurrency: 1,
+	}, registry.Opts{
+		EnvironFunc: os.Environ,
+		RetryCount:  3,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{
+		"name":           "example",
+		"oslManifestURL": "https://example.com/manifest",
+	}, description.Metadata.Metadata)
+	assert.Equal(t, []v1.Author{{Name: "Example Author", Email: "author@example.com"}}, description.Metadata.Authors)
+	assert.Equal(t, []v1.Website{{URL: "https://example.com"}}, description.Metadata.Websites)
 }
 
 type testImage struct {
