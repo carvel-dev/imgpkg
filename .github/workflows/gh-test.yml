@@ -26,7 +26,8 @@ jobs:
 
   test-all-windows:
     name: Test GH - Windows
-    runs-on: windows-latest
+    # Match the Windows Server 2022 registry container used below.
+    runs-on: windows-2022
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6
@@ -51,6 +52,11 @@ jobs:
         export IMGPKG_BINARY_EXT=".exe"
         ./hack/build.sh
         '
+    - name: Start Docker
+      shell: pwsh
+      run: |
+        Start-Service docker
+        docker info
     - name: Run Tests e2e tests
       run: |
         bash -c '

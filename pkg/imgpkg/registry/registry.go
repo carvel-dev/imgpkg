@@ -195,7 +195,7 @@ func NewSimpleRegistryWithTransport(opts Opts, rTripper http.RoundTripper) (*Sim
 
 	baseRoundTripper := rTripper
 	if logs.Enabled(logs.Debug) {
-		baseRoundTripper = transport.NewLogger(rTripper)
+		baseRoundTripper = safeDebugTransport{inner: rTripper}
 	}
 
 	sessionID := opts.SessionID
